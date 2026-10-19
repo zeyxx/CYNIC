@@ -18,6 +18,7 @@ parking_lot = "0.12"
 rusqlite = { version = "0.34", features = ["bundled"] }
 serde.workspace = true
 serde_json.workspace = true
+sha3.workspace = true
 smallvec = { version = "1", features = ["serde"] }
 thiserror.workspace = true
 tracing.workspace = true

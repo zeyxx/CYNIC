@@ -11,6 +11,7 @@ name = "cynic-host-exec"
 path = "src/bin/cynic-host-exec.rs"
 
 [dependencies]
+cynic-kernel = { path = "../cynic-kernel" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
@@ -37,7 +38,6 @@ cynic-finance = { path = "../cynic-finance" }
 chrono.workspace = true
 libc = "0.2"
 hex.workspace = true
-base64.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

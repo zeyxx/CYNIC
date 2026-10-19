@@ -90,6 +90,21 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Validate a sealed distilled-pattern file against the pure ingest
+    /// gate (read-only preview, nothing is stored).
+    Pattern {
+        /// JSON file with one sealed DistilledPattern (cynic.pattern_distill.v1).
+        file: PathBuf,
+        /// Session that produced the distillation (attribution, not authority).
+        #[arg(long)]
+        session: String,
+        /// Agent or operator principal submitting.
+        #[arg(long, default_value = "agent:cli")]
+        submitted_by: String,
+        /// Output decision as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -719,6 +734,48 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     accepted,
                     if apply { ", merged" } else { " (dry-run)" }
                 );
+                ExitCode::SUCCESS
+            }
+        }
+        KnowCommand::Pattern {
+            file,
+            session,
+            submitted_by,
+            json,
+        } => {
+            use cynic_protocol::pattern_distill::{
+                decide_pattern_ingest, PATTERN_INGEST_REQUEST_SCHEMA,
+            };
+            let raw = match std::fs::read_to_string(&file) {
+                Ok(raw) => raw,
+                Err(e) => {
+                    eprintln!("cannot read {}: {e}", file.display());
+                    return ExitCode::FAILURE;
+                }
+            };
+            let pattern: cynic_protocol::pattern_distill::DistilledPattern =
+                match serde_json::from_str(&raw) {
+                    Ok(pattern) => pattern,
+                    Err(e) => {
+                        eprintln!("invalid pattern JSON: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+            let request = cynic_protocol::pattern_distill::PatternIngestRequest {
+                schema: PATTERN_INGEST_REQUEST_SCHEMA.to_string(),
+                pattern,
+                session_id: session,
+                submitted_by,
+            };
+            let decision = decide_pattern_ingest(&request);
+            if json {
+                crate::emit_json(&decision, false)
+            } else {
+                println!("=== Pattern ingest decision ({}) ===", decision.schema);
+                println!("  pattern : {}", decision.pattern_id);
+                println!("  verdict : {:?}", decision.verdict);
+                println!("  reasons : {}", decision.reasons.join("; "));
+                println!("  digest  : {}", decision.digest);
                 ExitCode::SUCCESS
             }
         }

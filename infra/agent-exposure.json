@@ -467,6 +467,10 @@
           "tier": "baseline_runtime"
         },
         {
+          "name": "cynic_pattern_validate",
+          "tier": "baseline_runtime"
+        },
+        {
           "name": "cynic_health",
           "tier": "baseline_runtime"
         },
@@ -751,6 +755,7 @@
         "cynic_compliance",
         "cynic_crystals",
         "cynic_harness_progression",
+        "cynic_pattern_validate",
         "cynic_health",
         "cynic_library_query",
         "cynic_runtime_surface",

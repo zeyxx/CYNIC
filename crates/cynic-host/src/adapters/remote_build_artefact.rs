@@ -10,16 +10,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
-use crate::domain::build_artefact::{
-    plan_build_artefacts, RetentionError, RetentionExecutor, RetentionItem,
-    RetentionItemExecution, RetentionObservation, RetentionPlan, RetentionPlanner,
-    RetentionPolicy, RetentionResult, RetentionObserver, RETENTION_OBSERVATION_SCHEMA,
-    RETENTION_RESULT_SCHEMA,
-};
+use crate::domain::build_artefact::port::BuildArtefactObservationPort;
+use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
+use crate::domain::build_artefact::{BuildArtefactGcPlan, BuildArtefactReport};
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
+use cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA;
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::retention::PressureSignal;
+use cynic_protocol::disk::bytes_to_human;
 
 pub struct RemoteBuildArtefactAdapter<R: ArgvRunner> {
     runner: Arc<R>,
@@ -59,12 +56,13 @@ impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
     }
 }
 
-impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
-    fn observe(&self) -> Result<RetentionObservation, RetentionError> {
+impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<R> {
+    fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String> {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
 
+        // Physical + filesystems best-effort (empty on failure, not fatal)
         let physical_disks = self
             .ssh_run(&[
                 "lsblk",
@@ -85,9 +83,11 @@ impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
             .map(|s| parse_df_filesystems(&s))
             .unwrap_or_default();
 
+        // Checkouts: list + per-dir meta via one ssh shell
         let raw_list = self
             .ssh_run(&["ls", "-1", "/var/lib/cynic/checkouts"])
             .unwrap_or_default();
+        // For each checkout name, fetch sha/size/owner/age via ssh
         let mut lines = Vec::new();
         let remote_shas = self
             .ssh_run(&["git", "ls-remote", "origin"])
@@ -136,105 +136,23 @@ impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
         let root_owned = checkouts.iter().filter(|c| c.is_root_owned).count();
         let pressure = parse_df_pressure(&df_k, root_owned);
 
-        let items: Vec<RetentionItem> = checkouts
-            .iter()
-            .map(|co| RetentionItem {
-                id: format!("checkout:{}", co.sha.chars().take(8).collect::<String>()),
-                path: co.path.clone(),
-                size_bytes: co.size_bytes,
-                age: co.age_secs.map(std::time::Duration::from_secs),
-                reason: String::new(),
-                requires_privilege: co.is_root_owned,
-                argv: vec![],
-                is_orphan: Some(co.is_orphan),
-                is_root_owned: Some(co.is_root_owned),
-                remote_exists: co.remote_exists,
-                sha: Some(co.sha.clone()),
-                branch: Some(co.branch.clone()),
-                owner_uid: Some(co.owner_uid),
-                owner_gid: Some(co.owner_gid),
-            })
-            .collect();
-
-        let _ = physical_disks;
-        let _ = filesystems;
-        let _ = total_checkout_bytes;
-
-        Ok(RetentionObservation {
-            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
+        Ok(BuildArtefactReport {
+            schema: BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
             timestamp,
-            items,
-            total_reclaimable_bytes: 0,
-            pressure: Some(PressureSignal {
-                use_pct: pressure.use_pct,
-                avail_bytes: pressure.avail_bytes,
-                is_pressured: pressure.is_pressured,
-            }),
+            physical_disks,
+            filesystems,
+            checkouts,
+            total_checkout_bytes,
+            total_checkout_human: bytes_to_human(total_checkout_bytes),
+            target_bytes: 0,
+            target_human: "0B".to_string(),
+            pressure,
+            residual_unknowns: vec![],
         })
     }
-}
 
-impl<R: ArgvRunner> RetentionPlanner for RemoteBuildArtefactAdapter<R> {
-    fn plan(&self, obs: &RetentionObservation, policy: &RetentionPolicy) -> RetentionPlan {
-        plan_build_artefacts(obs, policy)
-    }
-}
-
-impl<R: ArgvRunner> RetentionExecutor for RemoteBuildArtefactAdapter<R> {
-    fn execute(&self, plan: &RetentionPlan) -> Result<RetentionResult, RetentionError> {
-        let timestamp = DateTime::<Utc>::from(SystemTime::now())
-            .format("%Y-%m-%dT%H:%M:%SZ")
-            .to_string();
-        let mut items_executed = Vec::new();
-        let mut total_reclaimed_bytes = 0u64;
-        let mut success = true;
-
-        for item in &plan.items {
-            let exec = execute_gc_item(item);
-            if exec.success {
-                total_reclaimed_bytes += item.size_bytes;
-            } else {
-                success = false;
-            }
-            items_executed.push(exec);
-        }
-
-        Ok(RetentionResult {
-            schema: RETENTION_RESULT_SCHEMA.to_string(),
-            timestamp,
-            success,
-            items_executed,
-            total_reclaimed_bytes,
-        })
-    }
-}
-
-fn execute_gc_item(item: &RetentionItem) -> RetentionItemExecution {
-    if item.argv.is_empty() {
-        return RetentionItemExecution {
-            item_id: item.id.clone(),
-            success: false,
-            exit_code: None,
-            stdout_tail: String::new(),
-            stderr_tail: "empty argv".to_string(),
-        };
-    }
-    let (bin, args): (&str, Vec<&str>) = if item.requires_privilege {
-        ("sudo", item.argv.iter().map(|s| s.as_str()).collect())
-    } else {
-        (
-            item.argv[0].as_str(),
-            item.argv[1..].iter().map(|s| s.as_str()).collect(),
-        )
-    };
-    // For remote execution, we'd need to SSH. For now, return a stub.
-    // The actual execution happens via the local adapter.
-    RetentionItemExecution {
-        item_id: item.id.clone(),
-        success: false,
-        exit_code: None,
-        stdout_tail: String::new(),
-        stderr_tail: "remote execution not yet implemented".to_string(),
+    fn plan_gc(&self, report: &BuildArtefactReport) -> BuildArtefactGcPlan {
+        build_gc_plan(report)
     }
 }
 
@@ -268,7 +186,7 @@ mod tests {
             },
         )]);
         let adapter = RemoteBuildArtefactAdapter::new(Arc::new(base), "cynic@10.0.0.1").unwrap();
-        let obs = adapter.observe().unwrap();
-        assert_eq!(obs.items.len(), 0);
+        let report = adapter.observe_build_artefacts().unwrap();
+        assert_eq!(report.checkouts.len(), 0);
     }
 }

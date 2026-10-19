@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
 
 use super::rules::AuditRule;
-use super::scanner::WorkspaceSourceIndex;
+use super::scanner::{SourceFile, WorkspaceSourceIndex};
 
 /// `PROSE-001` — a Rust source may not cite a `.md` path as authority.
 ///
@@ -154,7 +154,6 @@ fn extract_markdown_paths(line: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scanner::SourceFile;
 
     fn source_file(path: &str, content: &str) -> SourceFile {
         SourceFile {

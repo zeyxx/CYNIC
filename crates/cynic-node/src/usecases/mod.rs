@@ -51,3 +51,4 @@ pub mod agent_bus_claim;
 pub mod agent_bus_ports;
 pub mod agent_coordination_uc;
 pub mod agent_coordination_taxonomy;
+pub mod pattern_ingest_uc;

@@ -91,6 +91,21 @@ impl CynicMcpServer {
         decide_harness_progression(&args).map(Json)
     }
 
+    /// Validate a distilled pattern against the pure ingest gate
+    /// (`cynic.pattern_distill.v1`): seal check, content checks, verdict.
+    /// Read-only preview — nothing is stored. Storage flows through the
+    /// node ingest port with a bounded submission, never through this tool.
+    #[tool(
+        name = "cynic_pattern_validate",
+        description = "Validate a distilled pattern JSON against the pure ingest gate (read-only, nothing stored)"
+    )]
+    fn cynic_pattern_validate(
+        &self,
+        Parameters(args): Parameters<PatternValidateArgs>,
+    ) -> Result<Json<serde_json::Value>, ErrorData> {
+        decide_pattern_validation(&args).map(Json)
+    }
+
     /// Observe a runtime binary's MCP surface by executing
     /// `<binary> --contract-json` and reading back the compatibility plan.
     /// Read-only observation: the binary runs, nothing is mutated.
@@ -184,6 +199,18 @@ pub struct HarnessProgressionArgs {
 pub struct RuntimeObserveArgs {
     /// Binary to observe (resolved via PATH or explicit path).
     pub binary: String,
+}
+
+/// Arguments for `cynic_pattern_validate`: an inline sealed pattern plus
+/// the submitting session identity. Nothing is stored.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PatternValidateArgs {
+    /// Sealed distilled pattern as inline JSON (`cynic.pattern_distill.v1`).
+    pub pattern_json: String,
+    /// Session that produced the distillation (attribution, not authority).
+    pub session_id: String,
+    /// Agent or operator principal submitting (e.g. `agent:hermes-3`).
+    pub submitted_by: String,
 }
 
 fn api_contracts_inventory() -> serde_json::Value {
@@ -280,6 +307,37 @@ fn decide_harness_progression(
     };
     let verdict = cynic_host::harness_progression::decide_harness_progression(&evidence);
     serde_json::to_value(&verdict)
+        .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))
+}
+
+fn decide_pattern_validation(args: &PatternValidateArgs) -> Result<serde_json::Value, ErrorData> {
+    if args.session_id.trim().is_empty() {
+        return Err(ErrorData::invalid_params(
+            "session_id must name the producing session",
+            None,
+        ));
+    }
+    if args.submitted_by.trim().is_empty() {
+        return Err(ErrorData::invalid_params(
+            "submitted_by must name the submitting principal",
+            None,
+        ));
+    }
+    let pattern: cynic_protocol::pattern_distill::DistilledPattern =
+        serde_json::from_str(&args.pattern_json).map_err(|error| {
+            ErrorData::invalid_params(
+                format!("pattern_json is not a DistilledPattern: {error}"),
+                None,
+            )
+        })?;
+    let request = cynic_protocol::pattern_distill::PatternIngestRequest {
+        schema: cynic_protocol::pattern_distill::PATTERN_INGEST_REQUEST_SCHEMA.to_string(),
+        pattern,
+        session_id: args.session_id.clone(),
+        submitted_by: args.submitted_by.clone(),
+    };
+    let decision = cynic_protocol::pattern_distill::decide_pattern_ingest(&request);
+    serde_json::to_value(&decision)
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))
 }
 
@@ -688,5 +746,70 @@ mod tests {
             .and_then(|items| items.as_array())
             .expect("out_of_range");
         assert!(out_of_range.is_empty());
+    }
+
+    #[test]
+    fn pattern_validate_accepts_sealed_pattern() {
+        let pattern = cynic_protocol::pattern_distill::seal_pattern(
+            cynic_protocol::pattern_distill::DistilledPattern {
+                schema: cynic_protocol::pattern_distill::PATTERN_SCHEMA.to_string(),
+                pattern_id: "p-mcp-001".to_string(),
+                domain: cynic_protocol::pattern_distill::PatternDomain::Agency,
+                title: "agents re-derive instead of reading the contract".to_string(),
+                statement:
+                    "recurrent: agents re-derive policy from prose instead of reading the contract"
+                        .to_string(),
+                sources: vec![cynic_protocol::pattern_distill::PatternSource {
+                    kind: cynic_protocol::pattern_distill::PatternSourceKind::SessionTrace,
+                    ref_id: "sha3-512:evidence".to_string(),
+                    label: None,
+                }],
+                confidence: 0.8,
+                residual_unknowns: vec![],
+                digest: String::new(),
+            },
+        );
+        let args = PatternValidateArgs {
+            pattern_json: serde_json::to_string(&pattern).expect("pattern JSON"),
+            session_id: "session-mcp-001".to_string(),
+            submitted_by: "agent:test".to_string(),
+        };
+        let value = decide_pattern_validation(&args).expect("valid pattern decides");
+        assert_eq!(
+            value.get("verdict").and_then(|v| v.as_str()),
+            Some("accepted")
+        );
+    }
+
+    #[test]
+    fn pattern_validate_rejects_tampered_seal() {
+        let mut pattern = cynic_protocol::pattern_distill::seal_pattern(
+            cynic_protocol::pattern_distill::DistilledPattern {
+                schema: cynic_protocol::pattern_distill::PATTERN_SCHEMA.to_string(),
+                pattern_id: "p-mcp-002".to_string(),
+                domain: cynic_protocol::pattern_distill::PatternDomain::Privacy,
+                title: "scoped context".to_string(),
+                statement: "original statement".to_string(),
+                sources: vec![cynic_protocol::pattern_distill::PatternSource {
+                    kind: cynic_protocol::pattern_distill::PatternSourceKind::OperatorNote,
+                    ref_id: "note:001".to_string(),
+                    label: None,
+                }],
+                confidence: 0.9,
+                residual_unknowns: vec![],
+                digest: String::new(),
+            },
+        );
+        pattern.statement = "rewritten after sealing".to_string();
+        let args = PatternValidateArgs {
+            pattern_json: serde_json::to_string(&pattern).expect("pattern JSON"),
+            session_id: "session-mcp-002".to_string(),
+            submitted_by: "agent:test".to_string(),
+        };
+        let value = decide_pattern_validation(&args).expect("tampered pattern still decides");
+        assert_eq!(
+            value.get("verdict").and_then(|v| v.as_str()),
+            Some("rejected")
+        );
     }
 }

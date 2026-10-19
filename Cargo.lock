@@ -661,9 +661,9 @@ dependencies = [
 name = "cynic-askesis"
 version = "0.8.0"
 dependencies = [
- "cynic-protocol",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -717,6 +717,7 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
+ "crossterm",
  "cynic-askesis",
  "cynic-audit-engine",
  "cynic-build",
@@ -727,7 +728,6 @@ dependencies = [
  "cynic-domain-ops",
  "cynic-domain-porkbun",
  "cynic-eval",
- "cynic-fleet",
  "cynic-forensics",
  "cynic-host",
  "cynic-huggingface",
@@ -749,7 +749,6 @@ dependencies = [
  "cynic-secrets",
  "cynic-storage",
  "cynic-surreal",
- "cynic-tui",
  "cynic-types",
  "cynic-vcs",
  "cynic-vcs-forgejo",
@@ -757,6 +756,7 @@ dependencies = [
  "cynic-zeroclaw-solana",
  "hex",
  "libc",
+ "ratatui",
  "reqwest 0.12.28",
  "rustix 1.1.5",
  "serde",
@@ -774,7 +774,6 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-finance",
- "cynic-protocol",
  "ed25519-dalek",
  "hex",
  "serde",
@@ -825,6 +824,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
+ "sha3",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -877,14 +877,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-fleet"
-version = "0.8.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "cynic-forensics"
 version = "0.8.0"
 dependencies = [
@@ -899,7 +891,6 @@ name = "cynic-host"
 version = "0.8.0"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
  "chrono",
  "cynic-audit-engine",
  "cynic-build",
@@ -908,6 +899,7 @@ dependencies = [
  "cynic-forensics",
  "cynic-inference",
  "cynic-intel",
+ "cynic-kernel",
  "cynic-lifecycle",
  "cynic-lxc",
  "cynic-network",
@@ -1210,7 +1202,6 @@ dependencies = [
  "hmac",
  "http",
  "libc",
- "nix",
  "notify",
  "process-wrap",
  "reqwest 0.13.5",
@@ -1284,6 +1275,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "sha3",
  "tempfile",
  "thiserror 2.0.21",
  "url",
@@ -1378,6 +1370,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha3",
  "smallvec",
  "tempfile",
  "thiserror 2.0.21",
@@ -1395,14 +1388,6 @@ dependencies = [
  "serde_json",
  "tracing",
  "walkdir",
-]
-
-[[package]]
-name = "cynic-tui"
-version = "0.8.0"
-dependencies = [
- "crossterm",
- "ratatui",
 ]
 
 [[package]]

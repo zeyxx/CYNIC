@@ -437,6 +437,21 @@ impl BuildRunnerPort for SshBuildRunner {
     }
 }
 
+impl SshBuildRunner {
+    /// Pre-flight capacity read-back: free RAM available on the runner via
+    /// `free -b` (coreutils, no PATH dependence on the remote binary).
+    /// Parsing is the pure protocol predicate; a missing/incompatible
+    /// output is `None` — the caller records the unknown, never a number.
+    pub fn probe_free_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        if !out.success() {
+            return None;
+        }
+        cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
+    }
+}
+
 /// Busy jiffies (user + nice + system) from the aggregate `cpu ` line of
 /// `/proc/stat`. Kept local (5 lines) because `cynic-node` must not depend
 /// on `cynic-host`'s probe; the verdict-free parse is the shared shape.

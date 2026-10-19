@@ -394,8 +394,7 @@ mod tests {
         vec![
             "/portable/cynic-node".to_string(),
             "network".to_string(),
-            "actuation".to_string(),
-            "observation".to_string(),
+            "actuation-observation".to_string(),
             "--json".to_string(),
         ]
     }

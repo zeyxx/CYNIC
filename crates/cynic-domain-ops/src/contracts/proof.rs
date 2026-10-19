@@ -139,7 +139,7 @@ mod tests {
             "example.com",
             DomainOperation::Register,
             ProofStatus::Success,
-            "sha256:abc123",
+            "sha3-512:abc123",
             serde_json::json!({ "domain": "example.com", "status": "registered" }),
             1788267750,
         );
@@ -148,7 +148,7 @@ mod tests {
         assert_eq!(proof.domain, "example.com");
         assert_eq!(proof.operation, DomainOperation::Register);
         assert_eq!(proof.status, ProofStatus::Success);
-        assert_eq!(proof.idempotency_key, "sha256:abc123");
+        assert_eq!(proof.idempotency_key, "sha3-512:abc123");
         assert_eq!(proof.timestamp_unix_s, 1788267750);
     }
 
@@ -158,7 +158,7 @@ mod tests {
             "example.com",
             DomainOperation::CheckAvailability,
             ProofStatus::Success,
-            "sha256:abc123",
+            "sha3-512:abc123",
             serde_json::json!({ "available": true }),
             1788267750,
         );
@@ -183,7 +183,7 @@ mod tests {
                 "example.com",
                 DomainOperation::CheckAvailability,
                 ProofStatus::Success,
-                "sha256:key1",
+                "sha3-512:key1",
                 serde_json::json!({ "available": true }),
                 1788267750,
             ),
@@ -191,7 +191,7 @@ mod tests {
                 "example.com",
                 DomainOperation::Register,
                 ProofStatus::Success,
-                "sha256:key2",
+                "sha3-512:key2",
                 serde_json::json!({ "status": "registered" }),
                 1788267751,
             ),
@@ -209,7 +209,7 @@ mod tests {
         let proof = blocked_proof(
             "example.com",
             DomainOperation::Register,
-            "sha256:blocked",
+            "sha3-512:blocked",
             "domain not available",
             1788267750,
         );
@@ -224,7 +224,7 @@ mod tests {
         let proof = violation_proof(
             "example.com",
             DomainOperation::VerifyEdge,
-            "sha256:viol",
+            "sha3-512:viol",
             serde_json::json!({ "status": 200 }),
             serde_json::json!({ "status": 404 }),
             1788267750,

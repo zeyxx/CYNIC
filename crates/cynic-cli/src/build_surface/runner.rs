@@ -31,7 +31,6 @@ pub(crate) fn trigger_build(
     commit: &str,
     phase: &str,
     host: Option<&str>,
-    runner: Option<&str>,
     registry: &str,
     user: &str,
     network_mode: &str,
@@ -42,13 +41,7 @@ pub(crate) fn trigger_build(
     proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let host = match host.filter(|value| !value.trim().is_empty()) {
-        Some(explicit) => explicit.to_string(),
-        None => match runner.filter(|value| !value.trim().is_empty()) {
-            Some(named) => cynic_node::cli_factory::resolve_named_runner_host(named, registry)?,
-            None => cynic_node::cli_factory::resolve_runner_host(None, registry)?,
-        },
-    };
+    let host = cynic_node::cli_factory::resolve_runner_host(host.as_deref(), registry)?;
     let phase = match phase {
         "check" => BuildPhase::Check,
         "build" => BuildPhase::Build,
@@ -71,6 +64,50 @@ pub(crate) fn trigger_build(
     let health = runner.observe_runner();
     if !health.reachable {
         return Err(format!("build runner unreachable: {}", health.node_id));
+    }
+    // Compute-awareness pre-flight (infra/compute-policy.json): refuse a
+    // dispatch the runner cannot hold instead of discovering it mid-build.
+    // Unmeasurable capacity is an explicit unknown, never a number.
+    let task_class = match phase {
+        BuildPhase::Check => "rust_check_light",
+        BuildPhase::Build => "rust_build",
+        BuildPhase::Activate => "rust_build",
+    };
+    match runner.probe_free_ram_bytes() {
+        Some(available) => {
+            let policy_path = std::path::Path::new(registry)
+                .parent()
+                .map(|parent| parent.join("compute-policy.json"));
+            if let Some(path) = policy_path {
+                if let Ok(raw) = std::fs::read_to_string(&path) {
+                    if let Ok(policy) = serde_json::from_str::<serde_json::Value>(&raw) {
+                        let floor_gb = policy
+                            .get("task_classes")
+                            .and_then(|classes| classes.get(task_class))
+                            .and_then(|class| class.get("floor"))
+                            .and_then(|floor| floor.get("free_gb"))
+                            .and_then(|value| value.as_f64())
+                            .unwrap_or(0.0);
+                        let floor_bytes = (floor_gb * 1024.0 * 1024.0 * 1024.0) as u64;
+                        if available < floor_bytes {
+                            return Err(format!(
+                                "runner {} below {} floor: {:.2} GB free < {:.2} GB required",
+                                health.node_id,
+                                task_class,
+                                available as f64 / 1_073_741_824.0,
+                                floor_gb
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            eprintln!(
+                "warning: runner {} capacity unmeasurable (unknown, not zero)",
+                health.node_id
+            );
+        }
     }
     let log_path = match proof_log {
         Some(explicit) => explicit.to_string(),
@@ -117,27 +154,6 @@ pub(crate) fn trigger_build(
                 .as_deref()
                 .unwrap_or("no reason recorded")
         ));
-    }
-    Ok(())
-}
-
-pub(crate) fn list_runners(registry: &str, json: bool) -> Result<(), String> {
-    let runners = cynic_host::registry::resolve::list_runner_nodes(Some(registry))?;
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&runners).map_err(|error| error.to_string())?
-        );
-        return Ok(());
-    }
-    for runner in &runners {
-        println!(
-            "{}{} role={} ssh={}",
-            runner.node_id,
-            if runner.default { " [default]" } else { "" },
-            runner.role,
-            runner.ssh_target
-        );
     }
     Ok(())
 }

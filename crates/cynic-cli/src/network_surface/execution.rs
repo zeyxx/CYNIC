@@ -1121,8 +1121,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 observation_argv: vec![
                     observer_bin.clone(),
                     "network".to_string(),
-                    "actuation".to_string(),
-                    "observation".to_string(),
+                    "actuation-observation".to_string(),
                     "--json".to_string(),
                 ],
                 timeout_seconds: *qga_timeout_seconds,

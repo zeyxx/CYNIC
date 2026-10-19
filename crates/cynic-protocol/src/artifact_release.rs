@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::hash_chain::ChainLink;
-
 pub const RUNTIME_ARTIFACT_RELEASE_SPEC_SCHEMA: &str = "cynic.runtime_artifact_release.spec.v1";
 pub const RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA: &str = "cynic.runtime_artifact_release.report.v1";
 pub const RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA: &str = "cynic.runtime_artifact_release.event.v1";
@@ -119,20 +117,6 @@ pub struct RuntimeArtifactReleaseEvent {
     pub status: String,
     pub prev_hash: String,
     pub hash: String,
-}
-
-impl ChainLink for RuntimeArtifactReleaseEvent {
-    fn chain_input(&self) -> Vec<u8> {
-        let mut unsigned = self.clone();
-        unsigned.hash.clear();
-        serde_json::to_vec(&unsigned).unwrap_or_default()
-    }
-    fn entry_hash(&self) -> &str {
-        &self.hash
-    }
-    fn prev_hash(&self) -> &str {
-        &self.prev_hash
-    }
 }
 
 #[cfg(test)]

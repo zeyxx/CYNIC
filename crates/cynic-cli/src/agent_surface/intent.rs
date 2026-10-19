@@ -28,7 +28,7 @@ pub const AGENT_INTENT_VERIFY_SCHEMA: &str = "cynic.cli.agent_intent_verify.v1";
 /// `cynic agent intent ...` — nested arm, zero new top-level hyphens.
 #[derive(Subcommand)]
 pub(crate) enum IntentCommand {
-    /// Seal a record: compute its SHA-256 digest, print or write back
+    /// Seal a record: compute its sha3-512 digest, print or write back
     Seal {
         /// Path to the unsealed record JSON (digest key ignored if present)
         path: String,
@@ -205,7 +205,7 @@ mod tests {
         assert_eq!(execute_verify(&path_str, false), ExitCode::SUCCESS);
         let raw = std::fs::read_to_string(&path).unwrap();
         let record: IntentTransmission = serde_json::from_str(&raw).unwrap();
-        assert!(record.digest.starts_with("sha256:"));
+        assert!(record.digest.starts_with("sha3-512:"));
         std::fs::remove_file(&path).ok();
     }
 

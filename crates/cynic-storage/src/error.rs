@@ -1,6 +1,6 @@
 //! Storage domain errors — zero-leak error definitions for cynic-storage.
 
-use crate::types::{Hash256, SequenceNumber};
+use crate::types::{Hash512, SequenceNumber};
 
 /// Sovereign storage error enumeration.
 #[derive(Debug, thiserror::Error)]
@@ -16,8 +16,8 @@ pub enum StorageError {
     )]
     HashChainCorrupt {
         sequence: SequenceNumber,
-        expected_prev: Hash256,
-        actual_prev: Hash256,
+        expected_prev: Hash512,
+        actual_prev: Hash512,
     },
 
     #[error("Causal witness verification failed: {0}")]

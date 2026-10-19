@@ -193,7 +193,7 @@ A rule that is not executed is a wish. Every row below is machine-checked.
 | layer direction | `cynic dev crate-audit` → `entrypoints_bounded`, `architecture_boundary_test_present` | `cynic.cli.crate_audit.v1` |
 | domain layers / cross-family edges | `tests/architecture_boundary.rs` per crate | — |
 | branch liveness, worktree/claim cross-check | `cynic dev branch-audit` | `cynic.cli.branch_audit.v1`, `cynic.cli.worktree_observation.v1` |
-| secret + path + node host audits | `cynic audit {secret,paths,node host}` | `cynic.node_host_audit.v1` |
+| secret + path + node-host audits | `cynic audit {secret,paths,node-host}` | `cynic.node_host_audit.v1` |
 
 Two facts about the current instruments, recorded so nobody trusts them by
 accident:
@@ -205,7 +205,7 @@ accident:
   a boundary; the implementation counts lines. It is the last place where the
   line-count reflex is still hard-coded, and it should lose those constants
   rather than gain more.
-- **Two entry points, one in the gate.** `cynic audit {crate,secret,paths,node host,all}`
+- **Two entry points, one in the gate.** `cynic audit {crate,secret,paths,node-host,all}`
   is what `make check` runs. `cynic dev {crate-audit,kernel-audit,ownership-audit,
   surface-audit,branch-audit}` is not. The same subject can be checked in two
   places with two report shapes, and only one of them is load-bearing.

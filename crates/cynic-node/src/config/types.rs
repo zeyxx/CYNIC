@@ -86,60 +86,8 @@ pub struct BuildSchedulerConfig {
     /// when it is unavailable. Fleet rollout requires bwrap on every runner.
     #[serde(default)]
     pub sandbox_bwrap: bool,
-    /// Optional shared cargo target root. When set, scheduler builds reuse
-    /// `<root>/<profile>` (profile derived from argv: `release` when
-    /// `--release` is present, `debug` otherwise) instead of a throwaway
-    /// per-build directory. Unset preserves the previous isolated behavior.
-    /// Single-slot only: parallel slots must take an inter-build lock first.
-    #[serde(default)]
-    pub shared_target_root: Option<PathBuf>,
-    /// Optional stable build workspace root. When set, the scheduler reuses
-    /// `<root>/<profile>` (profile derived from argv exactly like
-    /// `shared_target_root`) as the build execution workspace instead of
-    /// the registry-resolved per-workload path. The tree at that path is
-    /// cleaned before every build, but the path itself stays stable across
-    /// builds so absolute-path fingerprints embedded in artifacts survive.
-    /// Unset preserves the per-workload layout.
-    #[serde(default)]
-    pub stable_workspace_root: Option<PathBuf>,
     #[serde(default)]
     pub release_publication: Option<ReleasePublicationConfig>,
-    /// Maximum number of parallel cargo jobs (CARGO_BUILD_JOBS). `None`
-    /// preserves the default cargo behavior (JOBS=1).
-    #[serde(default)]
-    pub build_jobs: Option<usize>,
-    /// Maximum projected RSS in MB for admission. When projected RSS
-    /// exceeds this cap, the build is refused at admission (never OOM
-    /// mid-flight). `None` disables the gate.
-    #[serde(default)]
-    pub max_rss_cap_mb: Option<u64>,
-    /// Optional sccache rollout stanza. When present, scheduler builds
-    /// compile through sccache: the execution env gains `RUSTC_WRAPPER`
-    /// (cargo routes every rustc invocation through the wrapper) and
-    /// `SCCACHE_DIR` (the persistent cache shared across builds).
-    /// Absent = behavior unchanged (plain rustc, no wrapper).
-    #[serde(default)]
-    pub sccache: Option<SccacheConfig>,
-    /// Measured sccache hit rate for admission decisions. `None` means
-    /// unmeasured — the sccache predicate is not consulted. When set,
-    /// `decide_require_sccache` is consulted at admission time.
-    #[serde(default)]
-    pub sccache_measured_hit_rate: Option<f64>,
-}
-
-/// sccache rollout configuration for scheduler builds.
-#[derive(Debug, Clone, Deserialize)]
-pub struct SccacheConfig {
-    /// Directory of the persistent sccache cache. Defaults to the builder
-    /// warm cache shared across builds.
-    #[serde(default = "defaults::default_sccache_cache_dir")]
-    pub cache_dir: PathBuf,
-    /// sccache binary for `RUSTC_WRAPPER`. Default `"sccache"` resolves
-    /// via `PATH` on the executor host (and inside bwrap via the
-    /// reconstructed bound `PATH`); pin an absolute path to freeze the
-    /// exact binary.
-    #[serde(default = "defaults::default_sccache_binary")]
-    pub binary: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

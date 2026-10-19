@@ -7,6 +7,7 @@ use cynic_storage::client_policy::StorageClientPolicy;
 use cynic_storage::topology::StorageTopologyObserved;
 
 use super::probe::{StorageClientPolicyObservationPort, StorageTopologyObservationPort};
+use std::time::Instant;
 
 pub struct LocalStorageTopologyAdapter {
     pub topology_path: String,

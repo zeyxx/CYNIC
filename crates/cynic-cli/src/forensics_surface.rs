@@ -24,7 +24,7 @@ pub(crate) enum ForensicsCommand {
         json: bool,
     },
     /// Post-mortem report: correlate all evidence for a crashed boot.
-    Postmortem {
+    PostMortem {
         #[arg(long)]
         boot_id: Option<String>,
         #[arg(long)]
@@ -49,7 +49,7 @@ pub(crate) fn execute_forensics(command: ForensicsCommand) -> ExitCode {
     match command {
         ForensicsCommand::Evidence { json, boot_id } => execute_evidence(&adapter, json, boot_id),
         ForensicsCommand::Timeline { boot_id, json } => execute_timeline(&adapter, &boot_id, json),
-        ForensicsCommand::Postmortem { boot_id, json } => {
+        ForensicsCommand::PostMortem { boot_id, json } => {
             execute_post_mortem(&adapter, boot_id, json)
         }
         ForensicsCommand::Status { json } => execute_status(&adapter, json),

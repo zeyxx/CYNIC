@@ -63,6 +63,9 @@ pub fn publish_released_artifact(
     publisher.publish(&request).map(Some)
 }
 
+/// Re-export for port consumers resolving through `kernel_release`.
+pub use crate::domain::artifact_publication::PublicationTarget as ResolvedPublicationTarget;
+pub use crate::domain::artifact_publication::select_transport as resolve_publication_transport;
 
 #[cfg(test)]
 mod tests {
@@ -70,7 +73,7 @@ mod tests {
     use crate::domain::artifact_publication::TransportProtocol;
     use crate::ports::artifact_publisher_port::ArtifactPublisher;
     use cynic_protocol::artifact_release::{
-        ArtifactPublicationTarget, RuntimeArtifactSpec,
+        ArtifactPublicationTarget, RuntimeArtifactReleaseSpec, RuntimeArtifactSpec,
     };
 
     struct StubPublisher {

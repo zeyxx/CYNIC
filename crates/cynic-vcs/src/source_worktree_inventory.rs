@@ -407,9 +407,9 @@ fn invalid_windows_component(value: &str) -> bool {
 fn valid_canonical_digest(value: &str) -> bool {
     cynic_protocol::digest::validate_digest(value, false).is_ok()
         && value
-            .strip_prefix(cynic_protocol::digest::SHA2_PREFIX)
+            .strip_prefix(cynic_protocol::digest::SHA3_PREFIX)
             .is_some_and(|body| {
-                body.len() == 64
+                body.len() == 128
                     && body
                         .bytes()
                         .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))

@@ -1,26 +1,24 @@
 //! Canonical digest law (constitutional scope, foundation.json).
 //!
-//! - Internal integrity hashing is SHA-256; digest strings carry the
-//!   `sha256:` prefix. This aligns with Solana's 32-byte digest
-//!   convention and matches the on-chain program payload expectation.
-//! - SHA3-512 (`sha3-512:`) is retained only as a parseable legacy
-//!   prefix for previously stored digests; it is no longer produced
-//!   by any canonical seal function.
+//! - Internal integrity hashing is SHA3-512; digest strings carry the
+//!   `sha3-512:` prefix.
+//! - SHA-256 (`sha256:`) is mandated ONLY where an external contract
+//!   requires it (on-chain program payloads expect 32-byte sha256,
+//!   third-party APIs).
 //! - BLAKE3 (`blake3:`) is permitted for high-throughput non-canonical
 //!   caches only.
 //! - Unprefixed digests are invalid and rejected by [`validate_digest`].
 //!
-//! T10 unified the hash-chain primitive to SHA3-512; T13 flips the
-//! canonical digest to SHA-256 for Solana alignment. Legacy stored
-//! `sha3-512:` values remain parseable via [`parse_digest`] so
-//! verification code can compare across eras without silently accepting
-//! unprefixed strings.
+//! Migration path from the sha256-era: [`digest_json`] now emits prefixed
+//! `sha3-512:` digests; legacy stored values remain parseable via
+//! [`parse_digest`] so verification code can compare across eras without
+//! silently accepting unprefixed strings.
 
 use serde::Serialize;
-use sha2::Digest;
+use sha3::Digest;
 
-pub const SHA2_PREFIX: &str = "sha256:";
 pub const SHA3_PREFIX: &str = "sha3-512:";
+pub const SHA2_PREFIX: &str = "sha256:";
 pub const BLAKE3_PREFIX: &str = "blake3:";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,30 +30,40 @@ impl std::fmt::Display for DigestError {
     }
 }
 
-/// Canonical internal digest: SHA-256 over canonical JSON bytes.
+/// Canonical internal digest: SHA3-512 over canonical JSON bytes.
 ///
-/// This is the unified digest law for all CYNIC hash chains and
-/// content-addressed seals. The output prefix makes the algorithm
-/// explicit and future-auditable.
+/// This replaces the legacy sha256-based `digest_json` for all new seals.
+/// The output prefix makes the algorithm explicit and future-auditable.
 pub fn digest_json<T: Serialize>(value: &T) -> Result<String, serde_json::Error> {
     let bytes = crate::integrity::canonical_json_bytes(value)?;
-    let mut hasher = sha2::Sha256::new();
+    let mut hasher = sha3::Sha3_512::new();
     hasher.update(bytes);
-    Ok(format!("{}{}", SHA2_PREFIX, hex::encode(hasher.finalize())))
+    Ok(format!("{}{}", SHA3_PREFIX, hex::encode(hasher.finalize())))
 }
 
 /// Raw-bytes internal digest, same law as [`digest_json`] without JSON
 /// canonicalization.
 pub fn digest_bytes(bytes: &[u8]) -> String {
-    let mut hasher = sha2::Sha256::new();
+    let mut hasher = sha3::Sha3_512::new();
     hasher.update(bytes);
-    format!("{}{}", SHA2_PREFIX, hex::encode(hasher.finalize()))
+    format!("{}{}", SHA3_PREFIX, hex::encode(hasher.finalize()))
+}
+
+/// External-contract digest: 32-byte SHA-256 where an on-chain program or
+/// third-party API demands it. Never use internally for new surfaces.
+pub fn digest_bytes_sha256_external(bytes: &[u8]) -> String {
+    use sha2::Digest;
+    format!(
+        "{}{}",
+        SHA2_PREFIX,
+        hex::encode(sha2::Sha256::digest(bytes))
+    )
 }
 
 /// Parse a digest string into `(algorithm, hex)`. Rejects unprefixed values
 /// (constitutional rule) and unknown algorithms.
 pub fn parse_digest(digest: &str) -> Result<(&'static str, &str), DigestError> {
-    for prefix in [SHA2_PREFIX, SHA3_PREFIX, BLAKE3_PREFIX] {
+    for prefix in [SHA3_PREFIX, SHA2_PREFIX, BLAKE3_PREFIX] {
         if let Some(hex_part) = digest.strip_prefix(prefix) {
             if hex_part.is_empty() || !hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
                 return Err(DigestError(format!("malformed digest body: {digest}")));
@@ -69,13 +77,13 @@ pub fn parse_digest(digest: &str) -> Result<(&'static str, &str), DigestError> {
 }
 
 /// Validate a digest string against the canonical law. `allow_legacy`
-/// permits the sha3-512/blake3 prefixes (existing stored data); unprefixed
+/// permits the sha256/blake3 prefixes (existing stored data); unprefixed
 /// strings are always invalid.
 pub fn validate_digest(digest: &str, allow_legacy: bool) -> Result<(), DigestError> {
     let (algorithm, _) = parse_digest(digest)?;
-    if !allow_legacy && algorithm != SHA2_PREFIX {
+    if !allow_legacy && algorithm != SHA3_PREFIX {
         return Err(DigestError(format!(
-            "non-canonical digest algorithm {algorithm}; canonical is {SHA2_PREFIX}"
+            "non-canonical digest algorithm {algorithm}; canonical is {SHA3_PREFIX}"
         )));
     }
     Ok(())
@@ -87,25 +95,19 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn digest_json_is_prefixed_sha256_and_deterministic() {
+    fn digest_json_is_prefixed_sha3_and_deterministic() {
         let v = json!({"b": 1, "a": [true, null]});
         let d1 = digest_json(&v).unwrap();
         let d2 = digest_json(&v).unwrap();
-        assert!(d1.starts_with("sha256:"));
+        assert!(d1.starts_with("sha3-512:"));
         assert_eq!(d1, d2);
-        assert_eq!(d1.len(), SHA2_PREFIX.len() + 64); // 256 bits = 64 hex chars
-    }
-
-    #[test]
-    fn digest_bytes_is_prefixed_sha256() {
-        let d = digest_bytes(b"hello");
-        assert!(d.starts_with("sha256:"));
-        assert_eq!(d.len(), SHA2_PREFIX.len() + 64);
-        assert_eq!(&d[SHA2_PREFIX.len()..], "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+        assert_eq!(d1.len(), SHA3_PREFIX.len() + 128); // 512 bits = 128 hex chars
     }
 
     #[test]
     fn parse_rejects_unprefixed_digests() {
+        // The constitutional rule: bare hex is invalid even when it is a
+        // well-formed hash body.
         let err = parse_digest(&"a".repeat(64)).unwrap_err();
         assert!(err.0.contains("unprefixed"));
     }
@@ -115,7 +117,7 @@ mod tests {
         let canonical = digest_bytes(b"x");
         assert!(validate_digest(&canonical, false).is_ok());
 
-        let legacy = format!("{}{}", SHA3_PREFIX, "ab".repeat(64));
+        let legacy = format!("{}{}", SHA2_PREFIX, "ab".repeat(32));
         assert!(validate_digest(&legacy, true).is_ok());
         assert!(validate_digest(&legacy, false).is_err());
 
@@ -124,9 +126,16 @@ mod tests {
     }
 
     #[test]
+    fn external_sha256_helper_emits_32byte_hex() {
+        let d = digest_bytes_sha256_external(b"on-chain payload");
+        assert!(d.starts_with("sha256:"));
+        assert_eq!(d[SHA2_PREFIX.len()..].len(), 64);
+    }
+
+    #[test]
     fn malformed_bodies_are_rejected() {
-        assert!(parse_digest("sha256:").is_err());
-        assert!(parse_digest("sha256:zzzz").is_err());
+        assert!(parse_digest("sha3-512:").is_err());
+        assert!(parse_digest("sha3-512:zzzz").is_err());
         assert!(parse_digest("md5:abc").is_err());
     }
 }

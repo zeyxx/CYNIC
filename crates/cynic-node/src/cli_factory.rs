@@ -6,9 +6,7 @@
 //! blocking call so the surface never spawns a tokio runtime itself.
 
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
-use cynic_host::registry::resolve::{
-    resolve_build_runner_transport, resolve_named_runner_transport,
-};
+use cynic_host::registry::resolve::resolve_build_runner_transport;
 
 use crate::adapters::ssh_build_proof::SshBuildProof;
 use crate::ports::build_proof_port::BuildProofPort;
@@ -28,16 +26,6 @@ pub fn resolve_runner_host(host: Option<&str>, registry: &str) -> Result<String,
             .map_err(|error| format!("build runner unresolvable in registry {registry}: {error}"))
             .map(|transport| transport.ssh_target),
     }
-}
-
-/// Resolve a named runner (node id, name, or alias) from the fleet registry.
-/// Fails closed when the node or its SSH transport is missing.
-pub fn resolve_named_runner_host(runner: &str, registry: &str) -> Result<String, String> {
-    resolve_named_runner_transport(Some(registry), runner)
-        .map_err(|error| {
-            format!("named runner {runner} unresolvable in registry {registry}: {error}")
-        })
-        .map(|transport| transport.ssh_target)
 }
 
 /// Construct the `SshBuildRunner` for a CLI build trigger.

@@ -163,7 +163,7 @@ fn test_config(node_url: &str, secret: Option<String>) -> WebhookServerConfig {
 }
 
 fn hmac_hex(secret: &str, body: &str) -> String {
-    use hmac::{Hmac, KeyInit, Mac};
+    use hmac::{Hmac, Mac};
     use sha2::Sha256;
     let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
     mac.update(body.as_bytes());

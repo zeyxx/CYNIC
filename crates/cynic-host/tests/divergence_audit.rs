@@ -35,7 +35,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[path = "../../../tests/support/orphan_sources.rs"]
 mod orphan_sources;

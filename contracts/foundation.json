@@ -5,6 +5,7 @@
   "constitutional": {
     "scope": [
       "CYNIC is a low-layer Rust runtime organism before it is a product surface.",
+      "CYNIC is an operating system whose primary users are LLM agents: humans are constituents (sovereign owners), agents are the users and executors. Its interface is contracts, ports, and capabilities, not a desktop GUI.",
       "Runtime truth is proved by executable code, OS services, registry placement, and runtime read-back.",
       "Dead documentation, deleted organs, and historical Python gates cannot define current authority.",
       "Solana is a piece of engineering: study its solutions and patterns for anything useful to CYNIC.",

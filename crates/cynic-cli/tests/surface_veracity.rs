@@ -30,7 +30,7 @@ const PROBES: &[Probe] = &[
         allowed_exits: &[0],
     },
     Probe {
-        argv: &["agent", "session", "context", "--json"],
+        argv: &["agent", "session-context", "--json"],
         allowed_exits: &[0],
     },
     Probe {
