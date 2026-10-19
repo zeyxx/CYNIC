@@ -20,6 +20,7 @@ topology_write = []
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
+uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
