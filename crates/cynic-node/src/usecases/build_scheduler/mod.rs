@@ -1042,7 +1042,13 @@ mod tests {
             claim_ttl_secs: 60,
             command_timeout_secs: 900,
             sandbox_bwrap: false,
+            shared_target_root: None,
+            stable_workspace_root: None,
             release_publication: None,
+            build_jobs: None,
+            max_rss_cap_mb: None,
+            sccache: None,
+            sccache_measured_hit_rate: None,
         };
         (control, scheduler)
     }
