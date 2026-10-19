@@ -8,17 +8,28 @@
 //! a data migration.
 //!
 //! The canonical vocabulary lives in `cynic_protocol::vocabulary`. This rule
-//! is the ratchet: it fails the build when a retired term reappears.
+//! is the ratchet.
 //!
-//! ## What is detected
+//! ## Why a ledger and not one finding per line
 //!
-//! Two surfaces, because the metaphor hides in both:
+//! The migration is a BACKLOG, not a defect per occurrence. Reporting 1024
+//! findings would bury the signal: every finding would be "the same known
+//! problem, in another file", and a reader who cannot tell a known problem
+//! from a new one learns to ignore the rule entirely. A rule nobody reads is
+//! a rule that does not hold.
 //!
-//! - **identifiers** — `OrganRemediation`, `dog_id`, `organ_silence`,
-//!   `failed_dogs`. A camel/snake identifier is split on its case and
-//!   separator boundaries, and each part is checked against the vocabulary.
-//! - **prose** — comments, doc comments, and string literals naming the
-//!   concept ("an Organ is silent", "the organism state").
+//! So the rule counts occurrences per file and compares that count against a
+//! declared baseline, exactly like `ARCH-005` compares module inversions
+//! against `infra/module-inversion-ledger.json`:
+//!
+//! - an occurrence in a file with no baseline entry is `NAM-001-NEW-METAPHOR`
+//!   — new debt, fails the gate;
+//! - a file whose count grew above its baseline is `NAM-001-METAPHOR-GREW`
+//!   — the baseline may only shrink;
+//! - a baseline entry with no observed occurrence is `NAM-001-STALE-ENTRY`
+//!   — paid debt left in the list hides that the list is stale.
+//!
+//! The baseline lives in `infra/retired-metaphor-ledger.json`.
 //!
 //! ## What is NOT detected
 //!
@@ -34,14 +45,20 @@
 //!
 //! Ordinary English words that happen to be anatomical are also exempt:
 //! `symptom` (a failure symptom), `diagnosis`, `triage`, `absorb`,
-//! `skeleton` (a CLI skeleton), `muscle` (prose only, not an identifier).
-//! Only the terms the vocabulary actually lists are retired.
+//! `skeleton` (a CLI skeleton). Only the terms the vocabulary actually lists
+//! are retired.
 
-use cynic_protocol::vocabulary::{RETIRED_METAPHORS, canonical_term};
+use std::collections::BTreeMap;
+use std::path::Path;
+
+use cynic_protocol::vocabulary::RETIRED_METAPHORS;
 use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
 
 use super::rules::AuditRule;
 use super::scanner::WorkspaceSourceIndex;
+
+const RULE_ID: &str = "NAM-001";
+const LEDGER_PATH: &str = "infra/retired-metaphor-ledger.json";
 
 /// `NAM-001` — retired biological metaphors must not reappear.
 pub struct RetiredMetaphorRule;
@@ -49,13 +66,15 @@ pub struct RetiredMetaphorRule;
 impl AuditRule for RetiredMetaphorRule {
     fn spec(&self) -> AuditRuleSpec {
         AuditRuleSpec {
-            id: "NAM-001".to_string(),
+            id: RULE_ID.to_string(),
             name: "retired_biological_metaphor".to_string(),
             description: "Domain concepts must be named with technical terms, not biological \
                  metaphors. A component is a 'component', an axiom scorer is an \
                  'evaluator', the running system is a 'deployment'. 'synapse' (the \
                  service network plane) and 'cortex' (the operator workstation) are \
-                 infrastructure identifiers, not metaphors, and are exempt."
+                 infrastructure identifiers, not metaphors, and are exempt. Declared \
+                 occurrences live in infra/retired-metaphor-ledger.json and the baseline \
+                 may only shrink."
                 .to_string(),
             category: AuditCategory::Boundary,
             severity: AuditSeverity::Debt,
@@ -66,71 +85,181 @@ impl AuditRule for RetiredMetaphorRule {
     fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
         let mut violations = Vec::new();
 
-        let all_files = index
-            .rust_files
-            .iter()
-            .chain(index.json_files.iter())
-            .chain(index.manifests.iter());
+        let observed = observe(index);
 
-        for file in all_files {
-            // The rule may not report its own detector: this file names the
-            // retired terms in order to find them. Keyed on the FILE NAME, so
-            // the next extraction does not silently re-arm the rule.
-            if file.relative_path.ends_with("retired_metaphor_rule.rs")
-                || file.relative_path.ends_with("vocabulary.rs")
-            {
-                continue;
+        // The workspace root, recovered from any source file: every path in
+        // the ledger is repo-relative, so walk up from the first one.
+        let Some(root) = index.rust_files.first().map(|f| {
+            let mut path = f.absolute_path.clone();
+            for _ in 0..f.relative_path.matches('/').count() + 1 {
+                path.pop();
             }
+            path
+        }) else {
+            return violations;
+        };
 
-            // Test fixtures and recorded evidence legitimately name the old
-            // terms: a migration fixture asserts the OLD key is still read,
-            // and a runtime checkpoint records what was observed. Excluding
-            // them keeps the rule actionable instead of noisy.
-            if file.relative_path.contains("/tests/")
-                || file.relative_path.starts_with("tests/")
-                || file.relative_path.contains("runtime-checkpoints")
-                || file.relative_path.contains("retrieval_training_pairs")
-            {
-                continue;
+        let Some(declared) = declared_counts(&root) else {
+            violations.push(AuditViolation {
+                code: format!("{RULE_ID}-LEDGER-UNREADABLE"),
+                message: format!(
+                    "{LEDGER_PATH} could not be read or parsed; the retired metaphor \
+                     comparator could not run. This is an explicit unknown, not a pass."
+                ),
+                severity: AuditSeverity::Critical,
+                category: AuditCategory::ResidualUnknown,
+                span: None,
+                remediation: Some(format!("Restore {LEDGER_PATH} as valid JSON.")),
+            });
+            return violations;
+        };
+
+        for (path, (count, evidence, terms)) in &observed {
+            let terms = terms.join(", ");
+            match declared.get(path) {
+                None => violations.push(AuditViolation {
+                    code: format!("{RULE_ID}-NEW-METAPHOR"),
+                    message: format!(
+                        "Retired biological metaphor in {path} ({count} occurrence(s), \
+                         first at {evidence}): {terms}. Use the canonical term instead: \
+                         {}.",
+                        canonical_hint()
+                    ),
+                    severity: AuditSeverity::Debt,
+                    category: AuditCategory::Boundary,
+                    span: Some(AuditSpan {
+                        file_path: path.clone(),
+                        line_start: 0,
+                        line_end: 0,
+                        snippet: Some(evidence.clone()),
+                    }),
+                    remediation: Some(format!(
+                        "Rename to the canonical term, or record the file deliberately in \
+                         {LEDGER_PATH}."
+                    )),
+                }),
+                Some(&allowed) if count > &allowed => violations.push(AuditViolation {
+                    code: format!("{RULE_ID}-METAPHOR-GREW"),
+                    message: format!(
+                        "Retired biological metaphor in {path} was recorded {allowed}x and is \
+                         now observed {count}x ({terms}). The baseline may only shrink."
+                    ),
+                    severity: AuditSeverity::Debt,
+                    category: AuditCategory::Boundary,
+                    span: Some(AuditSpan {
+                        file_path: path.clone(),
+                        line_start: 0,
+                        line_end: 0,
+                        snippet: Some(evidence.clone()),
+                    }),
+                    remediation: Some(format!(
+                        "Remove the new occurrence, or lower the count in {LEDGER_PATH} if \
+                         the count is correct."
+                    )),
+                }),
+                Some(_) => {}
             }
+        }
 
-            for (idx, line) in file.content.lines().enumerate() {
-                for term in retired_terms_in_line(line) {
-                    let Some(canonical) = canonical_term(&term) else {
-                        continue;
-                    };
-                    let meaning = RETIRED_METAPHORS
-                        .iter()
-                        .find(|mapping| mapping.retired == term.to_ascii_lowercase())
-                        .map(|mapping| mapping.meaning)
-                        .unwrap_or("a technical concept");
-
-                    violations.push(AuditViolation {
-                        code: "NAM-001-RETIRED-METAPHOR".to_string(),
-                        message: format!(
-                            "Retired biological metaphor '{}' in {}: use '{}' ({}).",
-                            term, file.relative_path, canonical, meaning
-                        ),
-                        severity: AuditSeverity::Debt,
-                        category: AuditCategory::Boundary,
-                        span: Some(AuditSpan {
-                            file_path: file.relative_path.clone(),
-                            line_start: idx + 1,
-                            line_end: idx + 1,
-                            snippet: Some(line.trim().to_string()),
-                        }),
-                        remediation: Some(format!(
-                            "Rename to '{}'. The vocabulary is \
-                             cynic_protocol::vocabulary.",
-                            canonical
-                        )),
-                    });
-                }
+        for (path, allowed) in &declared {
+            if !observed.contains_key(path) {
+                violations.push(AuditViolation {
+                    code: format!("{RULE_ID}-STALE-ENTRY"),
+                    message: format!(
+                        "{LEDGER_PATH} records {path} ({allowed} occurrence(s)) but none was \
+                         observed. Paid debt left in the list hides that the list is stale."
+                    ),
+                    severity: AuditSeverity::Debt,
+                    category: AuditCategory::Boundary,
+                    span: None,
+                    remediation: Some(format!("Delete the `{path}` entry from {LEDGER_PATH}.")),
+                });
             }
         }
 
         violations
     }
+}
+
+/// The observed retired-metaphor occurrences, per file.
+///
+/// This is the single source of truth for both the rule and the ledger
+/// generator: a baseline recorded from a DIFFERENT observation than the one
+/// the rule compares against is a baseline that fails for reasons that have
+/// nothing to do with the vocabulary.
+///
+/// Each entry is `(count, first evidence, terms seen)`.
+pub fn observe(index: &WorkspaceSourceIndex) -> BTreeMap<String, (usize, String, Vec<String>)> {
+    let mut observed: BTreeMap<String, (usize, String, Vec<String>)> = BTreeMap::new();
+
+    let all_files = index
+        .rust_files
+        .iter()
+        .chain(index.json_files.iter())
+        .chain(index.manifests.iter());
+
+    for file in all_files {
+        // The rule may not report its own detector: these files name the
+        // retired terms in order to find them. Keyed on the FILE NAME, so
+        // the next extraction does not silently re-arm the rule.
+        if file.relative_path.ends_with("retired_metaphor_rule.rs")
+            || file.relative_path.ends_with("vocabulary.rs")
+            || file.relative_path.ends_with("retired-metaphor-ledger.json")
+        {
+            continue;
+        }
+
+        // Test fixtures and recorded evidence legitimately name the old
+        // terms: a migration fixture asserts the OLD key is still read,
+        // and a runtime checkpoint records what was observed. Excluding
+        // them keeps the rule actionable instead of noisy.
+        if file.relative_path.contains("/tests/")
+            || file.relative_path.starts_with("tests/")
+            || file.relative_path.contains("runtime-checkpoints")
+            || file.relative_path.contains("retrieval_training_pairs")
+        {
+            continue;
+        }
+
+        for (idx, line) in file.content.lines().enumerate() {
+            for term in retired_terms_in_line(line) {
+                let entry = observed.entry(file.relative_path.clone()).or_insert((
+                    0,
+                    format!("{}:{}", file.relative_path, idx + 1),
+                    Vec::new(),
+                ));
+                entry.0 += 1;
+                if !entry.2.iter().any(|seen| seen == &term) {
+                    entry.2.push(term);
+                }
+            }
+        }
+    }
+
+    observed
+}
+
+/// The declared baseline: file path -> occurrence count.
+fn declared_counts(root: &Path) -> Option<BTreeMap<String, usize>> {
+    let text = std::fs::read_to_string(root.join(LEDGER_PATH)).ok()?;
+    let document: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let mut out = BTreeMap::new();
+    for entry in document.get("entries")?.as_array()? {
+        out.insert(
+            entry.get("path")?.as_str()?.to_string(),
+            entry.get("count")?.as_u64()? as usize,
+        );
+    }
+    Some(out)
+}
+
+/// The canonical replacement for each retired term, as one line.
+fn canonical_hint() -> String {
+    RETIRED_METAPHORS
+        .iter()
+        .map(|mapping| format!("{} -> {}", mapping.retired, mapping.canonical))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Every retired term present in one line, with the spelling as written.
