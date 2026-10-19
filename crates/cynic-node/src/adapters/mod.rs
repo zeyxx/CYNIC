@@ -72,4 +72,5 @@ pub mod tokio_build_execution;
 pub mod verified_credential_broker;
 pub mod websocket_federation;
 pub mod wireguard;
+pub mod workload_request_signer;
 pub mod agent_bus_server;
