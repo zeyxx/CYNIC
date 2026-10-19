@@ -20,6 +20,8 @@ pub struct ObservedWorktreeSnapshot {
     pub dirty_file_count: usize,
     pub git_prunable: bool,
     pub prunable_reason: Option<String>,
+    /// Directory mtime in epoch ms. `None` = unknown (no grace granted).
+    pub created_at_ms: Option<u64>,
 }
 
 /// Discrete, bounded actions decidable by the pure reconciliation engine.
@@ -103,12 +105,18 @@ pub struct WorktreeConvergenceApplyProof {
 }
 
 /// Pure zero-I/O reconciliation function.
+/// Fresh worktrees are never pruned: an agent that just created its
+/// workspace must not lose it to a concurrent convergence pass before it
+/// records its first dirty file or lease. `None` age = unknown = no grace.
+pub const WORKTREE_MATURATION_GRACE_MS: u64 = 600_000;
+
 pub fn reconcile_worktree_convergence_pure(
     repository_root: PathBuf,
     default_branch: &str,
     main_head_sha: &str,
     worktrees: &[ObservedWorktreeSnapshot],
     active_lease_branches: &[String],
+    now_ms: u64,
 ) -> WorktreeConvergencePlan {
     let mut actions = Vec::new();
     let mut summary = WorktreeConvergenceSummary {
@@ -117,6 +125,20 @@ pub fn reconcile_worktree_convergence_pure(
     };
 
     for wt in worktrees {
+        // 0. Maturation grace: a worktree younger than the grace window is
+        // retained unconditionally, even if it looks merged or zombified.
+        // Unknown age grants no grace (fail-closed toward pruning).
+        let is_young = matches!(wt.created_at_ms, Some(t) if now_ms.saturating_sub(t) < WORKTREE_MATURATION_GRACE_MS);
+        if is_young {
+            actions.push(WorktreeConvergenceAction::RetainActiveWorkspace {
+                workspace_path: wt.path.clone(),
+                branch: wt.branch.clone(),
+                reason: "Maturation grace period: worktree younger than 10 min".to_string(),
+            });
+            summary.retained_active_count += 1;
+            continue;
+        }
+
         // 1. Current active root is always retained
         if wt.is_active_root {
             actions.push(WorktreeConvergenceAction::RetainActiveWorkspace {
@@ -234,6 +256,7 @@ mod tests {
                 dirty_file_count: 0,
                 git_prunable: false,
                 prunable_reason: None,
+                created_at_ms: None,
             },
             ObservedWorktreeSnapshot {
                 path: PathBuf::from("/repo/merged-wt"),
@@ -243,6 +266,7 @@ mod tests {
                 dirty_file_count: 0,
                 git_prunable: false,
                 prunable_reason: None,
+                created_at_ms: None,
             },
             ObservedWorktreeSnapshot {
                 path: PathBuf::from("/repo/dirty-wt"),
@@ -252,6 +276,7 @@ mod tests {
                 dirty_file_count: 3,
                 git_prunable: false,
                 prunable_reason: None,
+                created_at_ms: None,
             },
             ObservedWorktreeSnapshot {
                 path: PathBuf::from("/repo/zombie-wt"),
@@ -261,6 +286,7 @@ mod tests {
                 dirty_file_count: 0,
                 git_prunable: true,
                 prunable_reason: Some("git directory missing".to_string()),
+                created_at_ms: None,
             },
             ObservedWorktreeSnapshot {
                 path: PathBuf::from("/repo/leased-wt"),
@@ -270,6 +296,7 @@ mod tests {
                 dirty_file_count: 0,
                 git_prunable: false,
                 prunable_reason: None,
+                created_at_ms: None,
             },
         ]
     }
@@ -283,6 +310,7 @@ mod tests {
             "sha-main-001",
             &items,
             &[],
+            1_700_000_000_000,
         );
         let active_action = plan.actions.iter().find(|a| {
             matches!(
@@ -303,6 +331,7 @@ mod tests {
             "sha-main-001",
             &items,
             &[],
+            1_700_000_000_000,
         );
         let merged_action = plan.actions.iter().find(|a| {
             matches!(
@@ -323,6 +352,7 @@ mod tests {
             "sha-main-001",
             &items,
             &[],
+            1_700_000_000_000,
         );
         let dirty_action = plan.actions.iter().find(|a| {
             matches!(
@@ -343,6 +373,7 @@ mod tests {
             "sha-main-001",
             &items,
             &["agent/leased-active".to_string()],
+            1_700_000_000_000,
         );
         let leased_action = plan.actions.iter().find(|a| {
             matches!(
@@ -363,6 +394,7 @@ mod tests {
             "sha-main-001",
             &items,
             &[],
+            1_700_000_000_000,
         );
         let zombie_action = plan.actions.iter().find(|a| {
             matches!(
@@ -372,5 +404,102 @@ mod tests {
             )
         });
         assert!(zombie_action.is_some());
+    }
+
+    fn young_inventory(now_ms: u64) -> Vec<ObservedWorktreeSnapshot> {
+        vec![
+            ObservedWorktreeSnapshot {
+                path: PathBuf::from("/repo/fresh-merged"),
+                branch: Some("agent/fresh".to_string()),
+                head_sha: "sha-main-001".to_string(),
+                is_active_root: false,
+                dirty_file_count: 0,
+                git_prunable: false,
+                prunable_reason: None,
+                created_at_ms: Some(now_ms - 60_000),
+            },
+            ObservedWorktreeSnapshot {
+                path: PathBuf::from("/repo/fresh-zombie"),
+                branch: None,
+                head_sha: "sha-unknown".to_string(),
+                is_active_root: false,
+                dirty_file_count: 0,
+                git_prunable: true,
+                prunable_reason: Some("git directory missing".to_string()),
+                created_at_ms: Some(now_ms - 30_000),
+            },
+            ObservedWorktreeSnapshot {
+                path: PathBuf::from("/repo/old-zombie"),
+                branch: None,
+                head_sha: "sha-unknown".to_string(),
+                is_active_root: false,
+                dirty_file_count: 0,
+                git_prunable: true,
+                prunable_reason: Some("git directory missing".to_string()),
+                created_at_ms: Some(now_ms - WORKTREE_MATURATION_GRACE_MS - 1),
+            },
+            ObservedWorktreeSnapshot {
+                path: PathBuf::from("/repo/ageless-zombie"),
+                branch: None,
+                head_sha: "sha-unknown".to_string(),
+                is_active_root: false,
+                dirty_file_count: 0,
+                git_prunable: true,
+                prunable_reason: Some("git directory missing".to_string()),
+                created_at_ms: None,
+            },
+        ]
+    }
+
+    #[test]
+    fn young_worktrees_are_retained_despite_prune_signals() {
+        let now_ms = 1_700_000_000_000;
+        let items = young_inventory(now_ms);
+        let plan = reconcile_worktree_convergence_pure(
+            PathBuf::from("/repo"),
+            "main",
+            "sha-main-001",
+            &items,
+            &[],
+            now_ms,
+        );
+        for path in ["/repo/fresh-merged", "/repo/fresh-zombie"] {
+            let retained = plan.actions.iter().any(|a| {
+                matches!(
+                    a,
+                    WorktreeConvergenceAction::RetainActiveWorkspace {
+                        workspace_path,
+                        reason,
+                        ..
+                    } if workspace_path == &PathBuf::from(path)
+                        && reason.contains("Maturation grace")
+                )
+            });
+            assert!(retained, "{path} should be retained under maturation grace");
+        }
+    }
+
+    #[test]
+    fn old_and_ageless_zombies_still_prune() {
+        let now_ms = 1_700_000_000_000;
+        let items = young_inventory(now_ms);
+        let plan = reconcile_worktree_convergence_pure(
+            PathBuf::from("/repo"),
+            "main",
+            "sha-main-001",
+            &items,
+            &[],
+            now_ms,
+        );
+        for path in ["/repo/old-zombie", "/repo/ageless-zombie"] {
+            let pruned = plan.actions.iter().any(|a| {
+                matches!(
+                    a,
+                    WorktreeConvergenceAction::PruneZombieWorkspace { workspace_path, .. }
+                        if workspace_path == &PathBuf::from(path)
+                )
+            });
+            assert!(pruned, "{path} should still prune");
+        }
     }
 }

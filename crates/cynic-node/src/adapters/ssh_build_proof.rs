@@ -12,7 +12,7 @@ use std::time::Instant;
 use crate::ports::build_proof_port::BuildProofPort;
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
-use crate::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE;
+use crate::ports::build_runner_adapter::default_checkout_base;
 
 pub struct SshBuildProof {
     pub host: String,
@@ -40,7 +40,7 @@ impl SshBuildProof {
     fn checkout_dir(&self, sha: &str) -> String {
         format!(
             "{}/cynic-{}",
-            DEFAULT_CHECKOUT_BASE,
+            default_checkout_base().display(),
             &sha[..12.min(sha.len())]
         )
     }
@@ -90,6 +90,9 @@ impl BuildProofPort for SshBuildProof {
                 (a, None)
             }
             cynic_build::build_proof::BuildProofPhase::Test { filter } => {
+                // No `--lib`: the proof runs the whole suite (lib, integration
+                // targets, doc tests). A `--lib`-only proof silently skips
+                // `tests/` targets and blesses code the suite never executed.
                 let mut a: Vec<String> = vec![
                     "env".to_string(),
                     "RUST_MIN_STACK=8589934592".to_string(),
@@ -106,7 +109,6 @@ impl BuildProofPort for SshBuildProof {
                     a.push("--package".to_string());
                     a.push(pkg.to_string());
                 }
-                a.push("--lib".to_string());
                 if let Some(f) = filter {
                     a.push(f.to_string());
                 }
@@ -154,6 +156,30 @@ impl BuildProofPort for SshBuildProof {
                 });
             }
             let (passed, failed) = cynic_build::build_proof::parse_cargo_test_counts(&stdout);
+            // Fail closed on a vacuous filter match: cargo exits 0 with
+            // "0 passed" when the filter names no test. A proof of nothing
+            // must not read as converged.
+            let filter_is_vacuous = matches!(
+                &request.phase,
+                cynic_build::build_proof::BuildProofPhase::Test { filter: Some(_) }
+            ) && passed == Some(0)
+                && failed == Some(0);
+            if filter_is_vacuous {
+                return Ok(BuildProofReport {
+                    schema: cynic_build::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
+                    source_commit: sha.clone(),
+                    package: request.package.clone(),
+                    phase: "test".to_string(),
+                    status: cynic_build::build_proof::BuildProofStatus::Failed {
+                        detail: "proof filter matched no tests; vacuous pass refused".to_string(),
+                    },
+                    argv: test_args.iter().map(|s| (*s).to_string()).collect(),
+                    node_id: self.node_id.clone(),
+                    elapsed_secs: start.elapsed().as_secs(),
+                    tests_passed: None,
+                    tests_failed: None,
+                });
+            }
             tests_passed = passed;
             tests_failed = failed;
         }

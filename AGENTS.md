@@ -5,7 +5,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 ## Gates & Build Policy
 
 - **Builder SSOT**: `10.10.10.119`. NEVER run cargo/rustc locally on cortex (faulty RAM).
-- **Canonical gates**: `make check`, `make audit`, `make release.deploy`.
+- **Canonical gates**: `cynic audit crate` (`make audit-crate`; `make check` is a deprecated alias), `cynic audit all` (`make audit`), `make release.deploy`.
 - **Fast checks**: `RUSTFLAGS="-C debuginfo=0" cargo check -p <crate> --lib`, `cynic audit all --json`.
 - Note: `make build` and `make build-release` do not exist.
 
@@ -19,6 +19,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 ## Invariants
 
+- **Bottom-Up over Top-Down**: Always observe, measure, and validate physical substrate reality (hardware, raw bytes, exit codes, machine receipts, AST) before introducing speculative, probabilistic, or higher-layer abstractions across all domains. No model or policy without an empirically verified baseline.
 - **Strict DAG downward**: Higher layers depend on lower layers, never the reverse.
 - **FCIS / Zero-I/O Core**: Pure logic in domain modules; side effects behind ports in `adapters/`.
 - **Boundaries**: Dynamic registries over hardcoded values; typed argv execution; explicit `--yes`/`--apply` for mutation.

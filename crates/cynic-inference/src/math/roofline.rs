@@ -1,10 +1,53 @@
 //! Measured-input Roofline analysis for inference decoding.
 //!
+//! Enforces physical throughput ceilings according to:
+//! "Memory Bandwidth for Local AI Hardware (2026 Edition)"
+//! by Ahmad Osman (https://x.com/TheAhmadOsman):
+//! "Capacity decides what fits. Bandwidth decides how hard the box can breathe.
+//! Software stack decides how much you actually cash out."
+//!
 //! The model produces a physical ceiling only from an observed sustained memory
 //! bandwidth and an explicit decode traffic estimate. It never infers bandwidth
 //! from a CPU, GPU, or marketing name.
 
 use serde::{Deserialize, Serialize};
+
+/// 2026 Hardware Bandwidth Tiers (Ahmad Osman classification).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BandwidthTier {
+    /// 1.8 TB/s class: RTX 5090, RTX PRO 6000 Blackwell. Unrestricted multi-agent throughput.
+    Tier1800,
+    /// 800 GB/s class: Mac Studio M3 Ultra, RTX 4090. Big one-box / serious workstation.
+    Tier800,
+    /// 500 GB/s class: M4/M5 Max, Radeon PRO W7900, Tenstorrent Blackhole p150.
+    Tier500,
+    /// 250-300 GB/s unified memory: DGX Spark, Mac mini M4 Pro, Strix Halo / Ryzen AI Max.
+    Tier250,
+    /// 130-160 GB/s thin-and-light: MacBook Air M5, Intel Lunar Lake, Snapdragon X. Small models.
+    Tier150,
+    /// Under 100 GB/s: Standard dual-channel DDR4/DDR5 desktop/APU (e.g. Cortex Cezanne/Renoir).
+    Sub100LegacyDdr,
+}
+
+impl BandwidthTier {
+    /// Classify sustained bandwidth in GB/s into normative hardware tier.
+    pub fn from_bandwidth_gbps(gbps: f64) -> Self {
+        if gbps >= 1400.0 {
+            Self::Tier1800
+        } else if gbps >= 700.0 {
+            Self::Tier800
+        } else if gbps >= 400.0 {
+            Self::Tier500
+        } else if gbps >= 220.0 {
+            Self::Tier250
+        } else if gbps >= 110.0 {
+            Self::Tier150
+        } else {
+            Self::Sub100LegacyDdr
+        }
+    }
+}
 
 /// Measured quantities required for a reproducible Roofline assessment.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -129,5 +172,33 @@ mod tests {
 
         assert_eq!(assessment.compute_bound_tps, None);
         assert_eq!(assessment.bottleneck, None);
+    }
+
+    #[test]
+    fn test_bandwidth_tier_classification() {
+        assert_eq!(
+            BandwidthTier::from_bandwidth_gbps(1792.0),
+            BandwidthTier::Tier1800
+        );
+        assert_eq!(
+            BandwidthTier::from_bandwidth_gbps(819.0),
+            BandwidthTier::Tier800
+        );
+        assert_eq!(
+            BandwidthTier::from_bandwidth_gbps(512.0),
+            BandwidthTier::Tier500
+        );
+        assert_eq!(
+            BandwidthTier::from_bandwidth_gbps(256.0),
+            BandwidthTier::Tier250
+        );
+        assert_eq!(
+            BandwidthTier::from_bandwidth_gbps(136.0),
+            BandwidthTier::Tier150
+        );
+        assert_eq!(
+            BandwidthTier::from_bandwidth_gbps(38.0),
+            BandwidthTier::Sub100LegacyDdr
+        );
     }
 }

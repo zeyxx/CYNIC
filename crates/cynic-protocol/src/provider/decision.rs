@@ -1,7 +1,7 @@
 use super::types::{
-    NODE_SUBSTRATE_DECISION_SCHEMA, NODE_SUBSTRATE_OBSERVATION_SCHEMA,
-    NODE_SUBSTRATE_PROVISIONING_SCHEMA, NodeNetworkAttachment, NodeSubstrateAction,
-    NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
+    LXC_PROVISIONING_SCHEMA, LxcProvisioningSpec, NODE_SUBSTRATE_DECISION_SCHEMA,
+    NODE_SUBSTRATE_OBSERVATION_SCHEMA, NODE_SUBSTRATE_PROVISIONING_SCHEMA, NodeNetworkAttachment,
+    NodeSubstrateAction, NodeSubstrateDecision, NodeSubstrateDesiredState, NodeSubstrateExistence,
     NodeSubstrateObservation, NodeSubstratePower, NodeSubstrateProvisioningSpec,
     PROVIDER_CONTROL_DESIRED_STATE_SCHEMA, ProviderControlDesiredState,
 };
@@ -52,6 +52,11 @@ pub fn validate_node_substrate_provisioning(
     if provisioning.schema != NODE_SUBSTRATE_PROVISIONING_SCHEMA {
         blockers.push("node_substrate_provisioning_schema_mismatch".to_string());
     }
+    if let Some(lxc) = provisioning.lxc.as_ref() {
+        // LXC container substrate: content-addressed fields are replaced by
+        // concrete container parameters validated by their own predicate.
+        return validate_lxc_provisioning_spec(lxc);
+    }
     for (value, blocker) in [
         (
             provisioning.image_ref.as_str(),
@@ -91,6 +96,125 @@ fn valid_sha256(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })
+}
+
+/// Validates concrete Proxmox LXC container provisioning parameters.
+/// Pure predicate: zero I/O, returns blocker codes, never panics.
+pub fn validate_lxc_provisioning_spec(lxc: &LxcProvisioningSpec) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if lxc.schema != LXC_PROVISIONING_SCHEMA {
+        blockers.push("lxc_provisioning_schema_mismatch".to_string());
+    }
+    if !valid_lxc_hostname(&lxc.hostname) {
+        blockers.push("lxc_hostname_invalid".to_string());
+    }
+    if !valid_template_volid(&lxc.template_volid) {
+        blockers.push("lxc_template_volid_invalid".to_string());
+    }
+    if lxc.storage_pool.trim().is_empty() {
+        blockers.push("lxc_storage_pool_missing".to_string());
+    }
+    if lxc.cores == 0 {
+        blockers.push("lxc_cores_zero".to_string());
+    }
+    if lxc.memory_mib < 512 {
+        blockers.push("lxc_memory_below_512mib_minimum".to_string());
+    }
+    if lxc.disk_gib < 4 {
+        blockers.push("lxc_disk_below_4gib_minimum".to_string());
+    }
+    if lxc.bridge.trim().is_empty() {
+        blockers.push("lxc_bridge_missing".to_string());
+    }
+    if let Some(ip_cidr) = lxc.ip_cidr.as_deref() {
+        if !valid_ipv4_cidr(ip_cidr) {
+            blockers.push("lxc_ip_cidr_invalid".to_string());
+        }
+        let gateway_valid = lxc
+            .gateway
+            .as_deref()
+            .is_some_and(|gateway| valid_ipv4(gateway));
+        if !gateway_valid {
+            blockers.push("lxc_gateway_missing_or_invalid_for_static_ip".to_string());
+        }
+    }
+    if let Some(nameserver) = lxc.nameserver.as_deref() {
+        if !valid_ipv4(nameserver) {
+            blockers.push("lxc_nameserver_invalid".to_string());
+        }
+    }
+    for feature in &lxc.features {
+        let chars_valid = feature
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'=' | b'-' | b'_' | b','));
+        let shape_valid = !feature.contains('=') || feature.split('=').count() == 2;
+        if !chars_valid || !shape_valid {
+            blockers.push("lxc_feature_invalid".to_string());
+            break;
+        }
+    }
+    blockers
+}
+
+/// RFC 1123 hostname: labels of alphanumeric/hyphen, 1-63 chars each,
+/// total length 1-63, no leading/trailing hyphen per label.
+fn valid_lxc_hostname(hostname: &str) -> bool {
+    if hostname.is_empty() || hostname.len() > 63 {
+        return false;
+    }
+    hostname.split('.').all(|label| {
+        !label.is_empty()
+            && label.len() <= 63
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+            && label
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    })
+}
+
+/// Storage volume id shape: "<storage>:vztmpl/<filename>" with safe chars.
+fn valid_template_volid(volid: &str) -> bool {
+    let Some((storage, rest)) = volid.split_once(':') else {
+        return false;
+    };
+    if storage.trim().is_empty() || !rest.starts_with("vztmpl/") {
+        return false;
+    }
+    let filename = &rest["vztmpl/".len()..];
+    !filename.is_empty()
+        && filename
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+fn valid_ipv4(value: &str) -> bool {
+    let mut octets = value.split('.');
+    let mut count = 0;
+    for octet in octets.by_ref() {
+        count += 1;
+        if count > 4 {
+            return false;
+        }
+        let Ok(parsed) = octet.parse::<u8>() else {
+            return false;
+        };
+        let _ = parsed;
+    }
+    count == 4 && value.split('.').count() == 4
+}
+
+fn valid_ipv4_cidr(value: &str) -> bool {
+    let Some((address, prefix)) = value.split_once('/') else {
+        return false;
+    };
+    if !valid_ipv4(address) {
+        return false;
+    }
+    match prefix.parse::<u8>() {
+        Ok(prefix) => prefix <= 32,
+        Err(_) => false,
+    }
 }
 
 pub fn reconcile_node_substrate(

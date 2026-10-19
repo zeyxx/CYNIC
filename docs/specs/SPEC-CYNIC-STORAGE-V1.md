@@ -3,7 +3,7 @@
 - **Status**: Ratified, Hardened & Sealed (2026-09-11)
 - **Author**: Titouan Corneloup (zeyxx) / Hermes Agent
 - **Target Crate**: `crates/cynic-storage`
-- **Related Requirements**: Foundation §11 (Digest Law: `sha3-512:`), §481 (`one_boundary_one_reason`), §489 (anti-centralization), Framework §462 (`substrate_behind_ports`), §476 (`proof_producers_are_low_layer`)
+- **Related Requirements**: Foundation §11 (Digest Law: `sha256:`), §481 (`one_boundary_one_reason`), §489 (anti-centralization), Framework §462 (`substrate_behind_ports`), §476 (`proof_producers_are_low_layer`)
 - **Supersedes**: `cynic-kernel/src/storage/` (SurrealDB network coupling, SPOF F2)
 
 ---
@@ -24,13 +24,13 @@ The CYNIC codebase historically dispersed storage across 83 files and 15,570 LOC
 1. **INV-01 (View Derives From Log, Never Inverse)**: The append-only, hash-chained Write-Ahead Log (WAL) is the sole source of runtime truth. Embedded database projections (SQLite) are disposable, reconstructible caches. Wiping SQLite must never cause data loss; replaying the WAL reconstructs the exact state.
 2. **INV-02 (Hexagonal Purity & Zero Domain Bleed)**: Core storage domain contracts (`ports`) know nothing of underlying database drivers or network sockets. Storage ports do NOT declare hardcoded domain getters (e.g. `get_claim`, `get_account`); domain contexts own their schemas and project via the SMR reducer interface.
 3. **INV-03 (Single-Binary Embedded Sovereignty)**: Storage operates strictly embedded within the CYNIC process space. No external database process (Postgres, remote SurrealDB, Redis, Qdrant) is required for steady-state sovereign operations.
-4. **INV-04 (Cryptographic Causal Chain & 2-Stage Commit Binding)**: Every mutation record is cryptographically bound to its predecessor via length-prefixed, domain-separated SHA3-512 hashing. To prevent circular signature dependencies, hashing follows a strict 2-stage binding:
-   - Stage 1: $\text{commit\_hash} = \text{SHA3-512}(\text{"CYNIC\_WAL\_COMMIT\_V1\textbackslash 0"} \parallel \text{seq} \parallel \text{prev\_hash} \parallel \text{poh\_tick} \parallel \text{schema} \parallel \text{payload\_hash} \parallel \text{mandate\_id} \parallel \text{proof\_anchor})$
+4. **INV-04 (Cryptographic Causal Chain & 2-Stage Commit Binding)**: Every mutation record is cryptographically bound to its predecessor via length-prefixed, domain-separated SHA-256 hashing. To prevent circular signature dependencies, hashing follows a strict 2-stage binding:
+   - Stage 1: $\text{commit\_hash} = \text{SHA-256}(\text{"CYNIC\_WAL\_COMMIT\_V1\textbackslash 0"} \parallel \text{seq} \parallel \text{prev\_hash} \parallel \text{poh\_tick} \parallel \text{schema} \parallel \text{payload\_hash} \parallel \text{mandate\_id} \parallel \text{proof\_anchor})$
    - Stage 2: Principal signs $\text{commit\_hash}$ with Ed25519.
-   - Stage 3: $\text{entry\_hash} = \text{SHA3-512}(\text{"CYNIC\_WAL\_ENTRY\_V1\textbackslash 0"} \parallel \text{commit\_hash} \parallel \text{principal\_pubkey} \parallel \text{signature})$
-   All digests must strictly carry the canonical `sha3-512:` prefix per Foundation §11.
+   - Stage 3: $\text{entry\_hash} = \text{SHA-256}(\text{"CYNIC\_WAL\_ENTRY\_V1\textbackslash 0"} \parallel \text{commit\_hash} \parallel \text{principal\_pubkey} \parallel \text{signature})$
+   All digests must strictly carry the canonical `sha256:` prefix per Foundation §11.
 5. **INV-05 (Handling Unformalized Matter)**: Entities not yet formalised into strict relational schemas are preserved as content-addressed, schema-tagged opaque envelopes (`cynic.opaque_envelope.v2`) carrying structured tags for indexed queries.
-6. **INV-06 (Zero Secrets in the WAL)**: Raw credentials, private keys, API secrets, and unencrypted session tokens are strictly prohibited from being written to the WAL. Secrets must reside in principal-owned encrypted vaults; the WAL stores only cryptographic commitments (`sha3-512:secret_digest`) and URI handles (`vault://...`).
+6. **INV-06 (Zero Secrets in the WAL)**: Raw credentials, private keys, API secrets, and unencrypted session tokens are strictly prohibited from being written to the WAL. Secrets must reside in principal-owned encrypted vaults; the WAL stores only cryptographic commitments (`sha256:secret_digest`) and URI handles (`vault://...`).
 7. **INV-07 (Anti-Fabrication on Historical Matter)**: When historical records are projected into newly formalized schemas, missing attributes MUST be stored as `NULL` / `Option::None`. The projection engine is strictly prohibited from using SQL `DEFAULT` values or type-level defaults (`Default::default()`). Any unobserved field must propagate to the snapshot's `residual_unknowns` collection.
 8. **INV-08 (Amnesia & Shattering Protection)**: A cognitive crystal may never be shattered based solely on telemetry variance. Shattering requires operator confirmation or multi-source consensus, preventing adversarial epistemic amnesia attacks. Certainty scores are clamped strictly to $[0.0, 1.0]$.
 9. **INV-09 (Market Data Non-Authority)**: Market odds and futarchic prices stored in telemetry or metadata are descriptive projections of external sentiment only. They are strictly prohibited from driving SMR state transitions, mandate admissions, or crystal validity.
@@ -85,7 +85,7 @@ To prevent OOM allocation attacks:
 | ProofAnchorPresent (1B) | ProofAnchor (0 or 64B)                              |
 | Signature (64B Ed25519 over commit_hash)                                     |
 +-------------------------------------------------------------------------------+
-| EntryHashDigest (64 bytes raw SHA3-512 over commit_hash + witness)            |
+| EntryHashDigest (64 bytes raw SHA-256 over commit_hash + witness)            |
 +-------------------------------------------------------------------------------+
 ```
 
@@ -122,9 +122,9 @@ pub struct Hash512(pub [u8; 64]);
 
 impl Hash512 {
     pub const GENESIS: Self = Self([0u8; 64]);
-    pub fn to_prefixed_hex(&self) -> String { format!("sha3-512:{}", hex::encode(self.0)) }
+    pub fn to_prefixed_hex(&self) -> String { format!("sha256:{}", hex::encode(self.0)) }
     pub fn from_prefixed_hex(s: &str) -> Result<Self, String> {
-        let hex_str = s.strip_prefix("sha3-512:").ok_or_else(|| format!("missing sha3-512: prefix in '{s}'"))?;
+        let hex_str = s.strip_prefix("sha256:").ok_or_else(|| format!("missing sha256: prefix in '{s}'"))?;
         let bytes = hex::decode(hex_str).map_err(|e| format!("invalid hex: {e}"))?;
         if bytes.len() != 64 { return Err(format!("expected 64 bytes, got {}", bytes.len())); }
         let mut arr = [0u8; 64];

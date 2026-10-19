@@ -29,6 +29,7 @@ use cynic_node::node_control_runtime;
 use cynic_node::runtime_supervision;
 use cynic_node::shutdown::install_signal_handler;
 use cynic_node::watchdog;
+use cynic_types::paths::CynicPaths;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -70,14 +71,27 @@ async fn main() -> ExitCode {
         .iter()
         .position(|a| a == "--config")
         .and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str())
-        .unwrap_or("/etc/cynic/node-control.toml");
+        .cloned()
+        .unwrap_or_else(|| {
+            CynicPaths::system_config_dir()
+                .join("node-control.toml")
+                .display()
+                .to_string()
+        });
 
-    if args.len() > 1 && args[1] == "--watchdog" {
-        return watchdog::execute(config_path).await;
+    // The daemon owns only `control`, and `control` consumes only
+    // [node_control]. Parse narrowly: the full Config requires the
+    // supervision sections ([kernel]/[dog]/[process]) that control never
+    // reads, which fails closed on hosts that carry no dog (e.g. builder).
+    if args.len() > 1 && args[1] == "control" {
+        return control_main(&config_path).await;
     }
 
-    let cfg = match config::load(config_path) {
+    if args.len() > 1 && args[1] == "--watchdog" {
+        return watchdog::execute(&config_path).await;
+    }
+
+    let cfg = match config::load(&config_path) {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("config error: {e}");
@@ -112,10 +126,41 @@ async fn main() -> ExitCode {
         Vec::new()
     };
 
-    let exit = runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await;
+    let exit = runtime_supervision::run_node(&client, &config_path, cfg, &shutdown).await;
     shutdown.cancel();
     for task in node_tasks {
         let _ = task.await;
     }
     exit
+}
+
+/// `control` entry mode: scheduler tasks only, no dog/process supervision.
+///
+/// Loads only [node_control] (narrow loader), starts the control tasks,
+/// then parks until shutdown. Supervision (`run_node`) is deliberately not
+/// started here: it requires [kernel]/[dog]/[process], which control-mode
+/// hosts (builder) do not carry.
+async fn control_main(config_path: &str) -> ExitCode {
+    let shutdown = CancellationToken::new();
+    install_signal_handler(shutdown.clone());
+    let control = match config::load_node_control(config_path) {
+        Ok(control) => control,
+        Err(error) => {
+            tracing::error!("control config error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let tasks = match node_control_runtime::start_tasks(control, shutdown.clone()).await {
+        Ok(tasks) => tasks,
+        Err(error) => {
+            tracing::error!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    shutdown.cancelled().await;
+    shutdown.cancel();
+    for task in tasks {
+        let _ = task.await;
+    }
+    ExitCode::SUCCESS
 }

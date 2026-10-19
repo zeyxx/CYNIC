@@ -7,11 +7,12 @@
 
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 use cynic_host::registry::resolve::resolve_build_runner_transport;
+use cynic_host::registry::resolve::resolve_source_transport_uri;
 
 use crate::adapters::ssh_build_proof::SshBuildProof;
 use crate::ports::build_proof_port::BuildProofPort;
 use crate::ports::build_runner_adapter::{
-    DEFAULT_CHECKOUT_BASE, DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner,
+    DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner, default_checkout_base,
 };
 
 /// Resolve the SSH target for a build trigger.
@@ -25,6 +26,22 @@ pub fn resolve_runner_host(host: Option<&str>, registry: &str) -> Result<String,
         None => resolve_build_runner_transport(Some(registry))
             .map_err(|error| format!("build runner unresolvable in registry {registry}: {error}"))
             .map(|transport| transport.ssh_target),
+    }
+}
+
+/// Resolve the source-of-truth clone URI for a build trigger.
+///
+/// An explicit `--ssot-url` wins; otherwise the URI is resolved from the
+/// registry's `source_workspace_layout.repositories` for the sovereign
+/// `cynic` repository. Fails closed when the registry cannot answer — a
+/// clone must never silently fall back to a hardcoded default the runner
+/// cannot resolve.
+pub fn resolve_ssot_url(ssot_url: &str, registry: &str) -> Result<String, String> {
+    match ssot_url.trim() {
+        explicit if !explicit.is_empty() => Ok(explicit.to_string()),
+        _ => resolve_source_transport_uri(Some(registry), "cynic").map_err(|error| {
+            format!("build source unresolvable in registry {registry}: {error}")
+        }),
     }
 }
 
@@ -45,7 +62,7 @@ pub fn ssh_build_runner(
         host,
         user,
         checkout_base: if checkout_base.is_empty() {
-            DEFAULT_CHECKOUT_BASE.to_string()
+            default_checkout_base().display().to_string()
         } else {
             checkout_base
         },
@@ -74,8 +91,17 @@ pub fn prove_build_blocking(
     host: &str,
     user: &str,
 ) -> Result<BuildProofReport, String> {
-    let runtime =
-        tokio::runtime::Runtime::new().map_err(|e| format!("async runtime unavailable: {e}"))?;
+    // The CLI runs inside a tokio runtime (#[tokio::main]), so a fresh
+    // `Runtime::block_on` would panic with "cannot start a runtime from
+    // within a runtime". Mirror the adapter convention: join the ambient
+    // runtime when present, build one only when absent.
     let adapter = SshBuildProof::new(host, user, "builder");
-    runtime.block_on(adapter.prove(request))
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) => tokio::task::block_in_place(|| handle.block_on(adapter.prove(request))),
+        Err(_) => {
+            let runtime = tokio::runtime::Runtime::new()
+                .map_err(|e| format!("async runtime unavailable: {e}"))?;
+            runtime.block_on(adapter.prove(request))
+        }
+    }
 }

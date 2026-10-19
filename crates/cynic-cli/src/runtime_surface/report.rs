@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use crate::fs_json::write_pretty_json_file;
 use crate::{emit_json, fail};
+use cynic_types::paths::CynicPaths;
 
 mod build;
 mod catalog;
@@ -12,17 +13,23 @@ mod types;
 use build::build_runtime_report;
 use types::RuntimeReport;
 
-const DEFAULT_RUNTIME_REPORT_PATH: &str = "/var/lib/cynic/reports/runtime-report.json";
-const DEFAULT_RUNTIME_REPORT_DIR: &str = "/var/lib/cynic/reports";
 const FALLBACK_RUNTIME_REPORT_DIR: &str = "/tmp/cynic/reports";
 const DEFAULT_RUNTIME_REPORT_FILENAME: &str = "runtime-report.json";
+
+fn default_runtime_report_dir() -> PathBuf {
+    CynicPaths::state_dir().join("reports")
+}
+
+fn default_runtime_report_path() -> PathBuf {
+    default_runtime_report_dir().join(DEFAULT_RUNTIME_REPORT_FILENAME)
+}
 
 pub(crate) fn execute_report(json: bool, output: Option<&str>, persist: bool) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
 
-    match build_runtime_report(DEFAULT_RUNTIME_REPORT_PATH) {
+    match build_runtime_report(&default_runtime_report_path()) {
         Ok(mut report) => {
             let report_dir = std::env::var("CYNIC_REPORT_DIR").ok();
             let uses_default_dir = report_dir.is_none();
@@ -64,7 +71,9 @@ fn resolve_runtime_report_path(
 ) -> Option<PathBuf> {
     output.map(PathBuf::from).or_else(|| {
         persist.then(|| {
-            Path::new(report_dir.unwrap_or(DEFAULT_RUNTIME_REPORT_DIR))
+            report_dir
+                .map(PathBuf::from)
+                .unwrap_or_else(default_runtime_report_dir)
                 .join(DEFAULT_RUNTIME_REPORT_FILENAME)
         })
     })
@@ -81,25 +90,33 @@ fn write_runtime_report(path: &Path, report: &mut RuntimeReport) -> Result<(), S
 mod tests {
     use super::resolve_runtime_report_path;
     use super::{
-        DEFAULT_RUNTIME_REPORT_DIR, DEFAULT_RUNTIME_REPORT_FILENAME, DEFAULT_RUNTIME_REPORT_PATH,
+        DEFAULT_RUNTIME_REPORT_FILENAME, default_runtime_report_dir, default_runtime_report_path,
     };
+    use cynic_types::paths::CynicPaths;
     use std::path::Path;
 
     #[test]
     fn default_runtime_report_path_is_installed_state_not_user_home() {
+        let path = default_runtime_report_path();
         assert_eq!(
-            DEFAULT_RUNTIME_REPORT_PATH,
-            "/var/lib/cynic/reports/runtime-report.json"
+            path,
+            CynicPaths::state_dir().join("reports/runtime-report.json")
         );
-        assert!(!DEFAULT_RUNTIME_REPORT_PATH.contains("/home/"));
-        assert!(!DEFAULT_RUNTIME_REPORT_PATH.contains("~"));
+        assert!(!path.to_string_lossy().contains("/home/"));
+        assert!(!path.to_string_lossy().contains("~"));
     }
 
     #[test]
     fn default_report_filename_and_dir_are_consistent() {
-        let expected_default_path =
-            format!("{DEFAULT_RUNTIME_REPORT_DIR}/{DEFAULT_RUNTIME_REPORT_FILENAME}");
-        assert_eq!(expected_default_path, DEFAULT_RUNTIME_REPORT_PATH);
+        let expected_default_path = format!(
+            "{}/{}",
+            default_runtime_report_dir().display(),
+            DEFAULT_RUNTIME_REPORT_FILENAME
+        );
+        assert_eq!(
+            expected_default_path,
+            default_runtime_report_path().display().to_string()
+        );
     }
 
     #[test]

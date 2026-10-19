@@ -40,8 +40,7 @@ pub struct CompletionOutcome {
     pub token_entropy_snapshots: Vec<crate::domain::token_entropy::TokenEntropySnapshot>,
     /// Sequence-level assessment derived from `token_entropy_snapshots`.
     #[serde(default)]
-    pub token_uncertainty:
-        Option<crate::domain::token_entropy::TokenUncertaintyAssessment>,
+    pub token_uncertainty: Option<crate::domain::token_entropy::TokenUncertaintyAssessment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -332,7 +331,14 @@ impl ChatService {
                 message: ready.message,
                 blocked_reason: ready.blocked_reason,
             };
-            self.record_trace(&report.session_id, TraceStatus::Blocked, 0, prompt_chars, 0, started_ms);
+            self.record_trace(
+                &report.session_id,
+                TraceStatus::Blocked,
+                0,
+                prompt_chars,
+                0,
+                started_ms,
+            );
             return report;
         }
 
@@ -421,7 +427,10 @@ impl ChatService {
             break;
         }
 
-        let content_chars = final_content.as_ref().map(|c| c.chars().count()).unwrap_or(0);
+        let content_chars = final_content
+            .as_ref()
+            .map(|c| c.chars().count())
+            .unwrap_or(0);
         let report = ChatTurnReport {
             schema: "cynic.chat.turn.v1",
             status: "ok".into(),
@@ -548,12 +557,13 @@ mod context_tests {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::adapters::local::session_store::FsChatSessionStore;
-    use crate::application::chat_support::{BuiltinToolInvoker, MockChatClient, default_tool_specs};
+    use crate::application::chat_support::{
+        BuiltinToolInvoker, MockChatClient, default_tool_specs,
+    };
     use crate::domain::chat_session::ChatEventKind;
     use tempfile::tempdir;
 
@@ -651,7 +661,12 @@ mod tests {
             client,
             tools,
             vec![],
-            ChatServiceConfig::new(Some("mock://local".into()), Some("mock-model".into()), 2, true),
+            ChatServiceConfig::new(
+                Some("mock://local".into()),
+                Some("mock-model".into()),
+                2,
+                true,
+            ),
         )
         .with_tracer(sink.clone());
         let report = svc.turn(Some("s-trace"), "hello", false).await;
@@ -683,7 +698,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resume_appends_to_existing_session() {        let dir = tempdir().unwrap();
+    async fn resume_appends_to_existing_session() {
+        let dir = tempdir().unwrap();
         let store = Arc::new(FsChatSessionStore::new(dir.path()).unwrap());
         let client = Arc::new(MockChatClient::plain("second"));
         let tools = Arc::new(BuiltinToolInvoker);

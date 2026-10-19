@@ -10,9 +10,9 @@ use crate::observe::NodeObservation;
 
 fn portable_context() -> NetworkRootPolicyContext {
     NetworkRootPolicyContext {
-        helper_path: "/portable/bin/cynic-network-actuator".to_string(),
-        sudoers_target: "/portable/etc/sudoers.d/cynic-network-actuator".to_string(),
-        sudoers_rule: "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator".to_string(),
+        executor: "/portable/bin/cynic".to_string(),
+        membrane_target: "/portable/etc/sudoers.d/cynic".to_string(),
+        membrane_admission: "/portable/bin/cynic privilege exec network-actuate".to_string(),
         forbidden_patterns: vec![
             "/portable/bin/ip".to_string(),
             "/portable/bin/wg".to_string(),
@@ -38,12 +38,12 @@ fn proof_root_policy_keeps_denial_contract_shape() {
     assert_eq!(policy.denial_contract.len(), 3);
     assert_eq!(
         policy.denial_contract[0].expected,
-        "sudo -n rejects non-helper privileged commands for the cynic user"
+        "sudo -n rejects privileged commands outside the membrane for the cynic user"
     );
-    assert_eq!(policy.helper_path, "/portable/bin/cynic-network-actuator");
+    assert_eq!(policy.executor, "/portable/bin/cynic");
     assert_eq!(
-        policy.sudoers_target,
-        "/portable/etc/sudoers.d/cynic-network-actuator"
+        policy.membrane_target,
+        "/portable/etc/sudoers.d/cynic"
     );
 }
 

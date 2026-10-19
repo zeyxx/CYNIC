@@ -67,9 +67,7 @@ fn read_drm_cards() -> Vec<DrmCardReadings> {
                 .ok()
                 .map(|v| v.trim().to_string())
         };
-        let parse_u64 = |name: &str| {
-            read_trimmed(name).and_then(|v| v.parse::<u64>().ok())
-        };
+        let parse_u64 = |name: &str| read_trimmed(name).and_then(|v| v.parse::<u64>().ok());
         cards.push(DrmCardReadings {
             card_name,
             vendor: read_trimmed("vendor"),

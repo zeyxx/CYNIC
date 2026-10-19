@@ -25,39 +25,26 @@ pub(crate) fn build_privilege_bridge_operation_plan(
         requires_privilege: true,
         operations: vec![
             HostOperation::EnsureOwnedDir {
-                path: parent_or_target(&spec.helper_target),
-                user: spec.authority_user.clone(),
-                group: spec.authority_group.clone(),
-                mode: 0o755,
-            },
-            HostOperation::EnsureOwnedDir {
-                path: parent_or_target(&spec.projection_target),
+                path: parent_or_target(&spec.membrane_target),
                 user: spec.authority_user.clone(),
                 group: spec.authority_group.clone(),
                 mode: 0o755,
             },
             HostOperation::InstallOwnedFile {
-                source: spec.helper_source.clone(),
-                target: spec.helper_target.clone(),
+                source: spec.membrane_source.clone(),
+                target: spec.membrane_target.clone(),
                 user: spec.authority_user.clone(),
                 group: spec.authority_group.clone(),
-                mode: spec.helper_mode,
-            },
-            HostOperation::InstallOwnedFile {
-                source: spec.projection_source.clone(),
-                target: spec.projection_target.clone(),
-                user: spec.authority_user.clone(),
-                group: spec.authority_group.clone(),
-                mode: spec.projection_mode,
+                mode: spec.membrane_mode,
             },
             HostOperation::ValidatePrivilegeProjection {
                 provider: spec.provider.clone(),
-                path: spec.projection_target.clone(),
+                path: spec.membrane_target.clone(),
             },
         ],
         preconditions: privilege_bridge_preconditions(),
         rollback_intent:
-            "remove the installed projection before the helper, preserving shared directories"
+            "remove the installed membrane; the executor is basket-managed and never installed here"
                 .to_string(),
         expected_proofs: proof_gates()
             .into_iter()
@@ -119,18 +106,16 @@ pub fn privilege_bridge_preconditions() -> Vec<String> {
     ]
 }
 
-pub(crate) fn proof_gates() -> [&'static str; 10] {
+pub(crate) fn proof_gates() -> [&'static str; 8] {
     [
-        "helper_present",
-        "helper_executable",
-        "helper_mode_matches",
-        "helper_authority_owned",
-        "projection_present",
-        "projection_mode_matches",
-        "projection_authority_owned",
-        "projection_valid",
+        "executor_present",
+        "executor_executable",
+        "membrane_present",
+        "membrane_mode_matches",
+        "membrane_authority_owned",
+        "membrane_valid",
         "invocation_policy_bounded",
-        "bounded_helper_noninteractive_and_shell_denied",
+        "membrane_probe_executed_and_shell_denied",
     ]
 }
 

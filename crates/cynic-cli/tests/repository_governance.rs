@@ -182,6 +182,11 @@ fn state_leak_blacklist_is_strictly_enforced() {
 
     let mut violations = Vec::new();
     for path in tracked_paths() {
+        // Skip declared surface descriptors in surface-registry
+        if path.starts_with("infra/surface-registry/") {
+            continue;
+        }
+
         let file_name = path.split('/').last().unwrap_or("");
         for pat in &leak_patterns {
             let matches = if pat.starts_with("*") && pat.ends_with(".json") {

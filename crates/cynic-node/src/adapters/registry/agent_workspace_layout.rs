@@ -92,13 +92,13 @@ fn resolve_layout(
             )
         })?;
     let repository_path = safe_relative_path(&repository.relative_path, "repository_path")?;
-    let evidence_digest = digest_json(&(
+    let evidence_digest = compute_layout_digest(
         node_id,
         repository_id,
         workspace_id,
         layout,
         runtime_state_root,
-    ))
+    )
     .map_err(|error| {
         AgentWorkspacePortError::new(
             "workspace_layout_digest_failed",
@@ -119,6 +119,47 @@ fn resolve_layout(
         evidence_digest,
         transport_uri: repository.transport_uri.clone(),
     })
+}
+
+/// Compute the evidence digest for a resolved workspace layout. Public so
+/// that the build scheduler can recompute the digest after applying a
+/// stable-workspace override (C1).
+pub fn compute_layout_digest(
+    node_id: &str,
+    repository_id: &str,
+    workspace_id: &str,
+    layout: &RegistrySourceWorkspaceLayout,
+    runtime_state_root: &Path,
+) -> Result<String, String> {
+    digest_json(&(
+        node_id,
+        repository_id,
+        workspace_id,
+        layout,
+        runtime_state_root,
+    ))
+    .map_err(|error| error.to_string())
+}
+
+/// Recompute the evidence digest for a resolved layout, including the actual
+/// workspace_root path. Used after the stable-workspace override so the digest
+/// describes the path that will actually be used (C1).
+pub fn recompute_layout_digest(
+    layout: &AgentWorkspaceLayout,
+    node_id: &str,
+    repository_id: &str,
+    workspace_id: &str,
+) -> Result<String, String> {
+    digest_json(&(
+        node_id,
+        repository_id,
+        workspace_id,
+        layout.repository_root.clone(),
+        layout.workspace_root.clone(),
+        layout.dedicated,
+        &layout.required_principal,
+    ))
+    .map_err(|error| error.to_string())
 }
 
 fn validate_identifier(value: &str, field: &str) -> Result<(), AgentWorkspacePortError> {

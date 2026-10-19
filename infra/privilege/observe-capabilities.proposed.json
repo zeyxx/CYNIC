@@ -1,0 +1,58 @@
+{
+  "schema": "cynic.capability_catalog.proposal.v1",
+  "status": "proposed",
+  "purpose": "Immune-system reads: cynic observes every fleet substrate signal (data OS) while mutating nothing. Read-only capabilities only; each re-run is a no-op. Merge into infra/capabilities/catalog.json when it is free (foreign edit in flight at proposal time — do NOT overwrite). Binary paths marked VERIFY were not ls-proven on targets; run ls -la per node before install (new content = new proposal if a path differs).",
+  "capabilities": [
+    {
+      "id": "obs-wireguard-status",
+      "domain": "network",
+      "argv_template": ["/usr/bin/wg", "show", "{iface}", "dump"],
+      "params": [{ "name": "iface", "kind": "PathSegment" }],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read WireGuard handshake timestamps for overlay liveness (read-only)",
+      "binary_verify": "VERIFY:/usr/bin/wg vs /usr/sbin/wg per node",
+      "risk_note": "abuser reads handshake timestamps and peer keys (already public to any root); cannot change peers, cannot exfiltrate traffic; no shell, no wildcard",
+      "unlocks": ["NET-11", "R-mesh-proof"]
+    },
+    {
+      "id": "obs-socket-owners",
+      "domain": "network",
+      "argv_template": ["/bin/ss", "-tlnp"],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "identify owners of listening sockets to close phantom listeners (read-only)",
+      "binary_verify": "VERIFY:/bin/ss vs /usr/bin/ss per node (distinct files possible)",
+      "risk_note": "abuser lists listening ports and owning PIDs (visible to any root); cannot bind, kill, or connect; no shell, fixed argv, zero params",
+      "unlocks": ["NET-10"]
+    },
+    {
+      "id": "obs-firewall-ruleset",
+      "domain": "network",
+      "argv_template": ["/usr/sbin/nft", "list", "ruleset"],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read the live firewall ruleset for audit against declared policy (read-only)",
+      "binary_verify": "VERIFY:/usr/sbin/nft per node; PVE has no nft binary observed — iptables-legacy fallback TBD as separate proposal, never assumed",
+      "risk_note": "abuser reads packet-filter rules (visible to any root); cannot add, flush, or disable rules; no shell, fixed argv",
+      "unlocks": ["NET-09"]
+    },
+    {
+      "id": "obs-time-sync",
+      "domain": "substrate",
+      "argv_template": ["/bin/timedatectl", "show"],
+      "params": [],
+      "requires_root": false,
+      "mandatory": false,
+      "purpose": "prove time sync state (certs, handshakes, dated proofs depend on it)",
+      "binary_verify": "VERIFY:/bin/timedatectl per node; usually unprivileged — drop requires_root if proven",
+      "risk_note": "abuser reads clock state; no mutation surface at all",
+      "unlocks": ["NET-12"]
+    }
+  ],
+  "install": "existing surfaces only (no new helper, no new sudoers generator): stage via cynic-host-exec pve-helper-bundle or the installed cynic binary capability path; HumanAdmin installs projected artifacts once (install -m + visudo -c BEFORE install); capability growth afterwards needs no new privilege decision for this read-only class.",
+  "read_back": "sudo -n -l on each node shows exactly the granted argv; then live probes (wg dump, ss -tlnp, nft list ruleset, timedatectl show) move NET-09/10/11/12 to observed. Record references in infra/privilege-grants.json (proposed -> installed).",
+  "non_goals": "pct-list/pct-status already in catalog (reuse, never redeclare); no CT file reads beyond existing forgejo-inspect pattern; no DNS writes, no restarts, no package installs in this proposal."
+}

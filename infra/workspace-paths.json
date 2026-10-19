@@ -36,6 +36,16 @@
       "file": "docs/specs/checklist.md"
     }
   ],
+  "external_projects": {
+    "root": "${HOME}/.cynic/external",
+    "derived_artifacts_root": "${HOME}/.cynic/projects",
+    "canonical_clone_rule": "One canonical clone per project slug under root. Clones live outside the CYNIC repository tree (no nested .git). Never duplicate a clone under ${HOME}, /tmp, or inside a CYNIC worktree.",
+    "registry": "infra/external-projects.json",
+    "collaborators_registry": "infra/collaborators.json",
+    "policy_schema": "contracts/external-project-policy.v1.json",
+    "default_mutation_policy": "read_only",
+    "default_sensitivity": "public"
+  },
   "coherence_contract": {
     "test": "crates/cynic-cli/tests/workspace_paths_coherence.rs",
     "description": "Verifies every consumer carries the canonical path from this registry, and no unregistered hardcoded path exists."

@@ -77,7 +77,10 @@ pub fn plan_agent_host_vm(
     let ram_mib = desired.memory_bytes / (1024 * 1024);
     let (ip_param, nameserver) = if let Some(ip_spec) = desired.network_ip.as_deref() {
         let ns = if let Some(gw_idx) = ip_spec.find("gw=") {
-            ip_spec[gw_idx + 3..].split(',').next().unwrap_or("127.0.0.1")
+            ip_spec[gw_idx + 3..]
+                .split(',')
+                .next()
+                .unwrap_or("127.0.0.1")
         } else {
             "127.0.0.1"
         };

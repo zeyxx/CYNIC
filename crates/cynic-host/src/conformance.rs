@@ -355,7 +355,8 @@ mod tests {
             _policy: &crate::domain::privilege::PrivilegePolicy,
         ) -> PrivilegeObservedState {
             PrivilegeObservedState {
-                helper_dir_present: true,
+                executor_present: true,
+                membrane_present: true,
                 sudoers_projection_present: true,
                 denial_proof_ready: true,
             }

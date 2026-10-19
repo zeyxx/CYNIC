@@ -94,7 +94,6 @@ impl HardwareProfile {
         gtt_total_bytes: Option<u64>,
         mem_bw_gbps: Option<f64>,
     ) -> Self {
-
         // Unified GPU memory (GTT on APU) is legitimate VRAM for offload.
         // It lives in the same physical pool as the CPU but is allocated by
         // Vulkan for `-ngl`, so it must not be double-counted as CPU RAM.

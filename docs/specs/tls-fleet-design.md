@@ -155,6 +155,17 @@ Ordre critique dépendant : G8 → G3/G4/G5 → G1 → G2 → G7 → G6/G9/G10 �
 
 ## 4. Décisions ouvertes (D-TLS1..n) à trancher avant code
 
+> **TRANCHÉ 2026-10-15 (opérateur, batch)** : les 6 recommandations
+> ci-dessous sont approuvées telles quelles. L'implémentation suit
+> l'ordre §5 ; les frictions opérationnelles seront traitées
+> organiquement après.
+>
+> **RACINE NÉE 2026-10-15** : cérémonie exécutée, clé ed25519 sous
+> LUKS (custody HumanAdmin, jamais transmise). Empreinte SHA256 :
+> `5E:A0:BA:5D:05:F3:0E:E3:2D:9B:5B:60:33:8D:C8:A3:A9:29:68:10:52:DF:02:50:C8:C9:6F:93:54:8C:78:72`
+> (valide 2026-10-15 → 2036-10-12). Prochaine étape : intermédiaire
+> sur kernel primary (§5.2-5.3).
+
 D-TLS1. Racine CA : génération hors-ligne manuelle (HumanAdmin, script
    one-shot audité) vs service interne signant via OneShotCapability ?
    Recommandation : hors-ligne manuelle pour la RACINE (simple, rare),

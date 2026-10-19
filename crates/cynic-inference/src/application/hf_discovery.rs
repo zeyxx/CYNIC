@@ -3,17 +3,17 @@
 use std::fs;
 use std::path::Path;
 
-use cynic_huggingface::HfCliAdapter;
-use cynic_huggingface::{
-    HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
-    HfSearchRequest,
-};
 use crate::domain::hardware_profile::HardwareProfile;
 use crate::domain::hf_catalog::{
     CategoryInfo, HardwareFit, ModelCategory, category_catalog, estimate_gguf_bytes, score_fit,
     short_alias_from_repo,
 };
 use crate::infra::model_layout::ModelLayout;
+use cynic_huggingface::HfCliAdapter;
+use cynic_huggingface::{
+    HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
+    HfSearchRequest,
+};
 
 #[derive(Debug)]
 pub struct HfDiscoveryService {

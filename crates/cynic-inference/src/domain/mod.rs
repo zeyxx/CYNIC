@@ -8,6 +8,7 @@ pub mod hardware_profile;
 pub mod hf_catalog;
 pub mod inference;
 pub mod local_runtime;
+pub mod memory_admission;
 
 pub mod model_layout_report;
 pub mod model_retention;

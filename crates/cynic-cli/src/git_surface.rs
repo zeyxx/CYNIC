@@ -5,18 +5,10 @@ use std::process::ExitCode;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum GitCommand {
-    /// Branch graph (parent inference) — thin via LocalBranchGraphAdapter.
-    #[command(name = "branch-graph", aliases = ["branch_graph", "graph"])]
-    BranchGraph {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Observe branch topology (ahead/behind/state per branch).
-    BranchStatus {
-        #[arg(long, default_value = ".")]
-        root: String,
-        #[arg(long)]
-        json: bool,
+    /// Branch topology arms (nested noun level, no hyphen).
+    Branch {
+        #[command(subcommand)]
+        command: GitBranchCommand,
     },
     /// Reconcile topology into actions (ReadyForPr/NeedsRebase/Archive...).
     Reconcile {
@@ -34,10 +26,27 @@ pub(crate) enum GitCommand {
     },
 }
 
-pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
+#[derive(Debug, Subcommand)]
+pub(crate) enum GitBranchCommand {
+    /// Branch graph (parent inference) — thin via LocalBranchGraphAdapter.
+    #[command(alias = "graph")]
+    Graph {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Observe branch topology (ahead/behind/state per branch).
+    Status {
+        #[arg(long, default_value = ".")]
+        root: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+pub(crate) fn execute_git_branch(command: GitBranchCommand) -> ExitCode {
     match command {
-        GitCommand::BranchGraph { json } => crate::branch_graph_surface::execute_branch_graph(json),
-        GitCommand::BranchStatus { root, json } => {
+        GitBranchCommand::Graph { json } => crate::branch_graph_surface::execute_branch_graph(json),
+        GitBranchCommand::Status { root, json } => {
             let obs = cynic_host::git_topology_observer::observe_git_topology(Path::new(&root));
             if json {
                 emit_pretty_json(&obs)
@@ -67,6 +76,12 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+    }
+}
+
+pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
+    match command {
+        GitCommand::Branch { command } => execute_git_branch(command),
         GitCommand::Reconcile { root, json } => {
             let obs = cynic_host::git_topology_observer::observe_git_topology(Path::new(&root));
             let decision = cynic_host::domain::git::decision::reconcile_git_topology(&obs);

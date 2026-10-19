@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AgentWorkspaceLifecycleDecision, AgentWorkspaceLifecyclePlan};
 use cynic_protocol::{AgentBudget, LeaseGuard, digest_json};
+use cynic_protocol::capacity::LoadTier;
 
 pub const AGENT_SCHEDULER_STEP_OBSERVATION_SCHEMA: &str =
     "cynic.agent_scheduler_step_observation.v1";
@@ -17,6 +18,20 @@ pub struct AgentSchedulerStepObservation {
     pub aggregate_budget_limit: AgentBudget,
     pub aggregate_budget_reserved: AgentBudget,
     pub lifecycle: AgentWorkspaceLifecyclePlan,
+    /// Live host capacity at observation time. `None` = unmeasured (old
+    /// files): the scheduler decides on budgets alone and records the
+    /// unknown — never invents saturation.
+    #[serde(default)]
+    pub capacity: Option<SchedulerCapacitySnapshot>,
+}
+
+/// Minimal capacity signal the scheduler gates on: free bytes plus the
+/// assessed tier. A reduced snapshot (not the full assessment) keeps this
+/// observation `Eq` and the schema additive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchedulerCapacitySnapshot {
+    pub free_ram_bytes: u64,
+    pub tier: LoadTier,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -258,6 +273,30 @@ pub fn reconcile_agent_scheduler_step(
             }
         }
     };
+    // Capacity gate: extending work on a saturated host deepens the hole.
+    // Release-family decisions (Idle, cancellation, Unknown) pass through;
+    // unmeasured capacity (None) decides on budgets alone, never invented.
+    let saturated = matches!(
+        observation.capacity,
+        Some(SchedulerCapacitySnapshot {
+            tier: LoadTier::Saturated,
+            ..
+        })
+    );
+    let extends = matches!(
+        decision,
+        AgentSchedulerStepDecision::RenewClaim { .. }
+            | AgentSchedulerStepDecision::AcquireRecoveryClaim { .. }
+            | AgentSchedulerStepDecision::AcquireCollectionClaim { .. }
+            | AgentSchedulerStepDecision::ExecuteCollection { .. }
+    );
+    let decision = if saturated && extends {
+        AgentSchedulerStepDecision::Blocked {
+            violations: vec!["scheduler_host_saturated".to_string()],
+        }
+    } else {
+        decision
+    };
     plan(observation, decision)
 }
 
@@ -331,7 +370,51 @@ mod tests {
             aggregate_budget_limit: budget(2),
             aggregate_budget_reserved: budget(1),
             lifecycle: lifecycle(decision),
+            capacity: None,
         }
+    }
+
+    fn saturated() -> Option<SchedulerCapacitySnapshot> {
+        Some(SchedulerCapacitySnapshot {
+            free_ram_bytes: 512 * 1024 * 1024,
+            tier: LoadTier::Saturated,
+        })
+    }
+
+    #[test]
+    fn saturated_host_blocks_claim_extension() {
+        let mut observed = observation(AgentWorkspaceLifecycleDecision::Recover {
+            reason: "expired".into(),
+        });
+        observed.capacity = saturated();
+        assert!(matches!(
+            reconcile_agent_scheduler_step(&observed).decision,
+            AgentSchedulerStepDecision::Blocked { violations }
+            if violations.contains(&"scheduler_host_saturated".to_string())
+        ));
+    }
+
+    #[test]
+    fn saturated_host_spares_release_family() {
+        let mut observed = observation(AgentWorkspaceLifecycleDecision::Keep {
+            reasons: vec!["steady".into()],
+        });
+        observed.capacity = saturated();
+        assert!(matches!(
+            reconcile_agent_scheduler_step(&observed).decision,
+            AgentSchedulerStepDecision::Idle { .. }
+        ));
+    }
+
+    #[test]
+    fn unmeasured_capacity_decides_on_budgets_alone() {
+        let observed = observation(AgentWorkspaceLifecycleDecision::Recover {
+            reason: "expired".into(),
+        });
+        assert!(matches!(
+            reconcile_agent_scheduler_step(&observed).decision,
+            AgentSchedulerStepDecision::AcquireRecoveryClaim { .. }
+        ));
     }
 
     #[test]

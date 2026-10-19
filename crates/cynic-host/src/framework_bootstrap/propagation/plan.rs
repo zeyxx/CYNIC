@@ -7,7 +7,10 @@ use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::Remote
 use cynic_lifecycle::ArgvRunner;
 
 use super::decision::decide_framework_propagation;
-use super::observe::observe_framework_propagation_with_transport;
+use super::observe::{
+    default_node_observation_path, default_runtime_marker_path,
+    observe_framework_propagation_with_transport,
+};
 use super::types::{FrameworkPropagationOperation, FrameworkPropagationPlan};
 
 const REMOTE_SEED_ROOT: &str = "/tmp/cynic-framework-bootstrap";
@@ -232,10 +235,7 @@ pub(super) fn enrollment_operations_with_transport(
             argv: remote_execution
                 .exec_argv(
                     ssh_target,
-                    &[
-                        "cat",
-                        "/var/lib/cynic/runtime/current/.cynic-runtime-release.json",
-                    ],
+                    &["cat", &default_runtime_marker_path().display().to_string()],
                 )
                 .unwrap_or_default(),
             mutates: false,
@@ -250,7 +250,7 @@ pub(super) fn enrollment_operations_with_transport(
                     ssh_target,
                     &[
                         "cat",
-                        "/var/lib/cynic/bootstrap/node-registry-observation.json",
+                        &default_node_observation_path().display().to_string(),
                     ],
                 )
                 .unwrap_or_default(),

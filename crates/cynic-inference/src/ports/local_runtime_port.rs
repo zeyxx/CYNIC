@@ -54,8 +54,7 @@ impl cynic_eval::bench::BenchLauncherPort for dyn LocalInferenceRuntimePort {
     fn start(
         &self,
         alias: &str,
-    ) -> Result<cynic_eval::bench::BenchStartReport, cynic_eval::bench::BenchLaunchError>
-    {
+    ) -> Result<cynic_eval::bench::BenchStartReport, cynic_eval::bench::BenchLaunchError> {
         match LocalInferenceRuntimePort::start(self, alias) {
             Ok(report) => Ok(cynic_eval::bench::BenchStartReport {
                 ok: report.ok,

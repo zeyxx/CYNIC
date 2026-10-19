@@ -1,0 +1,33 @@
+[Unit]
+Description=GASdf x402 relay gateway — sponsored swaps (3000)
+After=network-online.target gasdf-kora-mainnet.service gasdf-facilitator.service
+Wants=network-online.target
+Requires=gasdf-kora-mainnet.service gasdf-facilitator.service
+
+[Service]
+# projection_class: operator_projection
+# Paid relay: POST /relay/send (exact $0.005), /relay/send-upto (channel).
+# Secrets (Jupiter key, HMAC) via EnvironmentFile; the rest is explicit env.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic/projects/kora/relay-gateway
+ExecStart=/usr/bin/node /var/lib/cynic/projects/kora/relay-gateway/dist/index.js
+EnvironmentFile=/etc/cynic/secrets/gasdf/relay/mainnet.env
+Environment=KORA_URL=http://localhost:14001
+Environment=KORA_SIGNER=Bcuw4Xb9wmjDUpTsADn8ZM9Rigdhehaf5jfbJndH4rcC
+Environment=RPC_URL=https://api.mainnet-beta.solana.com
+Environment=RUN_SERVER=1
+Environment=USER_KEY_PATH=/etc/cynic/secrets/gasdf/relay/flow2-user.json
+Environment=UPTO_AUTHORIZER_KEY_PATH=/etc/cynic/secrets/gasdf/relay/upto-authorizer.json
+Environment=PORT=3000
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

@@ -246,6 +246,7 @@ tmux attach -t inference
 | PVE host | `pve` | Hypervisor | Proxmox VE 8 | N/A | Stable |
 | Forgejo CT | `101` | Git, web | Ubuntu 22.04 (CT) | N/A | Stable |
 | Builder CT | `105` | Build container | Ubuntu 24.04 (CT) | N/A | Stable |
+| Embedding CT | `106` | Dense embeddings (EmbeddingGemma-2, DIM 768) | Debian 12 (CT) | `llama-server-embed` + fallback | Stable, systemd + enabled |
 
 ---
 
@@ -267,4 +268,74 @@ ssh root@10.10.10.119 "cd /var/lib/cynic/source/repositories/CYNIC && make check
 
 ---
 
+## 11. Organic Sovereign RAG Execution Checklist
+
+Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_rag.v1`):
+
+- [x] **11.1 Substrate Ingestion & Cache**: Persistent cache (`corpus_cache.json`) + Git-diff incremental ingestion.
+- [x] **11.2 Rust Code AST Ingestion**: Extract structs, enums, functions from `crates/*/src` into knowledge matrix.
+- [x] **11.3 Graph-RAG Traversal**: Link chunks to parent contracts via `KnowledgeGraph` dependency edges.
+- [x] **11.4 Matrix Re-Ranking**: Score chunks by BM25 × Authority Boost × Layer Boost × Git Freshness.
+- [x] **11.5 Hybrid Retrieval (RRF)**: Reciprocal Rank Fusion combining BM25 and dense local embeddings (dense = stub vectors in unit tests until 2026-10-13; live 768d endpoint since, see 11.8).
+- [ ] **11.6 MCP Native Exposure**: Wire `cynic_know_ask` into `cynic-mcp` with zero shell-fork overhead.
+- [x] **11.7 Epistemic CI Evaluation Harness**: Automated 10-question evaluation matrix with 0% hallucination gate.
+- [x] **11.8 Live Dense Endpoint (2026-10-13)**: `embeddinggemma-2-bf16` served by llama-server on `cynic-lxc-embedding` (lxc/106, `10.10.10.106:8080`, DIM 768, systemd unit `llama-server-embedding.service`); declared in `infra/registry.json`; live smoke test `cynic-inference/tests/embedding_live.rs` (ignored by default, `dims=768`, 71 ms builder→106).
+- [x] **11.9 Chunk Vectorizer + Cosine Index**: `vectorize_chunks` +
+  `top_k_dense` + `fuse_reciprocal_ranks` live in `cynic-knowledge`
+  (unit-covered); neural consumption via `SyncEmbeddingBridge` (merged).
+  Backend fans WIDTH concurrent sub-lots of 8 (`CYNIC_EMBED_WIDTH`, default
+  4) across server slots. No cached-vector pipeline yet — vectors are
+  computed per run.
+- [ ] **11.10 Retrieval Gain Measurement**: graded labels exist
+  (`retrieval_gain_labels.json`: 10 pairs / 1 trap / 9 scored). Measured
+  2026-10-14: BM25 MRR 0.222, hashed-stub hybrid 0.133 (delta -0.089).
+  Neural run in flight against cortex overflow server (ubatch 2048).
+- [ ] **11.11 Embedding Server Calibration**: the request cap is the
+  **ubatch**, not the batch (observed live: ubatch 512 rejects 541-token
+  inputs). LXC 106 (operator):
+  ```bash
+  systemctl edit --full llama-server-embedding.service
+  # set: --batch-size 2048 --ubatch-size 2048 (watch container RAM)
+  systemctl restart llama-server-embedding.service
+  curl -s http://10.10.10.106:8080/health
+  ```
+  Cortex overflow (this host): master build + Vulkan, `-c 4096 --batch-size
+  2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4`, unit
+  `cynic-embedding-cortex.service` (MemoryMax=3G).
+  Client levers (no recompile): `CYNIC_EMBED_LOT_SIZE` (default 32, clamp
+  1..128), `CYNIC_EMBED_WIDTH` (default 4, clamp 1..8). Sweep matrix:
+  server ubatch {512, 2048, 4096} x client lot {8, 32, 64}; keep the
+  fastest `EMBED done` seconds from the live test.
+  Access gap (2026-10-14): no SSH session from cortex to `root@10.10.10.106`
+  (key auth missing) — required for LAN weight pulls and unit edits. Until
+  granted, weights come from HuggingFace WAN and server changes are manual.
+
+---
+
+## 12. Builder Retention GC (opened 2026-10-14)
+
+Census: `checkouts` 40G → 29G (9 dirs, ~11G reclaimed 2026-10-14).
+`/tmp` 15G = same-day sibling clones (hands-off). `shared-target` 19G,
+`source` 15G, `build-targets` 6.7G, `target` 4.3G = warm build caches
+(load-bearing: deleting them only slows the next builds, saves nothing durable).
+
+Policy: `contracts/builder-retention.json` (TTL 7d per-SHA/session checkouts,
+2d `/tmp`; fence: HEAD < 48h, live claims, `/var/lib/cynic/source`, sccache).
+Test `cynic-cli/tests/builder_retention.rs` green on builder.
+
+Verdict: do NOT clean the rest — remainder is live or load-bearing. Next pass
+when TTLs mature. Self-cleaning conditions = the contract above, nothing else.
+
+### Pending privileged actions (traced, not done)
+
+- **PENDING ROOT** (cynic has no sudo on builder): `rm -rf
+  /var/lib/cynic/checkouts/cynic-65381e765497
+  /var/lib/cynic/checkouts/cynic-92da50e51cdd` — 3.5G, 7-9 days old, no claim,
+  reproducible-or-provenanceless. Root cause: builds ran as root on the builder
+  (16 011 root-owned files); every future purge blocks the same way until builds
+  run as `cynic`.
+- **PENDING CREDENTIAL**: github relay keeps 38 dead agent refs (read-only
+  access from this host). `main` SHAs in sync origin/github/local — content-safe.
+
+---
 **End of checklist.**

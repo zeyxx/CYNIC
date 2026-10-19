@@ -278,8 +278,9 @@ fn the_registry_names_its_own_coherence_test() {
         .as_str()
         .expect("coherence_contract must name its test");
     let path = repo_root().join(declared);
+    let path_buf = repo_root().join(declared);
     assert!(
-        path.is_file(),
+        path_buf.is_file(),
         "the registry names {declared} as its coherence test but that file is absent"
     );
 }

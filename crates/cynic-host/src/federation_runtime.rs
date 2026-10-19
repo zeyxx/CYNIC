@@ -16,6 +16,7 @@ use cynic_node_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_node_protocol::node_control::NodeControlPlan;
 use cynic_node_protocol::peer_resolver::PeerResolver;
 use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
+use cynic_types::paths::CynicPaths;
 
 /// Port: observe kernel reachability and lease status.
 pub trait KernelObserver: Send + Sync {
@@ -317,7 +318,7 @@ pub struct EnrollmentObserverAdapter;
 impl EnrollmentObserver for EnrollmentObserverAdapter {
     fn observe_enrollment(&self) -> EnrollmentObservation {
         // Check if the enrollment authority file exists.
-        let path = std::path::Path::new("/etc/cynic/enrollment-authority.json");
+        let path = CynicPaths::system_config_dir().join("enrollment-authority.json");
         EnrollmentObservation {
             proven: path.exists(),
         }
@@ -349,7 +350,7 @@ pub struct LocalNodeControlAdapter;
 
 impl NodeControlPort for LocalNodeControlAdapter {
     fn node_control_plan(&self) -> Option<NodeControlPlan> {
-        let path = std::path::Path::new("/etc/cynic/node-control-plan.json");
+        let path = CynicPaths::system_config_dir().join("node-control-plan.json");
         if path.exists() {
             if let Ok(content) = std::fs::read_to_string(path) {
                 if let Ok(plan) = serde_json::from_str::<NodeControlPlan>(&content) {

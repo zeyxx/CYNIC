@@ -661,6 +661,7 @@ dependencies = [
 name = "cynic-askesis"
 version = "0.8.0"
 dependencies = [
+ "cynic-protocol",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -717,7 +718,6 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
- "crossterm",
  "cynic-askesis",
  "cynic-audit-engine",
  "cynic-build",
@@ -728,6 +728,7 @@ dependencies = [
  "cynic-domain-ops",
  "cynic-domain-porkbun",
  "cynic-eval",
+ "cynic-fleet",
  "cynic-forensics",
  "cynic-host",
  "cynic-huggingface",
@@ -736,6 +737,7 @@ dependencies = [
  "cynic-intel-futarchy",
  "cynic-intel-soc",
  "cynic-kernel",
+ "cynic-knowledge",
  "cynic-lifecycle",
  "cynic-network",
  "cynic-node",
@@ -748,13 +750,14 @@ dependencies = [
  "cynic-secrets",
  "cynic-storage",
  "cynic-surreal",
+ "cynic-tui",
+ "cynic-types",
  "cynic-vcs",
  "cynic-vcs-forgejo",
  "cynic-workload",
  "cynic-zeroclaw-solana",
  "hex",
  "libc",
- "ratatui",
  "reqwest 0.12.28",
  "rustix 1.1.5",
  "serde",
@@ -772,6 +775,7 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-finance",
+ "cynic-protocol",
  "ed25519-dalek",
  "hex",
  "serde",
@@ -822,7 +826,6 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha3",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -845,6 +848,7 @@ name = "cynic-eval"
 version = "0.2.0"
 dependencies = [
  "async-trait",
+ "cynic-knowledge",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
@@ -874,6 +878,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-fleet"
+version = "0.8.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cynic-forensics"
 version = "0.8.0"
 dependencies = [
@@ -888,6 +900,7 @@ name = "cynic-host"
 version = "0.8.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "cynic-audit-engine",
  "cynic-build",
@@ -896,7 +909,6 @@ dependencies = [
  "cynic-forensics",
  "cynic-inference",
  "cynic-intel",
- "cynic-kernel",
  "cynic-lifecycle",
  "cynic-lxc",
  "cynic-network",
@@ -951,6 +963,7 @@ dependencies = [
  "cynic-eval",
  "cynic-finance",
  "cynic-huggingface",
+ "cynic-knowledge",
  "cynic-network",
  "cynic-protocol",
  "cynic-secrets",
@@ -1028,6 +1041,7 @@ dependencies = [
  "cynic-protocol",
  "cynic-secrets",
  "cynic-storage",
+ "cynic-types",
  "dirs",
  "dotenvy",
  "ed25519-dalek",
@@ -1062,6 +1076,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-knowledge"
+version = "0.8.0"
+dependencies = [
+ "blake3",
+ "cynic-types",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml",
+ "walkdir",
+]
+
+[[package]]
 name = "cynic-lifecycle"
 version = "0.8.0"
 dependencies = [
@@ -1069,6 +1097,7 @@ dependencies = [
  "cynic-build",
  "cynic-protocol",
  "cynic-storage",
+ "cynic-types",
  "hex",
  "serde",
  "serde_json",
@@ -1083,6 +1112,7 @@ name = "cynic-lxc"
 version = "0.8.0"
 dependencies = [
  "cynic-protocol",
+ "cynic-types",
  "ed25519-dalek",
  "hex",
  "libc",
@@ -1184,6 +1214,7 @@ dependencies = [
  "hmac",
  "http",
  "libc",
+ "nix",
  "notify",
  "process-wrap",
  "reqwest 0.13.5",
@@ -1226,6 +1257,7 @@ version = "0.8.0"
 dependencies = [
  "cynic-network",
  "cynic-protocol",
+ "cynic-types",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
@@ -1271,6 +1303,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-types",
  "ed25519-dalek",
  "futures",
  "hex",
@@ -1279,6 +1312,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "thiserror 2.0.21",
+ "tokio",
  "toml",
  "walkdir",
 ]
@@ -1316,6 +1350,7 @@ dependencies = [
  "aes-gcm",
  "blake3",
  "cynic-protocol",
+ "cynic-types",
  "ed25519-dalek",
  "getrandom 0.2.17",
  "hex",
@@ -1352,7 +1387,6 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "sha3",
  "smallvec",
  "tempfile",
  "thiserror 2.0.21",
@@ -1381,6 +1415,34 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
+name = "cynic-traces"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+]
+
+[[package]]
+name = "cynic-tui"
+version = "0.8.0"
+dependencies = [
+ "crossterm",
+ "ratatui",
+]
+
+[[package]]
+name = "cynic-types"
+version = "0.8.0"
+dependencies = [
+ "blake3",
+ "ed25519-dalek",
+ "hex",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 
@@ -1391,6 +1453,8 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-network",
  "cynic-protocol",
+ "cynic-types",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",
@@ -1402,6 +1466,7 @@ name = "cynic-vcs-forgejo"
 version = "0.8.0"
 dependencies = [
  "cynic-secrets",
+ "cynic-types",
  "cynic-vcs",
  "hex",
  "hmac",
@@ -3171,6 +3236,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "percent-encoding",
  "pin-project-lite",
