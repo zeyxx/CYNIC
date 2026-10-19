@@ -3,10 +3,12 @@ use clap::{Parser, Subcommand};
 use crate::agent_surface::AgentCommand;
 use crate::audit_surface::AuditCommand;
 use crate::build_surface::BuildCommand;
+use crate::coordination_surface::CoordinationCommand;
 use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;
 use crate::host_surface::HostCommand;
+use crate::idea_surface::IdeaCommand;
 use crate::mask::{JudgeCommand, MaskCommand};
 use crate::network_surface::NetworkCommand;
 use crate::node_surface::NodeCommand;
@@ -149,6 +151,16 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: AuditCommand,
     },
+    /// Collaborator trust tier governance: status, promote, demote.
+    Collaborator {
+        #[command(subcommand)]
+        command: crate::collaborator_surface::CollaboratorCommand,
+    },
+    /// Fire-and-forget agent coordination log.
+    Coordination {
+        #[command(subcommand)]
+        command: CoordinationCommand,
+    },
     /// HumanAdmin governance observer surfaces.
     Agent {
         #[command(subcommand)]
@@ -189,6 +201,11 @@ pub(crate) enum Command {
         #[arg(long = "no-tui")]
         no_tui: bool,
     },
+    /// Idea ledger: track ideas, status, consumption, and compounding.
+    Idea {
+        #[command(subcommand)]
+        command: IdeaCommand,
+    },
     /// Asynchronous domain-partitioned task queue (Inference, Infra, CodeAudit, Cortex, Governance, Nightshift).
     Task {
         #[command(subcommand)]
@@ -213,6 +230,11 @@ pub(crate) enum Command {
     Know {
         #[command(subcommand)]
         command: crate::knowledge_surface::KnowCommand,
+    },
+    /// CYNICpedia — registry of knowledge articles (docs, contracts, traces, designs).
+    Wiki {
+        #[command(subcommand)]
+        command: crate::wiki_surface::WikiCommand,
     },
     /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
     Queue {

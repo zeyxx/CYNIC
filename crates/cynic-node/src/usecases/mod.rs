@@ -51,3 +51,12 @@ pub mod agent_bus_claim;
 pub mod agent_bus_ports;
 pub mod agent_coordination_uc;
 pub mod agent_coordination_taxonomy;
+/// WHY: OQ-4 policy enforcement for collaborator trust tier changes.
+/// HOW: Pure logic validating promotion/demotion requests against
+/// infra/collaborators.json and infra/external-projects.json, using
+/// cynic-vcs trust-tier admission rules.
+pub mod collaborator_trust_uc;
+/// WHY: End-to-end audit orchestration for external projects.
+/// HOW: Composes ExternalSourcePort → ExternalBuildPort → ExternalEvidencePort
+/// in sequence: clone repo → run build → ingest evidence batch.
+pub mod external_project_audit_uc;

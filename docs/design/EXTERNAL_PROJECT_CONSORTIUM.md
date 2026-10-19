@@ -190,21 +190,35 @@ promoted with proof (mirrors CYNIC office/capability model in
 Roadmap item 7 is aspirational. Today the three projects are **external leaf
 nodes**: CYNIC observes them, does not depend on them, does not build them.
 
-For a project to be "added through the same ports", it must expose/consume a
-CYNIC port (defined in `crates/cynic-kernel` ports / `adapters/`). Candidate
-ports for the Aegis consortium (hypothesis, to be validated bottom-up):
+Candidate ports (hypothesis, to be validated bottom-up). Status: `not_started`
+for all. See `contracts/external-project-ports.v1.json`.
 
-- `SourcePort` — clone/fetch/branch/push/PR for external repos (reuse
-  CYNIC's own source lifecycle, parameterised by remote).
-- `BuildPort` — run a project's observed build/test commands on the builder
-  node (10.10.10.119) with read-back proof.
-- `EvidencePort` — ingest a project's findings/evidence into CYNIC's
-  observation store (aegisscan findings → CYNIC findings V2 schema?).
+- `SourcePort` (cynic-vcs) — clone/fetch/branch/push/PR for external repos.
+  Reuses CYNIC's source lifecycle, parameterized by remote.
+- `BuildPort` (cynic-build) — run a project's observed build/test commands
+  on the builder node with read-back proof. Commands from
+  `infra/external-projects.json` (observed, not fabricated).
+- `EvidencePort` (cynic-kernel) — ingest a project's findings/evidence into
+  CYNIC's observation store (aegisscan findings → CYNIC findings schema).
 
 **Not proposed now**: any code change. First, observe each project's actual
 build/test commands and CI, then propose port wiring in a follow-up. The
 `aegis-core` security boundary (refusal by construction) must be preserved:
 CYNIC must never attempt to "arm" or deploy aegis-core components.
+
+**Port wiring prerequisites (all must hold):**
+1. Build/test baseline observed on builder (done 2026-10-18 for all three).
+2. Read-back proof (build/test commands verified, not just observed).
+3. Contract updated (`contracts/external-project-ports.v1.json`).
+4. Port traits defined in domain crates (pure, no I/O). Adapters in adapters/.
+5. CLI surface projects port status (already: `cynic audit external`).
+
+**Next wiring step**: define `SourcePort` trait in `cynic-vcs` and a
+`ForgejoSourceAdapter` / `GitHubSourceAdapter` implementing it. Then wire
+`BuildPort` in `cynic-build` with a builder command execution adapter.
+EvidencePort last (requires schema mapping).
+
+## 11. Port wiring design (2026-10-18)
 
 ## 7. Open questions (resolved 2026-10-18)
 
@@ -267,6 +281,32 @@ with per-project `observation` objects. See `infra/external-projects.json`.
 - `~/.cynic/external/aegisscan` → `origin https://github.com/Robinho100/aegisscan.git`, branch `master`, HEAD `8758ad3`
 - `~/.cynic/external/aegis-core` → `origin https://github.com/Robinho100/aegis-core.git`, branch `main`, HEAD `d82ca40`
 - `~/.cynic/external/ai-bus` → `origin https://github.com/Robinho100/ai-bus.git`, branch `main`, HEAD `dd87232`
+
+## 10. Ownership links registry (2026-10-18)
+
+`infra/ownership-links.json` is the SSOT of RELATIONS between operator,
+collaborators, external projects, and toolchains. It references by ID (foreign
+keys); no data duplication. It captures ownership, maintenance, and
+proof-of-work (PoW) metrics that model real interactions between
+interconnected systems (physics, culture, economy obey the same laws of
+friction).
+
+Contents:
+- `operator`: Titouan Corneloup (zeyxx), constituent (human sovereign), core trust.
+- `collaborators`: Robinho100 (observed trust).
+- `links`: 6 relations (operator↔collaborator, operator↔project×3, operator↔toolchain×2) with PoW metrics and friction signals.
+- `project_toolchains`: 3 entries (which toolchains each project consumes).
+- `toolchain_projects`: 3 entries (which projects each toolchain serves).
+
+Every link carries a `pow_metric` (measurable) and a `friction_signal` (first-class data, not noise). A link without a pow_metric is incomplete.
+
+Philosophy: technology must reconstruct the real from first principles. The
+sentiment of impasse and social friction are the variables that indicate where
+technology must act. This registry models those variables as observable,
+measurable links — not as abstract claims.
+
+Related: `infra/collaborators.json`, `infra/external-projects.json`,
+`infra/registry.json` (toolchains), `infra/workspace-paths.json`.
 
 Worktree: `~/.cynic/worktrees/agent-hermes-aegis-consortium` on
 `agent/hermes/aegis-consortium` (from `origin/main` @ `19111bc`).

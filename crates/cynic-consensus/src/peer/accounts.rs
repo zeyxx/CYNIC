@@ -169,3 +169,39 @@ pub struct TreasuryAccount {
     pub disputed_credits: u64,
     pub total_spent: u64,
 }
+
+pub const ALLOWANCE_GRANT_ACCOUNT_SCHEMA: &str = "cynic.peer.account.allowance_grant.v1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AllowanceStatus {
+    Active,
+    Exhausted,
+    Expired,
+    Revoked,
+}
+
+/// 8. AllowanceGrant: Time-bounded, scoped resource spend allowance for a delegate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AllowanceGrant {
+    pub schema: String,
+    pub grant_id: String,
+    pub owner_id: String,
+    pub delegate_id: String,
+    pub resource_unit: String,
+    pub max_amount_per_period: u64,
+    pub period_seconds: u64,
+    pub remaining_allowance: u64,
+    pub started_at_unix_s: u64,
+    pub expires_at_unix_s: u64,
+    pub status: AllowanceStatus,
+}
+
+impl AllowanceGrant {
+    pub fn is_valid_at(&self, now: u64) -> bool {
+        self.status == AllowanceStatus::Active
+            && now >= self.started_at_unix_s
+            && now <= self.expires_at_unix_s
+            && self.remaining_allowance > 0
+    }
+}

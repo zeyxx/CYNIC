@@ -1,0 +1,35 @@
+{
+  "schema": "cynic.audit.external.test_run.v1",
+  "timestamp": "2026-10-19T00:00:00Z",
+  "project_id": "aegisscan",
+  "command": "cynic audit external --run --project aegisscan --github-token <gh_token>",
+  "binary": "./target/release/cynic (v0.8.0, worktree agent/hermes/aegis-consortium)",
+  "result": {
+    "overall": "FAILURE",
+    "clone": {
+      "status": "ok",
+      "head_sha": "8758ad3ca1ec44b156342a5deb3635832d9e36ef",
+      "clone_path": "/tmp/aegisscan"
+    },
+    "build": {
+      "status": "FAILURE",
+      "commands_run": 2,
+      "commands_passed": 0,
+      "commands_failed": 2,
+      "error": "builder /exec failed (404 Not Found)",
+      "builder_url": "http://10.10.10.119:9090",
+      "root_cause": "Builder service at 10.10.10.119:9090 does not expose /exec endpoint (returns 404). Health endpoint /health returns 200 ok."
+    },
+    "evidence": {
+      "status": "SKIPPED",
+      "batches_ingested": 0,
+      "batches_failed": 0
+    }
+  },
+  "diagnosis": "The builder HTTP service is reachable and healthy but lacks the /exec endpoint required by HttpExternalBuildAdapter. The builder needs to be updated to support POST /exec for external project builds, or the adapter needs to use a different endpoint.",
+  "clone_to_ingest_flow": {
+    "clone": "PASS",
+    "build": "FAIL (builder /exec 404)",
+    "ingest": "SKIPPED (no build proof to ingest)"
+  }
+}

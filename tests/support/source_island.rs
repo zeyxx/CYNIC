@@ -189,7 +189,8 @@ fn civil_from_days(epoch_day: i64) -> (i64, u32, u32) {
 /// system UTC date.
 pub fn today() -> Date {
     if let Ok(forced) = std::env::var(TODAY_ENV) {
-        return Date::parse(&forced).unwrap_or_else(|error| panic!("{TODAY_ENV}={forced:?}: {error}"));
+        return Date::parse(&forced)
+            .unwrap_or_else(|error| panic!("{TODAY_ENV}={forced:?}: {error}"));
     }
     let seconds = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -241,7 +242,10 @@ impl Island {
 
     /// Member paths, sorted.
     pub fn paths(&self) -> Vec<&str> {
-        self.members.iter().map(|member| member.path.as_str()).collect()
+        self.members
+            .iter()
+            .map(|member| member.path.as_str())
+            .collect()
     }
 }
 
@@ -396,8 +400,12 @@ impl Quarantine {
         let path = workspace_root.join(QUARANTINE_MANIFEST);
         let text = fs::read_to_string(&path)
             .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
-        let parsed: Self = serde_json::from_str(&text)
-            .map_err(|error| format!("{} is not a valid quarantine manifest: {error}", path.display()))?;
+        let parsed: Self = serde_json::from_str(&text).map_err(|error| {
+            format!(
+                "{} is not a valid quarantine manifest: {error}",
+                path.display()
+            )
+        })?;
         if parsed.rule != RULE_CLOSED_INCLUDE_ISLAND {
             return Err(format!(
                 "{} serves rule {:?}, expected {RULE_CLOSED_INCLUDE_ISLAND}",
@@ -455,7 +463,11 @@ pub struct Violation {
 
 impl fmt::Display for Violation {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{} {} — {}", self.code, self.subject, self.message)
+        write!(
+            formatter,
+            "{} {} — {}",
+            self.code, self.subject, self.message
+        )
     }
 }
 
@@ -519,7 +531,12 @@ pub fn evaluate_islands(
         let subject = format!("crates/{}/src/{}", entry.crate_name, entry.path);
         let is_member = islands
             .get(&entry.crate_name)
-            .map(|island| island.members.iter().any(|member| member.path == entry.path))
+            .map(|island| {
+                island
+                    .members
+                    .iter()
+                    .any(|member| member.path == entry.path)
+            })
             .unwrap_or(false);
         if is_member {
             continue; // already checked above
@@ -598,7 +615,10 @@ fn entry_violations(
             RULE_QUARANTINE_INTEGRITY,
             "NO-EXPIRY",
             subject,
-            format!("expires {:?}: {error}. Every entry must carry an explicit date", entry.expires),
+            format!(
+                "expires {:?}: {error}. Every entry must carry an explicit date",
+                entry.expires
+            ),
         )),
         Ok(expires) => {
             let age = expires.epoch_day - today.epoch_day;
@@ -675,8 +695,19 @@ const BUILD_GUARANTEE_PHRASES: &[&str] = &[
 /// it. A line carrying one of these is documenting the trap, which is the only
 /// legitimate reason to name it.
 const REFUTATION_MARKERS: &[&str] = &[
-    "not ", "n't", "cannot", "never", "no ", "false", "falsely", "wrong", "myth",
-    "used to", "was claimed", "never been", "instead of",
+    "not ",
+    "n't",
+    "cannot",
+    "never",
+    "no ",
+    "false",
+    "falsely",
+    "wrong",
+    "myth",
+    "used to",
+    "was claimed",
+    "never been",
+    "instead of",
 ];
 
 /// One prose finding.
@@ -738,7 +769,10 @@ pub fn unprovable_build_prose(workspace_root: &Path, dirs: &[&str]) -> Vec<Prose
                         continue;
                     }
                     let lowered = line.to_lowercase();
-                    if REFUTATION_MARKERS.iter().any(|marker| lowered.contains(marker)) {
+                    if REFUTATION_MARKERS
+                        .iter()
+                        .any(|marker| lowered.contains(marker))
+                    {
                         continue;
                     }
                     for phrase in BUILD_GUARANTEE_PHRASES {

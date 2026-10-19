@@ -308,7 +308,11 @@ pub fn attachments_at(_crate_dir: &Path, src_root: &Path) -> TextualAttachments 
         let Ok(text) = fs::read_to_string(src_root.join(&rel)) else {
             continue;
         };
-        let dir = src_root.join(&rel).parent().unwrap_or(src_root).to_path_buf();
+        let dir = src_root
+            .join(&rel)
+            .parent()
+            .unwrap_or(src_root)
+            .to_path_buf();
         for target in referenced_paths(&text) {
             let candidate = dir.join(&target);
             if !candidate.is_file() {
@@ -319,7 +323,10 @@ pub fn attachments_at(_crate_dir: &Path, src_root: &Path) -> TextualAttachments 
             };
             let target_rel = target_rel.display().to_string();
             out.targeted.insert(target_rel.clone());
-            out.edges.entry(rel.clone()).or_default().insert(target_rel.clone());
+            out.edges
+                .entry(rel.clone())
+                .or_default()
+                .insert(target_rel.clone());
             out.attached_by
                 .entry(target_rel)
                 .or_default()
@@ -408,7 +415,9 @@ pub fn crate_src_root(crate_name: &str) -> Option<PathBuf> {
 
 /// Every `.rs` file under a crate's `src/`, relative to it.
 pub fn crate_source_files(crate_name: &str) -> BTreeSet<String> {
-    crate_src_root(crate_name).map(|src| all_sources(&src)).unwrap_or_default()
+    crate_src_root(crate_name)
+        .map(|src| all_sources(&src))
+        .unwrap_or_default()
 }
 
 /// Sources a compilation root of this crate can actually name.

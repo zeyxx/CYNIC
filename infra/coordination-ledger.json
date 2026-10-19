@@ -1,0 +1,21 @@
+{
+  "schema": "cynic.coordination_ledger.v1",
+  "status": "observed",
+  "claims_path": ".agent-claims.json",
+  "coordination_log_path": "~/.local/share/cynic/coordination.jsonl",
+  "sources": [
+    {
+      "name": "agent_claims",
+      "kind": "scopes",
+      "path": ".agent-claims.json",
+      "schema": "cynic.agent_claims.v2"
+    },
+    {
+      "name": "coordination_log",
+      "kind": "fire_and_forget",
+      "path": "~/.local/share/cynic/coordination.jsonl",
+      "schema": "cynic.coordination_entry.v1"
+    }
+  ],
+  "merge_queue": []
+}

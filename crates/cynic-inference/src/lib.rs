@@ -1,3 +1,4 @@
+pub mod hf;
 pub mod adapters;
 pub mod application;
 pub mod config_loader;
@@ -55,9 +56,7 @@ pub use application::vault_consolidate::{
 };
 pub use config_loader::load_inference_config_from_path_public;
 pub use config_loader::{InferenceConfigError, LoadedInferenceConfig, load_inference_config};
-pub use cynic_huggingface::HfCliAdapter;
-
-// Domain (pure types)
+pub use hf::*;
 pub use domain::backend_config::InferenceBackendConfig;
 pub use domain::chat_session::{
     ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
@@ -94,10 +93,6 @@ pub use infra::principal_paths::{PathAuthority, PrincipalPaths};
 pub use infra::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
 
 // Ports
-pub use cynic_huggingface::{
-    HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,
-    HfSearchReport, HfSearchRequest,
-};
 pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,

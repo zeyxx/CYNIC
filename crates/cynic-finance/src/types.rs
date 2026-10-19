@@ -195,6 +195,51 @@ impl ResourceTransaction {
     }
 }
 
+/// Build metrics for a single crate — records build, sync, and test timings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BuildMetrics {
+    /// Name of the crate measured.
+    pub crate_name: String,
+    /// Build time in milliseconds.
+    pub build_time_ms: u64,
+    /// Sync time in milliseconds.
+    pub sync_time_ms: u64,
+    /// Test time in milliseconds.
+    pub test_time_ms: u64,
+    /// Whether the build cache was hit.
+    pub cache_hit: bool,
+}
+
+impl BuildMetrics {
+    /// Creates a new `BuildMetrics` instance.
+    pub fn new(
+        crate_name: impl Into<String>,
+        build_time_ms: u64,
+        sync_time_ms: u64,
+        test_time_ms: u64,
+        cache_hit: bool,
+    ) -> Self {
+        Self {
+            crate_name: crate_name.into(),
+            build_time_ms,
+            sync_time_ms,
+            test_time_ms,
+            cache_hit,
+        }
+    }
+
+    /// Returns the total time (build + sync + test) in milliseconds.
+    pub fn total_time_ms(&self) -> u64 {
+        self.build_time_ms + self.sync_time_ms + self.test_time_ms
+    }
+}
+
+impl From<&BuildMetrics> for ResourceUnit {
+    fn from(metrics: &BuildMetrics) -> Self {
+        ResourceUnit::ComputeCpuMs(metrics.build_time_ms)
+    }
+}
+
 /// A resource ledger — append-only, monotone, idempotent, double-entry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResourceLedger {
@@ -247,5 +292,454 @@ impl ResourceLedger {
     /// Returns all entries.
     pub fn entries(&self) -> &[ResourceTransaction] {
         &self.entries
+    }
+}
+
+/// Origin of a resource value — authority ordering: Observed > Derived > Projected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceOrigin {
+    /// Read back from runtime (authoritative).
+    Observed,
+    /// Computed from observed values.
+    Derived,
+    /// Estimated from historical patterns (lowest authority).
+    Projected,
+}
+
+/// A business-agnostic resource class. Fixed variants cover the canonical
+/// verticals; `Custom` allows runtime registration of new classes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceClass {
+    Compute,
+    Gpu,
+    Memory,
+    Storage,
+    Bandwidth,
+    Latency,
+    Energy,
+    Token,
+    Context,
+    Time,
+    Action,
+    Custom(String),
+}
+
+impl ResourceClass {
+    /// Returns the canonical string key for registry lookups.
+    pub fn as_str(&self) -> &str {
+        match self {
+            ResourceClass::Compute => "compute",
+            ResourceClass::Gpu => "gpu",
+            ResourceClass::Memory => "memory",
+            ResourceClass::Storage => "storage",
+            ResourceClass::Bandwidth => "bandwidth",
+            ResourceClass::Latency => "latency",
+            ResourceClass::Energy => "energy",
+            ResourceClass::Token => "token",
+            ResourceClass::Context => "context",
+            ResourceClass::Time => "time",
+            ResourceClass::Action => "action",
+            ResourceClass::Custom(value) => value.as_str(),
+        }
+    }
+}
+
+impl std::fmt::Display for ResourceClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl From<String> for ResourceClass {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "compute" => ResourceClass::Compute,
+            "gpu" => ResourceClass::Gpu,
+            "memory" => ResourceClass::Memory,
+            "storage" => ResourceClass::Storage,
+            "bandwidth" => ResourceClass::Bandwidth,
+            "latency" => ResourceClass::Latency,
+            "energy" => ResourceClass::Energy,
+            "token" => ResourceClass::Token,
+            "context" => ResourceClass::Context,
+            "time" => ResourceClass::Time,
+            "action" => ResourceClass::Action,
+            other => ResourceClass::Custom(other.to_string()),
+        }
+    }
+}
+
+impl From<&str> for ResourceClass {
+    fn from(value: &str) -> Self {
+        ResourceClass::from(value.to_string())
+    }
+}
+
+/// Type aliases for finance-local identifiers and quantities.
+pub type ResourceId = String;
+pub type Quantity = f64;
+pub type Timestamp = u64;
+pub type Provenance = String;
+pub type ConstraintId = String;
+
+/// A typed, measurable, depletable resource instance (MMORPG "item").
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Resource {
+    /// Content-addressed identifier.
+    pub id: ResourceId,
+    /// Resource class (item type).
+    pub class: ResourceClass,
+    /// Measured amount.
+    pub quantity: Quantity,
+    /// Canonical unit.
+    pub unit: ResourceUnit,
+    /// Authority origin of the value.
+    pub origin: ResourceOrigin,
+    /// `None` means durable.
+    pub expiry: Option<Timestamp>,
+    /// Node + measurement provenance.
+    pub provenance: Provenance,
+}
+
+/// Constraint kinds that gate resource consumption.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintType {
+    SlaDeadline,
+    ThroughputFloor,
+    QualityFloor,
+    Availability,
+    BudgetCap,
+    LatencyCeiling,
+    Concurrency,
+    Custom(String),
+}
+
+impl ConstraintType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            ConstraintType::SlaDeadline => "sla_deadline",
+            ConstraintType::ThroughputFloor => "throughput_floor",
+            ConstraintType::QualityFloor => "quality_floor",
+            ConstraintType::Availability => "availability",
+            ConstraintType::BudgetCap => "budget_cap",
+            ConstraintType::LatencyCeiling => "latency_ceiling",
+            ConstraintType::Concurrency => "concurrency",
+            ConstraintType::Custom(value) => value.as_str(),
+        }
+    }
+}
+
+impl std::fmt::Display for ConstraintType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl From<String> for ConstraintType {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "sla_deadline" => ConstraintType::SlaDeadline,
+            "throughput_floor" => ConstraintType::ThroughputFloor,
+            "quality_floor" => ConstraintType::QualityFloor,
+            "availability" => ConstraintType::Availability,
+            "budget_cap" => ConstraintType::BudgetCap,
+            "latency_ceiling" => ConstraintType::LatencyCeiling,
+            "concurrency" => ConstraintType::Concurrency,
+            other => ConstraintType::Custom(other.to_string()),
+        }
+    }
+}
+
+impl From<&str> for ConstraintType {
+    fn from(value: &str) -> Self {
+        ConstraintType::from(value.to_string())
+    }
+}
+
+/// A typed requirement that gates resource consumption.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Constraint {
+    pub id: ConstraintId,
+    pub constraint_type: ConstraintType,
+    pub value: f64,
+    pub source: String,
+}
+
+/// Schema describing a registered resource class.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ResourceSchema {
+    pub class: ResourceClass,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+impl From<ResourceClass> for ResourceSchema {
+    fn from(class: ResourceClass) -> Self {
+        Self {
+            name: class.as_str().to_string(),
+            class,
+            unit: None,
+            description: None,
+        }
+    }
+}
+
+impl From<String> for ResourceSchema {
+    fn from(value: String) -> Self {
+        ResourceSchema::from(ResourceClass::from(value))
+    }
+}
+
+impl From<&str> for ResourceSchema {
+    fn from(value: &str) -> Self {
+        ResourceSchema::from(ResourceClass::from(value))
+    }
+}
+
+/// Dynamic registry mapping `ResourceClass -> ResourceSchema`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResourceRegistry {
+    #[serde(default)]
+    schemas: std::collections::HashMap<ResourceClass, ResourceSchema>,
+}
+
+impl ResourceRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a schema (or a class name) in the registry.
+    pub fn register(&mut self, schema: impl Into<ResourceSchema>) -> Result<(), String> {
+        let schema = schema.into();
+        if self.schemas.contains_key(&schema.class) {
+            return Err(format!(
+                "resource class {} already registered",
+                schema.class
+            ));
+        }
+        self.schemas.insert(schema.class.clone(), schema);
+        Ok(())
+    }
+
+    /// Register or replace a schema unconditionally.
+    pub fn register_or_replace(&mut self, schema: impl Into<ResourceSchema>) {
+        let schema = schema.into();
+        self.schemas.insert(schema.class.clone(), schema);
+    }
+
+    /// Alias for `register`.
+    pub fn add(&mut self, schema: impl Into<ResourceSchema>) -> Result<(), String> {
+        self.register(schema)
+    }
+
+    /// Alias for `register`.
+    pub fn insert(&mut self, schema: impl Into<ResourceSchema>) -> Result<(), String> {
+        self.register(schema)
+    }
+
+    /// Look up a schema by class.
+    pub fn get(&self, class: &ResourceClass) -> Option<&ResourceSchema> {
+        self.schemas.get(class)
+    }
+
+    /// Look up a schema by string key.
+    pub fn get_by_str(&self, key: &str) -> Option<&ResourceSchema> {
+        self.schemas.get(&ResourceClass::from(key))
+    }
+
+    /// Returns true if the class is registered.
+    pub fn contains(&self, class: &ResourceClass) -> bool {
+        self.schemas.contains_key(class)
+    }
+
+    /// Alias for `contains`.
+    pub fn has(&self, class: &ResourceClass) -> bool {
+        self.contains(class)
+    }
+
+    /// Remove a registered class.
+    pub fn remove(&mut self, class: &ResourceClass) -> Option<ResourceSchema> {
+        self.schemas.remove(class)
+    }
+
+    /// Alias for `remove`.
+    pub fn unregister(&mut self, class: &ResourceClass) -> Option<ResourceSchema> {
+        self.remove(class)
+    }
+
+    /// List all registered schemas.
+    pub fn list(&self) -> Vec<&ResourceSchema> {
+        self.schemas.values().collect()
+    }
+
+    /// Alias for `list`.
+    pub fn all(&self) -> Vec<&ResourceSchema> {
+        self.list()
+    }
+
+    /// Returns all registered classes.
+    pub fn classes(&self) -> Vec<ResourceClass> {
+        self.schemas.keys().cloned().collect()
+    }
+
+    /// Number of registered classes.
+    pub fn len(&self) -> usize {
+        self.schemas.len()
+    }
+
+    /// Returns true if empty.
+    pub fn is_empty(&self) -> bool {
+        self.schemas.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_metrics_new() {
+        let m = BuildMetrics::new("cynic-finance", 1500, 200, 800, false);
+        assert_eq!(m.crate_name, "cynic-finance");
+        assert_eq!(m.build_time_ms, 1500);
+        assert_eq!(m.sync_time_ms, 200);
+        assert_eq!(m.test_time_ms, 800);
+        assert!(!m.cache_hit);
+    }
+
+    #[test]
+    fn build_metrics_total_time_ms() {
+        let m = BuildMetrics::new("cynic-core", 1000, 500, 300, true);
+        assert_eq!(m.total_time_ms(), 1800);
+    }
+
+    #[test]
+    fn build_metrics_to_resource_unit() {
+        let m = BuildMetrics::new("cynic-build", 2500, 100, 400, false);
+        let ru: ResourceUnit = (&m).into();
+        assert_eq!(ru, ResourceUnit::ComputeCpuMs(2500));
+        assert_eq!(ru.resource_type(), ResourceType::Compute);
+    }
+
+    #[test]
+    fn build_metrics_cache_hit_flag() {
+        let m = BuildMetrics::new("cynic-proto", 0, 50, 0, true);
+        assert!(m.cache_hit);
+        assert_eq!(m.total_time_ms(), 50);
+    }
+
+    #[test]
+    fn build_metrics_serialization_roundtrip() {
+        let m = BuildMetrics::new("cynic-test", 100, 20, 30, true);
+        let json = serde_json::to_string(&m).expect("serialize");
+        let deserialized: BuildMetrics = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(m, deserialized);
+    }
+
+    #[test]
+    fn resource_new_and_fields() {
+        let r = Resource {
+            id: "res-1".into(),
+            class: ResourceClass::Compute,
+            quantity: 42.0,
+            unit: ResourceUnit::ComputeCpuMs(42),
+            origin: ResourceOrigin::Observed,
+            expiry: None,
+            provenance: "node-1".into(),
+        };
+        assert_eq!(r.id, "res-1");
+        assert_eq!(r.class, ResourceClass::Compute);
+        assert_eq!(r.quantity, 42.0);
+        assert!(r.expiry.is_none());
+    }
+
+    #[test]
+    fn resource_serialization_roundtrip() {
+        let r = Resource {
+            id: "res-2".into(),
+            class: ResourceClass::Custom("foo".into()),
+            quantity: 7.5,
+            unit: ResourceUnit::EnergyWatts(7.5),
+            origin: ResourceOrigin::Projected,
+            expiry: Some(100),
+            provenance: "node-2".into(),
+        };
+        let json = serde_json::to_string(&r).expect("serialize");
+        let deserialized: Resource = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(r, deserialized);
+    }
+
+    #[test]
+    fn constraint_new_and_fields() {
+        let c = Constraint {
+            id: "con-1".into(),
+            constraint_type: ConstraintType::BudgetCap,
+            value: 100.0,
+            source: "ledger".into(),
+        };
+        assert_eq!(c.id, "con-1");
+        assert_eq!(c.constraint_type, ConstraintType::BudgetCap);
+        assert_eq!(c.value, 100.0);
+    }
+
+    #[test]
+    fn constraint_serialization_roundtrip() {
+        let c = Constraint {
+            id: "con-2".into(),
+            constraint_type: ConstraintType::from("custom_x"),
+            value: 3.0,
+            source: "test".into(),
+        };
+        let json = serde_json::to_string(&c).expect("serialize");
+        let deserialized: Constraint = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(c, deserialized);
+    }
+
+    #[test]
+    fn resource_registry_register_and_lookup() {
+        let mut reg = ResourceRegistry::new();
+        assert!(reg.is_empty());
+        reg.register("compute").expect("register");
+        assert!(reg.contains(&ResourceClass::Compute));
+        assert_eq!(reg.len(), 1);
+        let schema = reg.get(&ResourceClass::Compute).expect("schema");
+        assert_eq!(schema.class, ResourceClass::Compute);
+        assert!(reg.get_by_str("compute").is_some());
+    }
+
+    #[test]
+    fn resource_registry_duplicate_rejected() {
+        let mut reg = ResourceRegistry::new();
+        reg.register(ResourceClass::Gpu).expect("first");
+        let result = reg.register(ResourceClass::Gpu);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn resource_registry_remove_and_list() {
+        let mut reg = ResourceRegistry::default();
+        reg.register_or_replace(ResourceSchema {
+            class: ResourceClass::Memory,
+            name: "memory".into(),
+            unit: Some("mb".into()),
+            description: None,
+        });
+        reg.register(ResourceClass::Storage).expect("register");
+        assert_eq!(reg.list().len(), 2);
+        assert_eq!(reg.classes().len(), 2);
+        reg.remove(&ResourceClass::Memory);
+        assert_eq!(reg.len(), 1);
+        assert!(!reg.contains(&ResourceClass::Memory));
+    }
+
+    #[test]
+    fn resource_origin_ordering_variants() {
+        assert_ne!(ResourceOrigin::Observed, ResourceOrigin::Projected);
     }
 }

@@ -643,23 +643,57 @@ mod tests {
         let mut state = PeerState::new();
         state.last_sequence = 1;
         state.citizens.insert(
-            "cit_01".to_string(),
-            CitizenAccount::new_admin("cit_01", "Admin", "pub", 1000),
+            "cit_001".to_string(),
+            CitizenAccount::new_admin("cit_001", "Admin", "pub", 1000),
         );
-
         let tx = LedgerTransaction::new(
             "tx_02",
             2,
             1001,
-            "cit_01",
+            "cit_001",
             1,
             LedgerTransactionPayload::CitizenRegistered {
-                citizen: CitizenAccount::new_admin("cit_01", "Duplicate Admin", "pub", 1001),
+                citizen: CitizenAccount::new_admin("cit_001", "Duplicate Admin", "pub", 1001),
             },
         );
         match apply_transaction(&state, &tx) {
-            Err(TransitionError::CitizenAlreadyExists(id)) => assert_eq!(id, "cit_01"),
+            Err(TransitionError::CitizenAlreadyExists(id)) => assert_eq!(id, "cit_001"),
             other => panic!("expected CitizenAlreadyExists, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn allowance_grant_schema_and_validation() {
+        let grant = AllowanceGrant {
+            schema: ALLOWANCE_GRANT_ACCOUNT_SCHEMA.to_string(),
+            grant_id: "agr_001".to_string(),
+            owner_id: "cit_001".to_string(),
+            delegate_id: "agt_001".to_string(),
+            resource_unit: "token.cyd".to_string(),
+            max_amount_per_period: 1000,
+            period_seconds: 3600,
+            remaining_allowance: 500,
+            started_at_unix_s: 1000,
+            expires_at_unix_s: 5000,
+            status: AllowanceStatus::Active,
+        };
+
+        assert_eq!(grant.schema, ALLOWANCE_GRANT_ACCOUNT_SCHEMA);
+        assert!(grant.is_valid_at(2000));
+        assert!(!grant.is_valid_at(999));
+        assert!(!grant.is_valid_at(5001));
+
+        let mut exhausted = grant.clone();
+        exhausted.remaining_allowance = 0;
+        assert!(!exhausted.is_valid_at(2000));
+
+        let mut revoked = grant.clone();
+        revoked.status = AllowanceStatus::Revoked;
+        assert!(!revoked.is_valid_at(2000));
+
+        let json = serde_json::to_string(&grant).expect("serialize allowance_grant");
+        let decoded: AllowanceGrant =
+            serde_json::from_str(&json).expect("deserialize allowance_grant");
+        assert_eq!(decoded, grant);
     }
 }

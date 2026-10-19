@@ -136,7 +136,11 @@ mod tests {
             event("key:a", "commit:1", 1_000 + COLLISION_WINDOW_MS + 1),
         ];
         assert_eq!(
-            count_collisions(&events, 1_000 + COLLISION_WINDOW_MS + 1, COLLISION_WINDOW_MS),
+            count_collisions(
+                &events,
+                1_000 + COLLISION_WINDOW_MS + 1,
+                COLLISION_WINDOW_MS
+            ),
             0
         );
     }

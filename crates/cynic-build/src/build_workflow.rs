@@ -193,11 +193,9 @@ impl<'a> BuildWorkflow<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build::{
-        BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
-    };
-    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
+    use crate::build::{BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation};
     use cynic_protocol::vcs::SourceSnapshot;
+    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {

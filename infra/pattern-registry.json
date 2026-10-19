@@ -1,0 +1,145 @@
+{
+  "schema": "cynic.pattern_registry.v1",
+  "status": "active",
+  "purpose": "Registry of recurring CYNIC implementation patterns observed across crates, surfaces, and sessions. Each entry records the pattern's layer progression, invariants, observed occurrences, and lifecycle status.",
+  "patterns": [
+    {
+      "pattern_id": "organic-layer-pattern",
+      "name": "Organic Layer Pattern",
+      "layers": [
+        "observe",
+        "formalize",
+        "implement",
+        "verify",
+        "deliver"
+      ],
+      "invariants": [
+        "Bottom-up over top-down: observe and measure physical substrate reality before abstraction.",
+        "No mutation without read-back proof.",
+        "Each layer is gated by an empirically verified baseline.",
+        "Strict DAG downward: higher layers depend on lower layers, never the reverse."
+      ],
+      "occurrences": [
+        "crates/cynic-host",
+        "crates/cynic-kernel",
+        "crates/cynic-cli",
+        "crates/cynic-node",
+        "docs/design"
+      ],
+      "status": "active",
+      "created_at": "2026-10-19T21:05:52Z",
+      "updated_at": "2026-10-19T21:05:52Z"
+    },
+    {
+      "pattern_id": "port-trait",
+      "name": "Port Trait (FCIS)",
+      "layers": [
+        "observe",
+        "formalize",
+        "implement",
+        "verify",
+        "deliver"
+      ],
+      "invariants": [
+        "Pure trait lives in the domain module (zero I/O).",
+        "Side effects are hidden behind adapter implementations.",
+        "Admission gate precedes execution.",
+        "Proof builder produces read-back evidence.",
+        "Strict DAG downward preserved."
+      ],
+      "occurrences": [
+        "crates/cynic-host/src/ports",
+        "crates/cynic-kernel/src/ports",
+        "crates/cynic-node-protocol/src/ports",
+        "crates/cynic-lifecycle/src/ports",
+        "crates/cynic-storage/src/ports"
+      ],
+      "status": "active",
+      "created_at": "2026-10-19T21:05:52Z",
+      "updated_at": "2026-10-19T21:05:52Z"
+    },
+    {
+      "pattern_id": "adapter-degrassing",
+      "name": "Adapter Degrossing",
+      "layers": [
+        "observe",
+        "formalize",
+        "implement",
+        "verify",
+        "deliver"
+      ],
+      "invariants": [
+        "Adapters move into dedicated crates.",
+        "Domain crates contain no I/O or adapter code.",
+        "Port traits remain in the domain layer.",
+        "Dependencies flow downward only."
+      ],
+      "occurrences": [
+        "crates/cynic-domain-ops",
+        "crates/cynic-vcs-providers",
+        "crates/cynic-domain-cloudflare",
+        "crates/cynic-domain-porkbun",
+        "crates/cynic-huggingface"
+      ],
+      "status": "active",
+      "created_at": "2026-10-19T21:05:52Z",
+      "updated_at": "2026-10-19T21:05:52Z"
+    },
+    {
+      "pattern_id": "registry-first",
+      "name": "Registry First",
+      "layers": [
+        "observe",
+        "formalize",
+        "implement",
+        "verify",
+        "deliver"
+      ],
+      "invariants": [
+        "Dynamic registries over hardcoded values.",
+        "Registry is the authority SSOT.",
+        "No hardcoded hosts, IPs, or paths.",
+        "Mutation requires explicit --yes/--apply."
+      ],
+      "occurrences": [
+        "infra/registry.json",
+        "infra/runtime-authority.json",
+        "infra/crate-topology.json",
+        "crates/cynic-cli",
+        "crates/cynic-host"
+      ],
+      "status": "active",
+      "created_at": "2026-10-19T21:05:52Z",
+      "updated_at": "2026-10-19T21:05:52Z"
+    },
+    {
+      "pattern_id": "fusion",
+      "name": "Crate Fusion",
+      "layers": [
+        "observe",
+        "formalize",
+        "implement",
+        "verify",
+        "deliver"
+      ],
+      "invariants": [
+        "Merge zero-test or no-dependents crates.",
+        "Reduce fragmentation without losing public API.",
+        "Cargo.lock regenerated for fused workspace.",
+        "Disposition recorded in contracts/crate-fusion-dispositions.json."
+      ],
+      "occurrences": [
+        "crates/cynic-discovery",
+        "crates/cynic-domain-ops",
+        "crates/cynic-eval",
+        "contracts/crate-fusion-dispositions.json",
+        "Cargo.lock"
+      ],
+      "status": "active",
+      "created_at": "2026-10-19T21:05:52Z",
+      "updated_at": "2026-10-19T21:05:52Z"
+    }
+  ],
+  "created_at": "2026-10-19T21:05:52Z",
+  "updated_at": "2026-10-19T21:05:52Z"
+}

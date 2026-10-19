@@ -53,6 +53,7 @@ pub mod endpoint;
 pub mod energy_ledger;
 pub mod error_catalog;
 pub mod evidence;
+pub mod evidence_store_port;
 pub mod federation_authz;
 pub mod federation_envelopes;
 pub mod federation_membership;

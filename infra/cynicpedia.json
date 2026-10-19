@@ -1,0 +1,2039 @@
+{
+  "schema": "cynic.cynicpedia.v1",
+  "status": "active",
+  "purpose": "Registry of CYNIC knowledge articles (docs, contracts, traces, designs) with provenance.",
+  "articles": [
+    {
+      "article_id": "contracts-agent-claim-event",
+      "title": "cynic.agent.claim_event.v1",
+      "path": "contracts/agent-claim-event.json",
+      "kind": "contract",
+      "provenance": "9a6e380198ea9d310bcbd974210c5a98ba738f13",
+      "status": "published",
+      "created_at": "2026-10-14T09:09:39+02:00",
+      "updated_at": "2026-10-14T09:09:39+02:00"
+    },
+    {
+      "article_id": "contracts-authority-tiers",
+      "title": "cynic.knowledge.authority_tiers.v1",
+      "path": "contracts/authority-tiers.json",
+      "kind": "contract",
+      "provenance": "84575cc1eac3c96424454dd8089064a02a52a996",
+      "status": "published",
+      "created_at": "2026-10-14T10:15:29+02:00",
+      "updated_at": "2026-10-14T10:15:29+02:00"
+    },
+    {
+      "article_id": "contracts-build-placement",
+      "title": "cynic.build.placement.v1",
+      "path": "contracts/build-placement.json",
+      "kind": "contract",
+      "provenance": "6d657bff13c5977e79fec998b0bdd1c78bd76c5c",
+      "status": "published",
+      "created_at": "2026-09-18T11:20:46+02:00",
+      "updated_at": "2026-09-18T11:20:46+02:00"
+    },
+    {
+      "article_id": "contracts-builder-retention",
+      "title": "cynic.builder_retention.v1",
+      "path": "contracts/builder-retention.json",
+      "kind": "contract",
+      "provenance": "3192dd152f7db243fb58694ee67bd62f2a37af36",
+      "status": "published",
+      "created_at": "2026-10-14T00:19:42+02:00",
+      "updated_at": "2026-10-14T00:19:42+02:00"
+    },
+    {
+      "article_id": "contracts-claims",
+      "title": "cynic.claims.v1",
+      "path": "contracts/claims.json",
+      "kind": "contract",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-09-30T15:12:56+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "contracts-crate-fusion-dispositions",
+      "title": "cynic.audit.crate_fusion.v1",
+      "path": "contracts/crate-fusion-dispositions.json",
+      "kind": "contract",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "contracts-debt-taxonomy",
+      "title": "cynic.debt_taxonomy.v1",
+      "path": "contracts/debt-taxonomy.json",
+      "kind": "contract",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "contracts-dependency-policy",
+      "title": "cynic.dependency_policy.v1",
+      "path": "contracts/dependency-policy.json",
+      "kind": "contract",
+      "provenance": "413a805c78cf955e9d2e7f955480505b4e02ebd7",
+      "status": "published",
+      "created_at": "2026-10-09T17:49:56+02:00",
+      "updated_at": "2026-10-09T17:49:56+02:00"
+    },
+    {
+      "article_id": "contracts-embedding-selection",
+      "title": "cynic.embedding_selection.v1",
+      "path": "contracts/embedding-selection.json",
+      "kind": "contract",
+      "provenance": "40fbf88d60adfaf80da68d9337c84eefc4b1f6b3",
+      "status": "published",
+      "created_at": "2026-10-14T19:56:07+02:00",
+      "updated_at": "2026-10-16T01:15:20+02:00"
+    },
+    {
+      "article_id": "contracts-external-project-policy-v1",
+      "title": "cynic.external_project_policy.v1",
+      "path": "contracts/external-project-policy.v1.json",
+      "kind": "contract",
+      "provenance": "6045266e2ce7a64331deb4e4df7137cc58921319",
+      "status": "published",
+      "created_at": "2026-10-18T17:39:21+02:00",
+      "updated_at": "2026-10-18T22:23:30+02:00"
+    },
+    {
+      "article_id": "contracts-external-project-ports-v1",
+      "title": "cynic.external_project_ports.v1",
+      "path": "contracts/external-project-ports.v1.json",
+      "kind": "contract",
+      "provenance": "3c64c3decdaf097e4a67175b9f581fb25d2f7228",
+      "status": "published",
+      "created_at": "2026-10-18T18:05:29+02:00",
+      "updated_at": "2026-10-18T22:36:04+02:00"
+    },
+    {
+      "article_id": "contracts-federation-mycelium-policy",
+      "title": "cynic.federation_mycelium_policy.v1",
+      "path": "contracts/federation-mycelium-policy.json",
+      "kind": "contract",
+      "provenance": "8f96ff3571a651e6cbd18cd5a91e70dbac1f405e",
+      "status": "published",
+      "created_at": "2026-10-12T02:20:51+02:00",
+      "updated_at": "2026-10-12T02:20:51+02:00"
+    },
+    {
+      "article_id": "contracts-foundation",
+      "title": "cynic.foundation.v1",
+      "path": "contracts/foundation.json",
+      "kind": "contract",
+      "provenance": "a92fd97628f9cbf36840baa8fb3192c48e5f1e54",
+      "status": "published",
+      "created_at": "2026-07-12T19:58:21+02:00",
+      "updated_at": "2026-10-16T15:01:55+02:00"
+    },
+    {
+      "article_id": "contracts-framework",
+      "title": "cynic.framework_spec.v1",
+      "path": "contracts/framework.json",
+      "kind": "contract",
+      "provenance": "05f79ac05283d24ccf86038b826bbb28cce5dcbe",
+      "status": "published",
+      "created_at": "2026-07-12T19:58:21+02:00",
+      "updated_at": "2026-09-26T14:17:46+02:00"
+    },
+    {
+      "article_id": "contracts-inference-calibration",
+      "title": "cynic.inference.calibration.v1",
+      "path": "contracts/inference-calibration.json",
+      "kind": "contract",
+      "provenance": "de2998443ccd09b5eb56966026765c06ff2dc13c",
+      "status": "published",
+      "created_at": "2026-10-13T19:53:42+02:00",
+      "updated_at": "2026-10-13T19:53:42+02:00"
+    },
+    {
+      "article_id": "contracts-infrastructure-discovery",
+      "title": "cynic.infrastructure.discovery.v1",
+      "path": "contracts/infrastructure-discovery.json",
+      "kind": "contract",
+      "provenance": "c3424df34bf50094ae2d46378dacb059fbe135b4",
+      "status": "published",
+      "created_at": "2026-10-05T20:18:01+02:00",
+      "updated_at": "2026-10-05T21:07:15+02:00"
+    },
+    {
+      "article_id": "contracts-measure-arbitration",
+      "title": "cynic.measure-arbitration.v1",
+      "path": "contracts/measure-arbitration.json",
+      "kind": "contract",
+      "provenance": "1751375747e66d6bc501ae04554f492ca43a8a2c",
+      "status": "published",
+      "created_at": "2026-09-30T15:37:16+02:00",
+      "updated_at": "2026-09-30T15:37:16+02:00"
+    },
+    {
+      "article_id": "contracts-observability-facts",
+      "title": "cynic.observability.facts.v1",
+      "path": "contracts/observability-facts.json",
+      "kind": "contract",
+      "provenance": "5bc5841f6686bb14f0301427d131198c3417311b",
+      "status": "published",
+      "created_at": "2026-10-05T20:18:01+02:00",
+      "updated_at": "2026-10-05T20:18:01+02:00"
+    },
+    {
+      "article_id": "contracts-observability-loop",
+      "title": "cynic.observability.loop.v1",
+      "path": "contracts/observability-loop.json",
+      "kind": "contract",
+      "provenance": "36e4fd277dab1ce928ee4713e6b2fc06e9624a64",
+      "status": "published",
+      "created_at": "2026-09-21T21:15:44+02:00",
+      "updated_at": "2026-09-21T21:15:44+02:00"
+    },
+    {
+      "article_id": "contracts-ownership",
+      "title": "cynic.ownership.v1",
+      "path": "contracts/ownership.json",
+      "kind": "contract",
+      "provenance": "fd4b46281fbbe0e89a37f0d8e1e8c694daf55070",
+      "status": "published",
+      "created_at": "2026-09-30T15:12:56+02:00",
+      "updated_at": "2026-09-30T15:50:20+02:00"
+    },
+    {
+      "article_id": "contracts-pattern-registry-v1",
+      "title": "cynic.pattern_registry.v1",
+      "path": "contracts/pattern-registry.v1.json",
+      "kind": "contract",
+      "provenance": "324e090e30b7ceeff52a9a7488b7ce8d22256b47",
+      "status": "published",
+      "created_at": "2026-10-19T23:06:16+02:00",
+      "updated_at": "2026-10-19T23:06:16+02:00"
+    },
+    {
+      "article_id": "contracts-pool-contribution",
+      "title": "cynic.pool.contribution.v1",
+      "path": "contracts/pool-contribution.json",
+      "kind": "contract",
+      "provenance": "f531bac8cbc15f842baa7c1de9e82b6ce349446f",
+      "status": "published",
+      "created_at": "2026-09-18T11:22:40+02:00",
+      "updated_at": "2026-09-18T11:22:40+02:00"
+    },
+    {
+      "article_id": "contracts-pruning-policy",
+      "title": "cynic.pruning-policy.v1",
+      "path": "contracts/pruning-policy.json",
+      "kind": "contract",
+      "provenance": "58f14fa380de6c7b6f448908314693eeb9d1db3c",
+      "status": "published",
+      "created_at": "2026-09-21T21:15:44+02:00",
+      "updated_at": "2026-10-10T21:05:24+02:00"
+    },
+    {
+      "article_id": "contracts-publication",
+      "title": "cynic.publication.v1",
+      "path": "contracts/publication.json",
+      "kind": "contract",
+      "provenance": "4d0a189fa5e8707ad6487ec5a028b18a8340b9d1",
+      "status": "published",
+      "created_at": "2026-09-28T22:55:37+02:00",
+      "updated_at": "2026-10-14T11:26:14+02:00"
+    },
+    {
+      "article_id": "contracts-relay-policy",
+      "title": "cynic.relay-policy.v1",
+      "path": "contracts/relay-policy.json",
+      "kind": "contract",
+      "provenance": "418e125a745481e18933f3cf1d1fbc31add74762",
+      "status": "published",
+      "created_at": "2026-09-18T11:20:46+02:00",
+      "updated_at": "2026-10-11T20:55:31+02:00"
+    },
+    {
+      "article_id": "contracts-release-domain",
+      "title": "cynic.release_domain_spec.v1",
+      "path": "contracts/release-domain.json",
+      "kind": "contract",
+      "provenance": "6d657bff13c5977e79fec998b0bdd1c78bd76c5c",
+      "status": "published",
+      "created_at": "2026-09-18T11:20:46+02:00",
+      "updated_at": "2026-09-18T11:20:46+02:00"
+    },
+    {
+      "article_id": "contracts-release-gates",
+      "title": "cynic.release-gates.v1",
+      "path": "contracts/release-gates.json",
+      "kind": "contract",
+      "provenance": "f5ee8278541be3bda71cc3a301855c05502b8494",
+      "status": "published",
+      "created_at": "2026-09-18T11:20:46+02:00",
+      "updated_at": "2026-10-03T13:29:50+02:00"
+    },
+    {
+      "article_id": "contracts-release-versioning",
+      "title": "cynic.release-versioning.v1",
+      "path": "contracts/release-versioning.json",
+      "kind": "contract",
+      "provenance": "6d657bff13c5977e79fec998b0bdd1c78bd76c5c",
+      "status": "published",
+      "created_at": "2026-09-18T11:20:46+02:00",
+      "updated_at": "2026-09-18T11:20:46+02:00"
+    },
+    {
+      "article_id": "contracts-repository-governance",
+      "title": "cynic.repository_governance.v1",
+      "path": "contracts/repository-governance.json",
+      "kind": "contract",
+      "provenance": "084990fb4e3fbc6a0e3792f0ca9ce448ba4943a3",
+      "status": "published",
+      "created_at": "2026-10-12T22:27:00+02:00",
+      "updated_at": "2026-10-13T11:04:42+02:00"
+    },
+    {
+      "article_id": "contracts-risk-matrix-v1",
+      "title": "cynic.risk_matrix.v1",
+      "path": "contracts/risk-matrix.v1.json",
+      "kind": "contract",
+      "provenance": "1f7987747e08fb6a12147a97da47278464f926b9",
+      "status": "published",
+      "created_at": "2026-10-19T02:30:02+02:00",
+      "updated_at": "2026-10-19T02:30:02+02:00"
+    },
+    {
+      "article_id": "contracts-runtime-update",
+      "title": "cynic.runtime-update.v1",
+      "path": "contracts/runtime-update.json",
+      "kind": "contract",
+      "provenance": "0ee8d448f2e0d997bc6a73a7d93381ce808e6367",
+      "status": "published",
+      "created_at": "2026-10-06T22:48:53+02:00",
+      "updated_at": "2026-10-06T23:06:38+02:00"
+    },
+    {
+      "article_id": "contracts-source-lifecycle",
+      "title": "cynic.source_lifecycle.v1",
+      "path": "contracts/source-lifecycle.json",
+      "kind": "contract",
+      "provenance": "bb13a99081ca109b0d772aca0e68cd85c281a7c0",
+      "status": "published",
+      "created_at": "2026-09-25T01:51:35+02:00",
+      "updated_at": "2026-09-25T01:51:35+02:00"
+    },
+    {
+      "article_id": "contracts-staging-model",
+      "title": "cynic.staging-model.v1",
+      "path": "contracts/staging-model.json",
+      "kind": "contract",
+      "provenance": "6d657bff13c5977e79fec998b0bdd1c78bd76c5c",
+      "status": "published",
+      "created_at": "2026-09-18T11:20:46+02:00",
+      "updated_at": "2026-09-18T11:20:46+02:00"
+    },
+    {
+      "article_id": "docs-design-agency-privacy-doctrine",
+      "title": "Agency & Privacy Doctrine",
+      "path": "docs/design/AGENCY_PRIVACY_DOCTRINE.md",
+      "kind": "design",
+      "provenance": "16e571add8a9269fda086632f3493f802630d9c8",
+      "status": "published",
+      "created_at": "2026-10-18T17:50:21+02:00",
+      "updated_at": "2026-10-18T17:50:21+02:00"
+    },
+    {
+      "article_id": "docs-design-agent-energy",
+      "title": "CYNIC Agent Energy \u2014 D\u00e9cision de capacit\u00e9 native",
+      "path": "docs/design/AGENT_ENERGY.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-agent-fleet-hosting-design",
+      "title": "H\u00e9bergement agentique hors Cortex \u2014 design de convergence",
+      "path": "docs/design/AGENT_FLEET_HOSTING_DESIGN.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-architecture-constellations",
+      "title": "CYNIC \u2014 Architecture Constellations & Crate Taxonomy",
+      "path": "docs/design/ARCHITECTURE_CONSTELLATIONS.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-builder-toolchain-provisioning",
+      "title": "Builder Toolchain Provisioning (Go, Node)",
+      "path": "docs/design/BUILDER_TOOLCHAIN_PROVISIONING.md",
+      "kind": "design",
+      "provenance": "a2046d2b8e77e839972f195e6481b076746fe2d6",
+      "status": "published",
+      "created_at": "2026-10-18T17:52:31+02:00",
+      "updated_at": "2026-10-18T17:52:31+02:00"
+    },
+    {
+      "article_id": "docs-design-build-lifecycle",
+      "title": "CYNIC Build Lifecycle \u2014 Desired State (proposal, validated 2026-09-04)",
+      "path": "docs/design/BUILD_LIFECYCLE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-business-agnostic-mmorpg-model",
+      "title": "Business-Agnostic MMORPG / Economy Model \u2014 Inference Vertical",
+      "path": "docs/design/BUSINESS_AGNOSTIC_MMORPG_MODEL.md",
+      "kind": "design",
+      "provenance": "b1f0b02cc6962767295b32c0686e36e073c33a35",
+      "status": "published",
+      "created_at": "2026-10-18T22:57:57+02:00",
+      "updated_at": "2026-10-18T23:20:03+02:00"
+    },
+    {
+      "article_id": "docs-design-canonical-crate-map",
+      "title": "CYNIC \u2014 CANONICAL CRATE MAP v3",
+      "path": "docs/design/CANONICAL_CRATE_MAP.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-ci-evolution",
+      "title": "CI Evolution \u2014 Suite Survivability and the Five Adoption Metrics",
+      "path": "docs/design/CI_EVOLUTION.md",
+      "kind": "design",
+      "provenance": "5089bba9892f3819854489a2b7bfd63580426ac3",
+      "status": "published",
+      "created_at": "2026-10-18T23:52:20+02:00",
+      "updated_at": "2026-10-18T23:52:20+02:00"
+    },
+    {
+      "article_id": "docs-design-ci-sovereignty",
+      "title": "CI Sovereignty \u2014 Role Split, Runner Pool, and the Single-Writer Rule",
+      "path": "docs/design/CI_SOVEREIGNTY.md",
+      "kind": "design",
+      "provenance": "174282a777bed43140483e53ba5a472bf7105d96",
+      "status": "published",
+      "created_at": "2026-10-19T01:04:14+02:00",
+      "updated_at": "2026-10-19T01:04:14+02:00"
+    },
+    {
+      "article_id": "docs-design-collaborator-trust-promotion",
+      "title": "Collaborator Trust Promotion Criteria (OQ-4)",
+      "path": "docs/design/COLLABORATOR_TRUST_PROMOTION.md",
+      "kind": "design",
+      "provenance": "7da607ac1f47fddb804b517f7a95c334658d0690",
+      "status": "published",
+      "created_at": "2026-10-18T20:11:49+02:00",
+      "updated_at": "2026-10-18T21:30:17+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-agentic-surfaces-and-emergence",
+      "title": "Analyse des Surfaces Agentiques & G\u00e9n\u00e9alogie des Structures \u00c9mergentes",
+      "path": "docs/design/CYNIC_AGENTIC_SURFACES_AND_EMERGENCE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-attention-sovereignty-strategy",
+      "title": "CYNIC Attention Sovereignty Strategy",
+      "path": "docs/design/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "kind": "design",
+      "provenance": "b4744da1f18527a84cc21f5f28d6d434d720f051",
+      "status": "published",
+      "created_at": "2026-10-12T23:29:50+02:00",
+      "updated_at": "2026-10-12T23:29:50+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-cv-vivant-design",
+      "title": "CYNIC CV Vivant \u2014 Design v0.1",
+      "path": "docs/design/CYNIC_CV_VIVANT_DESIGN.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-knowledge-tensor-architecture",
+      "title": "CYNIC Knowledge Tensor Architecture \u2014 Organic Data-Centric Design",
+      "path": "docs/design/CYNIC_KNOWLEDGE_TENSOR_ARCHITECTURE.md",
+      "kind": "design",
+      "provenance": "5f1b8be3626bcf2c21c53f2de86fcde53b6b1ae5",
+      "status": "published",
+      "created_at": "2026-10-13T02:45:06+02:00",
+      "updated_at": "2026-10-13T02:45:06+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-multi-agent-harness-protocol",
+      "title": "CYNIC : Protocole de Coordination Multi-Agents & Matrices de Harnais",
+      "path": "docs/design/CYNIC_MULTI_AGENT_HARNESS_PROTOCOL.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-nation-anthropology",
+      "title": "Anthropologie de CYNIC & Formalisation de la Vision \u00ab Nation \u00bb",
+      "path": "docs/design/CYNIC_NATION_ANTHROPOLOGY.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-organic-layer-pattern",
+      "title": "CYNIC Organic Layer Pattern",
+      "path": "docs/design/CYNIC_ORGANIC_LAYER_PATTERN.md",
+      "kind": "design",
+      "provenance": "d604b926e906416f6f06f8358f0cc8090c971b1d",
+      "status": "published",
+      "created_at": "2026-10-19T23:15:16+02:00",
+      "updated_at": "2026-10-19T23:15:16+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-the-catalyst",
+      "title": "CYNIC : La Doctrine du Catalyseur (*The Catalyst*)",
+      "path": "docs/design/CYNIC_THE_CATALYST.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-debt-audit-methods",
+      "title": "Syst\u00e8mes Souverains d'Audit \u2014 Algorithmes & M\u00e9thodes",
+      "path": "docs/design/DEBT_AUDIT_METHODS.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-debt-purge-plan",
+      "title": "Plan de Correction par Vagues \u2014 Dette v54 Fig\u00e9e",
+      "path": "docs/design/DEBT_PURGE_PLAN.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-domain-ops-design",
+      "title": "CYNIC Domain Operations Design Document",
+      "path": "docs/design/DOMAIN_OPS_DESIGN.md",
+      "kind": "design",
+      "provenance": "17fbfa3b6a944ffa08b3697e47133da61f6031e9",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-16T05:27:17+02:00"
+    },
+    {
+      "article_id": "docs-design-external-project-boundary",
+      "title": "External Project Boundary \u2014 pointer",
+      "path": "docs/design/EXTERNAL_PROJECT_BOUNDARY.md",
+      "kind": "design",
+      "provenance": "5d575bd2c5f17fd5995aef2c5b027bf8f83c7dac",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T00:47:32+02:00"
+    },
+    {
+      "article_id": "docs-design-external-project-consortium",
+      "title": "External Project Consortium \u2014 CYNIC as Agentic OS for OSS",
+      "path": "docs/design/EXTERNAL_PROJECT_CONSORTIUM.md",
+      "kind": "design",
+      "provenance": "2bc834a2c0e9d588ff4a51c0717970b96c573aee",
+      "status": "published",
+      "created_at": "2026-10-18T17:39:21+02:00",
+      "updated_at": "2026-10-18T18:05:29+02:00"
+    },
+    {
+      "article_id": "docs-design-fleet-north-star",
+      "title": "Cap Nord \u2014 flotte CYNIC",
+      "path": "docs/design/FLEET_NORTH_STAR.md",
+      "kind": "design",
+      "provenance": "3bd658a5caf53aa473c99a5b02a6457067f1aa64",
+      "status": "published",
+      "created_at": "2026-10-18T17:50:03+02:00",
+      "updated_at": "2026-10-18T17:50:03+02:00"
+    },
+    {
+      "article_id": "docs-design-forge-verbs",
+      "title": "Forge Verbs \u2014 Distilling Manual Forge Ops into the CLI",
+      "path": "docs/design/FORGE_VERBS.md",
+      "kind": "design",
+      "provenance": "f5d1ae26525c783603a0ca71d0499de65a25743f",
+      "status": "published",
+      "created_at": "2026-10-19T03:40:37+02:00",
+      "updated_at": "2026-10-19T03:40:37+02:00"
+    },
+    {
+      "article_id": "docs-design-gasdf-baseline-20261016",
+      "title": "GASdf Baseline \u2014 devnet, 2026-10-16",
+      "path": "docs/design/GASDF_BASELINE_20261016.md",
+      "kind": "design",
+      "provenance": "5d575bd2c5f17fd5995aef2c5b027bf8f83c7dac",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T00:47:32+02:00"
+    },
+    {
+      "article_id": "docs-design-gasdf-ingestion-plan",
+      "title": "GASdf Peer Plan \u2014 first external project at `observed` stage",
+      "path": "docs/design/GASDF_INGESTION_PLAN.md",
+      "kind": "design",
+      "provenance": "f627f93bd43f8b808fb3eaf275a4fc40d63258df",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T02:46:04+02:00"
+    },
+    {
+      "article_id": "docs-design-knowledge-architecture",
+      "title": "Knowledge Architecture \u2014 doctrine, canonicalisation, and authority homes",
+      "path": "docs/design/KNOWLEDGE_ARCHITECTURE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-kyon-mobile-audit",
+      "title": "Kyon Mobile \u2014 Audit and Refactor Basis",
+      "path": "docs/design/KYON_MOBILE_AUDIT.md",
+      "kind": "design",
+      "provenance": "b4744da1f18527a84cc21f5f28d6d434d720f051",
+      "status": "published",
+      "created_at": "2026-10-12T23:29:50+02:00",
+      "updated_at": "2026-10-12T23:29:50+02:00"
+    },
+    {
+      "article_id": "docs-design-kyon-social-shield-vertical",
+      "title": "KYON Social Shield \u2014 Minimal Vertical",
+      "path": "docs/design/KYON_SOCIAL_SHIELD_VERTICAL.md",
+      "kind": "design",
+      "provenance": "b4744da1f18527a84cc21f5f28d6d434d720f051",
+      "status": "published",
+      "created_at": "2026-10-12T23:29:50+02:00",
+      "updated_at": "2026-10-12T23:29:50+02:00"
+    },
+    {
+      "article_id": "docs-design-kyon-v0-spec",
+      "title": "KYON \u2014 Component Specification v0",
+      "path": "docs/design/KYON_V0_SPEC.md",
+      "kind": "design",
+      "provenance": "b4744da1f18527a84cc21f5f28d6d434d720f051",
+      "status": "published",
+      "created_at": "2026-10-12T23:29:50+02:00",
+      "updated_at": "2026-10-12T23:29:50+02:00"
+    },
+    {
+      "article_id": "docs-design-market-architecture",
+      "title": "CYNIC Market \u2014 Architecture & Design",
+      "path": "docs/design/MARKET_ARCHITECTURE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-market-open-questions",
+      "title": "CYNIC Market \u2014 Open Mathematical Questions",
+      "path": "docs/design/MARKET_OPEN_QUESTIONS.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-market-papers",
+      "title": "CYNIC Market \u2014 Academic References",
+      "path": "docs/design/MARKET_PAPERS.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-mcp-architecture",
+      "title": "CYNIC MCP \u2014 D\u00e9cision d'architecture",
+      "path": "docs/design/MCP_ARCHITECTURE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-mcp-remote-agent-convergence",
+      "title": "MCP-0 Remote Agent Convergence",
+      "path": "docs/design/MCP_REMOTE_AGENT_CONVERGENCE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-multi-agent-isolation-design",
+      "title": "Isolation Multi-Agent \u2014 Design (V5 pr\u00e9figur\u00e9e)",
+      "path": "docs/design/MULTI_AGENT_ISOLATION_DESIGN.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-network-domain-taxonomy",
+      "title": "CYNIC \u2014 NETWORK DOMAIN TAXONOMY v1",
+      "path": "docs/design/NETWORK_DOMAIN_TAXONOMY.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-network-enrollment",
+      "title": "Network Enrollment \u2014 mandatory gate before any plane access",
+      "path": "docs/design/NETWORK_ENROLLMENT.md",
+      "kind": "design",
+      "provenance": "d74b8df5f1b704629f72d4ad986dc58d5b6dd93b",
+      "status": "published",
+      "created_at": "2026-10-19T09:19:21+02:00",
+      "updated_at": "2026-10-19T09:19:21+02:00"
+    },
+    {
+      "article_id": "docs-design-network-mycelium-specification",
+      "title": "CYNIC \u2014 Mycelium Network Architecture Specification (RFC-NET-001)",
+      "path": "docs/design/NETWORK_MYCELIUM_SPECIFICATION.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-node-enrollment-v2",
+      "title": "Node Enrollment V2 \u2014 zero-touch target model",
+      "path": "docs/design/NODE_ENROLLMENT_V2.md",
+      "kind": "design",
+      "provenance": "820fbdb50df1abbd11529672f0155487be042b98",
+      "status": "published",
+      "created_at": "2026-10-19T09:33:00+02:00",
+      "updated_at": "2026-10-19T09:37:26+02:00"
+    },
+    {
+      "article_id": "docs-design-pool-eligibility",
+      "title": "Build Pool Eligibility \u2014 the two mandatory bricks",
+      "path": "docs/design/POOL_ELIGIBILITY.md",
+      "kind": "design",
+      "provenance": "2e9119aa87c57068cf5504f482df260fc0d149dc",
+      "status": "published",
+      "created_at": "2026-10-19T21:40:09+02:00",
+      "updated_at": "2026-10-19T21:40:09+02:00"
+    },
+    {
+      "article_id": "docs-design-rfc-002-five-layer-architecture",
+      "title": "RFC-002: L'Architecture D\u00e9centralis\u00e9e en 5 Couches de CYNIC",
+      "path": "docs/design/RFC_002_FIVE_LAYER_ARCHITECTURE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-rfc-003-agent-parcel-envelope",
+      "title": "RFC-003: THE HERMETIC AGENT PARCEL PROTOCOL (ATOMIC SETTLEMENT & IMMUTABILITY)",
+      "path": "docs/design/RFC_003_AGENT_PARCEL_ENVELOPE.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-rust-compiler-alphas",
+      "title": "Alphas & Subtilit\u00e9s du Compilateur Rust \u2014 CYNIC",
+      "path": "docs/design/RUST_COMPILER_ALPHAS.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-solana-consolidated-convergence",
+      "title": "Solana Consolidated Convergence (Solana bridge convergence map, consolidated)",
+      "path": "docs/design/SOLANA_CONSOLIDATED_CONVERGENCE.md",
+      "kind": "design",
+      "provenance": "1e7fd0aec17d26f76216e4996b19623cb3f61ffc",
+      "status": "published",
+      "created_at": "2026-10-14T09:06:32+02:00",
+      "updated_at": "2026-10-14T09:06:32+02:00"
+    },
+    {
+      "article_id": "docs-design-solana-convergence-map",
+      "title": "Solana Convergence Map",
+      "path": "docs/design/SOLANA_CONVERGENCE_MAP.md",
+      "kind": "design",
+      "provenance": "3415a8814debb1d190fcf8565f59add65be061a1",
+      "status": "published",
+      "created_at": "2026-10-12T19:06:48+02:00",
+      "updated_at": "2026-10-12T19:06:48+02:00"
+    },
+    {
+      "article_id": "docs-design-sovereign-system-design",
+      "title": "Architecture Syst\u00e8me Souveraine \u2014 SoC, Causalit\u00e9 & Convergence Agentique (CYNIC)",
+      "path": "docs/design/SOVEREIGN_SYSTEM_DESIGN.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-spof-iac-design",
+      "title": "SPOF Industrialisation \u2014 IaaS/IaC Design (V4)",
+      "path": "docs/design/SPOF_IAC_DESIGN.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-workspace-fusion-plan",
+      "title": "Workspace Fusion Plan",
+      "path": "docs/design/WORKSPACE_FUSION_PLAN.md",
+      "kind": "design",
+      "provenance": "98f230900942a98da1813ff90a44898ca86ec5e0",
+      "status": "published",
+      "created_at": "2026-10-19T20:10:33+02:00",
+      "updated_at": "2026-10-19T20:10:33+02:00"
+    },
+    {
+      "article_id": "docs-design-agent-cli-patterns",
+      "title": "Agent CLI / Host Surface Patterns (anti-monolith)",
+      "path": "docs/design/agent-cli-patterns.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-agent-session-practice",
+      "title": "Agent Session Practice",
+      "path": "docs/design/agent-session-practice.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-branch-convergence",
+      "title": "Branch Convergence \u2014 map and order toward main",
+      "path": "docs/design/branch-convergence.md",
+      "kind": "design",
+      "provenance": "8324efb61be23874b23c893d3d43890a79089ff9",
+      "status": "published",
+      "created_at": "2026-10-06T23:52:21+02:00",
+      "updated_at": "2026-10-06T23:55:03+02:00"
+    },
+    {
+      "article_id": "docs-design-code-cartography-and-conventions",
+      "title": "Code Cartography & Engineering Conventions",
+      "path": "docs/design/code-cartography-and-conventions.md",
+      "kind": "design",
+      "provenance": "9b26dc7f9db15439beafa60b24ecd55e8e0231b9",
+      "status": "published",
+      "created_at": "2026-10-04T14:39:31+00:00",
+      "updated_at": "2026-10-04T14:39:31+00:00"
+    },
+    {
+      "article_id": "docs-design-convergence-order-theory",
+      "title": "Convergence Order Theory",
+      "path": "docs/design/convergence-order-theory.md",
+      "kind": "design",
+      "provenance": "a7b5a888c2e2b84781e857e8488ff7ef1f934393",
+      "status": "published",
+      "created_at": "2026-10-08T23:42:07+02:00",
+      "updated_at": "2026-10-08T23:42:07+02:00"
+    },
+    {
+      "article_id": "docs-design-coordination-claims",
+      "title": "Coordination Claims \u2014 Baseline/Cynic Concurrency",
+      "path": "docs/design/coordination-claims.md",
+      "kind": "design",
+      "provenance": "7fdb6ef7afd361b3d83d542832ee1ea100813704",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-12T22:17:31+02:00"
+    },
+    {
+      "article_id": "docs-design-credential-bootstrap-recovery",
+      "title": "Credential Bootstrap & Recovery \u2014 OS identities have no lifecycle",
+      "path": "docs/design/credential-bootstrap-recovery.md",
+      "kind": "design",
+      "provenance": "98cf5696f6dd15077de03c15af912ec29f15a3cf",
+      "status": "published",
+      "created_at": "2026-10-07T11:09:01+02:00",
+      "updated_at": "2026-10-07T11:11:41+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-agent-isolation-plan",
+      "title": "Plan d'Architecture & de Hardening : Isolation et Confinement des Workloads Agentiques CYNIC",
+      "path": "docs/design/cynic-agent-isolation-plan.md",
+      "kind": "design",
+      "provenance": "f7f93c03be2aa4f5853eba44b308bf2251fb56c7",
+      "status": "published",
+      "created_at": "2026-09-01T00:30:27+02:00",
+      "updated_at": "2026-09-01T00:30:27+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-finance-design",
+      "title": "cynic-finance \u2014 Design Doc",
+      "path": "docs/design/cynic-finance-design.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-09-28T23:50:01+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-isolation-critique",
+      "title": "Rapport de Critique \u00c9pist\u00e9mique \u2014 Plan d'Isolation CYNIC",
+      "path": "docs/design/cynic-isolation-critique.md",
+      "kind": "design",
+      "provenance": "f7f93c03be2aa4f5853eba44b308bf2251fb56c7",
+      "status": "published",
+      "created_at": "2026-09-01T00:30:27+02:00",
+      "updated_at": "2026-09-01T00:30:27+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-isolation-mapping",
+      "title": "Mapping CYNIC \u2014 Plan d'Isolation Agentique (vs Existant)",
+      "path": "docs/design/cynic-isolation-mapping.md",
+      "kind": "design",
+      "provenance": "f7f93c03be2aa4f5853eba44b308bf2251fb56c7",
+      "status": "published",
+      "created_at": "2026-09-01T00:30:27+02:00",
+      "updated_at": "2026-09-01T00:30:27+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-isolation-per-branch",
+      "title": "Isolation par Branche d'Agent \u2014 CYNIC",
+      "path": "docs/design/cynic-isolation-per-branch.md",
+      "kind": "design",
+      "provenance": "f7f93c03be2aa4f5853eba44b308bf2251fb56c7",
+      "status": "published",
+      "created_at": "2026-09-01T00:30:27+02:00",
+      "updated_at": "2026-09-01T00:30:27+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-isolation-pourquoi",
+      "title": "Les \"Pourquoi\" du Plan d'Isolation CYNIC",
+      "path": "docs/design/cynic-isolation-pourquoi.md",
+      "kind": "design",
+      "provenance": "17fbfa3b6a944ffa08b3697e47133da61f6031e9",
+      "status": "published",
+      "created_at": "2026-09-01T00:30:27+02:00",
+      "updated_at": "2026-10-16T05:27:17+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-master-isolation-plan",
+      "title": "Plan Ma\u00eetre CYNIC : Confinement Agentique, Inf\u00e9rence Souveraine, Primitives Blockchain-Like & M\u00e9trologie \u00c9nerg\u00e9tique",
+      "path": "docs/design/cynic-master-isolation-plan.md",
+      "kind": "design",
+      "provenance": "17fbfa3b6a944ffa08b3697e47133da61f6031e9",
+      "status": "published",
+      "created_at": "2026-09-01T00:30:27+02:00",
+      "updated_at": "2026-10-16T05:27:17+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-net-protocol",
+      "title": "CYNIC Net \u2014 Native Network Protocol Design",
+      "path": "docs/design/cynic-net-protocol.md",
+      "kind": "design",
+      "provenance": "a00bee7f13167dd486cb8a53be83bb42dec1a351",
+      "status": "published",
+      "created_at": "2026-09-22T17:14:59+02:00",
+      "updated_at": "2026-09-22T17:14:59+02:00"
+    },
+    {
+      "article_id": "docs-design-cynic-scientific-os",
+      "title": "CYNIC \u2014 Scientific Operating System for Agents",
+      "path": "docs/design/cynic-scientific-os.md",
+      "kind": "design",
+      "provenance": "a7b5a888c2e2b84781e857e8488ff7ef1f934393",
+      "status": "published",
+      "created_at": "2026-10-08T23:42:07+02:00",
+      "updated_at": "2026-10-08T23:42:07+02:00"
+    },
+    {
+      "article_id": "docs-design-data-centric-framework-architecture",
+      "title": "Data-Centric Framework \u2014 Hexagonal / DDD Architecture (proposal)",
+      "path": "docs/design/data-centric-framework-architecture.md",
+      "kind": "design",
+      "provenance": "0492db5292a1fc5769f6841ea718a73924e0f385",
+      "status": "published",
+      "created_at": "2026-10-03T21:42:26+02:00",
+      "updated_at": "2026-10-08T11:51:30+02:00"
+    },
+    {
+      "article_id": "docs-design-debt-priorities-and-agent-architecture",
+      "title": "Debt Priorities and Agent Architecture",
+      "path": "docs/design/debt-priorities-and-agent-architecture.md",
+      "kind": "design",
+      "provenance": "edfb20582e5a42ea79ea3b2395d798c6ed763431",
+      "status": "published",
+      "created_at": "2026-09-30T11:15:02+02:00",
+      "updated_at": "2026-09-30T11:15:02+02:00"
+    },
+    {
+      "article_id": "docs-design-debt-settlement-goal",
+      "title": "/goal \u2014 solder the debt, by causal order, against fragmentation",
+      "path": "docs/design/debt-settlement-goal.md",
+      "kind": "design",
+      "provenance": "63d47db93bcbf40c2bc3981ca49ebf327ace7967",
+      "status": "published",
+      "created_at": "2026-10-05T22:40:57+00:00",
+      "updated_at": "2026-10-05T22:40:57+00:00"
+    },
+    {
+      "article_id": "docs-design-directory-fragmentation-diagnosis",
+      "title": "Directory Structure & Config Fragmentation \u2014 Diagnosis",
+      "path": "docs/design/directory-fragmentation-diagnosis.md",
+      "kind": "design",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-04T14:03:52+00:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-design-essence-loss-audit",
+      "title": "Raw \u2192 Silver \u2192 Gold: Essence Loss Audit (findings)",
+      "path": "docs/design/essence-loss-audit.md",
+      "kind": "design",
+      "provenance": "52f000e19514e2364150d2064671d29cd1979ec5",
+      "status": "published",
+      "created_at": "2026-10-03T21:42:26+02:00",
+      "updated_at": "2026-10-03T21:42:26+02:00"
+    },
+    {
+      "article_id": "docs-design-federation-deployment-model",
+      "title": "CYNIC Federation Deployment Model \u2014 bottom-up design doc",
+      "path": "docs/design/federation-deployment-model.md",
+      "kind": "design",
+      "provenance": "7aeef0e954fe546e6adeff95bfc5be54e249c5e1",
+      "status": "published",
+      "created_at": "2026-10-06T03:25:21+02:00",
+      "updated_at": "2026-10-06T21:51:59+02:00"
+    },
+    {
+      "article_id": "docs-design-fleet-build-sequence",
+      "title": "Fleet build sequence \u2014 organic tranche plan",
+      "path": "docs/design/fleet-build-sequence.md",
+      "kind": "design",
+      "provenance": "42e31789c32c9d69e2a1f0c5faf92c293b994d8c",
+      "status": "published",
+      "created_at": "2026-10-17T17:37:24+02:00",
+      "updated_at": "2026-10-17T17:37:24+02:00"
+    },
+    {
+      "article_id": "docs-design-fleet-clone-tranche",
+      "title": "Tranche 1 \u2014 Agent-runner template + ephemeral clones (spec)",
+      "path": "docs/design/fleet-clone-tranche.md",
+      "kind": "design",
+      "provenance": "f83511774a5ea73b451e50435c1ddaaa36b1c4d3",
+      "status": "published",
+      "created_at": "2026-10-18T03:40:22+02:00",
+      "updated_at": "2026-10-18T16:14:00+02:00"
+    },
+    {
+      "article_id": "docs-design-fleet-network-architecture",
+      "title": "Fleet Network \u2014 Canonical Architecture (first principles, data-centric)",
+      "path": "docs/design/fleet-network-architecture.md",
+      "kind": "design",
+      "provenance": "2fbc2ab4113d89fbc9457f6660dfa39984c5012b",
+      "status": "published",
+      "created_at": "2026-10-04T14:01:59+00:00",
+      "updated_at": "2026-10-14T18:38:29+02:00"
+    },
+    {
+      "article_id": "docs-design-formal-proofs-and-tests-study",
+      "title": "Formal Proofs and Tests \u2014 Workspace Inventory",
+      "path": "docs/design/formal-proofs-and-tests-study.md",
+      "kind": "design",
+      "provenance": "014fdfdf48f5c78cbc55f9ad9ca644981298d38c",
+      "status": "published",
+      "created_at": "2026-10-16T20:29:06+02:00",
+      "updated_at": "2026-10-16T20:29:06+02:00"
+    },
+    {
+      "article_id": "docs-design-founder-authority-ceremony",
+      "title": "Founder Authority Ceremony",
+      "path": "docs/design/founder-authority-ceremony.md",
+      "kind": "design",
+      "provenance": "2e807e4aafeec0c98d392e2f503eef8ebf83555c",
+      "status": "published",
+      "created_at": "2026-10-17T16:18:30+02:00",
+      "updated_at": "2026-10-17T16:18:30+02:00"
+    },
+    {
+      "article_id": "docs-design-gasdf-public-hosting-airgap",
+      "title": "H\u00e9berger GASdf expos\u00e9 au public : air-gap, surfaces, fronti\u00e8res, agents",
+      "path": "docs/design/gasdf-public-hosting-airgap.md",
+      "kind": "design",
+      "provenance": "95fdc317dbed22d238eb2df8d12d587893a86dea",
+      "status": "published",
+      "created_at": "2026-10-18T17:48:14+02:00",
+      "updated_at": "2026-10-18T18:52:51+02:00"
+    },
+    {
+      "article_id": "docs-design-inference-universe",
+      "title": "Inference Universe \u2014 Boundaries of `cynic-inference`",
+      "path": "docs/design/inference-universe.md",
+      "kind": "design",
+      "provenance": "290458eab4ff5ee0bd002826f0daa280906ed01a",
+      "status": "published",
+      "created_at": "2026-10-12T21:15:33+02:00",
+      "updated_at": "2026-10-12T23:44:32+02:00"
+    },
+    {
+      "article_id": "docs-design-inference-wisdom-audit",
+      "title": "Inference Wisdom Audit \u2014 Ahmad's 5-Article Mapping",
+      "path": "docs/design/inference-wisdom-audit.md",
+      "kind": "design",
+      "provenance": "7fdb6ef7afd361b3d83d542832ee1ea100813704",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-12T22:17:31+02:00"
+    },
+    {
+      "article_id": "docs-design-module-cycle-diagnosis",
+      "title": "Module Cycle Diagnosis",
+      "path": "docs/design/module-cycle-diagnosis.md",
+      "kind": "design",
+      "provenance": "defd722b62ad21395476a6b465d436bc67d0b59c",
+      "status": "published",
+      "created_at": "2026-10-04T15:49:55+00:00",
+      "updated_at": "2026-10-04T16:08:52+00:00"
+    },
+    {
+      "article_id": "docs-design-network-steward",
+      "title": "cynic-network-steward \u2014 Agent Definition",
+      "path": "docs/design/network-steward.md",
+      "kind": "design",
+      "provenance": "2fbc2ab4113d89fbc9457f6660dfa39984c5012b",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-14T18:38:29+02:00"
+    },
+    {
+      "article_id": "docs-design-network-surface-extraction-handoff",
+      "title": "Network surface extraction \u2014 handoff to the parallel session",
+      "path": "docs/design/network-surface-extraction-handoff.md",
+      "kind": "design",
+      "provenance": "2fbc2ab4113d89fbc9457f6660dfa39984c5012b",
+      "status": "published",
+      "created_at": "2026-10-05T19:04:28+00:00",
+      "updated_at": "2026-10-14T18:38:29+02:00"
+    },
+    {
+      "article_id": "docs-design-production-infrastructure",
+      "title": "Production Infrastructure \u2014 target state and observed gaps",
+      "path": "docs/design/production-infrastructure.md",
+      "kind": "design",
+      "provenance": "80c61b80e472e23704a8c05c6d9bb8df4071afaa",
+      "status": "published",
+      "created_at": "2026-10-06T23:06:38+02:00",
+      "updated_at": "2026-10-06T23:33:38+02:00"
+    },
+    {
+      "article_id": "docs-design-proxmox-consolidation-plan",
+      "title": "Hypervisor + Build Consolidation Plan",
+      "path": "docs/design/proxmox-consolidation-plan.md",
+      "kind": "design",
+      "provenance": "f7ef0b4ac60af23ca48ebda657c1609babbd6b6b",
+      "status": "published",
+      "created_at": "2026-10-06T13:28:50+00:00",
+      "updated_at": "2026-10-06T18:02:03+02:00"
+    },
+    {
+      "article_id": "docs-design-proxmox-rest-create",
+      "title": "`cynic node hypervisor create` \u2014 REST LXC creation (spec)",
+      "path": "docs/design/proxmox-rest-create.md",
+      "kind": "design",
+      "provenance": "9e2025feb17e20f891d1273729af7156f66320b5",
+      "status": "published",
+      "created_at": "2026-10-17T17:37:24+02:00",
+      "updated_at": "2026-10-17T18:47:11+02:00"
+    },
+    {
+      "article_id": "docs-design-raw-to-silver-fidelity",
+      "title": "Raw \u2192 Silver Fidelity Map (Graph + State Evolution)",
+      "path": "docs/design/raw-to-silver-fidelity.md",
+      "kind": "design",
+      "provenance": "52f000e19514e2364150d2064671d29cd1979ec5",
+      "status": "published",
+      "created_at": "2026-10-03T21:42:26+02:00",
+      "updated_at": "2026-10-03T21:42:26+02:00"
+    },
+    {
+      "article_id": "docs-design-relay-107-migration",
+      "title": "Relay migration cortex \u2192 LXC 107 (10.10.10.127)",
+      "path": "docs/design/relay-107-migration.md",
+      "kind": "design",
+      "provenance": "158a854d94077205f15f476aba03968195d068be",
+      "status": "published",
+      "created_at": "2026-10-17T19:21:38+02:00",
+      "updated_at": "2026-10-17T20:10:01+02:00"
+    },
+    {
+      "article_id": "docs-design-resource-management-5-phase-plan",
+      "title": "CYNIC Resource Management \u2014 5-Phase Plan",
+      "path": "docs/design/resource-management-5-phase-plan.md",
+      "kind": "design",
+      "provenance": "5efe23d184e51fedcbc418da05f805e1094e1108",
+      "status": "published",
+      "created_at": "2026-10-03T17:06:55+00:00",
+      "updated_at": "2026-10-03T17:06:55+00:00"
+    },
+    {
+      "article_id": "docs-design-runtime-roles",
+      "title": "Runtime Roles \u2014 kernel, node, and everything else",
+      "path": "docs/design/runtime-roles.md",
+      "kind": "design",
+      "provenance": "a203209faf14fe61b64c97ee8502ee441732659a",
+      "status": "published",
+      "created_at": "2026-10-06T23:06:38+02:00",
+      "updated_at": "2026-10-15T17:05:36+02:00"
+    },
+    {
+      "article_id": "docs-design-schema-v5-hypergraph-state-evolution",
+      "title": "Schema V5 Design \u2014 Hypergraph + State Evolution (proposal)",
+      "path": "docs/design/schema-v5-hypergraph-state-evolution.md",
+      "kind": "design",
+      "provenance": "52f000e19514e2364150d2064671d29cd1979ec5",
+      "status": "published",
+      "created_at": "2026-10-03T21:42:26+02:00",
+      "updated_at": "2026-10-03T21:42:26+02:00"
+    },
+    {
+      "article_id": "docs-design-session-report-knowledge-canon",
+      "title": "RAPPORT DE SESSION \u2014 knowledge-canon",
+      "path": "docs/design/session-report-knowledge-canon.md",
+      "kind": "design",
+      "provenance": "738115f0ff73f814932fa57096663afcc754cb42",
+      "status": "published",
+      "created_at": "2026-10-07T12:31:00+02:00",
+      "updated_at": "2026-10-07T12:31:00+02:00"
+    },
+    {
+      "article_id": "docs-design-single-binary-capability-selected",
+      "title": "Single Binary, Capability-Selected \u2014 Consolidation Design",
+      "path": "docs/design/single-binary-capability-selected.md",
+      "kind": "design",
+      "provenance": "efb9e89addd33c5fba603a12c144e2c7e9be39ac",
+      "status": "published",
+      "created_at": "2026-10-06T18:30:51+02:00",
+      "updated_at": "2026-10-14T14:15:52+02:00"
+    },
+    {
+      "article_id": "docs-design-temporal-anchoring",
+      "title": "Temporal anchoring + human/LLM-agent alignment (chantier)",
+      "path": "docs/design/temporal-anchoring.md",
+      "kind": "design",
+      "provenance": "76df1d3d095f0aedfb5f4e9d64cf7ef717b746e0",
+      "status": "published",
+      "created_at": "2026-10-18T17:19:32+02:00",
+      "updated_at": "2026-10-18T17:19:32+02:00"
+    },
+    {
+      "article_id": "docs-specs-2026-10-12-roadmap-refactor-chantiers",
+      "title": "Roadmap Technique CYNIC : Refonte en Profondeur (FCIS / DDD)",
+      "path": "docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md",
+      "kind": "doc",
+      "provenance": "fea9d049291f054a8f112b34eb05d8142a85e5f8",
+      "status": "published",
+      "created_at": "2026-10-12T03:22:19+02:00",
+      "updated_at": "2026-10-12T19:22:28+02:00"
+    },
+    {
+      "article_id": "docs-specs-adversarial-red-team-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Audits Adversariaux & Matrice Red Team",
+      "path": "docs/specs/ADVERSARIAL_RED_TEAM_SPEC.md",
+      "kind": "doc",
+      "provenance": "7aa5beaf43e9395bdad1ee93b99360016b46f82f",
+      "status": "published",
+      "created_at": "2026-08-14T14:39:56+02:00",
+      "updated_at": "2026-08-14T14:39:56+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-isolation-experimentation-spec",
+      "title": "Agent Isolation & Experimentation \u2014 Specification",
+      "path": "docs/specs/AGENT_ISOLATION_EXPERIMENTATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "60f2ce4391647129e4901ae71f8e0adb7816817b",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-15T20:51:56+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-runtime-isolation-spec",
+      "title": "Agent Runtime Isolation & Agent Factory Spec (DRAFT \u2014 parked for dedicated session)",
+      "path": "docs/specs/AGENT_RUNTIME_ISOLATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "0ded623ca70b16336f79d3b61bba20eb88ee14d8",
+      "status": "published",
+      "created_at": "2026-10-15T20:59:22+02:00",
+      "updated_at": "2026-10-15T20:59:22+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-systems-engineering-playbook",
+      "title": "CYNIC : Manuel d'Ing\u00e9nierie Syst\u00e8me pour Agents Autonomes",
+      "path": "docs/specs/AGENT_SYSTEMS_ENGINEERING_PLAYBOOK.md",
+      "kind": "doc",
+      "provenance": "59b51be1884d296aa554319fd8acb642fbee5460",
+      "status": "published",
+      "created_at": "2026-08-14T06:41:03+02:00",
+      "updated_at": "2026-10-13T02:50:51+02:00"
+    },
+    {
+      "article_id": "docs-specs-anchor-client-integration-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Client Bindings Anchor & D\u00e9couplage Off-Chain",
+      "path": "docs/specs/ANCHOR_CLIENT_INTEGRATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "987b0770544badf87ace0b3fdcd46467fcc0512f",
+      "status": "published",
+      "created_at": "2026-08-14T19:44:17+02:00",
+      "updated_at": "2026-08-14T19:44:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-build-proof-compressor-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Compresseur de Preuves de Build pour l'OPE",
+      "path": "docs/specs/BUILD_PROOF_COMPRESSOR_SPEC.md",
+      "kind": "doc",
+      "provenance": "dc3b2b2e3ab147a9c179d4512c6d5adfe8d0a2e9",
+      "status": "published",
+      "created_at": "2026-08-15T21:36:17+02:00",
+      "updated_at": "2026-08-15T21:36:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-citizen-surface-spec",
+      "title": "Citizen Surface Spec \u2014 v0",
+      "path": "docs/specs/CITIZEN_SURFACE_SPEC.md",
+      "kind": "doc",
+      "provenance": "5d575bd2c5f17fd5995aef2c5b027bf8f83c7dac",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T00:47:32+02:00"
+    },
+    {
+      "article_id": "docs-specs-cynic-public-capabilities-spec",
+      "title": "CYNIC Public Capabilities Spec \u2014 v0",
+      "path": "docs/specs/CYNIC_PUBLIC_CAPABILITIES_SPEC.md",
+      "kind": "doc",
+      "provenance": "5d575bd2c5f17fd5995aef2c5b027bf8f83c7dac",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T00:47:32+02:00"
+    },
+    {
+      "article_id": "docs-specs-data-centric-rag-methodology",
+      "title": "CYNIC Data-Centric Bottom-Up RAG Specification & Methodology",
+      "path": "docs/specs/DATA_CENTRIC_RAG_METHODOLOGY.md",
+      "kind": "doc",
+      "provenance": "2e6f2310dd582ee95571a2aa3688841b77947351",
+      "status": "published",
+      "created_at": "2026-10-15T00:04:55+02:00",
+      "updated_at": "2026-10-15T14:12:14+02:00"
+    },
+    {
+      "article_id": "docs-specs-epistemic-qscore-consensus-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Moteur \u00c9pist\u00e9mique du Q-Score Born\u00e9 en \u03c6 (61.8%)",
+      "path": "docs/specs/EPISTEMIC_QSCORE_CONSENSUS_SPEC.md",
+      "kind": "doc",
+      "provenance": "dc3b2b2e3ab147a9c179d4512c6d5adfe8d0a2e9",
+      "status": "published",
+      "created_at": "2026-08-15T21:36:17+02:00",
+      "updated_at": "2026-08-15T21:36:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-escore-and-futarchy-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Moteur E-Score & Preuves de Merkle",
+      "path": "docs/specs/ESCORE_AND_FUTARCHY_SPEC.md",
+      "kind": "doc",
+      "provenance": "cac246c979cc602563b19e8ed73d95991c6047f3",
+      "status": "published",
+      "created_at": "2026-08-14T06:41:03+02:00",
+      "updated_at": "2026-08-14T06:41:03+02:00"
+    },
+    {
+      "article_id": "docs-specs-external-project-governance-spec",
+      "title": "External Project Governance Spec \u2014 v0",
+      "path": "docs/specs/EXTERNAL_PROJECT_GOVERNANCE_SPEC.md",
+      "kind": "doc",
+      "provenance": "5cce4cdb6f6d9ee8d3ebe56666439139e44da944",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T01:02:18+02:00"
+    },
+    {
+      "article_id": "docs-specs-external-project-storage-spec",
+      "title": "External Project Storage \u2014 pointer",
+      "path": "docs/specs/EXTERNAL_PROJECT_STORAGE_SPEC.md",
+      "kind": "doc",
+      "provenance": "5d575bd2c5f17fd5995aef2c5b027bf8f83c7dac",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T00:47:32+02:00"
+    },
+    {
+      "article_id": "docs-specs-federation-mycelium-rbac-data-centric",
+      "title": "CYNIC \u2014 F\u00e9d\u00e9ration Myc\u00e9lienne & Architecture RBAC Data-Centric",
+      "path": "docs/specs/FEDERATION_MYCELIUM_RBAC_DATA_CENTRIC.md",
+      "kind": "doc",
+      "provenance": "dac2766a0845d8bdac829dd74c5ad9dbb8840fcd",
+      "status": "published",
+      "created_at": "2026-10-12T02:04:08+02:00",
+      "updated_at": "2026-10-12T02:04:08+02:00"
+    },
+    {
+      "article_id": "docs-specs-futarchy-markets-and-odysseum-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Moteur de March\u00e9s de Futarchie & Odysseum",
+      "path": "docs/specs/FUTARCHY_MARKETS_AND_ODYSSEUM_SPEC.md",
+      "kind": "doc",
+      "provenance": "21b961019b2bbafb69a0da5ba5ffa784308a7e48",
+      "status": "published",
+      "created_at": "2026-08-14T06:46:06+02:00",
+      "updated_at": "2026-08-14T06:46:06+02:00"
+    },
+    {
+      "article_id": "docs-specs-gasdf-subscription-spec",
+      "title": "GASdf Subscription Spec \u2014 v0 (foundation)",
+      "path": "docs/specs/GASDF_SUBSCRIPTION_SPEC.md",
+      "kind": "doc",
+      "provenance": "69634074ae1bde1da21ec5245a426def6ad60b19",
+      "status": "published",
+      "created_at": "2026-10-16T00:47:32+02:00",
+      "updated_at": "2026-10-16T01:06:25+02:00"
+    },
+    {
+      "article_id": "docs-specs-host-hardening-engineering-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Surface de Durcissement H\u00f4te (`cynic host harden`)",
+      "path": "docs/specs/HOST_HARDENING_ENGINEERING_SPEC.md",
+      "kind": "doc",
+      "provenance": "c308fef229c7eef621b6ab6561bb2e850450f73c",
+      "status": "published",
+      "created_at": "2026-08-15T06:54:12+02:00",
+      "updated_at": "2026-08-15T06:54:12+02:00"
+    },
+    {
+      "article_id": "docs-specs-inference-plane-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Le Plan d'Inf\u00e9rence (*Inference Plane*)",
+      "path": "docs/specs/INFERENCE_PLANE_SPEC.md",
+      "kind": "doc",
+      "provenance": "cac246c979cc602563b19e8ed73d95991c6047f3",
+      "status": "published",
+      "created_at": "2026-08-14T06:41:03+02:00",
+      "updated_at": "2026-08-14T06:41:03+02:00"
+    },
+    {
+      "article_id": "docs-specs-lxc-agent-isolation-spec",
+      "title": "CYNIC \u2014 Sp\u00e9cification d'Isolation des Agents en Conteneurs LXC",
+      "path": "docs/specs/LXC_AGENT_ISOLATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "7ccb0a93cb239fa2922bd1a7b70dd33909caf64f",
+      "status": "published",
+      "created_at": "2026-10-12T01:32:27+02:00",
+      "updated_at": "2026-10-12T01:32:27+02:00"
+    },
+    {
+      "article_id": "docs-specs-mcp-coordination-and-audit-routing-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Raccordement MCP & Routage d'Audit v2",
+      "path": "docs/specs/MCP_COORDINATION_AND_AUDIT_ROUTING_SPEC.md",
+      "kind": "doc",
+      "provenance": "21b961019b2bbafb69a0da5ba5ffa784308a7e48",
+      "status": "published",
+      "created_at": "2026-08-14T06:46:06+02:00",
+      "updated_at": "2026-08-14T06:46:06+02:00"
+    },
+    {
+      "article_id": "docs-specs-multi-agent-coordination-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Coordination Multi-Agents & Verrouillage de Baux",
+      "path": "docs/specs/MULTI_AGENT_COORDINATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "cac246c979cc602563b19e8ed73d95991c6047f3",
+      "status": "published",
+      "created_at": "2026-08-14T06:41:03+02:00",
+      "updated_at": "2026-08-14T06:41:03+02:00"
+    },
+    {
+      "article_id": "docs-specs-multi-agent-e2e-simulation-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Simulation d'Int\u00e9gration E2E Multi-Agents",
+      "path": "docs/specs/MULTI_AGENT_E2E_SIMULATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "b216fae0b127e86bdd74e6342f1bcc808ac57299",
+      "status": "published",
+      "created_at": "2026-08-14T14:35:24+02:00",
+      "updated_at": "2026-08-14T14:35:24+02:00"
+    },
+    {
+      "article_id": "docs-specs-nightshift-orchestration-and-poh-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Orchestrateur Nightshift & Proof of History",
+      "path": "docs/specs/NIGHTSHIFT_ORCHESTRATION_AND_POH_SPEC.md",
+      "kind": "doc",
+      "provenance": "21b961019b2bbafb69a0da5ba5ffa784308a7e48",
+      "status": "published",
+      "created_at": "2026-08-14T06:46:06+02:00",
+      "updated_at": "2026-08-14T06:46:06+02:00"
+    },
+    {
+      "article_id": "docs-specs-operator-tui-and-live-observability-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : TUI Op\u00e9rateur & Observabilit\u00e9 Temps R\u00e9el",
+      "path": "docs/specs/OPERATOR_TUI_AND_LIVE_OBSERVABILITY_SPEC.md",
+      "kind": "doc",
+      "provenance": "21b961019b2bbafb69a0da5ba5ffa784308a7e48",
+      "status": "published",
+      "created_at": "2026-08-14T06:46:06+02:00",
+      "updated_at": "2026-08-14T06:46:06+02:00"
+    },
+    {
+      "article_id": "docs-specs-organic-rag-bottom-up-spec",
+      "title": "Organic Bottom-Up RAG Specification & Implementation Checklist",
+      "path": "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md",
+      "kind": "doc",
+      "provenance": "f7130eeb929b13de23c1a0b23ef4d8d7a4ed80f7",
+      "status": "published",
+      "created_at": "2026-10-13T19:58:12+02:00",
+      "updated_at": "2026-10-15T22:24:11+02:00"
+    },
+    {
+      "article_id": "docs-specs-rag-sota-path",
+      "title": "RAG SOTA Path \u2014 Executed Record (Organic / Bottom-Up)",
+      "path": "docs/specs/RAG_SOTA_PATH.md",
+      "kind": "doc",
+      "provenance": "59835b3ab5e3f38a07ad90265d33979d959e26ac",
+      "status": "published",
+      "created_at": "2026-10-15T22:24:11+02:00",
+      "updated_at": "2026-10-17T13:44:43+02:00"
+    },
+    {
+      "article_id": "docs-specs-registry-duality-spec",
+      "title": "CYNIC \u2014 Dualit\u00e9 des Registres & Distribution des Art\u00e9facts",
+      "path": "docs/specs/REGISTRY_DUALITY_SPEC.md",
+      "kind": "doc",
+      "provenance": "52749cd67e64432bae7f73b2e9440eee2e33b03d",
+      "status": "published",
+      "created_at": "2026-10-12T02:00:17+02:00",
+      "updated_at": "2026-10-12T02:00:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-rfc-001-magnetic-coordination",
+      "title": "RFC-001: Magnetic Agent Coordination and Thermodynamic Phase Transitions",
+      "path": "docs/specs/RFC-001-MAGNETIC-COORDINATION.md",
+      "kind": "doc",
+      "provenance": "7fdb6ef7afd361b3d83d542832ee1ea100813704",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-12T22:17:31+02:00"
+    },
+    {
+      "article_id": "docs-specs-rfc-003-sovereign-data-centric-distillation",
+      "title": "RFC-003: Sovereign Data-Centric Distillation & Askesis Execution Trace Pipeline",
+      "path": "docs/specs/RFC-003-SOVEREIGN-DATA-CENTRIC-DISTILLATION.md",
+      "kind": "doc",
+      "provenance": "17fbfa3b6a944ffa08b3697e47133da61f6031e9",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-16T05:27:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-runtime-conformance-and-metrics-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Conformit\u00e9 Runtime & M\u00e9triques R\u00e9siduelles",
+      "path": "docs/specs/RUNTIME_CONFORMANCE_AND_METRICS_SPEC.md",
+      "kind": "doc",
+      "provenance": "cac246c979cc602563b19e8ed73d95991c6047f3",
+      "status": "published",
+      "created_at": "2026-08-14T06:41:03+02:00",
+      "updated_at": "2026-08-14T06:41:03+02:00"
+    },
+    {
+      "article_id": "docs-specs-solana-anchor-architecture-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Architecture On-Chain Solana Anchor 0.30+ / 2.0",
+      "path": "docs/specs/SOLANA_ANCHOR_ARCHITECTURE_SPEC.md",
+      "kind": "doc",
+      "provenance": "b216fae0b127e86bdd74e6342f1bcc808ac57299",
+      "status": "published",
+      "created_at": "2026-08-14T14:35:24+02:00",
+      "updated_at": "2026-08-14T14:35:24+02:00"
+    },
+    {
+      "article_id": "docs-specs-sovereign-relay-and-offline-operation-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : Relais Souverain & Op\u00e9ration Distante (Off-Site)",
+      "path": "docs/specs/SOVEREIGN_RELAY_AND_OFFLINE_OPERATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "987b0770544badf87ace0b3fdcd46467fcc0512f",
+      "status": "published",
+      "created_at": "2026-08-14T19:44:17+02:00",
+      "updated_at": "2026-08-14T19:44:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-spec-cynic-measure-arbitration",
+      "title": "SPEC-CYNIC-MEASURE-ARBITRATION: One Measure, One Power",
+      "path": "docs/specs/SPEC-CYNIC-MEASURE-ARBITRATION.md",
+      "kind": "doc",
+      "provenance": "7fdb6ef7afd361b3d83d542832ee1ea100813704",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-12T22:17:31+02:00"
+    },
+    {
+      "article_id": "docs-specs-spec-cynic-ownership",
+      "title": "SPEC-CYNIC-OWNERSHIP: Two Primitives, Four Rights",
+      "path": "docs/specs/SPEC-CYNIC-OWNERSHIP.md",
+      "kind": "doc",
+      "provenance": "7fdb6ef7afd361b3d83d542832ee1ea100813704",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-12T22:17:31+02:00"
+    },
+    {
+      "article_id": "docs-specs-spec-cynic-storage-v1",
+      "title": "SPEC-CYNIC-STORAGE-V1: Hardened Sovereign Clean-Room Storage Architecture",
+      "path": "docs/specs/SPEC-CYNIC-STORAGE-V1.md",
+      "kind": "doc",
+      "provenance": "17fbfa3b6a944ffa08b3697e47133da61f6031e9",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-16T05:27:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-synapse-p2p-federation-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : F\u00e9d\u00e9ration R\u00e9seau P2P Synapse & Synchronisation Merkle",
+      "path": "docs/specs/SYNAPSE_P2P_FEDERATION_SPEC.md",
+      "kind": "doc",
+      "provenance": "b216fae0b127e86bdd74e6342f1bcc808ac57299",
+      "status": "published",
+      "created_at": "2026-08-14T14:35:24+02:00",
+      "updated_at": "2026-08-14T14:35:24+02:00"
+    },
+    {
+      "article_id": "docs-specs-template",
+      "title": "RFC-000: Title of Specification / Architecture Decision",
+      "path": "docs/specs/TEMPLATE.md",
+      "kind": "doc",
+      "provenance": "7fdb6ef7afd361b3d83d542832ee1ea100813704",
+      "status": "published",
+      "created_at": "2026-10-12T22:17:31+02:00",
+      "updated_at": "2026-10-12T22:17:31+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-constitution",
+      "title": "CYNIC Agent Constitution \u2014 protocols/agent-constitution.md",
+      "path": "docs/specs/agent-constitution.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-coordination-protocol",
+      "title": "CYNIC Agent Coordination Protocol \u2014 protocols/agent-coordination-protocol.md",
+      "path": "docs/specs/agent-coordination-protocol.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-degradation-and-execution-authority",
+      "title": "Protocole \u2014 D\u00e9gradation de coordination et autorit\u00e9 d\u2019ex\u00e9cution agentique",
+      "path": "docs/specs/agent-degradation-and-execution-authority.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-agent-protocol",
+      "title": "CYNIC Agent Protocol \u2014 Complete Specification",
+      "path": "docs/specs/agent-protocol.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-branch-audit",
+      "title": "Branch-State Audit \u2014 Native cynic branch/worktree state (Phase 0, prose only)",
+      "path": "docs/specs/branch-audit.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-checklist",
+      "title": "CYNIC Operational Checklist",
+      "path": "docs/specs/checklist.md",
+      "kind": "doc",
+      "provenance": "9bcb74424bf60d50dedfc4f6a0878a5621cbfc40",
+      "status": "published",
+      "created_at": "2026-10-11T17:52:20+02:00",
+      "updated_at": "2026-10-14T16:12:35+02:00"
+    },
+    {
+      "article_id": "docs-specs-correction-plan",
+      "title": "CYNIC Correction Plan \u2014 From Theory to Industrial Baseline",
+      "path": "docs/specs/correction-plan.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-cynic-data-rust-rewrite",
+      "title": "Spec: Rust rewrite of the session-trace ingestion pipeline (`cynic-traces`)",
+      "path": "docs/specs/cynic-data-rust-rewrite.md",
+      "kind": "doc",
+      "provenance": "3f1a026f103003595d564395386ac25f8dbc1517",
+      "status": "published",
+      "created_at": "2026-10-18T21:13:08+02:00",
+      "updated_at": "2026-10-18T21:13:08+02:00"
+    },
+    {
+      "article_id": "docs-specs-cynic-government-architecture",
+      "title": "CYNIC comme gouvernement computationnel",
+      "path": "docs/specs/cynic-government-architecture.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-cynic-stage2-peer-and-ledger",
+      "title": "Stage 2 \u2014 CynicPeer et ledger constitutionnel local",
+      "path": "docs/specs/cynic-stage2-peer-and-ledger.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-cynic-traces-carnet",
+      "title": "Carnet de tranches \u2014 `cynic-traces` (rewrite Rust de `apps/cynic-data`)",
+      "path": "docs/specs/cynic-traces-carnet.md",
+      "kind": "trace",
+      "provenance": "6334959f68c813e7655cce8e2fd26d90cbbea83a",
+      "status": "published",
+      "created_at": "2026-10-18T21:57:15+02:00",
+      "updated_at": "2026-10-19T17:53:37+02:00"
+    },
+    {
+      "article_id": "docs-specs-dhcp-declared-design",
+      "title": "Declared DHCP (design for review, no code)",
+      "path": "docs/specs/dhcp-declared-design.md",
+      "kind": "doc",
+      "provenance": "80ae0464ea0d90fb26f0699f5a435681b5c53593",
+      "status": "published",
+      "created_at": "2026-10-15T13:40:50+02:00",
+      "updated_at": "2026-10-15T13:40:50+02:00"
+    },
+    {
+      "article_id": "docs-specs-dns-dual-zone-bundle",
+      "title": "DNS Dual-Zone Bundle (service canonical + synapse compat)",
+      "path": "docs/specs/dns-dual-zone-bundle.md",
+      "kind": "doc",
+      "provenance": "6944a05960d50ee71ef3aabe49299bb107b01bd5",
+      "status": "published",
+      "created_at": "2026-10-15T12:31:17+02:00",
+      "updated_at": "2026-10-15T12:31:17+02:00"
+    },
+    {
+      "article_id": "docs-specs-fleet-network-needs-matrix",
+      "title": "Fleet r\u00e9elle \u2014 matrice des besoins r\u00e9seau & admin syst\u00e8me",
+      "path": "docs/specs/fleet-network-needs-matrix.md",
+      "kind": "doc",
+      "provenance": "dba09034c00f9b0f841deb727492a1a3c59fe90b",
+      "status": "published",
+      "created_at": "2026-10-14T18:36:30+02:00",
+      "updated_at": "2026-10-15T15:25:11+02:00"
+    },
+    {
+      "article_id": "docs-specs-fleet-observe-daemon",
+      "title": "Fleet Observe Daemon (design for review, no code)",
+      "path": "docs/specs/fleet-observe-daemon.md",
+      "kind": "doc",
+      "provenance": "ca96b28d72c7590aa92e2800158374035d2a09aa",
+      "status": "published",
+      "created_at": "2026-10-15T13:43:51+02:00",
+      "updated_at": "2026-10-15T13:43:51+02:00"
+    },
+    {
+      "article_id": "docs-specs-geodesic-retrieval-delta",
+      "title": "Spec delta: geodesic retrieval + epistemic vigilance (external corpus)",
+      "path": "docs/specs/geodesic-retrieval-delta.md",
+      "kind": "doc",
+      "provenance": "d3adf73fa3a9080b47c58d8581bdfb06ce80c66f",
+      "status": "published",
+      "created_at": "2026-10-18T21:36:31+02:00",
+      "updated_at": "2026-10-18T21:36:31+02:00"
+    },
+    {
+      "article_id": "docs-specs-git-multi-source-plane",
+      "title": "CYNIC Git Multi-Source Plane \u2014 Layer 1: Data Model",
+      "path": "docs/specs/git-multi-source-plane.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-h1-intent",
+      "title": "H1 Intent \u2014 Typed Human Intent (Phase 0 design doc, prose only)",
+      "path": "docs/specs/h1-intent.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-harness-antigravity",
+      "title": "Harness `antigravity` \u2014 knowledge capsule (retired T6)",
+      "path": "docs/specs/harness-antigravity.md",
+      "kind": "doc",
+      "provenance": "6334959f68c813e7655cce8e2fd26d90cbbea83a",
+      "status": "published",
+      "created_at": "2026-10-19T17:53:37+02:00",
+      "updated_at": "2026-10-19T17:53:37+02:00"
+    },
+    {
+      "article_id": "docs-specs-harness-claude-code",
+      "title": "Harness `claude_code` \u2014 knowledge capsule (retired T6)",
+      "path": "docs/specs/harness-claude-code.md",
+      "kind": "doc",
+      "provenance": "c21b629c91c1f96d4e00d7cdc2fd7915fec350c9",
+      "status": "published",
+      "created_at": "2026-10-19T04:46:25+02:00",
+      "updated_at": "2026-10-19T04:46:25+02:00"
+    },
+    {
+      "article_id": "docs-specs-harness-codex",
+      "title": "Harness `codex` \u2014 knowledge capsule (retired T6)",
+      "path": "docs/specs/harness-codex.md",
+      "kind": "doc",
+      "provenance": "8e3747d199ecc61af7ec6768a11500a692bf611e",
+      "status": "published",
+      "created_at": "2026-10-19T03:50:48+02:00",
+      "updated_at": "2026-10-19T03:50:48+02:00"
+    },
+    {
+      "article_id": "docs-specs-harness-conformance",
+      "title": "CYNIC Meta-Harness \u2014 protocols/harness-conformance.md",
+      "path": "docs/specs/harness-conformance.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-harness-omp",
+      "title": "Harness `omp` \u2014 knowledge capsule (retired T6)",
+      "path": "docs/specs/harness-omp.md",
+      "kind": "doc",
+      "provenance": "329372eafef53a99dd4ad74d5ac19ee04949398d",
+      "status": "published",
+      "created_at": "2026-10-19T04:29:12+02:00",
+      "updated_at": "2026-10-19T04:29:12+02:00"
+    },
+    {
+      "article_id": "docs-specs-harness-windows-gemini",
+      "title": "Harness `windows_gemini` \u2014 knowledge capsule (retired T6)",
+      "path": "docs/specs/harness-windows-gemini.md",
+      "kind": "doc",
+      "provenance": "33efdb2ad7ca5db92cc2131cdeeac4cc3762788c",
+      "status": "published",
+      "created_at": "2026-10-19T03:06:19+02:00",
+      "updated_at": "2026-10-19T03:06:19+02:00"
+    },
+    {
+      "article_id": "docs-specs-headscale-mesh-coordination",
+      "title": "CYNIC Headscale Mesh Coordination \u2014 Architecture & Plan de D\u00e9ploiement",
+      "path": "docs/specs/headscale-mesh-coordination.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-iac-automation-data",
+      "title": "IaC Automation Data (what a watchdog/reconciler would need)",
+      "path": "docs/specs/iac-automation-data.md",
+      "kind": "doc",
+      "provenance": "dba09034c00f9b0f841deb727492a1a3c59fe90b",
+      "status": "published",
+      "created_at": "2026-10-15T13:35:29+02:00",
+      "updated_at": "2026-10-15T15:25:11+02:00"
+    },
+    {
+      "article_id": "docs-specs-intent-cli-surface",
+      "title": "Intent CLI surface \u2014 `cynic agent intent seal|verify` (Phase 0, prose only)",
+      "path": "docs/specs/intent-cli-surface.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-machine-enrollment-federation",
+      "title": "Machine enrollment & maintien en f\u00e9d\u00e9ration \u2014 design Phase 0",
+      "path": "docs/specs/machine-enrollment-federation.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-model-metrology",
+      "title": "Model metrology \u2014 measure, then route",
+      "path": "docs/specs/model-metrology.md",
+      "kind": "doc",
+      "provenance": "ef75c8bc27e762a4bd9fe4e874421e3ed0c60bd4",
+      "status": "published",
+      "created_at": "2026-10-19T00:47:55+02:00",
+      "updated_at": "2026-10-19T01:17:25+02:00"
+    },
+    {
+      "article_id": "docs-specs-network-topology-design",
+      "title": "Plans r\u00e9seau \u2014 alignement, m\u00e9tadonn\u00e9es, SSOT \u2014 design Phase 0",
+      "path": "docs/specs/network-topology-design.md",
+      "kind": "doc",
+      "provenance": "2fbc2ab4113d89fbc9457f6660dfa39984c5012b",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-14T18:38:29+02:00"
+    },
+    {
+      "article_id": "docs-specs-pr-close-surface",
+      "title": "Spec: `cynic source pr close` surface + PR-lifecycle debt register",
+      "path": "docs/specs/pr-close-surface.md",
+      "kind": "doc",
+      "provenance": "6edd2b2cf494ddd2846cfce576fd5b194c11ad86",
+      "status": "published",
+      "created_at": "2026-10-18T15:33:15+02:00",
+      "updated_at": "2026-10-18T15:33:15+02:00"
+    },
+    {
+      "article_id": "docs-specs-protocol-evolution-map",
+      "title": "CYNIC Protocol Evolution Map",
+      "path": "docs/specs/protocol-evolution-map.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-rag-calibration-plan",
+      "title": "RAG Calibration Plan \u2014 Organic / Bottom-Up",
+      "path": "docs/specs/rag-calibration-plan.md",
+      "kind": "doc",
+      "provenance": "f7130eeb929b13de23c1a0b23ef4d8d7a4ed80f7",
+      "status": "published",
+      "created_at": "2026-10-14T19:37:05+02:00",
+      "updated_at": "2026-10-15T22:24:11+02:00"
+    },
+    {
+      "article_id": "docs-specs-registry-intent-vs-inventory",
+      "title": "Registry Intent vs Inventory (declared future vs live fleet)",
+      "path": "docs/specs/registry-intent-vs-inventory.md",
+      "kind": "doc",
+      "provenance": "3035b6fd833c495d394aeb62f7956a6ac798957e",
+      "status": "published",
+      "created_at": "2026-10-15T13:28:55+02:00",
+      "updated_at": "2026-10-15T13:28:55+02:00"
+    },
+    {
+      "article_id": "docs-specs-registry-sync-surface",
+      "title": "Registry Sync Surface (declared repo vs runtime copy)",
+      "path": "docs/specs/registry-sync-surface.md",
+      "kind": "doc",
+      "provenance": "ea3af0c88d820d5c7985288b2b4236cfb9131d76",
+      "status": "published",
+      "created_at": "2026-10-15T12:41:26+02:00",
+      "updated_at": "2026-10-15T13:04:08+02:00"
+    },
+    {
+      "article_id": "docs-specs-skills-hardcoding-audit-plan",
+      "title": "CYNIC Skills Hardcoding Audit \u2014 Plan de Correction",
+      "path": "docs/specs/skills-hardcoding-audit-plan.md",
+      "kind": "doc",
+      "provenance": "a84f72ee12440ef342876ef1e20bb52da4a5f0cc",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-09T11:37:38+02:00"
+    },
+    {
+      "article_id": "docs-specs-tls-fleet-design",
+      "title": "TLS fleet-wide \u2014 design Phase 0",
+      "path": "docs/specs/tls-fleet-design.md",
+      "kind": "doc",
+      "provenance": "e2062c35980a09c2898698f583288d9b76fae04f",
+      "status": "published",
+      "created_at": "2026-10-09T11:37:38+02:00",
+      "updated_at": "2026-10-15T15:41:02+02:00"
+    }
+  ],
+  "created_at": "2026-10-19T21:25:09Z",
+  "updated_at": "2026-10-19T21:25:09Z"
+}

@@ -1,0 +1,603 @@
+//! Read-back and mutation surface for collaborator trust tier governance.
+//!
+//! WHY: OQ-4 policy (docs/design/COLLABORATOR_TRUST_PROMOTION.md) requires
+//! enforcement of trust tier checks for external project collaborators.
+//! This surface projects `infra/collaborators.json` and provides promotion/
+//! demotion commands that wire into `cynic-node`'s pure trust promotion
+//! usecase, which uses `cynic-vcs::external_source::admit_external_source_operation`.
+//!
+//! HOW: reads the declarative registries, delegates to the pure usecase,
+//! emits JSON or text. Mutation requires explicit `--yes` flag.
+//! NEGATIVE BOUNDARY: does not bypass trust tier admission, does not
+//! perform network I/O, does not spawn processes.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use clap::Subcommand;
+use serde::{Deserialize, Serialize};
+
+use crate::{emit_json, fail, rust_source};
+
+#[derive(Subcommand)]
+pub(crate) enum CollaboratorCommand {
+    /// Read-only projection of the collaborator registry.
+    Status {
+        #[arg(long)]
+        json: bool,
+        /// Path to the collaborators registry (default: infra/collaborators.json).
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Promote a collaborator to a higher trust tier (requires --yes).
+    Promote {
+        /// Collaborator ID (e.g. "robinho100").
+        collaborator_id: String,
+        /// Target trust tier (1=Maintainer, 2=Contributor, 3=Observer).
+        #[arg(long)]
+        target_tier: u8,
+        /// Explicit operator approval (human-in-the-loop).
+        #[arg(long)]
+        yes: bool,
+        /// Evidence references (repeatable).
+        #[arg(long = "evidence")]
+        evidence_refs: Vec<String>,
+        /// External source operation to check trust tier against.
+        #[arg(long, default_value = "clone")]
+        operation: String,
+        /// Path to the collaborators registry.
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Demote a collaborator to a lower trust tier (requires --yes).
+    Demote {
+        /// Collaborator ID.
+        collaborator_id: String,
+        /// Target trust tier (1=Maintainer, 2=Contributor, 3=Observer).
+        #[arg(long)]
+        target_tier: u8,
+        /// Explicit operator approval (human-in-the-loop).
+        #[arg(long)]
+        yes: bool,
+        /// Evidence references (repeatable).
+        #[arg(long = "evidence")]
+        evidence_refs: Vec<String>,
+        /// External source operation to check trust tier against.
+        #[arg(long, default_value = "clone")]
+        operation: String,
+        /// Path to the collaborators registry.
+        #[arg(long)]
+        registry: Option<String>,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CollaboratorsRegistry {
+    schema: String,
+    collaborators: Vec<CollaboratorEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CollaboratorEntry {
+    collaborator_id: String,
+    display_name: String,
+    #[serde(default)]
+    github_handle: String,
+    #[serde(default)]
+    trust_level: String,
+    #[serde(default)]
+    role: String,
+    #[serde(default)]
+    projects: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ExternalProjectsRegistry {
+    #[serde(default)]
+    projects: Vec<ExternalProjectEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ExternalProjectEntry {
+    project_id: String,
+    #[serde(default)]
+    collaborator_ids: Vec<String>,
+    #[serde(default)]
+    mutation_policy: String,
+    #[serde(default)]
+    sensitivity: String,
+}
+
+#[derive(Debug, Serialize)]
+struct CollaboratorStatusReport {
+    schema: String,
+    status: String,
+    registry_path: String,
+    collaborator_count: usize,
+    collaborators: Vec<CollaboratorView>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    residual_unknowns: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct CollaboratorView {
+    collaborator_id: String,
+    display_name: String,
+    trust_level: String,
+    trust_tier: u8,
+    role: String,
+    projects: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct PromotionReport {
+    schema: String,
+    collaborator_id: String,
+    action: String,
+    target_tier: u8,
+    admitted: bool,
+    blockers: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    updated_collaborator: Option<CollaboratorEntry>,
+}
+
+pub(crate) fn execute_collaborator(command: &CollaboratorCommand) -> ExitCode {
+    match command {
+        CollaboratorCommand::Status { json, registry } => {
+            let root = rust_source::workspace_root();
+            let default_path = root.join("infra/collaborators.json");
+            let registry_path = registry
+                .as_ref()
+                .map(PathBuf::from)
+                .unwrap_or(default_path);
+            let report = scan_status(&registry_path);
+            if *json {
+                emit_json(&report, report.status != "ok")
+            } else {
+                render_status_text(&report);
+                if report.status != "ok" {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
+            }
+        }
+        CollaboratorCommand::Promote {
+            collaborator_id,
+            target_tier,
+            yes,
+            evidence_refs,
+            operation,
+            registry,
+        } => execute_promotion(
+            collaborator_id,
+            *target_tier,
+            *yes,
+            evidence_refs,
+            operation,
+            registry.as_deref(),
+            true,
+        ),
+        CollaboratorCommand::Demote {
+            collaborator_id,
+            target_tier,
+            yes,
+            evidence_refs,
+            operation,
+            registry,
+        } => execute_promotion(
+            collaborator_id,
+            *target_tier,
+            *yes,
+            evidence_refs,
+            operation,
+            registry.as_deref(),
+            false,
+        ),
+    }
+}
+
+fn scan_status(registry_path: &Path) -> CollaboratorStatusReport {
+    let mut residual = Vec::new();
+    let registry_path_str = registry_path.display().to_string();
+
+    if !registry_path.exists() {
+        residual.push(format!("registry not found: {registry_path_str}"));
+        return CollaboratorStatusReport {
+            schema: "cynic.cli.collaborator_status.v1".to_string(),
+            status: "blocked".to_string(),
+            registry_path: registry_path_str,
+            collaborator_count: 0,
+            collaborators: vec![],
+            residual_unknowns: residual,
+        };
+    }
+
+    let raw = match fs::read_to_string(registry_path) {
+        Ok(s) => s,
+        Err(e) => {
+            residual.push(format!("cannot read registry {registry_path_str}: {e}"));
+            return CollaboratorStatusReport {
+                schema: "cynic.cli.collaborator_status.v1".to_string(),
+                status: "blocked".to_string(),
+                registry_path: registry_path_str,
+                collaborator_count: 0,
+                collaborators: vec![],
+                residual_unknowns: residual,
+            };
+        }
+    };
+
+    let value: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(e) => {
+            residual.push(format!("invalid JSON in {registry_path_str}: {e}"));
+            return CollaboratorStatusReport {
+                schema: "cynic.cli.collaborator_status.v1".to_string(),
+                status: "blocked".to_string(),
+                registry_path: registry_path_str,
+                collaborator_count: 0,
+                collaborators: vec![],
+                residual_unknowns: residual,
+            };
+        }
+    };
+
+    let collaborators_arr = value
+        .get("collaborators")
+        .and_then(|x| x.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut collaborators = Vec::new();
+    for c in &collaborators_arr {
+        let trust_level = c
+            .get("trust_level")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
+        collaborators.push(CollaboratorView {
+            collaborator_id: c
+                .get("collaborator_id")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            display_name: c
+                .get("display_name")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            trust_level: trust_level.clone(),
+            trust_tier: tier_from_level(&trust_level),
+            role: c
+                .get("role")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            projects: c
+                .get("projects")
+                .and_then(|x| x.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|x| x.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        });
+    }
+
+    let status = if residual.is_empty() {
+        "ok".to_string()
+    } else {
+        "blocked".to_string()
+    };
+
+    CollaboratorStatusReport {
+        schema: "cynic.cli.collaborator_status.v1".to_string(),
+        status,
+        registry_path: registry_path_str,
+        collaborator_count: collaborators.len(),
+        collaborators,
+        residual_unknowns: residual,
+    }
+}
+
+fn render_status_text(report: &CollaboratorStatusReport) {
+    println!(
+        "Collaborators: {} (status: {})",
+        report.collaborator_count, report.status
+    );
+    println!("Registry: {}", report.registry_path);
+    for c in &report.collaborators {
+        println!(
+            "  - {} ({}) [tier {}] {}",
+            c.collaborator_id, c.display_name, c.trust_tier, c.role
+        );
+        if !c.projects.is_empty() {
+            println!("      projects: {}", c.projects.join(", "));
+        }
+    }
+    if !report.residual_unknowns.is_empty() {
+        println!("Residual unknowns:");
+        for u in &report.residual_unknowns {
+            println!("  - {u}");
+        }
+    }
+}
+
+fn execute_promotion(
+    collaborator_id: &str,
+    target_tier: u8,
+    yes: bool,
+    evidence_refs: &[String],
+    operation: &str,
+    registry: Option<&str>,
+    is_promotion: bool,
+) -> ExitCode {
+    if !yes {
+        eprintln!("Refusing to change trust tier without --yes flag");
+        return ExitCode::FAILURE;
+    }
+
+    let root = rust_source::workspace_root();
+    let default_collaborators_path = root.join("infra/collaborators.json");
+    let default_projects_path = root.join("infra/external-projects.json");
+
+    let collaborators_path = registry
+        .map(PathBuf::from)
+        .unwrap_or(default_collaborators_path);
+    let projects_path = default_projects_path;
+
+    // Read collaborators registry.
+    let collaborators_raw = match fs::read_to_string(&collaborators_path) {
+        Ok(s) => s,
+        Err(e) => {
+            return fail(format!(
+                "cannot read collaborators registry {}: {e}",
+                collaborators_path.display()
+            ));
+        }
+    };
+    let collaborators_value: serde_json::Value = match serde_json::from_str(&collaborators_raw) {
+        Ok(v) => v,
+        Err(e) => {
+            return fail(format!(
+                "invalid JSON in collaborators registry: {e}"
+            ));
+        }
+    };
+
+    // Read external projects registry.
+    let projects_raw = match fs::read_to_string(&projects_path) {
+        Ok(s) => s,
+        Err(e) => {
+            return fail(format!(
+                "cannot read external projects registry {}: {e}",
+                projects_path.display()
+            ));
+        }
+    };
+    let projects_value: serde_json::Value = match serde_json::from_str(&projects_raw) {
+        Ok(v) => v,
+        Err(e) => {
+            return fail(format!(
+                "invalid JSON in external projects registry: {e}"
+            ));
+        }
+    };
+
+    // Parse into the usecase types.
+    let collaborators = parse_collaborators(&collaborators_value);
+    let projects = parse_projects(&projects_value);
+
+    let request = cynic_node::usecases::collaborator_trust_uc::TrustPromotionRequest {
+        collaborator_id: collaborator_id.to_string(),
+        target_tier,
+        operator_approval: yes,
+        evidence_refs: evidence_refs.to_vec(),
+    };
+
+    let report = cynic_node::usecases::collaborator_trust_uc::evaluate_trust_promotion(
+        &collaborators,
+        &projects,
+        &request,
+        operation,
+    );
+
+    if !report.admitted {
+        let blockers = report.blockers.join("; ");
+        return fail(format!(
+            "trust tier change blocked for '{}': {blockers}",
+            collaborator_id
+        ));
+    }
+
+    // Write the updated collaborator back to the registry.
+    if let Some(updated) = &report.updated_collaborator {
+        let mut updated_value = collaborators_value.clone();
+        if let Some(arr) = updated_value
+            .get_mut("collaborators")
+            .and_then(|x| x.as_array_mut())
+        {
+            for entry in arr.iter_mut() {
+                if entry.get("collaborator_id").and_then(|x| x.as_str())
+                    == Some(&updated.collaborator_id)
+                {
+                    if let Some(obj) = entry.as_object_mut() {
+                        obj.insert(
+                            "trust_level".to_string(),
+                            serde_json::Value::String(updated.trust_level.clone()),
+                        );
+                    }
+                }
+            }
+        }
+        match serde_json::to_string_pretty(&updated_value) {
+            Ok(json) => {
+                if let Err(e) = fs::write(&collaborators_path, json) {
+                    return fail(format!(
+                        "cannot write collaborators registry {}: {e}",
+                        collaborators_path.display()
+                    ));
+                }
+            }
+            Err(e) => {
+                return fail(format!("serialization failed: {e}"));
+            }
+        }
+    }
+
+    // Emit JSON report.
+    let promotion_report = PromotionReport {
+        schema: "cynic.cli.collaborator_promotion.v1".to_string(),
+        collaborator_id: collaborator_id.to_string(),
+        action: if is_promotion {
+            "promote".to_string()
+        } else {
+            "demote".to_string()
+        },
+        target_tier,
+        admitted: true,
+        blockers: vec![],
+        updated_collaborator: report.updated_collaborator.clone().map(|c| CollaboratorEntry {
+            collaborator_id: c.collaborator_id,
+            display_name: c.display_name,
+            github_handle: c.github_handle,
+            trust_level: c.trust_level,
+            role: c.role,
+            projects: c.projects,
+        }),
+    };
+    emit_json(&promotion_report, false)
+}
+
+fn parse_collaborators(value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::Collaborator> {
+    value
+        .get("collaborators")
+        .and_then(|x| x.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|c| cynic_node::usecases::collaborator_trust_uc::Collaborator {
+                    collaborator_id: c
+                        .get("collaborator_id")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    display_name: c
+                        .get("display_name")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    github_handle: c
+                        .get("github_handle")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    trust_level: c
+                        .get("trust_level")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    role: c
+                        .get("role")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    projects: c
+                        .get("projects")
+                        .and_then(|x| x.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    owns: c
+                        .get("owns")
+                        .and_then(|x| x.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    maintains: c
+                        .get("maintains")
+                        .and_then(|x| x.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    notes: c
+                        .get("notes")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_projects(value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::ExternalProject> {
+    value
+        .get("projects")
+        .and_then(|x| x.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|p| cynic_node::usecases::collaborator_trust_uc::ExternalProject {
+                    project_id: p
+                        .get("project_id")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    display_name: p
+                        .get("display_name")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    repo_url: p
+                        .get("repo_url")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    default_branch: p
+                        .get("default_branch")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    collaborator_ids: p
+                        .get("collaborator_ids")
+                        .and_then(|x| x.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    mutation_policy: p
+                        .get("mutation_policy")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    sensitivity: p
+                        .get("sensitivity")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn tier_from_level(level: &str) -> u8 {
+    match level {
+        "core" => 1,
+        "trusted" => 2,
+        _ => 3,
+    }
+}
