@@ -34,64 +34,107 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Verify runner pool eligibility
+      - name: Verify pool eligibility for this label
         id: pool_eligibility
+        env:
+          POOL_LABEL: cynic/build
         run: |
           set -u
-          # Brick 1/2/3: a node serves a label only if it is base-enrolled,
-          # its labels are granted by the registry, and its toolchain is proven.
-          # The gate must not start compiling on an ineligible runner.
+          # Brick 1/2/3, checked where they can be checked honestly:
+          #   - the label this job runs on must be granted by the registry to a
+          #     base-enrolled node (declared pool membership);
+          #   - the host that executes the job must provide the tools that
+          #     label requires (proven toolchain).
+          # The runner does not know its own registry identity, so it never
+          # guesses one: it verifies the label and the local toolchain.
           python3 - <<'PY'
-          import json, os, shutil, subprocess, sys
+          import json, os, shutil, sys
 
-          registry = "infra/registry.json"
-          with open(registry, encoding="utf-8") as fh:
+          label = os.environ.get("POOL_LABEL", "cynic/build").strip()
+          with open("infra/registry.json", encoding="utf-8") as fh:
               doc = json.load(fh)
 
-          # The runner identifies itself; fall back to the only build-capable node.
-          runner_name = os.environ.get("CYNIC_RUNNER_NAME", "").strip()
           nodes = doc.get("nodes", [])
-          candidates = []
+          granted = []
           for node in nodes:
               pool = node.get("pool") or {}
-              labels = pool.get("labels") or []
-              if not labels:
+              if label not in (pool.get("labels") or []):
                   continue
-              if runner_name and node.get("id") == runner_name:
-                  candidates = [node]
-                  break
-              candidates.append(node)
+              granted.append(node)
 
-          if not candidates:
-              print("no node declares pool membership in the registry", file=sys.stderr)
+          if not granted:
+              print(f"no registry node grants the pool label {label}", file=sys.stderr)
               sys.exit(1)
 
-          if runner_name:
-              node = candidates[0]
-          else:
-              # No runner identity: require exactly one eligible candidate.
-              node = candidates[0]
+          enrolled = []
+          for node in granted:
+              stamp = node.get("enrollment") or {}
+              status = node.get("status", "")
+              if stamp and status != "stub":
+                  enrolled.append(node)
 
-          node_id = node.get("id") or node.get("name") or "unknown"
-          status = node.get("status", "")
-          enrollment = node.get("enrollment") or {}
-          if not enrollment or status == "stub":
-              print(f"runner {node_id} is not base-enrolled (status={status})", file=sys.stderr)
+          if not enrolled:
+              states = ", ".join(
+                  f"{n.get('id')}({n.get('status')})" for n in granted
+              )
+              print(
+                  f"no base-enrolled node grants {label}: {states}",
+                  file=sys.stderr,
+              )
               sys.exit(1)
 
-          required = (node.get("pool") or {}).get("required_tools") or []
+          # Union of the tools the enrolled grantors require for this label.
+          required = {}
+          for node in enrolled:
+              for tool in (node.get("pool") or {}).get("required_tools") or []:
+                  name = tool.get("name")
+                  if name and tool.get("required", True):
+                      required[name] = tool.get("min_version")
+
           missing = []
-          for tool in required:
-              name = tool.get("name")
-              if not name or not tool.get("required", True):
-                  continue
+          for name, minimum in sorted(required.items()):
               if shutil.which(name) is None:
                   missing.append(name)
+                  continue
+              if minimum:
+                  banner = ""
+                  try:
+                      import subprocess
+
+                      banner = subprocess.run(
+                          [name, "--version"],
+                          capture_output=True,
+                          text=True,
+                          timeout=20,
+                      ).stdout.splitlines()[0]
+                  except Exception:
+                      banner = ""
+                  token = None
+                  for part in banner.split():
+                      candidate = part.strip("v").rstrip(".,")
+                      if candidate and all(
+                          piece.isdigit() for piece in candidate.split(".") if piece
+                      ) and "." in candidate:
+                          token = candidate
+                          break
+                  if token is None:
+                      missing.append(f"{name}(version unknown, need {minimum})")
+                  else:
+                      have = tuple(int(p) for p in token.split(".") if p.isdigit())
+                      want = tuple(int(p) for p in minimum.split(".") if p.isdigit())
+                      if have < want:
+                          missing.append(f"{name}({token} < {minimum})")
+
           if missing:
-              print(f"runner {node_id} lacks required tools: {', '.join(missing)}", file=sys.stderr)
+              print(
+                  f"this host cannot serve {label}: missing {', '.join(missing)}",
+                  file=sys.stderr,
+              )
               sys.exit(1)
 
-          print(f"runner {node_id} eligible: status={status} tools verified")
+          ids = ", ".join(str(n.get("id")) for n in enrolled)
+          print(f"pool label {label} granted by enrolled node(s): {ids}")
+          print(f"toolchain verified on this host: {', '.join(sorted(required))}")
           PY
 
       - name: Validate Foundation & Infra JSON Contracts
