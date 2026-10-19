@@ -13,9 +13,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub(crate) enum FederationCommand {
     /// Show the current federation reconciliation status.
     Status(FederationStatusCommand),
-    /// Read-only enrollment probe status (stub/candidate/observed).
-    #[command(name = "enroll-status")]
-    EnrollStatus(EnrollStatusCommand),
+    /// Network enrollment operations (read-only probes for now).
+    #[command(subcommand)]
+    Enroll(EnrollCommand),
+}
+
+/// Enrollment subcommands.
+#[derive(Debug, Subcommand)]
+pub(crate) enum EnrollCommand {
+    /// Run the per-plane enrollment probes and qualify stub/candidate/observed.
+    Status(EnrollStatusCommand),
 }
 
 /// CLI arguments for `cynic federation status`.
@@ -26,7 +33,7 @@ pub(crate) struct FederationStatusCommand {
     pub json: bool,
 }
 
-/// CLI arguments for `cynic federation enroll-status`.
+/// CLI arguments for `cynic federation enroll status`.
 #[derive(Debug, Parser)]
 pub(crate) struct EnrollStatusCommand {
     /// Output as JSON (machine-readable).
@@ -57,7 +64,7 @@ impl FederationCommand {
     pub(crate) fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {
         match self {
             FederationCommand::Status(cmd) => cmd.execute(reconciliation),
-            FederationCommand::EnrollStatus(_) => Ok(()),
+            FederationCommand::Enroll(EnrollCommand::Status(_)) => Ok(()),
         }
     }
 }
@@ -79,7 +86,7 @@ pub(crate) fn execute_federation(command: FederationCommand) -> ExitCode {
                 }
             }
         }
-        FederationCommand::EnrollStatus(cmd) => execute_enroll_status(cmd),
+        FederationCommand::Enroll(EnrollCommand::Status(cmd)) => execute_enroll_status(cmd),
     }
 }
 impl FederationStatusCommand {

@@ -45,7 +45,7 @@ Revocation is one command.
 
 ## Verbs (all under `cynic federation`)
 
-- `enroll-status [--json]` (this tranche): read-only per-plane probe report.
+- `enroll status [--json]` (this tranche): read-only per-plane probe report.
 - `enroll-request` (future): node-side join request.
 - `enroll-approve <token>` (future): human approval gate.
 - `enroll-revoke <node>` (future): one-command revocation.
@@ -66,7 +66,7 @@ Revocation is one command.
 
 ## Acceptance (this tranche)
 
-- `cynic federation enroll-status [--json]` runs §3 probes from the local machine.
+- `cynic federation enroll status [--json]` runs §3 probes from the local machine.
 - Per-plane green/red + qualified status (stub/candidate/observed) in output.
 - Unit tests on `classify_qualified_status`.
 - `cargo check -p cynic-cli` clean.
