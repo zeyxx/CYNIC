@@ -29,7 +29,7 @@ fn producer_src_path() -> String {
         .unwrap_or_else(|_| "/home/user/.hermes/hermes-agent/hermes_state_common.py".into())
 }
 
-const SOURCE: &str = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite";
+const SOURCE: &str = "/var/lib/cynic/vault/corpus/captures/hermes_union_20261019.sqlite";
 const SILVER: &str = "/var/lib/cynic/vault/corpus/silver/corpus_master.sqlite";
 
 fn connect_ro(path: &str) -> rusqlite::Connection {

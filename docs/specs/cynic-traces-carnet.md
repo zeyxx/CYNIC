@@ -17,6 +17,10 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
 - Preuves : PR #153 mergée ; builder check workspace CONVERGED ; parité
   machine 6/6 structs, 57/57 champs identiques au Python.
 - Gel adopté : `hermes_union.sqlite` (intégrité ok, comptes conformes).
+- Re-gel 2026-10-19 : `hermes_union_20261019.sqlite` (3149 sessions /
+  418516 messages, même méthode, dérive 365 sessions absorbée ;
+  flags `active/compacted` mutables actés primary-wins, BLOBs préservés,
+  FTS 8-chars répliqué + consigné) — nouveau défaut des preuves.
 
 ### T2 — Noyau, conservation, ports [x]
 - Preuves : PR #154 ; builder CONVERGED (`88715635`) ; 8/8 tests verts.

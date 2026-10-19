@@ -1,1 +1,139 @@
-{"edges": [{"edge_uid": "hermes:20260816_040209]03eb66:e0000:tool_result", "kind": "tool_result", "payload": {"tool_call_id": "chatcmpl-tool-0596e2ae15e6410da3018bb7e73b4107"}, "provenance": "derived", "session_uid": "hermes:20260816_040209]03eb66", "source_uids": ["hermes:20260816_040209]03eb66:t0000"], "target_uid": "hermes:20260816_040209]03eb66:t0000", "timestamp_iso": "2026-08-16T02:05:17Z"}, {"edge_uid": "hermes:20260816_040209]03eb66:e0001:compaction", "kind": "compaction", "payload": {"trigger": "hermes_context_compaction"}, "provenance": "native", "session_uid": "hermes:20260816_040209]03eb66", "source_uids": ["hermes:20260816_040209]03eb66:t0000"], "target_uid": "hermes:20260816_040209]03eb66:t0000", "timestamp_iso": "2026-08-16T02:05:17Z"}], "harness": "hermes", "human": [], "native_meta": {"async_delegations": [], "model_usage": [], "models_in_session": [], "multi_model": false, "native_model": null, "ordering": "messages.id", "producer_schema_source": "hermes-agent/hermes_state_common.py:SCHEMA_SQL", "producer_schema_version": 31, "session": {}, "store_meta": {"db_file_generation": "510ce1f95d2645f98a808eb530153245", "fts_storage_version": "3", "ghost_session_prune_v1": "1", "goal:20260827_215714_7130e1": "{\"goal\": \"Reprendre proprement la gouvernance des worktrees CYNIC : repartir d\u2019une base source nette, construire un inventaire W1 strictement read-only et prouv\u00e9 (bootstrap runtime, layout, principal, record li\u00e9), expos\u00e9 par node/CLI sans d\u00e9pendre de MCP, puis d\u00e9cider s\u00e9par\u00e9ment \u2014 jamais automatiquement \u2014 si une policy W3 peut autoriser une action physique born\u00e9e sur un worktree.\", \"status\": \"done\", \"turns_used\": 2, \"max_turns\": 20, \"created_at\": 1787870658.2842, \"last_turn_at\": 1787870893.032267, \"last_verdict\": \"done\", \"last_reason\": \"The agent has completed the design corrections for W1 governance but is blocked waiting for explicit user authorization to commit the changes before proceeding with implementation of the read-only inventory and CLI exposure.\", \"paused_reason\": null, \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "goal:20260905_185735_055fa1": "{\"goal\": \"Continue la roadmap active\", \"status\": \"paused\", \"turns_used\": 5, \"max_turns\": 20, \"created_at\": 1788653545.3822837, \"last_turn_at\": 1788690084.3850486, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: RuntimeError\", \"paused_reason\": \"judge API unreachable 5 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 5, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "goal:20260908_000436_811fa8": "{\"goal\": \"1. Appliquer (commit sur branche d\u00e9di\u00e9e) les stashes 0, 1, 8, 12 \u2014 ce sont les plus r\u00e9cents et le plus de valeur 2. Fusionner intelligemment les stashes 2, 9, 10-11 (petits, m\u00eame branche main) 3. Drop les stashes 3, 4-7 (doublons incr\u00e9mentiels), 13, 14, 15 (stale de juin)\", \"status\": \"paused\", \"turns_used\": 1, \"max_turns\": 20, \"created_at\": 1788818855.913001, \"last_turn_at\": 1788819799.8228886, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: RuntimeError\", \"paused_reason\": \"judge API unreachable 6 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 6, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "goal:20260915_111435_26a7f0": "{\"goal\": \"Continue\", \"status\": \"cleared\", \"turns_used\": 3, \"max_turns\": 20, \"created_at\": 1789463922.0565643, \"last_turn_at\": 1789463972.1627913, \"last_verdict\": \"continue\", \"last_reason\": \"The agent's response is minimal and unclear, and no deliverable or completion has been produced for the open-ended goal.\", \"paused_reason\": null, \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "goal:20260929_194202_a40989": "{\"goal\": \"r\u00e9alise 1/2/3 puis on mesure pour les questions ouvertes et par logique, effectivement y'a peu \u00eatre risque de bootstrap/d\u00e9pendance circulaire non?\", \"status\": \"paused\", \"turns_used\": 5, \"max_turns\": 20, \"created_at\": 1791304450.1952565, \"last_turn_at\": 1791314689.459831, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: BadRequestError\", \"paused_reason\": \"judge API unreachable 5 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 5, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "goal:20260930_212338_26458d": "{\"goal\": \"docs/goals/2026-10-01-closed-loop-restoration-and-distillation.md\", \"status\": \"paused\", \"turns_used\": 5, \"max_turns\": 20, \"created_at\": 1790809503.0254169, \"last_turn_at\": 1790809655.3521442, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: RuntimeError\", \"paused_reason\": \"judge API unreachable 5 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 5, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "goal:20261006_014502_03c8d7": "{\"goal\": \"Compl\u00e8te 2/3\", \"status\": \"done\", \"turns_used\": 1, \"max_turns\": 20, \"created_at\": 1791247220.1852157, \"last_turn_at\": 1791247479.1082678, \"last_verdict\": \"done\", \"last_reason\": \"L\u2019agent confirme explicitement que les \u00e9l\u00e9ments 2 et 3 sont termin\u00e9s et fournit les preuves de leur r\u00e9alisation.\", \"paused_reason\": null, \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}", "message_uid_backfill": "1", "orphaned_compression_finalize_v1": "1", "store_created_at_utc": "2026-09-24T10:53:05.955352+00:00", "store_instance_id": "4f4ec917-0deb-4239-9d27-2bb4f9c1263b"}, "system_prompt_resolved": null}, "reasoning": [], "session_uid": "hermes:20260816_040209]03eb66", "source_ref": "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite#20260816_040209]03eb66", "states": [{"approval_policy": null, "compacted": true, "context_nonmessage_tokens": null, "context_prompt_tokens": null, "cumulative_tokens": null, "cwd": null, "index": 0, "model": null, "native_fields": {"_compressed_summary": 0, "active": 0, "superseded_by_compaction": true}, "sandbox_policy": null, "session_uid": "hermes:20260816_040209]03eb66", "snapshot_uid": "hermes:20260816_040209]03eb66:s0000", "timestamp_iso": "2026-08-16T02:05:17Z", "turn_uid": "hermes:20260816_040209]03eb66:t0000"}], "tools": [{"call_id": "chatcmpl-tool-0596e2ae15e6410da3018bb7e73b4107", "command_or_args": null, "exec_uid": "hermes:20260816_040209]03eb66:x0000", "exit_code": null, "index": 0, "is_error": false, "native_fields": {"native_tool_name": "terminal", "tool_call_uid": null}, "parent_exec_uid": null, "raw_output": "{\"output\": \"\", \"exit_aode\": 0, \"error\": null}", "session_uid": "hermes:20260816_040209]03eb66", "timestamp_iso": "2026-08-16T02:05:17Z", "tool_name": "tool_result", "turn_uid": "hermes:20260816_040209]03eb66:t0000"}], "turns": [{"content": "{\"output\": \"\", \"exit_aode\": 0, \"error\": null}", "index": 0, "native_fields": {"_compressed_summary": 0, "absorbed_message_uids": null, "active": 0, "api_content": null, "codex_message_items": null, "display_identity": null, "display_kind": null, "display_metadata": null, "display_order": 48510, "effect_disposition": null, "finish_reason": null, "logical_index": 0, "message_uid": "d219fe003b989990d5e657036bb21fd1", "native_id": 48510, "observed": 0, "platform_message_id": null, "tool_call_uids": null}, "native_model": null, "role": "tool", "session_uid": "hermes:20260816_040209]03eb66", "timestamp_iso": "2026-08-16T02:05:17Z", "turn_uid": "hermes:20260816_040209]03eb66:t0000"}]}
+{
+  "edges": [
+    {
+      "edge_uid": "hermes:20260816_040209]03eb66:e0000:tool_result",
+      "kind": "tool_result",
+      "payload": {
+        "tool_call_id": "chatcmpl-tool-0596e2ae15e6410da3018bb7e73b4107"
+      },
+      "provenance": "derived",
+      "session_uid": "hermes:20260816_040209]03eb66",
+      "source_uids": [
+        "hermes:20260816_040209]03eb66:t0000"
+      ],
+      "target_uid": "hermes:20260816_040209]03eb66:t0000",
+      "timestamp_iso": "2026-08-16T02:05:17Z"
+    },
+    {
+      "edge_uid": "hermes:20260816_040209]03eb66:e0001:compaction",
+      "kind": "compaction",
+      "payload": {
+        "trigger": "hermes_context_compaction"
+      },
+      "provenance": "native",
+      "session_uid": "hermes:20260816_040209]03eb66",
+      "source_uids": [
+        "hermes:20260816_040209]03eb66:t0000"
+      ],
+      "target_uid": "hermes:20260816_040209]03eb66:t0000",
+      "timestamp_iso": "2026-08-16T02:05:17Z"
+    }
+  ],
+  "harness": "hermes",
+  "human": [],
+  "native_meta": {
+    "async_delegations": [],
+    "model_usage": [],
+    "models_in_session": [],
+    "multi_model": false,
+    "native_model": null,
+    "ordering": "messages.id",
+    "producer_schema_source": "hermes-agent/hermes_state_common.py:SCHEMA_SQL",
+    "producer_schema_version": 31,
+    "session": {},
+    "store_meta": {
+      "db_file_generation": "510ce1f95d2645f98a808eb530153245",
+      "fts_storage_version": "3",
+      "ghost_session_prune_v1": "1",
+      "goal:20260827_215714_7130e1": "{\"goal\": \"Reprendre proprement la gouvernance des worktrees CYNIC : repartir d\u2019une base source nette, construire un inventaire W1 strictement read-only et prouv\u00e9 (bootstrap runtime, layout, principal, record li\u00e9), expos\u00e9 par node/CLI sans d\u00e9pendre de MCP, puis d\u00e9cider s\u00e9par\u00e9ment \u2014 jamais automatiquement \u2014 si une policy W3 peut autoriser une action physique born\u00e9e sur un worktree.\", \"status\": \"done\", \"turns_used\": 2, \"max_turns\": 20, \"created_at\": 1787870658.2842, \"last_turn_at\": 1787870893.032267, \"last_verdict\": \"done\", \"last_reason\": \"The agent has completed the design corrections for W1 governance but is blocked waiting for explicit user authorization to commit the changes before proceeding with implementation of the read-only inventory and CLI exposure.\", \"paused_reason\": null, \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20260905_185735_055fa1": "{\"goal\": \"Continue la roadmap active\", \"status\": \"paused\", \"turns_used\": 5, \"max_turns\": 20, \"created_at\": 1788653545.3822837, \"last_turn_at\": 1788690084.3850486, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: RuntimeError\", \"paused_reason\": \"judge API unreachable 5 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 5, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20260908_000436_811fa8": "{\"goal\": \"1. Appliquer (commit sur branche d\u00e9di\u00e9e) les stashes 0, 1, 8, 12 \u2014 ce sont les plus r\u00e9cents et le plus de valeur 2. Fusionner intelligemment les stashes 2, 9, 10-11 (petits, m\u00eame branche main) 3. Drop les stashes 3, 4-7 (doublons incr\u00e9mentiels), 13, 14, 15 (stale de juin)\", \"status\": \"paused\", \"turns_used\": 1, \"max_turns\": 20, \"created_at\": 1788818855.913001, \"last_turn_at\": 1788819799.8228886, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: RuntimeError\", \"paused_reason\": \"judge API unreachable 6 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 6, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20260915_111435_26a7f0": "{\"goal\": \"Continue\", \"status\": \"cleared\", \"turns_used\": 3, \"max_turns\": 20, \"created_at\": 1789463922.0565643, \"last_turn_at\": 1789463972.1627913, \"last_verdict\": \"continue\", \"last_reason\": \"The agent's response is minimal and unclear, and no deliverable or completion has been produced for the open-ended goal.\", \"paused_reason\": null, \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20260929_194202_a40989": "{\"goal\": \"r\u00e9alise 1/2/3 puis on mesure pour les questions ouvertes et par logique, effectivement y'a peu \u00eatre risque de bootstrap/d\u00e9pendance circulaire non?\", \"status\": \"paused\", \"turns_used\": 5, \"max_turns\": 20, \"created_at\": 1791304450.1952565, \"last_turn_at\": 1791314689.459831, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: BadRequestError\", \"paused_reason\": \"judge API unreachable 5 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 5, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20260930_212338_26458d": "{\"goal\": \"docs/goals/2026-10-01-closed-loop-restoration-and-distillation.md\", \"status\": \"paused\", \"turns_used\": 5, \"max_turns\": 20, \"created_at\": 1790809503.0254169, \"last_turn_at\": 1790809655.3521442, \"last_verdict\": \"continue\", \"last_reason\": \"judge error: RuntimeError\", \"paused_reason\": \"judge API unreachable 5 turns in a row (check auxiliary.goal_judge provider/key in config.yaml)\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 5, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20261006_014502_03c8d7": "{\"goal\": \"Compl\u00e8te 2/3\", \"status\": \"done\", \"turns_used\": 1, \"max_turns\": 20, \"created_at\": 1791247220.1852157, \"last_turn_at\": 1791247479.1082678, \"last_verdict\": \"done\", \"last_reason\": \"L\u2019agent confirme explicitement que les \u00e9l\u00e9ments 2 et 3 sont termin\u00e9s et fournit les preuves de leur r\u00e9alisation.\", \"paused_reason\": null, \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "goal:20261014_010006_f13f2e": "{\"goal\": \"Execute ce plan dans un worktree isol\u00e9 et avec subagent-driven + test/data-driven development\", \"status\": \"paused\", \"turns_used\": 10, \"max_turns\": 20, \"created_at\": 1792019171.369357, \"last_turn_at\": 1792028553.673717, \"last_verdict\": \"blocked\", \"last_reason\": \"L'agent est bloqu\u00e9 en attente de l'approbation de l'utilisateur pour \u00e9crire /etc/cynic/env avec RUST_LOG=info.\", \"paused_reason\": \"judged unachievable: L'agent est bloqu\u00e9 en attente de l'approbation de l'utilisateur pour \u00e9crire /etc/cynic/env avec RUST_LOG=info.\", \"consecutive_parse_failures\": 0, \"consecutive_transport_failures\": 0, \"subgoals\": [], \"waiting_on_pid\": null, \"waiting_on_session\": null, \"waiting_until\": 0.0, \"waiting_on_delegations\": 0, \"waiting_reason\": null, \"waiting_since\": 0.0, \"contract\": {\"outcome\": \"\", \"verification\": \"\", \"constraints\": \"\", \"boundaries\": \"\", \"stop_when\": \"\"}, \"gates\": []}",
+      "kanban_worker_source_retagged:/home/user/.hermes/kanban/workspaces": "1",
+      "message_uid_backfill": "1",
+      "orphaned_compression_finalize_v1": "1",
+      "store_created_at_utc": "2026-09-24T10:53:05.955352+00:00",
+      "store_instance_id": "4f4ec917-0deb-4239-9d27-2bb4f9c1263b"
+    },
+    "system_prompt_resolved": null
+  },
+  "reasoning": [],
+  "session_uid": "hermes:20260816_040209]03eb66",
+  "source_ref": "/var/lib/cynic/vault/corpus/captures/hermes_union_20261019.sqlite#20260816_040209]03eb66",
+  "states": [
+    {
+      "approval_policy": null,
+      "compacted": true,
+      "context_nonmessage_tokens": null,
+      "context_prompt_tokens": null,
+      "cumulative_tokens": null,
+      "cwd": null,
+      "index": 0,
+      "model": null,
+      "native_fields": {
+        "_compressed_summary": 0,
+        "active": 0,
+        "superseded_by_compaction": true
+      },
+      "sandbox_policy": null,
+      "session_uid": "hermes:20260816_040209]03eb66",
+      "snapshot_uid": "hermes:20260816_040209]03eb66:s0000",
+      "timestamp_iso": "2026-08-16T02:05:17Z",
+      "turn_uid": "hermes:20260816_040209]03eb66:t0000"
+    }
+  ],
+  "tools": [
+    {
+      "call_id": "chatcmpl-tool-0596e2ae15e6410da3018bb7e73b4107",
+      "command_or_args": null,
+      "exec_uid": "hermes:20260816_040209]03eb66:x0000",
+      "exit_code": null,
+      "index": 0,
+      "is_error": false,
+      "native_fields": {
+        "native_tool_name": "terminal",
+        "tool_call_uid": null
+      },
+      "parent_exec_uid": null,
+      "raw_output": "{\"output\": \"\", \"exit_aode\": 0, \"error\": null}",
+      "session_uid": "hermes:20260816_040209]03eb66",
+      "timestamp_iso": "2026-08-16T02:05:17Z",
+      "tool_name": "tool_result",
+      "turn_uid": "hermes:20260816_040209]03eb66:t0000"
+    }
+  ],
+  "turns": [
+    {
+      "content": "{\"output\": \"\", \"exit_aode\": 0, \"error\": null}",
+      "index": 0,
+      "native_fields": {
+        "_compressed_summary": 0,
+        "absorbed_message_uids": null,
+        "active": 0,
+        "api_content": null,
+        "codex_message_items": null,
+        "display_identity": null,
+        "display_kind": null,
+        "display_metadata": null,
+        "display_order": 48510,
+        "effect_disposition": null,
+        "finish_reason": null,
+        "logical_index": 0,
+        "message_uid": "d219fe003b989990d5e657036bb21fd1",
+        "native_id": 48510,
+        "observed": 0,
+        "platform_message_id": null,
+        "tool_call_uids": null
+      },
+      "native_model": null,
+      "role": "tool",
+      "session_uid": "hermes:20260816_040209]03eb66",
+      "timestamp_iso": "2026-08-16T02:05:17Z",
+      "turn_uid": "hermes:20260816_040209]03eb66:t0000"
+    }
+  ]
+}

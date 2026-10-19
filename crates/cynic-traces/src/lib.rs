@@ -13,11 +13,11 @@
 //! Projection, guards (`check_nonvacuity`). Each retires behind its own
 //! HITL gate (carnet T5–T6), never in bulk.
 //!
-//! Frozen capture adopted by tranche 1:
-//! `/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite`
-//! (manifest `hermes_union.manifest.json`: sha256
-//! `4a2c4085ce1151aa7f8bad3103e80a64c1b6548a98423980242be9856a02a95b`,
-//! 314194 messages / 2795 sessions, integrity re-verified 2026-10-18).
+//! Frozen capture adopted by tranche 1, re-frozen 2026-10-19:
+//! `/var/lib/cynic/vault/corpus/captures/hermes_union_20261019.sqlite`
+//! (manifest `hermes_union_20261019.manifest.json`: sha256
+//! `51d31dbb7e040d0ca9af7b187a02012c3b412b3ef25b091adc132ee54db4d231`,
+//! 418516 messages / 3149 sessions, integrity re-verified 2026-10-19).
 //! Test paths default to this host's absolute locations (admitted debt M3)
 //! and are overridable via `CYNIC_TRACES_SOURCE`, `CYNIC_TRACES_SILVER`,
 //! `CYNIC_PRODUCER_SRC`.
