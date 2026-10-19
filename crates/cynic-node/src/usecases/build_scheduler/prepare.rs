@@ -65,15 +65,18 @@ pub(super) async fn prepare(
             &control.node_id,
         )
         .map_err(|error| error.code)?;
+    // Capture the original registry-resolved root before the stable-workspace
+    // override. Admission binds `action.working_directory` to this path;
+    // after the override it must be rebased to follow the stable root.
+    let original_root = layout.workspace_root.clone();
     let layout = apply_stable_workspace(
         layout,
         scheduler,
         &claimed.record.envelope.action.argv,
     )?;
-    let _desired_working_directory = resolve_working_directory(
-        claimed.record.envelope.action.working_directory.as_deref(),
-        &layout.workspace_root,
-    )?;
+    let desired = claimed.record.envelope.action.working_directory.as_deref();
+    let rebased = rebase_working_directory(desired, &original_root, &layout.workspace_root);
+    let _desired_working_directory = resolve_working_directory(rebased, &layout.workspace_root)?;
 
     let runner = LocalArgvRunner;
     let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
@@ -146,15 +149,12 @@ pub(super) async fn prepare(
         "CYNIC_BUILD_ADMISSION_VERIFIER".into(),
         verifier.to_string_lossy().into_owned(),
     );
-    if let Some(root) = scheduler.shared_target_root.as_ref() {
-        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
-        // instead of recompiling cold in a throwaway directory.
-        let target_dir = shared_target_dir_for(root, &claimed.record.envelope.action.argv);
-        environment.insert(
-            "CARGO_TARGET_DIR".into(),
-            target_dir.to_string_lossy().into_owned(),
-        );
-    }
+    // Cargo/sccache env, pure and unit-testable: shared target dir,
+    // bounded jobs, and the optional sccache wrapper rollout.
+    environment.extend(build_execution_env(
+        scheduler,
+        &claimed.record.envelope.action.argv,
+    ));
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
@@ -179,9 +179,51 @@ pub(super) async fn prepare(
     })
 }
 
+/// Assemble the cargo/sccache slice of the bounded build execution
+/// environment. Pure: the same scheduler config + argv always yields the
+/// same map.
+///
+/// - `shared_target_root` set ⇒ `CARGO_TARGET_DIR=<root>/<profile>` so
+///   consecutive builds reuse a warm shared target (profile from argv).
+/// - `build_jobs` set ⇒ `CARGO_BUILD_JOBS=<n>`; absent preserves cargo's
+///   default job count.
+/// - `sccache` stanza present ⇒ `RUSTC_WRAPPER=<binary>` (cargo routes
+///   every rustc invocation through sccache) + `SCCACHE_DIR=<dir>` (the
+///   persistent cache). Absent = behavior unchanged (plain rustc).
+///
+/// The map is the bounded passthrough: off-mode execs it directly
+/// (`TokioBuildExecution`), bwrap forwards every entry via `--setenv`
+/// (`cynic_sandbox::cargo::build_cargo_sandbox_argv`).
+pub(super) fn build_execution_env(
+    scheduler: &BuildSchedulerConfig,
+    argv: &[String],
+) -> BTreeMap<String, String> {
+    let mut env = BTreeMap::new();
+    if let Some(root) = scheduler.shared_target_root.as_ref() {
+        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
+        // instead of recompiling cold in a throwaway directory.
+        let target_dir = shared_target_dir_for(root, argv);
+        env.insert(
+            "CARGO_TARGET_DIR".into(),
+            target_dir.to_string_lossy().into_owned(),
+        );
+    }
+    if let Some(jobs) = scheduler.build_jobs {
+        env.insert("CARGO_BUILD_JOBS".into(), jobs.to_string());
+    }
+    if let Some(sccache) = scheduler.sccache.as_ref() {
+        env.insert("RUSTC_WRAPPER".into(), sccache.binary.clone());
+        env.insert(
+            "SCCACHE_DIR".into(),
+            sccache.cache_dir.to_string_lossy().into_owned(),
+        );
+    }
+    env
+}
+
 /// Derive the cargo profile name from argv: `release` when `--release` is
 /// present, `debug` otherwise. Pure.
-fn profile_for_argv(argv: &[String]) -> &'static str {
+pub(crate) fn profile_for_argv(argv: &[String]) -> &'static str {
     if argv.iter().any(|arg| arg == "--release") {
         "release"
     } else {
@@ -203,35 +245,19 @@ fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::Pat
     root.join(profile)
 }
 
-/// Pre-build clean for a stable workspace: remove a previous workspace at
-/// the exact stable path so the next build starts from a clean tree, while
-/// the path itself stays stable so fingerprints survive. A git-registered
-/// worktree is removed through `git worktree remove` so the repository
-/// worktree registry keeps no stale entry that would block re-creation at
-/// the same path; anything else falls back to a plain recursive removal.
-/// After any removal (or when the path is already absent), `git worktree
-/// prune` runs to clear stale `.git/worktrees` registrations left by a
-/// prior fallback removal — otherwise the next `git worktree add` at the
-/// same path fails with "already used by worktree" (C2).
-fn clean_stable_workspace(
-    repository_root: &std::path::Path,
-    workspace: &std::path::Path,
-) -> Result<(), String> {
-    if workspace.exists() {
-        let git_removed = std::process::Command::new("git")
-            .arg("-C")
-            .arg(repository_root)
-            .args(["worktree", "remove", "--force"])
-            .arg(workspace)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(false);
-        if !git_removed {
-            fs::remove_dir_all(workspace)
-                .map_err(|_| "build_workspace_stable_clean_failed".to_string())?;
-        }
+/// Prepare the stable workspace path for a build: ensure the parent
+/// directory exists. Unlike the previous `clean_stable_workspace`, this
+/// does NOT remove an existing checkout — the checkout is persisted
+/// across builds so unchanged sources keep their old mtimes and cargo
+/// fingerprints hit the warm shared target (H1b). The actual update
+/// (fetch + reset --hard) happens in `LocalBuildWorkspace::prepare`.
+fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
+    let parent = workspace
+        .parent()
+        .ok_or_else(|| "build_workspace_parent_missing".to_string())?;
+    if !parent.exists() {
+        fs::create_dir_all(parent)
+            .map_err(|_| "build_workspace_parent_create_failed".to_string())?;
     }
     // Always prune stale registrations so a prior fallback removal (or a
     // manual rm -rf) cannot leave a registration that blocks re-creation.
@@ -257,7 +283,7 @@ fn apply_stable_workspace(
     };
     validate_stable_workspace_root(root, &layout.repository_root)?;
     let workspace_root = stable_workspace_for(root, profile_for_argv(argv));
-    clean_stable_workspace(&layout.repository_root, &workspace_root)?;
+    prepare_stable_workspace(&workspace_root)?;
     layout.workspace_root = workspace_root;
     // Recompute the evidence digest so it describes the actual workspace
     // path after the override, not the registry-declared path (C1).
@@ -321,9 +347,15 @@ fn sandbox_mode_for(
         .shared_target_root
         .as_ref()
         .map(|root| shared_target_dir_for(root, argv));
-    CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
-        .map(BuildSandboxMode::Bwrap)
-        .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())
+    let mut spec = CargoSandboxSpec::resolve_from_host_env(
+        workspace_root.to_path_buf(),
+        target_dir,
+    )
+    .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
+    if let Some(sccache) = scheduler.sccache.as_ref() {
+        spec.sccache_cache_dir = Some(sccache.cache_dir.clone());
+    }
+    Ok(BuildSandboxMode::Bwrap(spec))
 }
 
 fn current_unix_ms() -> u64 {
@@ -379,6 +411,33 @@ pub(super) fn resolve_working_directory(
     }
 }
 
+/// Rebase an admission-bound working directory onto the (possibly
+/// overridden) stable root.
+///
+/// Admission binds `action.working_directory` to the per-build registry
+/// workspace path. `apply_stable_workspace` then overrides
+/// `layout.workspace_root` with the stable path, so the admission-bound
+/// directory no longer matches and `resolve_working_directory` fails with
+/// `build_scheduler_working_directory_layout_mismatch`.
+///
+/// When the desired directory equals `original_root` — i.e. it was bound by
+/// admission, not forced by the operator — it is rebased to follow the
+/// override by returning `None`, which makes `resolve_working_directory`
+/// assign the stable root. A desired path that equals neither the original
+/// nor the stable root is returned unchanged so `resolve_working_directory`
+/// fails closed on it.
+pub(super) fn rebase_working_directory<'a>(
+    desired: Option<&'a str>,
+    original_root: &std::path::Path,
+    _stable_root: &std::path::Path,
+) -> Option<&'a str> {
+    if desired.map(PathBuf::from) == Some(original_root.to_path_buf()) {
+        None
+    } else {
+        desired
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -408,6 +467,74 @@ mod tests {
         );
     }
 
+    // --- Fix round 2: rebase admission-bound working_directory ---
+
+    #[test]
+    fn rebase_admission_bound_dir_onto_stable_root() {
+        // Admission binds action.working_directory to the per-build registry
+        // path. After apply_stable_workspace overrides layout.workspace_root,
+        // the admission-bound path must be rebased to follow the override
+        // (pass None so resolve assigns the stable root).
+        let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
+        let stable = PathBuf::from("/var/lib/cynic/build-workspaces/debug");
+        let rebased = rebase_working_directory(
+            original.to_str(),
+            &original,
+            &stable,
+        );
+        assert_eq!(
+            rebased, None,
+            "admission-bound dir equal to original root must rebase to None"
+        );
+        assert_eq!(
+            resolve_working_directory(rebased, &stable),
+            Ok(stable),
+            "rebased resolve must assign the stable root"
+        );
+    }
+
+    #[test]
+    fn rebase_foreign_dir_still_fails_closed() {
+        // A desired path that equals neither the original nor the stable
+        // root must still fail closed — the rebase must not mask it.
+        let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
+        let stable = PathBuf::from("/var/lib/cynic/build-workspaces/debug");
+        let foreign = "/tmp/elsewhere";
+        let rebased = rebase_working_directory(Some(foreign), &original, &stable);
+        assert_eq!(
+            rebased,
+            Some(foreign),
+            "foreign dir must pass through unchanged"
+        );
+        assert_eq!(
+            resolve_working_directory(rebased, &stable),
+            Err("build_scheduler_working_directory_layout_mismatch".to_string()),
+            "foreign dir must still fail closed"
+        );
+    }
+
+    #[test]
+    fn rebase_override_off_keeps_unchanged_behavior() {
+        // When override is off, original_root == stable_root. A desired
+        // dir equal to the original must still resolve to the original —
+        // the rebase must not change behavior when there is no override.
+        let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
+        let rebased = rebase_working_directory(
+            original.to_str(),
+            &original,
+            &original,
+        );
+        assert_eq!(
+            rebased, None,
+            "desired==original must rebase to None even when override is off"
+        );
+        assert_eq!(
+            resolve_working_directory(rebased, &original),
+            Ok(original),
+            "rebase with override off must still resolve to the original root"
+        );
+    }
+
     #[test]
     fn shared_target_dir_maps_release_and_debug_profiles() {
         let root = std::path::Path::new("/var/lib/cynic/build-targets");
@@ -427,6 +554,125 @@ mod tests {
         );
     }
 
+    #[test]
+    fn execution_env_has_cargo_target_dir_when_shared_target_root_configured() {
+        let root = PathBuf::from("/var/lib/cynic/build-targets");
+        let scheduler = crate::config::BuildSchedulerConfig {
+            shared_target_root: Some(root.clone()),
+            ..scheduler_config()
+        };
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("CARGO_TARGET_DIR"),
+            Some(&"/var/lib/cynic/build-targets/debug".to_string()),
+            "CARGO_TARGET_DIR must be set to <root>/<profile> when shared_target_root is configured"
+        );
+    }
+
+    #[test]
+    fn execution_env_has_no_cargo_target_dir_when_shared_target_root_absent() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.shared_target_root.is_none(),
+            "precondition: shared_target_root must be absent"
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert!(
+            !env.contains_key("CARGO_TARGET_DIR"),
+            "CARGO_TARGET_DIR must NOT be set when shared_target_root is absent"
+        );
+    }
+
+    // --- H2: build_jobs env injection tests ---
+
+    #[test]
+    fn execution_env_contains_cargo_build_jobs_when_build_jobs_set() {
+        let mut scheduler = scheduler_config();
+        scheduler.build_jobs = Some(4);
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("CARGO_BUILD_JOBS"),
+            Some(&"4".to_string()),
+            "CARGO_BUILD_JOBS must be set to the configured build_jobs value"
+        );
+    }
+
+    #[test]
+    fn execution_env_has_no_cargo_build_jobs_when_build_jobs_absent() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.build_jobs.is_none(),
+            "precondition: build_jobs must be absent"
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert!(
+            !env.contains_key("CARGO_BUILD_JOBS"),
+            "CARGO_BUILD_JOBS must NOT be set when build_jobs is absent"
+        );
+    }
+
+    // --- Task 7: sccache env injection tests ---
+
+    #[test]
+    fn execution_env_contains_rustc_wrapper_and_sccache_dir_when_sccache_stanza_present() {
+        let mut scheduler = scheduler_config();
+        scheduler.sccache = Some(crate::config::SccacheConfig {
+            cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
+            binary: "sccache".to_string(),
+        });
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("RUSTC_WRAPPER"),
+            Some(&"sccache".to_string()),
+            "RUSTC_WRAPPER must route rustc through sccache when the stanza is present"
+        );
+        assert_eq!(
+            env.get("SCCACHE_DIR"),
+            Some(&"/var/lib/cynic/sccache-cache".to_string()),
+            "SCCACHE_DIR must point at the configured cache dir"
+        );
+    }
+
+    #[test]
+    fn execution_env_rustc_wrapper_uses_configured_binary_when_set() {
+        let mut scheduler = scheduler_config();
+        scheduler.sccache = Some(crate::config::SccacheConfig {
+            cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
+            binary: "/usr/local/bin/sccache".to_string(),
+        });
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("RUSTC_WRAPPER"),
+            Some(&"/usr/local/bin/sccache".to_string()),
+            "RUSTC_WRAPPER must use the configured binary path"
+        );
+    }
+
+    #[test]
+    fn execution_env_has_no_sccache_when_stanza_absent() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.sccache.is_none(),
+            "precondition: sccache stanza must be absent"
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert!(
+            !env.contains_key("RUSTC_WRAPPER"),
+            "RUSTC_WRAPPER must NOT be set when the sccache stanza is absent"
+        );
+        assert!(
+            !env.contains_key("SCCACHE_DIR"),
+            "SCCACHE_DIR must NOT be set when the sccache stanza is absent"
+        );
+    }
+
     fn scheduler_config() -> crate::config::BuildSchedulerConfig {
         crate::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
@@ -439,6 +685,10 @@ mod tests {
             shared_target_root: None,
             stable_workspace_root: None,
             release_publication: None,
+            build_jobs: None,
+            max_rss_cap_mb: None,
+            sccache: None,
+            sccache_measured_hit_rate: None,
         }
     }
 
@@ -502,23 +752,52 @@ mod tests {
     }
 
     #[test]
-    fn stable_workspace_clean_removes_previous_workspace() {
+    fn stable_workspace_prepare_does_not_remove_existing_workspace() {
+        // H1b: the stable workspace must persist across builds so unchanged
+        // sources keep old mtimes and cargo fingerprints hit the warm
+        // shared target. prepare_stable_workspace must NOT remove the
+        // checkout.
         let case = tempfile::tempdir().unwrap();
         let workspace = case.path().join("stable").join("debug");
         std::fs::create_dir_all(&workspace).unwrap();
-        std::fs::write(workspace.join("stale-artifact.bin"), b"stale").unwrap();
-        clean_stable_workspace(case.path(), &workspace).unwrap();
-        assert!(!workspace.exists());
+        std::fs::write(workspace.join("sentinel.txt"), b"keep-me").unwrap();
+        let sentinel = workspace.join("sentinel.txt");
+        let mtime_before = std::fs::metadata(&sentinel)
+            .unwrap()
+            .modified()
+            .unwrap();
+        prepare_stable_workspace(&workspace).unwrap();
+        assert!(
+            sentinel.exists(),
+            "sentinel file must survive prepare (no wipe)"
+        );
+        let mtime_after = std::fs::metadata(&sentinel)
+            .unwrap()
+            .modified()
+            .unwrap();
+        assert_eq!(
+            mtime_before, mtime_after,
+            "sentinel mtime must be unchanged (no re-materialization)"
+        );
     }
 
     #[test]
-    fn stable_workspace_clean_absent_path_is_noop() {
+    fn stable_workspace_prepare_creates_parent_directory() {
+        // prepare_stable_workspace must ensure the parent directory exists
+        // so the subsequent materialization can create the worktree.
         let case = tempfile::tempdir().unwrap();
-        clean_stable_workspace(case.path(), &case.path().join("absent")).unwrap();
+        let workspace = case.path().join("stable").join("debug");
+        assert!(!workspace.parent().unwrap().exists());
+        prepare_stable_workspace(&workspace).unwrap();
+        assert!(workspace.parent().unwrap().is_dir());
     }
 
     #[test]
-    fn stable_workspace_clean_removes_registered_git_worktree() {
+    fn stable_workspace_prepare_preserves_registered_git_worktree() {
+        // H1b: a registered git worktree at the stable path must survive
+        // prepare_stable_workspace. The worktree registration in
+        // .git/worktrees must persist so the next build can update the
+        // checkout in place instead of re-cloning.
         let case = tempfile::tempdir().unwrap();
         let repository = case.path().join("repository");
         let workspace = case.path().join("stable").join("debug");
@@ -545,23 +824,18 @@ mod tests {
             "worktree creation must succeed"
         );
         assert!(workspace.exists());
-        clean_stable_workspace(&repository, &workspace).unwrap();
-        assert!(!workspace.exists());
-        // The clean must leave no stale registration that blocks re-creation
-        // at the same stable path.
+        prepare_stable_workspace(&workspace).unwrap();
         assert!(
-            git(
-                &[
-                    "worktree",
-                    "add",
-                    "--detach",
-                    "-q",
-                    workspace.to_str().unwrap(),
-                    "HEAD"
-                ],
-                &repository
-            ),
-            "re-add after clean must succeed"
+            workspace.exists(),
+            "registered worktree must survive prepare (no wipe)"
+        );
+        // The .git/worktrees registration must persist.
+        assert!(
+            repository
+                .join(".git")
+                .join("worktrees")
+                .exists(),
+            "worktree registration must persist"
         );
     }
 
@@ -617,62 +891,7 @@ mod tests {
         );
     }
 
-    // --- C2: clean fallback leaves no stale git registration ---
-
-    #[test]
-    fn stable_workspace_clean_prunes_stale_git_registration() {
-        let case = tempfile::tempdir().unwrap();
-        let repository = case.path().join("repository");
-        let workspace = case.path().join("stable").join("debug");
-        std::fs::create_dir_all(repository.join(".git")).unwrap();
-        git(&["init", "-q"], &repository);
-        git(&["config", "user.email", "t@t"], &repository);
-        git(&["config", "user.name", "t"], &repository);
-        std::fs::write(repository.join("f"), b"x").unwrap();
-        git(&["add", "f"], &repository);
-        git(&["commit", "-qm", "init"], &repository);
-        std::fs::create_dir_all(workspace.parent().unwrap()).unwrap();
-        // Create a worktree at the stable path.
-        assert!(
-            git(
-                &[
-                    "worktree", "add", "--detach", "-q",
-                    workspace.to_str().unwrap(), "HEAD"
-                ],
-                &repository
-            ),
-            "worktree creation must succeed"
-        );
-        assert!(workspace.exists());
-        // Simulate the fallback: remove the directory without git, leaving
-        // the registration behind.
-        fs::remove_dir_all(&workspace).unwrap();
-        assert!(!workspace.exists());
-        // The registration is still there — verify that re-add fails.
-        assert!(
-            !git(
-                &[
-                    "worktree", "add", "--detach", "-q",
-                    workspace.to_str().unwrap(), "HEAD"
-                ],
-                &repository
-            ),
-            "re-add must fail while the stale registration exists"
-        );
-        // clean_stable_workspace must prune the stale registration.
-        clean_stable_workspace(&repository, &workspace).unwrap();
-        // After the clean, re-add must succeed.
-        assert!(
-            git(
-                &[
-                    "worktree", "add", "--detach", "-q",
-                    workspace.to_str().unwrap(), "HEAD"
-                ],
-                &repository
-            ),
-            "re-add after clean must succeed"
-        );
-    }
+    // --- H1b: corrupt workspace fallback tested in local_build_workspace.rs ---
 
     // --- C3: reserve_action retries widened ---
 

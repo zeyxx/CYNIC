@@ -9,7 +9,7 @@ fn main() -> ExitCode {
             std::env::var("CYNIC_PCT_BIN").unwrap_or_else(|_| "/usr/sbin/pct".to_string());
         let pct_available = Path::new(&pct_bin).is_file();
         let authority_config = std::env::var_os("CYNIC_BREAKGLASS_AUTHORITY_CONFIG")
-            .unwrap_or_else(|| "/etc/cynic/lxc-breakglass-authority.toml".into());
+            .unwrap_or_else(|| cynic_lxc::incident_authority_config().into_os_string());
         let authority_config_path = Path::new(&authority_config);
         let authority_config_present = authority_config_path.is_file();
 
@@ -64,7 +64,7 @@ fn main() -> ExitCode {
     };
     let pct_bin = std::env::var("CYNIC_PCT_BIN").unwrap_or_else(|_| "/usr/sbin/pct".to_string());
     let authority_config = std::env::var_os("CYNIC_BREAKGLASS_AUTHORITY_CONFIG")
-        .unwrap_or_else(|| "/etc/cynic/lxc-breakglass-authority.toml".into());
+        .unwrap_or_else(|| cynic_lxc::incident_authority_config().into_os_string());
     let authority_config_path = Path::new(&authority_config);
     let report = match cynic_lxc::LocalIncidentAuthority::from_config_file(authority_config_path) {
         Ok(authority) => cynic_lxc::execute_with_incident_authority(&request, &pct_bin, &authority),

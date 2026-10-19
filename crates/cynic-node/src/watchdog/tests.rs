@@ -8,7 +8,7 @@ use super::sampler::{
 use crate::config::{KernelConfig, NodeConfig, WatchdogConfig, WatchdogRuntimeConfig};
 use crate::domain::node_observation::NodeRuntimeCapabilities;
 use crate::observe::NodeObservation;
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;
 use serde_json::json;
 
 fn config() -> WatchdogConfig {
@@ -28,7 +28,7 @@ fn config() -> WatchdogConfig {
         watchdog: WatchdogRuntimeConfig {
             interval_secs: 30,
             http_timeout_secs: 5,
-            registry_path: DEFAULT_REGISTRY_PATH.to_string(),
+            registry_path: CynicPaths::registry_path().display().to_string(),
         },
     }
 }

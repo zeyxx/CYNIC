@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 
 pub const NETWORK_PATH_EVIDENCE_SCHEMA: &str = "cynic.network_path.evidence.v1";
 pub const TRANSPORT_SECURITY_REPORT_SCHEMA: &str = "cynic.transport_security.report.v1";
+pub const CERTIFICATE_REF_SCHEMA: &str = "cynic.transport_security.certificate_ref.v1";
+/// Default renewal window: refresh a leaf 30 days before expiry.
+pub const DEFAULT_RENEW_BEFORE_EXPIRY_SECS: u64 = 30 * 24 * 3600;
+/// Maximum compliant leaf lifetime: 90 days (short-lived by default).
+pub const MAX_LEAF_LIFETIME_SECS: u64 = 90 * 24 * 3600;
 
 /// Shared proof-evidence vocabulary used across build, cli, host, node and vcs
 /// surfaces. Kept in the protocol residue because it is cross-family vocabulary,
@@ -133,6 +138,108 @@ impl TransportSecurityReport {
     }
 }
 
+/// Reference to one X.509 certificate in the fleet PKI (D-TLS1..3).
+///
+/// A ref, not a certificate: the bytes live with their custodian (root
+/// offline, intermediate on kernel primary, leaves on services). Only
+/// fingerprints and policy travel. All predicates below are pure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CertificateRef {
+    pub schema: String,
+    pub fingerprint_sha256: String,
+    pub issuer_fingerprint_sha256: String,
+    pub subject_cn: String,
+    #[serde(default)]
+    pub sans: Vec<String>,
+    pub not_before_unix_s: u64,
+    pub not_after_unix_s: u64,
+}
+
+/// Renewal policy for leaf certificates.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RenewalPolicy {
+    pub renew_before_expiry_secs: u64,
+    pub max_lifetime_secs: u64,
+}
+
+impl RenewalPolicy {
+    pub fn fleet_default() -> Self {
+        Self {
+            renew_before_expiry_secs: DEFAULT_RENEW_BEFORE_EXPIRY_SECS,
+            max_lifetime_secs: MAX_LEAF_LIFETIME_SECS,
+        }
+    }
+}
+
+/// Normalize a SHA256 fingerprint for comparison: strip separators,
+/// uppercase. Accepts `5E:A0:..`, `5e-a0-..`, or bare hex.
+pub fn normalize_fingerprint(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| c.is_ascii_hexdigit())
+        .collect::<String>()
+        .to_uppercase()
+}
+
+impl CertificateRef {
+    /// True when `now` falls inside the validity window.
+    pub fn valid_at(&self, now_unix_s: u64) -> bool {
+        self.schema == CERTIFICATE_REF_SCHEMA
+            && self.not_before_unix_s <= now_unix_s
+            && now_unix_s < self.not_after_unix_s
+    }
+
+    /// True when the leaf must be renewed now: expired, inside the
+    /// renewal window, or violating the maximum lifetime.
+    pub fn needs_renewal(&self, now_unix_s: u64, policy: &RenewalPolicy) -> bool {
+        if !self.valid_at(now_unix_s) {
+            return true;
+        }
+        if self.not_after_unix_s.saturating_sub(self.not_before_unix_s) > policy.max_lifetime_secs {
+            return true;
+        }
+        self.not_after_unix_s.saturating_sub(now_unix_s) <= policy.renew_before_expiry_secs
+    }
+
+    /// True when `name` is covered: exact SAN match, or a single-level
+    /// wildcard (`*.service.cynic` covers `a.service.cynic`, never
+    /// `a.b.service.cynic` or the bare zone).
+    pub fn matches_san(&self, name: &str) -> bool {
+        for san in &self.sans {
+            if san == name {
+                return true;
+            }
+            if let Some(suffix) = san.strip_prefix("*.") {
+                if !suffix.is_empty()
+                    && name.len() > suffix.len() + 1
+                    && name.ends_with(suffix)
+                    && name.as_bytes()[name.len() - suffix.len() - 1] == b'.'
+                {
+                    let stem = &name[..name.len() - suffix.len() - 1];
+                    if !stem.is_empty() && !stem.contains('.') {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
+/// True when a leaf chains to the fleet root through the known
+/// intermediate: leaf issued by intermediate, intermediate issued by
+/// root. Fingerprints compared normalized.
+pub fn chain_links_to_root(
+    leaf: &CertificateRef,
+    intermediate_fingerprint_sha256: &str,
+    intermediate_issuer_fingerprint_sha256: &str,
+    root_fingerprint_sha256: &str,
+) -> bool {
+    normalize_fingerprint(&leaf.issuer_fingerprint_sha256)
+        == normalize_fingerprint(intermediate_fingerprint_sha256)
+        && normalize_fingerprint(intermediate_issuer_fingerprint_sha256)
+            == normalize_fingerprint(root_fingerprint_sha256)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,5 +282,69 @@ mod tests {
             evidence_refs: vec!["tcp-probe.json".to_string()],
         };
         assert!(!path.admits_authenticated_application());
+    }
+
+    fn leaf(sans: &[&str], not_before: u64, not_after: u64) -> CertificateRef {
+        CertificateRef {
+            schema: CERTIFICATE_REF_SCHEMA.to_string(),
+            fingerprint_sha256: "AA".to_string(),
+            issuer_fingerprint_sha256: "BB".to_string(),
+            subject_cn: "forgejo.service.cynic".to_string(),
+            sans: sans.iter().map(|s| s.to_string()).collect(),
+            not_before_unix_s: not_before,
+            not_after_unix_s: not_after,
+        }
+    }
+
+    #[test]
+    fn certificate_validity_windows_behave() {
+        let valid = leaf(&[], 1000, 2000);
+        for (now, expected) in [
+            (999, false),
+            (1000, true),
+            (1500, true),
+            (1999, true),
+            (2000, false),
+        ] {
+            assert_eq!(valid.valid_at(now), expected, "now={now}");
+        }
+        let wrong_schema = CertificateRef {
+            schema: "wrong".to_string(),
+            ..leaf(&[], 1000, 2000)
+        };
+        assert!(!wrong_schema.valid_at(1500));
+    }
+
+    #[test]
+    fn renewal_triggers_on_expiry_window_and_lifetime() {
+        let policy = RenewalPolicy::fleet_default();
+        let fresh = leaf(&[], 0, 90 * 24 * 3600);
+        assert!(!fresh.needs_renewal(24 * 3600, &policy));
+        assert!(fresh.needs_renewal(61 * 24 * 3600, &policy));
+        assert!(fresh.needs_renewal(100 * 24 * 3600, &policy));
+        let eternal = leaf(&[], 0, 365 * 24 * 3600);
+        assert!(eternal.needs_renewal(24 * 3600, &policy));
+    }
+
+    #[test]
+    fn san_matching_covers_exact_and_single_level_wildcard() {
+        let cert = leaf(&["forgejo.service.cynic", "*.service.cynic"], 0, 100);
+        for (name, expected) in [
+            ("forgejo.service.cynic", true),
+            ("kernel.service.cynic", true),
+            ("a.b.service.cynic", false),
+            ("service.cynic", false),
+            ("forgejo.synapse.cynic", false),
+        ] {
+            assert_eq!(cert.matches_san(name), expected, "name={name}");
+        }
+    }
+
+    #[test]
+    fn chain_verification_normalizes_fingerprints() {
+        let leaf_cert = leaf(&[], 0, 100);
+        assert!(chain_links_to_root(&leaf_cert, "bb", "CC", "c-c"));
+        assert!(!chain_links_to_root(&leaf_cert, "DD", "CC", "c-c"));
+        assert!(!chain_links_to_root(&leaf_cert, "bb", "CC", "EE"));
     }
 }

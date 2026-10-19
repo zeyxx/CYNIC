@@ -22,7 +22,7 @@ pub(crate) struct RuntimeReport {
 
 #[derive(Debug, Serialize)]
 pub(crate) struct RuntimeReportPersistence {
-    pub(crate) default_path: &'static str,
+    pub(crate) default_path: String,
     pub(crate) written_path: Option<String>,
     pub(crate) mutates_filesystem: bool,
 }

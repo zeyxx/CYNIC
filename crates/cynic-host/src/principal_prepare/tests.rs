@@ -1,6 +1,7 @@
 use std::cell::Cell;
 
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
+use cynic_types::paths::CynicPaths;
 
 use super::{
     PRINCIPAL_PREPARE_EXECUTION_SCHEMA, PRINCIPAL_PREPARE_PLAN_SCHEMA, principal_prepare_apply,
@@ -64,9 +65,9 @@ fn policy() -> PrincipalPolicy {
     PrincipalPolicy {
         runtime_user: "cynic".to_string(),
         runtime_group: "cynic".to_string(),
-        home_dir: "/var/lib/cynic".to_string(),
-        config_dir: "/etc/cynic".to_string(),
-        state_dirs: vec!["/var/log/cynic".to_string()],
+        home_dir: CynicPaths::state_dir().display().to_string(),
+        config_dir: CynicPaths::system_config_dir().display().to_string(),
+        state_dirs: vec![CynicPaths::log_dir().display().to_string()],
     }
 }
 

@@ -190,7 +190,7 @@ pub fn compose_build_agent_workload(
     let policy_digest = digest_json(&serde_json::json!({
         "id": "build.repository_validation",
         "version": "v2",
-        "actions": ["make:check", "make:build", "make:build-release"],
+        "actions": ["cargo:check", "cargo:build", "cargo:build-release"],
         "authority": "runtime_principal",
     }))
     .map_err(|_| vec!["build_agent_workload_policy_digest_failed".to_string()])?;
@@ -374,7 +374,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -389,7 +389,19 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(envelope.action.argv, vec!["make", "check"]);
+        assert_eq!(
+            envelope.action.argv,
+            vec![
+                "cargo",
+                "run",
+                "-q",
+                "-p",
+                "cynic-cli",
+                "--",
+                "audit",
+                "crate"
+            ]
+        );
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
         assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
         assert_eq!(
@@ -420,7 +432,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -462,7 +474,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: Some(snapshot.clone()),
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["source_snapshot_digest_read_back".to_string()],
@@ -519,7 +531,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -533,7 +545,7 @@ mod tests {
         )
         .unwrap();
         envelope.input.as_mut().unwrap().payload["action"] =
-            serde_json::Value::String("make:build-release".to_string());
+            serde_json::Value::String("cargo:build-release".to_string());
 
         assert!(!cynic_workload::admit_agent_workload(&envelope).admitted());
         assert!(build_agent_request_from_workload(&envelope).is_err());
@@ -555,7 +567,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -590,7 +602,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -626,7 +638,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:build-release".to_string(),
+            action: "cargo:build-release".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![
@@ -648,7 +660,7 @@ mod tests {
         )
         .expect("release workload");
 
-        assert_eq!(envelope.action.argv, vec!["make", "build-release"]);
+        assert_eq!(envelope.action.argv, vec!["cargo", "build", "--release"]);
         assert_eq!(envelope.delegation.budget.actions, 2);
         assert_eq!(
             build_agent_request_from_workload(&envelope).unwrap(),

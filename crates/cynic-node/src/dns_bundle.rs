@@ -12,13 +12,15 @@ use crate::dns_contract::{
     DnsPackagePrecondition, DnsProviderPolicySurface, DnsRequiredModes, DnsTargetPaths,
     SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME, SERVICE_DNS_README_FILENAME,
     SERVICE_DNS_RESOLVED_DROPIN_FILENAME, dns_activation_checks_for_zone,
-    dns_activation_readme_for_zone, dns_bundle_config_filename, dns_bundle_files,
+    dns_activation_readme_for_zone, dns_bundle_config_filename,
     dns_bundle_service_filename, dns_forbidden_patterns, dns_package_preconditions,
     dns_provider_config_for_zone, dns_provider_policy_surface_for_zone, dns_required_modes,
     dns_systemd_unit_for_zone, dns_target_paths_for_zone,
 };
 use crate::network_command_surface::NetworkCommandSurface;
-use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
+use crate::ports::network_interfaces_port::{
+    DnsBundleRendererPort, RegistryNodeRecord, RegistryTopologyPort,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DnsBundleReport {
@@ -59,6 +61,18 @@ pub fn build_dns_bundle(
         out.join(SERVICE_DNS_HOSTS_FILENAME),
         renderer.render_hosts(&topology)?,
     )?;
+    let compat_topology: Vec<RegistryNodeRecord> = topology
+        .iter()
+        .map(|record| RegistryNodeRecord {
+            node: record.node.clone(),
+            ip: record.ip.clone(),
+            names: cynic_network::dns::map_names_to_compat_zone(&record.names, &zone),
+        })
+        .collect();
+    fs::write(
+        out.join(cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME),
+        renderer.render_hosts(&compat_topology)?,
+    )?;
     fs::write(
         out.join(dns_bundle_config_filename()),
         dns_provider_config_for_zone(&zone),
@@ -76,10 +90,21 @@ pub fn build_dns_bundle(
         dns_activation_readme_for_zone(&zone, probe_fqdn.clone()),
     )?;
 
-    let bundle_files = dns_bundle_files();
+    // Digest exactly the files written above. The canonical list
+    // (dns_bundle_files) names CoreDNS spellings; on a host where the
+    // observed provider is dnsmasq the config is written as dnsmasq.conf,
+    // and digesting the canonical name fails with NotFound. The report
+    // must describe the real bundle, not the canonical wishlist.
+    let bundle_files = vec![
+        SERVICE_DNS_HOSTS_FILENAME.to_string(),
+        cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME.to_string(),
+        dns_bundle_config_filename().to_string(),
+        dns_bundle_service_filename().to_string(),
+        SERVICE_DNS_RESOLVED_DROPIN_FILENAME.to_string(),
+        SERVICE_DNS_README_FILENAME.to_string(),
+    ];
     let digests = bundle_files
         .iter()
-        .filter(|name| name.as_str() != SERVICE_DNS_MANIFEST_FILENAME)
         .map(|name| {
             let bytes = fs::read(out.join(name))?;
             Ok::<_, std::io::Error>((
@@ -127,7 +152,19 @@ mod tests {
         assert_eq!(report.schema, "cynic.organ_fleet.dns_activation_bundle.v1");
         assert!(out.path().join(SERVICE_DNS_MANIFEST_FILENAME).exists());
         assert!(out.path().join(SERVICE_DNS_HOSTS_FILENAME).exists());
-        assert_eq!(report.digests.len(), 5);
+        assert!(
+            out.path()
+                .join(cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME)
+                .exists()
+        );
+        let compat = std::fs::read_to_string(
+            out.path()
+                .join(cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME),
+        )
+        .expect("read compat hosts");
+        assert!(compat.contains("synapse.cynic"));
+        assert!(!compat.contains("service.cynic"));
+        assert_eq!(report.digests.len(), 6);
         assert!(
             report
                 .digests

@@ -41,18 +41,22 @@ pub mod deps_surface_specs;
 pub mod deps_surface_upgrade;
 pub mod discovery_surface;
 pub mod doctor;
+pub mod external_audit;
 pub mod federation_surface;
 pub mod forensics_surface;
 pub mod fs_json;
 pub mod git_surface;
 pub mod host_exec_alias_surface;
 pub mod host_profile_selection;
+pub mod host_surface;
 pub(crate) mod hub_surface;
 pub(crate) mod inference_surface;
 pub mod invoice_log;
 pub mod knowledge_surface;
 pub mod mask;
 pub mod mcp_call_proof_index;
+#[cfg(feature = "topology_write")]
+pub mod topology_write;
 
 pub mod daemon_surface;
 pub mod mcp_surface;

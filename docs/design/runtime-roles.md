@@ -100,6 +100,8 @@ probed): builder `:9090`, PVE `:80`/`:443`/`:4000`/`:53`/`:3128`.
    (owner, scope, alert path) or remove it.
 4. **`cynic-network-actuator`**: basket already marks it DEAD — approve
    deletion.
-5. **PVE enrollment**: PVE has no releases dir and no passwordless sudo for
-   remote actuation. Decide the remote-deploy transport (ssh+sudo grant vs
-   node-initiated pull) before PVE enters `fleet_order`.
+5. **PVE enrollment**: DECIDED 2026-10-15 — hybrid: node-initiated
+   pull is the primary deploy transport (each host converges its own
+   versioned artifacts, no central root key); SSH push stays as
+   fallback (already partially in place). PVE enters `fleet_order`
+   once its pull path converges.

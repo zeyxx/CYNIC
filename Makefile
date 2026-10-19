@@ -65,7 +65,9 @@ RELEASE_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592 RUSTFLAGS='-C debuginfo=0'
 # `CYNIC_RUNTIME_BIN` answers: "does the deployed artifact match its source?"
 # Its subject IS the runtime install, so it resolves the canonical runtime
 # path declared by `infra/directory-tree.json` (rank 4 authority):
-#   /var/lib/cynic/runtime/current/bin/cynic
+#   /var/lib/cynic/bin/cynic (symlink into /var/lib/cynic/current/, the
+#   blue-green switch target; directory-tree.json rank 4 authority.
+#   The retired runtime/current/ layout is dead since v0.8 and unread.)
 # This is the ONLY path the fleet uses. `command -v cynic` is forbidden here:
 # it resolves operator-home installs (~/.local/bin) or /usr/local/bin, which
 # are NOT the runtime path and would make `audit.deployed` validate the wrong
@@ -80,7 +82,7 @@ RELEASE_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592 RUSTFLAGS='-C debuginfo=0'
 # environment override. `CARGO_TARGET_DIR` itself stays overridable, so
 # per-machine target dirs keep flowing through at parse time.
 CYNIC_SOURCE_BIN := $(CARGO_TARGET_DIR)/debug/cynic
-CYNIC_RUNTIME_BIN ?= /var/lib/cynic/runtime/current/bin/cynic
+CYNIC_RUNTIME_BIN ?= /var/lib/cynic/bin/cynic
 
 # Graceful degradation, in one place.
 #
@@ -201,11 +203,16 @@ authority.check: secret.literals ## Read-only local validation of machine-readab
 		fi
 	done
 
-.PHONY: check
-check: ## Native validation via cynic audit crate (no make recursion, exit code is the gate)
+.PHONY: audit-crate
+audit-crate: ## Native crate audit (the honest name of what `check` runs)
 	@echo "==> cynic audit crate (native, 100% Rust)"
 	$(source_bin)
 	$(CYNIC_SOURCE_BIN) audit crate --json
+
+.PHONY: check
+check: ## DEPRECATED alias of audit-crate (kept one release, then removed)
+	@echo "==> DEPRECATED: \`make check\` is now \`make audit-crate\`" >&2
+	@$(MAKE) audit-crate
 
 .PHONY: audit
 audit: ## Native unified audit of all crates, architecture boundaries, and secrets

@@ -245,12 +245,12 @@ fn hosts_contains_any_topology_record(
 mod tests {
     use super::*;
     use crate::dns_contract::{CANONICAL_DNS_BINARY, CANONICAL_DNS_PROVIDER};
-    use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+    use cynic_types::paths::CynicPaths;
 
     #[test]
     fn blocked_when_required_paths_are_missing() {
         let report = build_dns_activation_status_with_runtime(
-            DEFAULT_REGISTRY_PATH,
+            &CynicPaths::registry_path().display().to_string(),
             "/missing/hosts",
             "/missing/corefile",
             "/missing/service",

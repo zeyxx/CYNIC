@@ -1,9 +1,8 @@
 # Network surface extraction — handoff to the parallel session
 
-**Status:** SPECIFIED, NOT STARTED. No code was written for this. The owning
-session is running separately and owns `cynic-network`, `plane.rs`, the
-`planes` / `nodes[].network` vocabulary in `infra/registry.json`, and the whole
-network surface. Do not start this work in another thread.
+**Status:** CLOSED. The specified extraction was executed by other means
+(`cynic-network/src/adapters/` exists; the named gate violation file is gone).
+Kept as historical record; do not execute.
 
 Owner: the session currently reworking the network surface.
 Blocked on: nothing in this spec. The measurements below are complete.

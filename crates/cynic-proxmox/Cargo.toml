@@ -8,9 +8,11 @@ publish = false
 [dev-dependencies]
 walkdir.workspace = true
 futures.workspace = true
+tokio.workspace = true
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-types = { path = "../cynic-types" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-host = { path = "../cynic-host" }
