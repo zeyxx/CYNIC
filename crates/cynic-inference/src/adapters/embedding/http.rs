@@ -187,6 +187,9 @@ impl EmbeddingBackend {
         // workspace registry (infra/registry.json, `bench_endpoint` on each
         // embedding-server service; excluded services carry none and stay
         // out by construction). Last resort is the historical single default.
+        let base_url = std::env::var("CYNIC_EMBED_URL")
+            .ok()
+            .filter(|u| !u.is_empty())
         let explicit = std::env::var("CYNIC_EMBED_URL")
             .ok()
             .filter(|u| !u.is_empty());
@@ -446,6 +449,7 @@ impl EmbeddingBackend {
                                     };
                                     guard[target].push_back((sub_no, inputs, attempts + 1));
                                     drop(guard);
+                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                                     // WiFi-class dropouts last seconds, not
                                     // milliseconds: back off exponentially per
                                     // attempt so a transient link loss survives
@@ -508,6 +512,29 @@ impl EmbeddingBackend {
                     out.push(None);
                 }
             }
+        }
+        report(out.iter().filter(|o| o.is_some()).count(), texts.len());
+        (out, recorded_errors)
+    }
+
+    /// Batched embedding with per-lot progress: `report(done, total)` fires
+    /// after each round-trip so long corpora stay observable.
+    /// Fails closed if any lot in the batch fails after 3 distributed attempts across endpoints.
+    pub async fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let (total_results, errors) = self.embed_batch_total_reported(texts, report).await;
+        if !errors.is_empty() {
+            let sample_err = errors[0].1.clone();
+            let total_sublots = (texts.len() + FANOUT_SUB_LOT - 1) / FANOUT_SUB_LOT;
+            return Err(EmbeddingError::Protocol(format!(
+                "{}/{} sub-lots failed across cluster. Sample error: {sample_err}",
+                errors.len(),
+                total_sublots
+            )));
+        }
         }
         report(out.iter().filter(|o| o.is_some()).count(), texts.len());
         (out, recorded_errors)
@@ -609,6 +636,9 @@ mod tests {
     fn from_env_defaults() {
         // Explicit URL wins over the workspace registry; pin it so this
         // unit test never depends on the checkout it runs in.
+        unsafe { std::env::set_var("CYNIC_EMBED_URL", "http://127.0.0.1:8081/v1") };
+        let backend = EmbeddingBackend::from_env().unwrap();
+        unsafe { std::env::remove_var("CYNIC_EMBED_URL") };
         let backend =
             EmbeddingBackend::from_explicit(Some("http://127.0.0.1:8081/v1".to_string())).unwrap();
         assert!(backend.base_url().contains("8081"));

@@ -17,6 +17,7 @@
 use std::path::PathBuf;
 
 use cynic_eval::bench::retrieval_gain::{
+    BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline, VectorCacheRecord,
     BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline,
     grade_chunk, load_vector_cache,
 };
@@ -79,6 +80,7 @@ fn test_export_training_pairs() {
         model: model.clone(),
     };
     let vector_cache_path = root.join(config.vector_cache_filename());
+    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag())
     let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag(), &engine)
         .expect("Q8-uniform vector cache must exist from the frozen run");
     let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|_, _| {});

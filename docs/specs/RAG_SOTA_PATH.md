@@ -25,6 +25,10 @@ report — no aspirations.
 
 Per-run curves, Wilcoxon statistics, and provenance configs:
 contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
+<<<<<<< HEAD
+=======
+`contracts/embedding-selection.json` entries 1–9 (`run_20261015_q8_uniform_85q` latest).
+>>>>>>> origin/agent/hermes/rag-dense-margin
 
 ## 2. Frozen verdicts (full corpus, deterministic code)
 
@@ -165,6 +169,10 @@ its gate; training-free rungs come before any gradient step.
    first-stage recall, not before.
 
 ## 7. Alpha-oracle study (2026-10-16, data-only, dump `target/diag_alpha_recall.json`)
+<<<<<<< HEAD
+=======
+## 7. Alpha-oracle study (2026-10-16, data-only, committed evidence `docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json` — 90 queries × 2 arms × top-100, Q8 corpus 12 020, cache reuse, zero re-embed; original live dump was gitignored `target/`, preserved here for audit)
+>>>>>>> origin/agent/hermes/rag-dense-margin
 
 Question: the +0.10 oracle gap says per-query alpha is the headroom, but
 the doctype predictor failed — what unsupervised signal predicts the right

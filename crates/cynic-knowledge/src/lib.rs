@@ -8,6 +8,18 @@ pub use adapters::{
     sync_workspace_corpus, GitExtractError,
 };
 pub use domain::{
+    AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, AuthorityTier,
+    BrokenReference, CORPUS_CACHE_SCHEMA_V2, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord,
+    ChunkEmbedder, ChunkVector, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
+    CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
+    DocumentTree, EpistemicAssemblyConfig, EpistemicCoverageVerdict, EpistemicSource,
+    GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
+    LexicalIndex, MarkdownLink, QueryRoute, RoutingTable, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit,
+    SectionNode, SynthesisPrompt, SynthesisPromptBuilder, UNCOVERED_REJECTION_TOKEN,
+    VectorCacheRecord, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry, assemble_epistemic_context,
+    authority_for, bm25_margin, cosine_similarity, dense_margin, expand_hits_with_graph,
+    fuse_reciprocal_ranks, load_vector_cache, route_query, save_vector_cache, tokenize,
+    top_k_dense, vectorize_chunks, vectorize_chunks_cached,
     assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
     expand_hits_with_graph, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
     normalize_engine,

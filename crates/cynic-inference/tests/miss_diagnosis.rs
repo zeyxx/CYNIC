@@ -80,6 +80,8 @@ fn diagnose_total_miss_queries() {
         model: model.clone(),
     };
     let vector_cache_path = root.join(config.vector_cache_filename());
+    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag())
+        .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag()));
     let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag(), &engine)
         .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag(), &engine));
     let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|_, _| {});
