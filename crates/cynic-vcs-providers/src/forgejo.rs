@@ -9,8 +9,8 @@
 use std::process::Command;
 
 use cynic_vcs::external_source::{
-    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof, ExternalRepoRef,
-    ExternalSourcePort,
+    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalProvider, ExternalPushProof,
+    ExternalRepoRef, ExternalSourcePort,
 };
 use reqwest::blocking::Client;
 use serde::Deserialize;
