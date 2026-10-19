@@ -15,8 +15,6 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::net::SocketAddr;
 
-use self::error::CloudflareError;
-
 const CF_API_BASE: &str = "https://api.cloudflare.com/client/v4";
 const DOH_ENDPOINT: &str = "https://1.1.1.1/dns-query";
 
