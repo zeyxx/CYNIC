@@ -355,6 +355,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
                     "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
                     "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
+                    "cynic coordination metrics [--json] [--claims <path>] [--log <path>] [--root <path>]",
                 ],
             },
         ],

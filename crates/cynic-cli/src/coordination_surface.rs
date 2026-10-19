@@ -9,10 +9,10 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 
-use crate::emit_json;
 use crate::coordination_log::{
     CoordinationEntry, append_entry, default_coordination_log_path, read_entries,
 };
+use crate::emit_json;
 
 /// Agent coordination fire-and-forget log.
 #[derive(Debug, Clone, Subcommand)]
@@ -67,6 +67,21 @@ pub(crate) enum CoordinationCommand {
         /// Explicit ledger path (else infra/coordination-ledger.json).
         #[arg(long)]
         ledger: Option<std::path::PathBuf>,
+    },
+    /// Project coordination metrics (active claims, response time, merge rate).
+    Metrics {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Explicit claims file path (else .agent-claims.json).
+        #[arg(long)]
+        claims: Option<String>,
+        /// Explicit coordination log path (else CYNIC_COORDINATION_LOG, else local share).
+        #[arg(long)]
+        log: Option<String>,
+        /// Workspace root for git/PR data (else auto-detected).
+        #[arg(long)]
+        root: Option<String>,
     },
 }
 
@@ -135,10 +150,10 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             if json {
                 emit_json(
                     &serde_json::json!({
-                    "entries": entries,
-                    "skipped_lines": skipped,
-                    "log": log_path,
-                }),
+                        "entries": entries,
+                        "skipped_lines": skipped,
+                        "log": log_path,
+                    }),
                     false,
                 );
             } else {
@@ -179,15 +194,17 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             });
             let log_path = match log.as_deref() {
                 Some(p) if !p.trim().is_empty() => p.to_string(),
-                _ => default_coordination_log_path().unwrap_or_else(|_| "coordination.jsonl".to_string()),
+                _ => default_coordination_log_path()
+                    .unwrap_or_else(|_| "coordination.jsonl".to_string()),
             };
-            let ledger_path = ledger.unwrap_or_else(|| rust_source::workspace_root().join("infra/coordination-ledger.json"));
+            let ledger_path = ledger.unwrap_or_else(|| {
+                rust_source::workspace_root().join("infra/coordination-ledger.json")
+            });
 
             let ledger_doc = if ledger_path.exists() {
                 let raw = std::fs::read_to_string(&ledger_path).unwrap_or_default();
-                serde_json::from_str::<CoordinationLedger>(&raw).unwrap_or_else(|_| {
-                    CoordinationLedger::new_unified(&claims_path, &log_path)
-                })
+                serde_json::from_str::<CoordinationLedger>(&raw)
+                    .unwrap_or_else(|_| CoordinationLedger::new_unified(&claims_path, &log_path))
             } else {
                 CoordinationLedger::new_unified(&claims_path, &log_path)
             };
@@ -197,11 +214,126 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             } else {
                 println!("schema: {}", COORDINATION_LEDGER_SCHEMA);
                 println!("status: {}", ledger_doc.status);
-                println!("claims: {}", ledger_doc.claims_path.clone().unwrap_or_default());
-                println!("coordination_log: {}", ledger_doc.coordination_log_path.clone().unwrap_or_default());
+                println!(
+                    "claims: {}",
+                    ledger_doc.claims_path.clone().unwrap_or_default()
+                );
+                println!(
+                    "coordination_log: {}",
+                    ledger_doc.coordination_log_path.clone().unwrap_or_default()
+                );
                 for src in &ledger_doc.sources {
                     println!("source: {} {} {}", src.name, src.kind, src.path);
                 }
+            }
+            ExitCode::SUCCESS
+        }
+        CoordinationCommand::Metrics {
+            json,
+            claims,
+            log,
+            root,
+        } => {
+            use crate::coordination_metrics::{
+                COORDINATION_METRICS_SCHEMA, build_metrics, claims_from_document,
+                count_active_claims, merge_rate_from_counts, response_time_from_entries,
+            };
+            use crate::rust_source;
+
+            let ws_root = match root.as_deref() {
+                Some(p) if !p.trim().is_empty() => std::path::PathBuf::from(p),
+                _ => rust_source::workspace_root(),
+            };
+
+            let claims_path_str = claims.unwrap_or_else(|| {
+                let p = ws_root.join(".agent-claims.json");
+                if p.exists() {
+                    p.display().to_string()
+                } else {
+                    ".agent-claims.json".to_string()
+                }
+            });
+            let claims_doc: serde_json::Value = std::fs::read_to_string(&claims_path_str)
+                .ok()
+                .and_then(|raw| serde_json::from_str(&raw).ok())
+                .unwrap_or_else(|| serde_json::json!({}));
+            let active_claims =
+                count_active_claims(&claims_from_document(&claims_doc), now_unix_s());
+
+            let log_path = match log.as_deref() {
+                Some(p) if !p.trim().is_empty() => p.to_string(),
+                _ => default_coordination_log_path()
+                    .unwrap_or_else(|_| "coordination.jsonl".to_string()),
+            };
+            let (entries, _skipped) = read_entries(&log_path, None, 0);
+            let response_time = response_time_from_entries(&entries);
+
+            // Merge rate: prefer PR data via the sovereign VCS port, fall back to git.
+            let mut merged = 0usize;
+            let mut total = 0usize;
+            let mut got_pr = false;
+            if let Ok(port) = cynic_vcs_providers::forgejo_pr_port_from_registry(&ws_root) {
+                if let Ok(prs) = port.list("all") {
+                    total = prs.len();
+                    merged = prs
+                        .iter()
+                        .filter(|p| format!("{:?}", p.state).eq_ignore_ascii_case("merged"))
+                        .count();
+                    got_pr = true;
+                }
+            }
+            if !got_pr {
+                // Fallback: git merge commits vs total commits on HEAD.
+                let total_out = std::process::Command::new("git")
+                    .args(["rev-list", "--count", "HEAD"])
+                    .current_dir(&ws_root)
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .and_then(|o| {
+                        String::from_utf8_lossy(&o.stdout)
+                            .trim()
+                            .parse::<usize>()
+                            .ok()
+                    })
+                    .unwrap_or(0);
+                let merged_out = std::process::Command::new("git")
+                    .args(["rev-list", "--count", "--merges", "HEAD"])
+                    .current_dir(&ws_root)
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .and_then(|o| {
+                        String::from_utf8_lossy(&o.stdout)
+                            .trim()
+                            .parse::<usize>()
+                            .ok()
+                    })
+                    .unwrap_or(0);
+                total = total_out;
+                merged = merged_out;
+            }
+
+            let merge_rate = merge_rate_from_counts(merged, total);
+
+            let metrics = build_metrics(active_claims, response_time, merge_rate);
+
+            if json {
+                emit_json(&metrics, false);
+            } else {
+                println!("schema: {}", COORDINATION_METRICS_SCHEMA);
+                println!("active_claims: {}", metrics.active_claims);
+                println!(
+                    "agent_response_time: samples={} min={:?} max={:?} avg={:?}",
+                    metrics.agent_response_time.samples,
+                    metrics.agent_response_time.min_seconds,
+                    metrics.agent_response_time.max_seconds,
+                    metrics.agent_response_time.avg_seconds
+                );
+                println!(
+                    "merge_rate: {}/{} = {:.4}",
+                    metrics.merge_rate.merged, metrics.merge_rate.total, metrics.merge_rate.rate
+                );
             }
             ExitCode::SUCCESS
         }
