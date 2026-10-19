@@ -7,7 +7,7 @@
 use clap::Subcommand;
 use cynic_host::adapters::local_toolchain_probe::LocalToolchainProbe;
 use cynic_host::domain::pool_eligibility::{
-    evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility,
+    evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility, ToolKind,
     ToolRequirement,
 };
 use cynic_lifecycle::LocalArgvRunner;
@@ -74,6 +74,9 @@ struct PoolRegistryTool {
     min_version: Option<String>,
     #[serde(default)]
     required: Option<bool>,
+    /// `binary` (default) or `pkg_config`.
+    #[serde(default)]
+    kind: Option<String>,
 }
 
 /// Best-effort local node id, used when the operator omits `--node`.
@@ -111,6 +114,10 @@ pub fn read_pool_declaration(
                 name: tool.name.clone(),
                 min_version: tool.min_version.clone(),
                 required: tool.required.unwrap_or(true),
+                kind: match tool.kind.as_deref() {
+                    Some("pkg_config") => ToolKind::PkgConfig,
+                    _ => ToolKind::Binary,
+                },
             })
             .collect(),
     })
@@ -147,14 +154,14 @@ pub fn evaluate_local_node(
     observed_labels: &[String],
 ) -> Result<PoolEligibility, String> {
     let declaration = read_pool_declaration(registry_path, node_id)?;
-    let tool_names: Vec<String> = declaration
+    let tool_kinds: Vec<(String, ToolKind)> = declaration
         .required_tools
         .iter()
-        .map(|tool| tool.name.clone())
+        .map(|tool| (tool.name.clone(), tool.kind))
         .collect();
     let enrollment = read_enrollment_evidence(registry_path, node_id)?;
     let probe = LocalToolchainProbe::new(LocalArgvRunner);
-    let observations = probe.probe_tools(&tool_names);
+    let observations = probe.probe_tools(&tool_kinds);
     Ok(evaluate_pool_eligibility(
         node_id,
         &declaration,
