@@ -233,8 +233,12 @@ pub(crate) fn trigger_build(
     if !candidates.is_empty() {
         let mut snapshots = Vec::new();
         for entry in &candidates {
-            let Some((user, host)) = entry.ssh_target.split_once('@') else {
-                continue;
+            // Registry targets are SSH aliases (no user part); a literal
+            // user@host is honored when present. Never skip a candidate on
+            // shape: fall back to the trigger user.
+            let (user, host) = match entry.ssh_target.split_once('@') {
+                Some((user, host)) => (user.to_string(), host.to_string()),
+                None => (user.to_string(), entry.ssh_target.clone()),
             };
             let probe = cynic_node::cli_factory::ssh_build_runner(
                 host.to_string(),
@@ -280,7 +284,11 @@ pub(crate) fn trigger_build(
                     .find(|entry| entry.node_id == chosen)
                     .map(|entry| entry.ssh_target.clone())
                     .unwrap_or_default();
-                if let Some((user, host)) = target.split_once('@') {
+                if !target.is_empty() {
+                    let (user, host) = match target.split_once('@') {
+                        Some((user, host)) => (user.to_string(), host.to_string()),
+                        None => (user.to_string(), target),
+                    };
                     eprintln!("placement: rerouting {} -> {chosen}", health.node_id);
                     runner = cynic_node::cli_factory::ssh_build_runner(
                         host.to_string(),
