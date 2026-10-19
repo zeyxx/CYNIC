@@ -64,9 +64,15 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   (5 failed), 311058ac (4 failed), 7c64d2e2 (7 failed) — toutes
   non-vacuous. Full run : OK 6 + 1 known-vacuous.
 
-### T6 — Retrait des normaliseurs Python, un par un [ ]
+### T6 — Retrait des normaliseurs Python, un par un [>]
 - Un `HITL` par harness (windows, codex, cursor, vscode, kiro, gemini,
   amp, qwen, droid, opencode). Jamais en lot.
+- `windows_gemini` (premier, HITL opérateur) : normaliseur 598 lignes +
+  capture + runner + 3 tests supprimés ; registre UNCONTRACTED nettoyé ;
+  capsule savoir `docs/specs/harness-windows-gemini.md` (RAG-ingérable,
+  FIELD_FATE complet, 4 racines sources, réparations `_load_chat`).
+  Données intactes (34 sessions silver + 69k fichiers vault). Perte
+  assumée : ingestion restante impossible sans vertical Rust (T7).
 
 ### T7 — Modèle graphe + projection géodésique [ ]
 - Gated derrière T1–T6 (loi de Gall). Implémente R1–R6 du delta géodésique
