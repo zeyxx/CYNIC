@@ -88,7 +88,7 @@ impl WebSocketClient {
         }
     }
 
-    fn build_request(&self) -> Result<Request<()>, String> {
+    pub(super) fn build_request(&self) -> Result<Request<()>, String> {
         let mut builder = Request::builder()
             .uri(&self.kernel_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
