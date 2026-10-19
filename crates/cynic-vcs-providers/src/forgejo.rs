@@ -168,6 +168,8 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
             error: None,
         })
 
+    }
+
     fn fetch(&self, repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
         self.list_branches(repo)
     }
