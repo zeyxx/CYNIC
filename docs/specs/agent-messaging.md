@@ -8,12 +8,29 @@ metadata — so the receiver can judge when to open the full content.
 Transport stays local-first (same host, shared log); remote fleet delivery
 is explicitly out of scope for this tranche.
 
-## Non-goals
+## Non-goals (phase 1)
 
-- No remote transport (no HTTP push, no webhooks, no cross-node fan-out).
 - No real-time notification daemon (no long-lived listener process).
 - No confidential content (log is plaintext JSONL; secrecy arrives later).
 - No replacing `network notify` (watchdog alerts stay a separate path).
+
+## Phase 2 — cross-node relay (designed now, built after phase-1 usage)
+
+The fleet already spans nodes (hypervisor, cortex, builder, compute-01).
+Phase 1 proves the envelope locally; phase 2 carries addressed entries
+across nodes by reusing the existing sovereign bearer — `cynic-node`
+`peer_submit_tx` (signed envelopes, SQLite projection) — with a new
+message-tx kind owned by the `cynic-node` domain, not by the CLI.
+The relay copies the entry into the destination node's coordination log;
+receipts flow back the same way. No new transport daemon, no broker.
+
+## A2A emergence (not adoption)
+
+The full A2A protocol is NOT adopted. The envelope keeps A2A-shaped
+fields (`messageId`, `contextId`/`in_reply_to`, parts-ready body) so a
+lisière adapter can map send→`message/send` and ack→2xx/task-state later,
+once emergent usage data shows which flows matter. Interop grows out of
+observed traffic, not out of the spec.
 
 ## State of the art (observed, not invented)
 
