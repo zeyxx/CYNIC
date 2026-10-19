@@ -445,13 +445,24 @@ impl BuildRunnerPort for SshBuildRunner {
             // The build ran and failed. That is a verdict, not an error: it
             // carries the layer that broke, the wall time it burned, and the
             // compiler output that says why.
+            //
+            // A test run puts the DETAIL on stdout, not stderr: the failing
+            // assertion, the diff, the panic message. Reading only stderr
+            // gives "test failed, to rerun pass `-p X`" and nothing else, so
+            // the operator knows a test broke but not which or why. The
+            // evidence therefore carries both streams for a test action.
+            let evidence = if is_test_phase {
+                test_evidence(&out.stdout, &out.stderr)
+            } else {
+                build_evidence(&out.stderr)
+            };
             return Ok(self.proof(
                 &sha,
                 action,
                 &scope,
                 BuildVerdict::Blocked {
                     broken_layer: Some(scope.clone()),
-                    reason: format!("remote build failed: {}", build_evidence(&out.stderr)),
+                    reason: format!("remote build failed: {evidence}"),
                 },
                 duration_ms,
                 cpu_ms,
@@ -634,6 +645,70 @@ fn build_evidence(stderr: &str) -> String {
         .find(|i| trimmed.is_char_boundary(*i))
         .unwrap_or(trimmed.len());
     trimmed[cut..].trim().to_string()
+}
+
+/// The actionable part of a failed TEST run.
+///
+/// WHY A SEPARATE EVIDENCE. `build_evidence` keeps the first error block,
+/// which is right for a compilation: one broken crate, one error. A test run
+/// is different — `--no-fail-fast` reports MANY failing targets, each with
+/// its own assertion, and the first block says nothing about the others. The
+/// operator needs the whole list: which test broke, and why.
+///
+/// The evidence keeps every `failures:` block and every panic line, bounded
+/// by a larger limit because a test run's detail is the deliverable.
+fn test_evidence(stdout: &str, stderr: &str) -> String {
+    const LIMIT: usize = 8192;
+    let mut blocks: Vec<String> = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
+    let mut in_failures = false;
+    for line in stdout.lines().chain(stderr.lines()) {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("failures:") || trimmed.starts_with("---- ") {
+            in_failures = true;
+            if !current.is_empty() {
+                blocks.push(current.join("\n"));
+                current.clear();
+            }
+            current.push(line);
+            continue;
+        }
+        if in_failures {
+            // A new top-level section (the next test binary, the summary)
+            // ends the current failure block.
+            if line.starts_with("     Running ") || line.starts_with("test result:") {
+                blocks.push(current.join("\n"));
+                current.clear();
+                in_failures = false;
+                continue;
+            }
+            current.push(line);
+        }
+    }
+    if !current.is_empty() {
+        blocks.push(current.join("\n"));
+    }
+    if blocks.is_empty() {
+        // No structured failure: the tail is the best available evidence.
+        let combined = format!("{stdout}\n{stderr}");
+        let trimmed = combined.trim();
+        let cut = trimmed.len().saturating_sub(LIMIT);
+        let cut = (cut..trimmed.len())
+            .find(|i| trimmed.is_char_boundary(*i))
+            .unwrap_or(trimmed.len());
+        return trimmed[cut..].trim().to_string();
+    }
+    let mut out = String::new();
+    for block in blocks {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        out.push_str(&block);
+        if out.len() > LIMIT {
+            break;
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -1021,6 +1096,68 @@ mod tests {
             "the git fatal survives: {evidence}"
         );
         assert!(evidence.len() <= 2048, "bounded: {}", evidence.len());
+    }
+
+    #[test]
+    fn test_evidence_keeps_every_failing_target() {
+        // A test run reports MANY failures. The first block alone says nothing
+        // about the others, so the evidence must carry them all.
+        let stdout = "running 3 tests\n\
+test a ... ok\n\
+test b ... FAILED\n\
+\n\
+failures:\n\
+\n\
+---- b stdout ----\n\
+thread 'b' panicked at src/lib.rs:10:9:\n\
+assertion `left == right` failed\n\
+  left: 1\n\
+ right: 2\n\
+\n\
+     Running tests/second.rs\n\
+test c ... FAILED\n\
+\n\
+failures:\n\
+\n\
+---- c stdout ----\n\
+thread 'c' panicked at src/other.rs:3:5:\n\
+assertion failed: c is broken\n\
+\n\
+test result: FAILED. 1 passed; 2 failed\n";
+        let evidence = test_evidence(stdout, "");
+        assert!(
+            evidence.contains("b stdout"),
+            "the first failure survives: {evidence}"
+        );
+        assert!(
+            evidence.contains("c stdout"),
+            "the second failure survives too: {evidence}"
+        );
+        assert!(
+            evidence.contains("c is broken"),
+            "the assertion text survives: {evidence}"
+        );
+        assert!(evidence.len() <= 8192, "bounded: {}", evidence.len());
+    }
+
+    #[test]
+    fn test_evidence_falls_back_to_the_tail_without_failures() {
+        // No structured failure (a linker abort, a panic before the harness
+        // printed its report): the tail is the only evidence.
+        let stdout = "some noise\n".repeat(200);
+        let stderr = "fatal: aborting the test binary\n";
+        let evidence = test_evidence(&stdout, stderr);
+        assert!(
+            evidence.contains("aborting the test binary"),
+            "the fatal survives: {evidence}"
+        );
+    }
+
+    #[test]
+    fn test_evidence_survives_an_empty_run() {
+        // A run that produced nothing must still say something, not crash.
+        let evidence = test_evidence("", "");
+        assert!(!evidence.is_empty(), "the evidence is never empty");
     }
 
     #[test]
