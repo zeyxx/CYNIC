@@ -53,6 +53,21 @@ pub(crate) enum CoordinationCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Project the unified coordination ledger.
+    Ledger {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Explicit claims file path (else .agent-claims.json).
+        #[arg(long)]
+        claims: Option<String>,
+        /// Explicit coordination log path (else CYNIC_COORDINATION_LOG, else local share).
+        #[arg(long)]
+        log: Option<String>,
+        /// Explicit ledger path (else infra/coordination-ledger.json).
+        #[arg(long)]
+        ledger: Option<std::path::PathBuf>,
+    },
 }
 
 fn resolve_log(explicit: Option<&str>) -> Result<String, String> {
@@ -140,6 +155,52 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
                 }
                 if skipped > 0 {
                     eprintln!("warning: {skipped} corrupt line(s) skipped");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        CoordinationCommand::Ledger {
+            json,
+            claims,
+            log,
+            ledger,
+        } => {
+            use crate::coordination_ledger::{COORDINATION_LEDGER_SCHEMA, CoordinationLedger};
+            use crate::rust_source;
+
+            let claims_path = claims.unwrap_or_else(|| {
+                let root = rust_source::workspace_root();
+                let p = root.join(".agent-claims.json");
+                if p.exists() {
+                    p.display().to_string()
+                } else {
+                    ".agent-claims.json".to_string()
+                }
+            });
+            let log_path = match log.as_deref() {
+                Some(p) if !p.trim().is_empty() => p.to_string(),
+                _ => default_coordination_log_path().unwrap_or_else(|_| "coordination.jsonl".to_string()),
+            };
+            let ledger_path = ledger.unwrap_or_else(|| rust_source::workspace_root().join("infra/coordination-ledger.json"));
+
+            let ledger_doc = if ledger_path.exists() {
+                let raw = std::fs::read_to_string(&ledger_path).unwrap_or_default();
+                serde_json::from_str::<CoordinationLedger>(&raw).unwrap_or_else(|_| {
+                    CoordinationLedger::new_unified(&claims_path, &log_path)
+                })
+            } else {
+                CoordinationLedger::new_unified(&claims_path, &log_path)
+            };
+
+            if json {
+                emit_json(&ledger_doc, false);
+            } else {
+                println!("schema: {}", COORDINATION_LEDGER_SCHEMA);
+                println!("status: {}", ledger_doc.status);
+                println!("claims: {}", ledger_doc.claims_path.clone().unwrap_or_default());
+                println!("coordination_log: {}", ledger_doc.coordination_log_path.clone().unwrap_or_default());
+                for src in &ledger_doc.sources {
+                    println!("source: {} {} {}", src.name, src.kind, src.path);
                 }
             }
             ExitCode::SUCCESS
