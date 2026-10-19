@@ -468,14 +468,9 @@ impl SshBuildRunner {
     /// Absence is a fact (fall back to unwrapped), never an error.
     pub fn probe_sccache_available(&self) -> bool {
         let target = self.ssh_target();
+        let bin = default_sccache_bin().display().to_string();
         self.runner
-            .run(&[
-                "ssh",
-                target.as_str(),
-                "test",
-                "-x",
-                DEFAULT_SCCACHE_BIN,
-            ])
+            .run(&["ssh", target.as_str(), "test", "-x", bin.as_str()])
             .success()
     }
 }
@@ -923,6 +918,28 @@ mod tests {
         assert!(health.cache_warm);
         assert_eq!(health.toolchain, "rustc 1.95.0");
         assert_eq!(health.node_id, "runner-1");
+    }
+
+    #[test]
+    fn sccache_probe_reports_wrapper_presence() {
+        let fake = FakeRunner::with(vec![ok("")]);
+        let (runner, handle) = test_runner(fake);
+        assert!(runner.probe_sccache_available());
+        let logged = handle
+            .argv_log()
+            .iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(logged.contains("test -x"));
+    }
+
+    #[test]
+    fn sccache_probe_absence_is_false_not_error() {
+        let fake = FakeRunner::with(vec![fail("no such file")]);
+        let (runner, _) = test_runner(fake);
+        assert!(!runner.probe_sccache_available());
     }
 
     #[test]
