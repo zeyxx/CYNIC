@@ -163,6 +163,40 @@ pub fn default_sccache_bin() -> PathBuf {
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
 
+/// The workspace member crates, read from the root manifest.
+///
+/// The manifest is the authority for membership — a hardcoded list would
+/// drift the moment a crate is added, and a missing crate in the list
+/// means its measured stack is not reserved.
+fn workspace_members() -> Vec<String> {
+    let Ok(manifest) = std::fs::read_to_string("Cargo.toml") else {
+        return Vec::new();
+    };
+    let mut members = Vec::new();
+    let mut in_members = false;
+    for line in manifest.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("members") {
+            in_members = true;
+            continue;
+        }
+        if in_members {
+            if trimmed.starts_with(']') {
+                break;
+            }
+            if let Some(start) = trimmed.find('"') {
+                if let Some(end) = trimmed[start + 1..].find('"') {
+                    let name = &trimmed[start + 1..start + 1 + end];
+                    if let Some(crate_name) = name.strip_prefix("crates/") {
+                        members.push(crate_name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    members
+}
+
 impl SshBuildRunner {
     fn ssh_target(&self) -> String {
         format!("{}@{}", self.user, self.host)
@@ -170,6 +204,37 @@ impl SshBuildRunner {
 
     fn checkout_dir(&self, sha: &str) -> String {
         format!("{}/cynic-{}", self.checkout_base, &sha[..12.min(sha.len())])
+    }
+
+    /// The stack this build reserves, read from the toolchain registry.
+    ///
+    /// A package scope touches that package; a workspace build touches every
+    /// member, so it reserves the workspace maximum. The registry is the
+    /// authority: it records, per crate, the stack that crate's harness was
+    /// MEASURED to need. A registry that cannot be read falls back to the
+    /// 8 GiB the runner always used — the conservative direction, because
+    /// under-reserving is what causes a SIGSEGV in the middle of a build.
+    fn resolve_min_stack(&self, action: &str) -> u64 {
+        let registry_path = Path::new("infra/rust-toolchain.json");
+        let Ok(raw) = std::fs::read_to_string(registry_path) else {
+            return 8_589_934_592;
+        };
+        let Ok(registry) = cynic_build::build::stack_budget::ToolchainRegistry::parse(&raw) else {
+            return 8_589_934_592;
+        };
+        let crates = match self.package.as_deref() {
+            Some(package) => vec![package.to_string()],
+            None => workspace_members(),
+        };
+        let decided = cynic_build::build::stack_budget::decide_min_stack(&registry, &crates);
+        // A check build does not monomorphise like a test build: the 8 GiB
+        // was measured for the TEST harness. A check keeps the smaller
+        // reservation, which is what made checks cheap and reliable.
+        if action == "cargo:check" {
+            decided.min(1_073_741_824)
+        } else {
+            decided
+        }
     }
 
     fn action_for_phase(phase: BuildPhase) -> Result<&'static str, BuildError> {
@@ -371,11 +436,25 @@ impl BuildRunnerPort for SshBuildRunner {
         if is_test_phase {
             cargo.push("--no-fail-fast".to_string());
         }
+        // The stack reservation is PER CRATE, not per workspace.
+        //
+        // The runner used to reserve 8 GiB for every rustc thread of the
+        // whole workspace, while `infra/rust-toolchain.json` records a
+        // `min_stack` for only 6 of the 48 crates. On 2026-10-19 that
+        // produced a commit of 366 Go against a 16.5 Go quota (22x over),
+        // and the kernel refused a compiler thread with `WouldBlock` — a
+        // failure that looks like a flake and is not one.
+        //
+        // The reservation is now the MAXIMUM over the crates the build
+        // actually touches, read from the registry. A workspace build still
+        // reserves 8 GiB (it touches cynic-node), but a scoped build of
+        // small crates reserves only what they need.
+        let min_stack = self.resolve_min_stack(action);
         let mut argv: Vec<String> = vec![
             "ssh".to_string(),
             target,
             "env".to_string(),
-            "RUST_MIN_STACK=8589934592".to_string(),
+            format!("RUST_MIN_STACK={min_stack}"),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
             format!(
