@@ -1,0 +1,37 @@
+name: CYNIC Capacity Probe (compute-01)
+
+on:
+  workflow_dispatch:
+
+env:
+  CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
+  RUSTFLAGS: "-C debuginfo=0"
+
+jobs:
+  probe:
+    name: Build capacity probe
+    runs-on: [cynic/compute-01]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Report host capacity
+        run: |
+          nproc
+          free -g | head -2
+          df -h . | tail -1
+
+      - name: Prove toolchain
+        run: |
+          export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+          rustc --version
+          cargo --version
+          node --version
+          cc --version | head -1
+
+      - name: Prove build capacity
+        run: |
+          export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+          cargo test -p cynic-types
