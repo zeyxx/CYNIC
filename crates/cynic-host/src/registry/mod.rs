@@ -11,7 +11,6 @@ pub mod types;
 pub mod validate;
 
 // Re-export main public API
-pub use crate::runtime_registry::DEFAULT_REGISTRY_PATH;
 pub use persist::{
     PersistError, WriteProof, load_and_validate_registry, write_registry, write_registry_atomic,
 };
@@ -24,9 +23,9 @@ pub use types::{
     RegistryKernelRelease, RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane,
     RegistryNetworkPolicy, RegistryNode, RegistryNodeService, RegistryNodeSubstrate,
     RegistryNodeTransports, RegistryServiceHealth, RegistryServiceSupervisor,
-    RegistrySshEnrollmentAuthority, RegistrySshTransport, ResolvedBuildRunnerTransport,
-    ResolvedDirectManagementLink, ResolvedHostIdentity, ResolvedNodeSubstrateTarget,
-    ResolvedProviderControlTransport,
+    RegistrySourceRepository, RegistrySourceWorkspaceLayout, RegistrySshEnrollmentAuthority,
+    RegistrySshTransport, ResolvedBuildRunnerTransport, ResolvedDirectManagementLink,
+    ResolvedHostIdentity, ResolvedNodeSubstrateTarget, ResolvedProviderControlTransport,
 };
 pub use validate::{
     ValidationError, check_role_consistency, validate_registry, validate_registry_or_error,
@@ -40,7 +39,7 @@ pub use crate::registry::resolve::{
     resolve_host_direct_management_link, resolve_host_profile, resolve_host_profile_resolution,
     resolve_node_substrate_desired_state, resolve_node_substrate_targets,
     resolve_observed_direct_management_link, resolve_provider_control_transport,
-    resolve_registry_service_policy,
+    resolve_registry_service_policy, resolve_source_transport_uri,
 };
 
 pub mod resolve {
@@ -259,6 +258,47 @@ pub mod resolve {
         resolve_role_transport(&path, &registry, role, "build_runner")
     }
 
+    /// Resolve a source repository clone URI from the registry.
+    ///
+    /// Scans every node's `source_workspace_layout.repositories` for
+    /// `repository_id` and returns its declared `transport_uri`. Explicit
+    /// `--ssot-url` wins upstream; this is the registry-driven default that
+    /// replaces the hardcoded `DEFAULT_SSOT_URL`. Fails closed with a named
+    /// reason when the declaration is absent or ambiguous — a clone must
+    /// never silently fall back to an unresolvable default.
+    pub fn resolve_source_transport_uri(
+        registry_path: Option<&str>,
+        repository_id: &str,
+    ) -> Result<String, String> {
+        if repository_id.trim().is_empty() {
+            return Err("source_repository_id_missing".to_string());
+        }
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let mut found = Vec::new();
+        for node in &registry.nodes {
+            if let Some(layout) = node.source_workspace_layout.as_ref() {
+                for repository in &layout.repositories {
+                    if repository.id.as_deref() == Some(repository_id) {
+                        if let Some(uri) = repository
+                            .transport_uri
+                            .as_ref()
+                            .map(|uri| uri.trim().to_string())
+                            .filter(|uri| !uri.is_empty())
+                        {
+                            found.push(uri);
+                        }
+                    }
+                }
+            }
+        }
+        match found.as_slice() {
+            [] => Err(format!("source_transport_missing:{repository_id}")),
+            [uri] => Ok(uri.clone()),
+            _ => Err(format!("source_transport_ambiguous:{repository_id}")),
+        }
+    }
+
     pub fn resolve_framework_transport(
         registry_path: Option<&str>,
         role: &str,
@@ -269,6 +309,115 @@ pub mod resolve {
         let path = resolve_registry_path(registry_path)?;
         let registry = load_registry(&path)?;
         resolve_role_transport(&path, &registry, role, "framework_target")
+    }
+
+    /// Resolve a runner by node id, name, or alias (e.g. a compat builder
+    /// alongside the default `build_runner` role). Same transport checks as
+    /// the role path; fails closed when the node or its SSH transport is
+    /// missing.
+    pub fn resolve_named_runner_transport(
+        registry_path: Option<&str>,
+        node_id: &str,
+    ) -> Result<ResolvedBuildRunnerTransport, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let node = registry
+            .nodes
+            .iter()
+            .find(|node| {
+                node.id.as_deref() == Some(node_id)
+                    || node.name.as_deref() == Some(node_id)
+                    || node.aliases.iter().any(|alias| alias == node_id)
+            })
+            .ok_or_else(|| "named_runner_node_missing".to_string())?;
+        let role = role_for_node(&registry, node_id)?;
+        resolve_role_transport(&path, &registry, &role, "named_runner").map(|mut transport| {
+            transport.node_id = node
+                .id
+                .clone()
+                .or_else(|| node.name.clone())
+                .unwrap_or_default();
+            transport.role = role;
+            transport
+        })
+    }
+
+    fn role_for_node(registry: &RegistryDocument, node_id: &str) -> Result<String, String> {
+        // Resolve through the unique role when exactly one node carries it;
+        // the named path reuses the role transport checks verbatim.
+        let roles: Vec<&str> = registry
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.id.as_deref() == Some(node_id)
+                    || node.name.as_deref() == Some(node_id)
+                    || node.aliases.iter().any(|alias| alias == node_id)
+            })
+            .filter_map(|node| node.role.as_deref().or(node.canonical_role.as_deref()))
+            .collect();
+        match roles.as_slice() {
+            [role] => Ok(role.to_string()),
+            _ => Err("named_runner_role_unresolvable".to_string()),
+        }
+    }
+
+    /// Projected runner entry for operator/agent discovery.
+    #[derive(Debug, Clone, serde::Serialize)]
+    pub struct RunnerEntry {
+        pub node_id: String,
+        pub role: String,
+        pub ssh_target: String,
+        pub trust: String,
+        pub enrollment_principal: String,
+        pub default: bool,
+    }
+
+    /// List every registry node whose role carries build duties, with the
+    /// default `build_runner` role flagged. Read-only projection; no probing.
+    pub fn list_runner_nodes(registry_path: Option<&str>) -> Result<Vec<RunnerEntry>, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let default_role = registry
+            .lifecycle
+            .as_ref()
+            .and_then(|lifecycle| lifecycle.kernel_release.as_ref())
+            .and_then(|release| release.build_runner_role.clone())
+            .unwrap_or_else(|| "build_runner".to_string());
+        let mut runners = Vec::new();
+        for node in &registry.nodes {
+            let role = match node.role.as_deref().or(node.canonical_role.as_deref()) {
+                Some(role) if role.contains("runner") => role.to_string(),
+                _ => continue,
+            };
+            let transport = node.transports.as_ref().and_then(|t| t.ssh.as_ref());
+            let Some(ssh) = transport else { continue };
+            let Some(target) = ssh.target.clone() else {
+                continue;
+            };
+            runners.push(RunnerEntry {
+                node_id: node
+                    .id
+                    .clone()
+                    .or_else(|| node.name.clone())
+                    .unwrap_or_default(),
+                role: role.clone(),
+                ssh_target: target,
+                trust: ssh.trust.clone().unwrap_or_default(),
+                enrollment_principal: ssh
+                    .enrollment_authority
+                    .as_ref()
+                    .and_then(|authority| authority.principal.clone())
+                    .unwrap_or_default(),
+                default: role == default_role,
+            });
+        }
+        runners.sort_by(|left, right| {
+            right
+                .default
+                .cmp(&left.default)
+                .then(left.node_id.cmp(&right.node_id))
+        });
+        Ok(runners)
     }
 
     fn resolve_role_transport(
@@ -783,6 +932,7 @@ pub mod resolve {
                 substrate: None,
                 services: vec![],
                 network_links: vec![],
+                source_workspace_layout: None,
             }
         }
 
@@ -865,6 +1015,105 @@ pub mod resolve {
             // alter the substituted profile without this test noticing.
             let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
             assert_eq!(profile_for_node(&node), HostProfile::NetworkNode);
+        }
+    }
+
+    #[cfg(test)]
+    mod source_transport_resolution_tests {
+        use super::resolve::resolve_source_transport_uri;
+
+        fn write_fixture(name: &str, body: &str) -> String {
+            let path = std::env::temp_dir().join(format!(
+                "cynic-source-transport-{name}-{}",
+                std::process::id()
+            ));
+            std::fs::write(&path, body).expect("fixture must be writable");
+            path.to_string_lossy().to_string()
+        }
+
+        fn node_with_repository(id: &str, transport_uri: Option<&str>) -> String {
+            let uri = transport_uri
+                .map(|uri| format!("\"transport_uri\": \"{uri}\""))
+                .unwrap_or_default();
+            format!(
+                r#"{{"id": "builder", "name": "builder",
+                    "source_workspace_layout": {{"repositories": [
+                        {{"id": "{id}", "relative_path": "CYNIC", {uri}}}]}}}}"#,
+            )
+        }
+
+        fn registry_with_nodes(nodes: &[String]) -> String {
+            format!("{{\"nodes\": [{}]}}", nodes.join(","))
+        }
+
+        #[test]
+        fn declared_transport_uri_resolves() {
+            let path = write_fixture(
+                "declared",
+                &registry_with_nodes(&[node_with_repository(
+                    "cynic",
+                    Some("ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git"),
+                )]),
+            );
+            let uri = resolve_source_transport_uri(Some(&path), "cynic")
+                .expect("declared transport must resolve");
+            assert_eq!(
+                uri,
+                "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git"
+            );
+        }
+
+        #[test]
+        fn unknown_repository_id_fails_closed() {
+            let path = write_fixture(
+                "unknown",
+                &registry_with_nodes(&[node_with_repository("cynic", Some("ssh://x/y.git"))]),
+            );
+            let error = resolve_source_transport_uri(Some(&path), "other")
+                .expect_err("unknown id must fail");
+            assert!(error.contains("source_transport_missing:other"), "{error}");
+        }
+
+        #[test]
+        fn node_without_layout_is_skipped_not_fatal() {
+            let path = write_fixture(
+                "skipped",
+                &registry_with_nodes(&[
+                    "{\"id\": \"plain\", \"name\": \"plain\"}".to_string(),
+                    node_with_repository("cynic", Some("ssh://x/y.git")),
+                ]),
+            );
+            let uri = resolve_source_transport_uri(Some(&path), "cynic")
+                .expect("layout-less nodes must be skipped");
+            assert_eq!(uri, "ssh://x/y.git");
+        }
+
+        #[test]
+        fn ambiguous_declaration_fails_closed() {
+            let path = write_fixture(
+                "ambiguous",
+                &registry_with_nodes(&[
+                    node_with_repository("cynic", Some("ssh://a/y.git")),
+                    node_with_repository("cynic", Some("ssh://b/y.git")),
+                ]),
+            );
+            let error = resolve_source_transport_uri(Some(&path), "cynic")
+                .expect_err("ambiguous declaration must fail");
+            assert!(
+                error.contains("source_transport_ambiguous:cynic"),
+                "{error}"
+            );
+        }
+
+        #[test]
+        fn live_registry_declares_the_cynic_source_transport() {
+            // Pins the trigger path to the live SSOT: the sovereign repository
+            // must keep a declared clone URI or every build trigger fails loud.
+            let path = format!("{}/../../infra/registry.json", env!("CARGO_MANIFEST_DIR"));
+            let uri = resolve_source_transport_uri(Some(&path), "cynic")
+                .expect("live registry must declare the cynic source transport");
+            assert!(uri.starts_with("ssh://"), "{uri}");
+            assert!(uri.ends_with("CYNIC.git"), "{uri}");
         }
     }
 }

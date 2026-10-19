@@ -453,9 +453,11 @@ mod tests {
 
     #[test]
     fn test_all_traditions_valides() {
-        for nom in traditions_57().noms {
-            let idx = traditions_48().noms.iter().position(|n| n == &nom).unwrap();
-            let coord = traditions_48().coords[idx];
+        // Validate each tradition against its OWN coordinates: looking the
+        // 57 names up in the 48 list panics on the 10 traditions the 48
+        // list does not contain.
+        let m = traditions_57();
+        for (nom, coord) in m.noms.iter().zip(m.coords.iter()) {
             assert!(coord.est_valide(), "{} invalide: {}", nom, coord);
         }
     }
@@ -484,7 +486,10 @@ mod tests {
         m.ajouter("C", 0.0, 0.0, 1.0);
 
         let (i, j, d) = m.paire_plus_loin().unwrap();
-        assert!(d > 1.9 && d < 2.1, "Distance max devrait ≈ 2.0, got {}", d);
+        // Euclidean metric: unit-axis points are sqrt(2) apart, not 2.0
+        // (that would be Manhattan). All three pairs tie; strict > keeps
+        // the first, (0, 1).
+        assert!((d - 2f64.sqrt()).abs() < 1e-9, "Distance max devrait ≈ √2, got {}", d);
         assert_eq!((i, j), (0, 1));
     }
 
@@ -500,8 +505,11 @@ mod tests {
 
     #[test]
     fn test_delta_g_monotone() {
-        let s = CoordinationScore::new(0.5, 0.3, 0.2);
+        // G is a min() over the three ratios: raising a factor only raises
+        // G when that factor is the bottleneck. Put signal lowest so the
+        // +0.1 signal move actually moves G.
+        let s = CoordinationScore::new(0.2, 0.5, 0.5);
         let dg = s.delta_g(0.1, 0.0, 0.0);
-        assert!(dg > 0.0, "Augmenter le signal devrait augmenter G");
+        assert!(dg > 0.0, "Augmenter le signal (goulot) devrait augmenter G");
     }
 }

@@ -23,7 +23,7 @@
 //! the catalog, absent from the installed set, missing a parameter, carrying
 //! an undeclared parameter, or holding a value that fails its kind is
 //! refused before any process starts. The sudoers membrane names the exact
-//! argv `/usr/local/bin/cynic privilege exec <id> ...`, so the kernel and the
+//! argv `<bindir>/cynic privilege exec <id> ...`, so the kernel and the
 //! catalog agree on what may run as root.
 
 use std::process::ExitCode;
@@ -32,6 +32,7 @@ use cynic_host::privilege::capability_catalog::{
     CapabilityView, catalog_path_from_env, installed_path_from_env,
 };
 use cynic_protocol::privilege::CapabilityDecision;
+use cynic_types::paths::CynicPaths;
 use serde::Serialize;
 
 use crate::{emit_json, fail};
@@ -325,7 +326,7 @@ fn journal(capability_id: &str, argv: &[String], requires_root: bool) {
     );
     let path = std::env::var_os("CYNIC_PRIVILEGE_JOURNAL")
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::path::PathBuf::from("/var/log/cynic/privilege.jsonl"));
+        .unwrap_or_else(|| CynicPaths::log_dir().join("privilege.jsonl"));
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -402,7 +403,7 @@ fn execute_install(subject: &str, output: &str, json: bool) -> ExitCode {
     let binary_path = std::env::current_exe()
         .ok()
         .and_then(|path| path.to_str().map(str::to_string))
-        .unwrap_or_else(|| "/usr/local/bin/cynic".to_string());
+        .unwrap_or_else(|| CynicPaths::binary_dir().join("cynic").display().to_string());
 
     let rules = view.catalog.sudoers_rules(subject, &binary_path);
     if rules.is_empty() {

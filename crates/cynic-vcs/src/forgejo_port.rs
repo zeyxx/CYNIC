@@ -3,6 +3,8 @@
 //! I/O-free so it's testable without a host. The concrete observer
 //! (`RuntimeForgejoObserver`) lives in `cynic-host` (needs `repo_access`).
 
+use cynic_types::paths::CynicPaths;
+
 use crate::forgejo_token::{ForgejoTokenSpec, FORGEJO_TOKEN_SPEC_SCHEMA};
 use crate::{ForgejoDesiredState, ForgejoObservedState, ForgejoPlan, plan_forgejo_convergence};
 
@@ -34,9 +36,11 @@ pub fn forgejo_token_spec(
             .unwrap_or(&desired.api_url)
             .trim_end_matches('/')
             .to_string(),
-        target_path: token_path
-            .map(|p| p.to_string())
-            .unwrap_or_else(|| "/etc/cynic/secrets/forgejo-token".to_string()),
+        target_path: token_path.map(|p| p.to_string()).unwrap_or_else(|| {
+            CynicPaths::secret_path("forgejo-token")
+                .display()
+                .to_string()
+        }),
         mode: 0o640,
         scopes: vec![
             "write:repository".to_string(),

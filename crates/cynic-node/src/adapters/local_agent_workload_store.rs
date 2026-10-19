@@ -227,6 +227,36 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
         }
         Ok(Some(destination.to_string_lossy().into_owned()))
     }
+
+    fn append_evidence(
+        &self,
+        workload_id: &str,
+        file_name: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), AgentWorkloadStoreError> {
+        validate_evidence_name(file_name)?;
+        let root = self.workload_root(workload_id)?;
+        match fs::symlink_metadata(&root) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                return Err(error("workload_store_root_rejected"));
+            }
+            Ok(_) => {}
+            Err(_) => return Err(error("workload_evidence_unknown_workload")),
+        }
+        let bytes =
+            serde_json::to_vec_pretty(body).map_err(|_| error("workload_store_encode_failed"))?;
+        let path = root.join(file_name);
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o640);
+        let mut file = options
+            .open(&path)
+            .map_err(|_| error("workload_evidence_write_failed"))?;
+        file.write_all(&bytes)
+            .map_err(|_| error("workload_evidence_write_failed"))?;
+        Ok(())
+    }
 }
 
 fn read_latest(root: &Path) -> Result<Option<DurableAgentWorkloadRecord>, AgentWorkloadStoreError> {
@@ -333,6 +363,16 @@ fn validate_id(value: &str) -> Result<(), AgentWorkloadStoreError> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
     {
+        return Err(error("workload_store_identifier_invalid"));
+    }
+    Ok(())
+}
+
+/// Evidence sidecar names are flat files inside the workload directory:
+/// same charset as ids, plus an explicit ban on `.` and `..`.
+fn validate_evidence_name(file_name: &str) -> Result<(), AgentWorkloadStoreError> {
+    validate_id(file_name)?;
+    if file_name == "." || file_name == ".." || !file_name.ends_with(".json") {
         return Err(error("workload_store_identifier_invalid"));
     }
     Ok(())

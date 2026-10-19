@@ -1,0 +1,24 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-traces"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Session-trace ingestion: canonical entities for agent trajectories with conservation proof"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+sha2.workspace = true
+chrono.workspace = true
+rusqlite = { version = "0.34", features = ["bundled"] }
+
+[dev-dependencies]
+rusqlite = { version = "0.34", features = ["bundled"] }
+regex.workspace = true
+
+[lints]
+workspace = true

@@ -71,7 +71,10 @@ mod tests {
         let packages = profile.desired_packages();
         let services = profile.desired_services();
 
-        assert_eq!(privilege.helper_dir, current_runtime_layout().helper_dir);
+        assert_eq!(
+            privilege.executor,
+            current_runtime_layout().privilege_executor_path()
+        );
         assert!(
             packages
                 .bootstrap_packages

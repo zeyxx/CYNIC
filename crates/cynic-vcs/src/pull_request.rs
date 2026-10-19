@@ -14,6 +14,7 @@ pub const PR_SCHEMA: &str = "cynic.vcs.pull_request.v1";
 pub const PR_ADMISSION_SCHEMA: &str = "cynic.vcs.pr_admission.v1";
 pub const PR_CREATE_PROOF_SCHEMA: &str = "cynic.vcs.pr_create_proof.v1";
 pub const PR_MERGE_PROOF_SCHEMA: &str = "cynic.vcs.pr_merge_proof.v1";
+pub const PR_CLOSE_PROOF_SCHEMA: &str = "cynic.vcs.pr_close_proof.v1";
 
 // ── Core types (provider-agnostic) ────────────────────────────────────────────
 
@@ -62,6 +63,16 @@ pub struct PrMergeProof {
     pub message: String,
 }
 
+/// Proof emitted after a PR is closed without merge.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrCloseProof {
+    pub schema: &'static str,
+    pub pr_number: u64,
+    pub closed: bool,
+    pub branch_deleted: bool,
+    pub message: String,
+}
+
 /// Admission verdict for a PR merge attempt. Pure, deterministic.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrAdmissionReport {
@@ -95,6 +106,10 @@ pub trait PrPort: Send + Sync {
     /// Merge an open PR by number and return a merge proof.
     /// `style` is provider-specific ("merge", "squash", "rebase").
     fn merge(&self, number: u64, style: &str) -> Result<PrMergeProof, String>;
+
+    /// Close an open PR without merging and return a close proof.
+    /// `delete_branch` removes the head branch after close when true.
+    fn close(&self, number: u64, delete_branch: bool) -> Result<PrCloseProof, String>;
 }
 
 // ── Pure evaluator ────────────────────────────────────────────────────────────
@@ -135,6 +150,16 @@ pub fn evaluate_pr_admission(
         blockers,
         required_checks,
     }
+}
+
+/// Evaluate whether a PR is eligible for close without merge.
+/// Fully pure — no I/O. Only an open PR may be closed; merged or already
+/// closed PRs are refused with the same vocabulary as merge admission.
+pub fn evaluate_pr_close(pr: &PullRequest) -> Result<(), String> {
+    if pr.state != PrState::Open {
+        return Err(format!("pr_not_open:state_{:?}", pr.state));
+    }
+    Ok(())
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -203,5 +228,26 @@ mod tests {
         let verdict = evaluate_pr_admission(&pr, true, true);
         assert!(!verdict.admitted);
         assert!(verdict.blockers.iter().any(|b| b.starts_with("pr_not_open:")));
+    }
+
+    #[test]
+    fn admit_close_of_open_pr() {
+        assert!(evaluate_pr_close(&open_pr(11)).is_ok());
+    }
+
+    #[test]
+    fn refuse_close_of_merged_pr() {
+        let mut pr = open_pr(11);
+        pr.state = PrState::Merged;
+        let err = evaluate_pr_close(&pr).expect_err("merged PR must refuse close");
+        assert!(err.starts_with("pr_not_open:"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn refuse_close_of_closed_pr() {
+        let mut pr = open_pr(11);
+        pr.state = PrState::Closed;
+        let err = evaluate_pr_close(&pr).expect_err("closed PR must refuse close");
+        assert!(err.starts_with("pr_not_open:"), "unexpected: {err}");
     }
 }

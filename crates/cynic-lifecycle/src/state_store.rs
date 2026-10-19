@@ -5,14 +5,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::types::UpdateLifecycleState;
+use cynic_types::paths::CynicPaths;
 
 /// Default state path: runtime authority or principal state.
 pub fn default_state_path() -> PathBuf {
     if let Ok(p) = std::env::var("CYNIC_LIFECYCLE_STATE") {
         return PathBuf::from(p);
     }
-    let authority = PathBuf::from("/var/lib/cynic/lifecycle/update-state.json");
-    if Path::new("/var/lib/cynic").is_dir() {
+    let authority = CynicPaths::state_dir().join("lifecycle/update-state.json");
+    if CynicPaths::state_dir().is_dir() {
         return authority;
     }
     if let Ok(home) = std::env::var("CYNIC_PRINCIPAL_HOME") {

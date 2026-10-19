@@ -1,0 +1,26 @@
+[Unit]
+Description=GASdf x402 facilitator — exact+upto settlement (4021)
+After=network-online.target gasdf-kora-mainnet.service
+Wants=network-online.target
+
+[Service]
+# projection_class: operator_projection
+# x402 facilitator (fee payer for channel opens, claim settlement, reclaim).
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic/projects/kora/relay-gateway
+ExecStart=/usr/bin/node /var/lib/cynic/projects/kora/relay-gateway/dist/facilitator/server.js
+Environment=FACILITATOR_KEY_PATH=/etc/cynic/secrets/gasdf/relay/facilitator-key.json
+Environment=SVM_RPC_URL=https://api.mainnet-beta.solana.com
+Environment=PORT=4021
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

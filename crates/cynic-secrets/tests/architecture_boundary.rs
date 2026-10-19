@@ -1,7 +1,8 @@
 //! Architecture boundary tests for cynic-secrets.
 //!
 //! Enforces CYNIC crate invariants (AGENTS.md):
-//!   1. Strict DAG: cynic-secrets depends ONLY on cynic-protocol.
+//!   1. Strict DAG: cynic-secrets depends ONLY on lower-layer crates
+//!      (cynic-protocol, cynic-types) — never on higher-layer crates.
 //!   2. Zero-I/O Protocol Core: protocol.rs and ports.rs are 100% pure.
 //!   3. Thin Facade: lib.rs is module declarations + re-exports only.
 

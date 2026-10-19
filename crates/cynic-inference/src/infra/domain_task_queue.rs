@@ -14,7 +14,12 @@ use cynic_protocol::{DomainTask, DomainTaskStatus, TaskDomain, TaskPriority};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-pub const DEFAULT_DOMAIN_TASKS_PATH: &str = "/var/lib/cynic/evidence/domain_tasks.jsonl";
+use cynic_types::paths::CynicPaths;
+
+/// Default domain task queue path (state authority).
+pub fn default_domain_tasks_path() -> PathBuf {
+    CynicPaths::state_dir().join("evidence/domain_tasks.jsonl")
+}
 
 #[derive(Debug, Error)]
 pub enum DomainTaskQueueError {
@@ -112,7 +117,8 @@ impl DomainTaskQueue {
 
     /// Open with the default system evidence path or user directory fallback.
     pub fn open_default() -> Result<Self, DomainTaskQueueError> {
-        let default_path = Path::new(DEFAULT_DOMAIN_TASKS_PATH);
+        let resolved = default_domain_tasks_path();
+        let default_path = Path::new(&resolved);
         if default_path.exists() || default_path.parent().map(|p| p.exists()).unwrap_or(false) {
             Self::open(default_path)
         } else {

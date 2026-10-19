@@ -1,0 +1,28 @@
+{
+  "name": "gasdf-relay-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GASdf gasless relay gateway: x402 facilitator + setup-aware tx builder + Kora backend",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "facilitator": "node dist/facilitator/server.js"
+  },
+  "dependencies": {
+    "@scure/base": "^2.4.0",
+    "@solana-program/address-lookup-table": "0.16.0",
+    "@solana-program/token": "0.18.0",
+    "@solana/kit": "8.5.0",
+    "@x402/core": "2.28.0",
+    "@x402/express": "2.28.0",
+    "@x402/fetch": "^2.28.0",
+    "@x402/svm": "2.28.0",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -62,6 +62,8 @@ pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) 
             terminal: durable.record.state.terminal(),
             is_build: canonical_build_action_from_argv(&durable.record.envelope.action.argv)
                 .is_some(),
+            source_commit: durable.record.envelope.source_commit.clone(),
+            branch: durable.record.envelope.branch.clone(),
         })
         .collect();
     plan_build_queue(candidates).ordered

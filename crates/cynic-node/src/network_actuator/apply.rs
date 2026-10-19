@@ -5,7 +5,7 @@ use cynic_host::runtime_layout::current_runtime_layout;
 use crate::network_actuator::execution::run_command;
 use crate::network_actuator::policy::build_policy_document;
 use crate::network_actuator::types::{NetworkActuatorApplyReport, NetworkActuatorPolicyDocument};
-use crate::network_actuator_contract::{NETWORK_ACTUATOR_HELPER_CONTRACT, helper_path};
+use crate::network_actuator_contract::{NETWORK_ACTUATOR_MEMBRANE_CONTRACT, executor_path};
 use crate::network_command_surface::NetworkCommandSurface;
 use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
 use crate::observe::NodeObservation;
@@ -36,7 +36,7 @@ impl NetworkActuatorApplyContext {
 
     fn runtime(&self) -> NetworkActuationRuntime {
         NetworkActuationRuntime {
-            helper_path: helper_path(),
+            executor_path: executor_path(),
             sudoers_subject: "cynic",
             max_timeout_seconds: 60,
             service_manager_bin: self.systemctl_bin.clone(),
@@ -77,7 +77,7 @@ fn apply_profile_with_context(
             status: "refused",
             profile: profile.to_string(),
             apply,
-            helper_contract: NETWORK_ACTUATOR_HELPER_CONTRACT,
+            membrane_contract: NETWORK_ACTUATOR_MEMBRANE_CONTRACT,
             commands,
             executions: Vec::new(),
             violations,
@@ -95,7 +95,7 @@ fn apply_profile_with_context(
         status: if success { "completed" } else { "failed" },
         profile: profile.to_string(),
         apply,
-        helper_contract: NETWORK_ACTUATOR_HELPER_CONTRACT,
+        membrane_contract: NETWORK_ACTUATOR_MEMBRANE_CONTRACT,
         commands,
         executions,
         violations: Vec::new(),
