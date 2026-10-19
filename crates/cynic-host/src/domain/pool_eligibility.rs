@@ -76,6 +76,32 @@ pub struct PoolDeclaration {
     pub required_tools: Vec<ToolRequirement>,
 }
 
+/// Base enrollment evidence for a node.
+///
+/// A node must be enrolled before it may claim a role or be attributed a
+/// pool label: the enrollment record is the proof that the machine is known,
+/// reachable and accountable. Role attribution without it is a claim, not a
+/// fact.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct EnrollmentEvidence {
+    /// Enrollment status from the registry: `stub`, `candidate`, `observed`.
+    pub status: String,
+    /// True when the node carries an enrollment stamp (date + enrolled_by).
+    pub enrolled: bool,
+    /// Who performed the enrollment, when stamped.
+    pub enrolled_by: Option<String>,
+    /// Enrollment date (ISO-8601), when stamped.
+    pub enrolled_at: Option<String>,
+}
+
+impl EnrollmentEvidence {
+    /// Base enrollment is satisfied by a stamp and a status that is not `stub`.
+    pub fn is_base_enrolled(&self) -> bool {
+        self.enrolled && self.status != "stub"
+    }
+}
+
 /// Verdict for one node.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -90,6 +116,10 @@ pub struct PoolEligibility {
     pub missing_labels: Vec<String>,
     /// Advertised labels the registry does not grant.
     pub undeclared_labels: Vec<String>,
+    /// Base enrollment evidence observed for the node.
+    pub enrollment: EnrollmentEvidence,
+    /// True when the node is base-enrolled (stamped and past `stub`).
+    pub base_enrolled: bool,
     /// One entry per requirement, with its observation.
     pub tools: Vec<ToolCheck>,
     /// True when the node may serve its declared labels.
@@ -148,6 +178,7 @@ pub fn compare_versions(a: &str, b: &str) -> Option<std::cmp::Ordering> {
 pub fn evaluate_pool_eligibility(
     node_id: &str,
     declaration: &PoolDeclaration,
+    enrollment: &EnrollmentEvidence,
     observed_labels: &[String],
     observations: &[ToolObservation],
 ) -> PoolEligibility {
@@ -165,8 +196,21 @@ pub fn evaluate_pool_eligibility(
         .map(|label| label.to_string())
         .collect();
 
-    let mut tools = Vec::new();
     let mut reasons = Vec::new();
+    let base_enrolled = enrollment.is_base_enrolled();
+    if !base_enrolled {
+        reasons.push(if !enrollment.enrolled {
+            "node is not enrolled: no base enrollment record (enroll before claiming a role)"
+                .to_string()
+        } else {
+            format!(
+                "enrollment is {}: base enrollment must be past stub before a role is attributed",
+                enrollment.status
+            )
+        });
+    }
+
+    let mut tools = Vec::new();
     for requirement in &declaration.required_tools {
         let observation = observations.iter().find(|o| o.name == requirement.name);
         let mut check = ToolCheck {
@@ -238,6 +282,8 @@ pub fn evaluate_pool_eligibility(
         observed_labels: observed_labels.to_vec(),
         missing_labels,
         undeclared_labels,
+        enrollment: enrollment.clone(),
+        base_enrolled,
         tools,
         eligible: reasons.is_empty(),
         reasons,
@@ -257,6 +303,24 @@ mod tests {
             name: name.to_string(),
             min_version: None,
             required: true,
+        }
+    }
+
+    fn enrolled() -> EnrollmentEvidence {
+        EnrollmentEvidence {
+            status: "observed".to_string(),
+            enrolled: true,
+            enrolled_by: Some("hermes".to_string()),
+            enrolled_at: Some("2026-10-19".to_string()),
+        }
+    }
+
+    fn stub_enrollment() -> EnrollmentEvidence {
+        EnrollmentEvidence {
+            status: "stub".to_string(),
+            enrolled: false,
+            enrolled_by: None,
+            enrolled_at: None,
         }
     }
 
@@ -287,6 +351,52 @@ mod tests {
     }
 
     #[test]
+    fn unenrolled_node_cannot_serve_a_label() {
+        let declaration = PoolDeclaration {
+            labels: labels(&["cynic/build"]),
+            required_tools: vec![],
+        };
+        let report = evaluate_pool_eligibility(
+            "n1",
+            &declaration,
+            &stub_enrollment(),
+            &labels(&["cynic/build"]),
+            &[],
+        );
+        assert!(!report.eligible);
+        assert!(!report.base_enrolled);
+        assert!(report
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("not enrolled")));
+    }
+
+    #[test]
+    fn stub_enrollment_with_a_stamp_still_blocks() {
+        let declaration = PoolDeclaration {
+            labels: labels(&["cynic/build"]),
+            required_tools: vec![],
+        };
+        let report = evaluate_pool_eligibility(
+            "n1",
+            &declaration,
+            &EnrollmentEvidence {
+                status: "stub".to_string(),
+                enrolled: true,
+                enrolled_by: Some("hermes".to_string()),
+                enrolled_at: Some("2026-10-19".to_string()),
+            },
+            &labels(&["cynic/build"]),
+            &[],
+        );
+        assert!(!report.eligible);
+        assert!(report
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("must be past stub")));
+    }
+
+    #[test]
     fn version_token_is_extracted_from_a_prose_banner() {
         assert_eq!(
             extract_version("cargo 1.95.0 (f2d3ce0bd 2026-03-21)").as_deref(),
@@ -305,6 +415,7 @@ mod tests {
         let report = evaluate_pool_eligibility(
             "compute-01",
             &declaration,
+            &enrolled(),
             &labels(&["cynic/build"]),
             &[observation("node", false, None)],
         );
@@ -328,6 +439,7 @@ mod tests {
         let report = evaluate_pool_eligibility(
             "n1",
             &declaration,
+            &enrolled(),
             &labels(&["cynic/build"]),
             &[observation("cargo", true, Some("cargo 1.90.0"))],
         );
@@ -352,6 +464,7 @@ mod tests {
         let report = evaluate_pool_eligibility(
             "n1",
             &declaration,
+            &enrolled(),
             &labels(&["cynic/build"]),
             &[observation("cargo", true, Some("cargo 1.99.0"))],
         );
@@ -364,7 +477,13 @@ mod tests {
             labels: labels(&["cynic/build", "cynic/linux"]),
             required_tools: vec![],
         };
-        let report = evaluate_pool_eligibility("n1", &declaration, &labels(&["cynic/build"]), &[]);
+        let report = evaluate_pool_eligibility(
+            "n1",
+            &declaration,
+            &enrolled(),
+            &labels(&["cynic/build"]),
+            &[],
+        );
         assert!(!report.eligible);
         assert_eq!(report.missing_labels, vec!["cynic/linux".to_string()]);
     }
@@ -390,6 +509,7 @@ mod tests {
         let report = evaluate_pool_eligibility(
             "n1",
             &declaration,
+            &enrolled(),
             &labels(&["cynic/build"]),
             &[observation("cargo", true, Some("cargo 1.95.0"))],
         );

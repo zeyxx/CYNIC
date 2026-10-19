@@ -7,7 +7,8 @@
 use clap::Subcommand;
 use cynic_host::adapters::local_toolchain_probe::LocalToolchainProbe;
 use cynic_host::domain::pool_eligibility::{
-    evaluate_pool_eligibility, PoolDeclaration, PoolEligibility, ToolRequirement,
+    evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility,
+    ToolRequirement,
 };
 use cynic_lifecycle::LocalArgvRunner;
 use serde::Deserialize;
@@ -43,7 +44,19 @@ struct PoolRegistryNode {
     id: Option<String>,
     name: Option<String>,
     #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    enrollment: Option<PoolRegistryEnrollment>,
+    #[serde(default)]
     pool: Option<PoolRegistryDeclaration>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PoolRegistryEnrollment {
+    #[serde(default)]
+    enrolled_by: Option<String>,
+    #[serde(default)]
+    date: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,6 +116,30 @@ pub fn read_pool_declaration(
     })
 }
 
+/// Read the base enrollment evidence of one node from the registry.
+pub fn read_enrollment_evidence(
+    registry_path: &str,
+    node_id: &str,
+) -> Result<EnrollmentEvidence, String> {
+    let raw = fs::read_to_string(registry_path)
+        .map_err(|error| format!("failed to read registry {registry_path}: {error}"))?;
+    let registry: PoolRegistry = serde_json::from_str(&raw)
+        .map_err(|error| format!("failed to parse registry {registry_path}: {error}"))?;
+    let node = registry
+        .nodes
+        .iter()
+        .find(|node| node.id.as_deref() == Some(node_id) || node.name.as_deref() == Some(node_id))
+        .ok_or_else(|| format!("node not found in registry: {node_id}"))?;
+    let status = node.status.clone().unwrap_or_default();
+    let stamp = node.enrollment.as_ref();
+    Ok(EnrollmentEvidence {
+        enrolled: stamp.is_some(),
+        status,
+        enrolled_by: stamp.and_then(|entry| entry.enrolled_by.clone()),
+        enrolled_at: stamp.and_then(|entry| entry.date.clone()),
+    })
+}
+
 /// Probe the local host for the declared tools and evaluate eligibility.
 pub fn evaluate_local_node(
     registry_path: &str,
@@ -115,11 +152,13 @@ pub fn evaluate_local_node(
         .iter()
         .map(|tool| tool.name.clone())
         .collect();
+    let enrollment = read_enrollment_evidence(registry_path, node_id)?;
     let probe = LocalToolchainProbe::new(LocalArgvRunner);
     let observations = probe.probe_tools(&tool_names);
     Ok(evaluate_pool_eligibility(
         node_id,
         &declaration,
+        &enrollment,
         observed_labels,
         &observations,
     ))
@@ -135,6 +174,15 @@ pub fn render_eligibility(report: &PoolEligibility) {
         } else {
             "INELIGIBLE"
         }
+    );
+    println!(
+        "  enrollment:  {} ({})",
+        if report.base_enrolled {
+            "ENROLLED"
+        } else {
+            "NOT ENROLLED"
+        },
+        report.enrollment.status
     );
     println!("  declared:    {}", report.declared_labels.join(", "));
     println!("  observed:    {}", report.observed_labels.join(", "));
