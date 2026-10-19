@@ -9,6 +9,7 @@ use crate::domain::packages::PackageObservedState;
 use crate::domain::principal::{PrincipalObservedState, PrincipalPolicy};
 use crate::domain::privilege::{PrivilegeObservedState, PrivilegePolicy};
 use crate::domain::services::{ServiceObservedState, ServiceObservedUnit, ServicePolicy};
+use crate::filesystem_observation::path_executable;
 use crate::ports::{
     HostHardwareObservationPort, HostPackageObservationPort, HostPrincipalObservationPort,
     HostPrivilegeBridgeObservationPort, HostPrivilegeObservationPort, HostServiceObservationPort,
@@ -312,7 +313,9 @@ fn identity_in_map(content: &str, identity: u32) -> bool {
 
 impl HostPrivilegeObservationPort for LocalHostObservationAdapter {
     fn observe_privilege(&self, policy: &PrivilegePolicy) -> PrivilegeObservedState {
-        let helper_dir_present = Path::new(&policy.helper_dir).is_dir();
+        let executor = Path::new(&policy.executor);
+        let executor_present = executor.is_file() && path_executable(executor);
+        let membrane_present = Path::new(&policy.membrane_target).is_file();
         let sudoers_projection_present = Path::new(&policy.sudoers_dir).is_dir();
         let sudo = current_runtime_layout().sudo_bin();
         // Denial proof is about the *runtime principal*, not the operator:
@@ -326,7 +329,8 @@ impl HostPrivilegeObservationPort for LocalHostObservationAdapter {
         .is_some_and(|ok| !ok);
 
         PrivilegeObservedState {
-            helper_dir_present,
+            executor_present,
+            membrane_present,
             sudoers_projection_present,
             denial_proof_ready,
         }

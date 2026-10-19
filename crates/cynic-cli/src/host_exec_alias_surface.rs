@@ -29,7 +29,7 @@ pub(crate) fn maybe_run_host_exec_alias() -> Option<ExitCode> {
 
 fn execute_host_exec_alias(args: &[String]) -> Result<ExitCode, String> {
     let Some(profile) = args.first().map(String::as_str) else {
-        return Err("usage: cynic-host-exec <bridge-status | principal-prepare [--apply] | network-baseline observe | network-actuate --profile <provider-fallback-route|synapse-route|wireguard-mesh|direct-management-link> [--target <name>] [--registry <path>] [--apply]>".to_string());
+        return Err("usage: cynic <bridge-status | principal-prepare [--apply] | network-baseline observe | network-actuate --profile <provider-fallback-route|synapse-route|wireguard-mesh|direct-management-link> [--target <name>] [--registry <path>] [--apply]>".to_string());
     };
 
     match profile {
@@ -69,7 +69,7 @@ fn execute_host_exec_alias(args: &[String]) -> Result<ExitCode, String> {
         }
         "network-baseline" => {
             let Some(command) = args.get(1).map(String::as_str) else {
-                return Err("usage: cynic-host-exec network-baseline observe".to_string());
+                return Err("usage: cynic network-baseline observe".to_string());
             };
             if command != "observe" {
                 return Err(format!(

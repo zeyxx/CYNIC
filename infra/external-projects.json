@@ -1,0 +1,157 @@
+{
+  "schema": "cynic.external_projects.v1",
+  "status": "seed",
+  "purpose": "SSOT registry of external (non-CYNIC) projects governed through CYNIC's agentic OS ports. Each entry declares repo, collaborator, policy, and observed build/test commands.",
+  "updated_at": "2026-10-18",
+  "default_mutation_policy": "read_only",
+  "default_sensitivity": "public",
+  "projects": [
+    {
+      "project_id": "aegisscan",
+      "display_name": "AegisScan",
+      "repo_url": "https://github.com/Robinho100/aegisscan.git",
+      "default_branch": "master",
+      "collaborator_ids": [
+        "robinho100"
+      ],
+      "language_stack": "go",
+      "observed_manifests": [
+        "go.mod",
+        "go.sum"
+      ],
+      "build_commands": [
+        "go build ./..."
+      ],
+      "test_commands": [
+        "go test ./..."
+      ],
+      "build_commands_status": "observed_on_builder",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "notes": "Modular local-first pentest engine. Runs without Claude/Codex/AI Bus/Internet; IA is an optional front layer (strict boundary, docs/AI_INTEGRATION.md). Clone: ~/.cynic/external/aegisscan @ 8758ad3.",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "builder 10.10.10.119 (go 1.27.2)",
+        "build_result": "PASS (go build ./... exit 0)",
+        "test_result": "FAIL (go test ./... exit 1): 1 failing test TestBinaryTransport_PipesHeldOpen_KillsLeftoverGrandchild (context deadline exceeded) in internal/external; all other packages pass",
+        "notes": "Build baseline green on builder. One timing-sensitive test failure (grandchild kill). To be re-observed before declaring verified."
+      }
+    },
+    {
+      "project_id": "aegis-core",
+      "display_name": "Aegis Core",
+      "repo_url": "https://github.com/Robinho100/aegis-core.git",
+      "default_branch": "main",
+      "collaborator_ids": [
+        "robinho100"
+      ],
+      "language_stack": "go+csharp",
+      "observed_manifests": [
+        "go.mod",
+        "go.sum"
+      ],
+      "build_commands": [
+        "go build ./..."
+      ],
+      "test_commands": [
+        "go test ./..."
+      ],
+      "build_commands_status": "observed_on_builder",
+      "mutation_policy": "read_only",
+      "sensitivity": "sanitized",
+      "ports_used": [],
+      "notes": "Sanitized collaboration source (SOURCE-INVENTORY.json with SHA-256). Security boundary is refusal by construction (STOP 64, B1/B7). No private deployment config may be added; CYNIC treats as read-only observation + build/test only, never deploy. Clone: ~/.cynic/external/aegis-core @ d82ca40.",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "builder 10.10.10.119 (go 1.27.2)",
+        "build_result": "PASS for ./internal/... (go build exit 0); FAIL desktop-backend (Windows-only build constraint: undefined lockInstance/unlockInstance on Linux)",
+        "test_result": "FAIL (go test ./internal/... exit 1): 'authentication storage unavailable' in syncclient/syncserver; syncmodel, taskdata pass",
+        "notes": "Sanitized boundary preserved: desktop-backend refuses to build on non-Windows. Test failures env-dependent (auth storage), consistent with refusal-by-construction. No native deployment attempted."
+      }
+    },
+    {
+      "project_id": "ai-bus",
+      "display_name": "AI Bus",
+      "repo_url": "https://github.com/Robinho100/ai-bus.git",
+      "default_branch": "main",
+      "collaborator_ids": [
+        "robinho100"
+      ],
+      "language_stack": "typescript/node",
+      "observed_manifests": [
+        "package.json",
+        "tsconfig.json"
+      ],
+      "build_commands": [
+        "npm ci",
+        "npm run build"
+      ],
+      "test_commands": [
+        "npm test"
+      ],
+      "build_commands_status": "observed_on_builder",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "notes": "Local Windows app: Claude Code CLI <-> Codex CLI over localhost MCP bus. Linear turn chain, read-only workspace access for agents. Clone: ~/.cynic/external/ai-bus @ dd87232.",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "builder 10.10.10.119 (node v22.23.3, npm 10.9.9)",
+        "build_result": "PASS (npm ci exit 0; npm run build exit 0)",
+        "test_result": "FAIL (npm test exit 1): 2 failing tests (strict fast-forward pull, normal push to fake local remote) \u2014 environment-dependent (git config/remote); 33 tests passed vs 33 failures on cortex",
+        "notes": "Build baseline green on builder. Test failures are environment-dependent (git remote config). Project targets Windows 10/11 per README."
+      }
+    },
+    {
+      "project_id": "gasdf",
+      "display_name": "GASdf",
+      "repo_url": "https://github.com/zeyxx/GASdf.git",
+      "default_branch": "main",
+      "collaborator_ids": [
+        "zeyxx"
+      ],
+      "language_stack": "node",
+      "observed_manifests": [
+        "package.json",
+        "Dockerfile"
+      ],
+      "build_commands": [
+        "npm start",
+        "npm test"
+      ],
+      "test_commands": [
+        "npm test"
+      ],
+      "build_commands_status": "inferred_from_manifest_presence",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "maintenance": {
+        "cadence": "monthly",
+        "channel": "npm-outdated-report",
+        "owner": "zeyxx",
+        "bump_policy": "report-only"
+      },
+      "notes": "Operator-owned gasless relay (Kora-backed, x402). Live clone NOT under ~/.cynic/external (declared divergence): ${HOME}/Bureau/SOLANA/asdf-forge/zeyxx/GASdf @ 0aef98c on feat/gasdf-launch-prep-2026-06-14 (2026-10-18), 12 commits ahead of main. main @ 43d0521 is the 2026-04-08 hackathon snapshot (ancien code). Stale twin: ${HOME}/Documents/gasdf-repo @ 43d0521 (removal pending operator). Relay-107 VERIFIED 2026-10-18: runs relay-gateway/ (name gasdf-relay-gateway 0.1.0, dist built 2026-10-16, no .git on guest); source adopted into this branch at 3afcbdf (reproduces dist byte-for-byte).",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "cortex (node v22.23.3 present)",
+        "build_result": "not run",
+        "test_result": "not run",
+        "notes": "Scripts from package.json (start/dev/test/lint/format); run on builder pending before verified."
+      }
+    }
+  ],
+  "rules": [
+    "A newly added project defaults to mutation_policy=read_only and sensitivity=public until observed otherwise.",
+    "aegis-core is special-cased to sensitivity=sanitized (refusal by construction).",
+    "ports_used is empty until a port is actually wired and observed; aspirational entries are forbidden.",
+    "build/test commands must be observed (run on the builder with read-back proof) before being marked verified; until then status=inferred_from_manifest_presence."
+  ],
+  "observation_environment": {
+    "builder_10_10_10_119_toolchains": "rust/cargo (native) + go 1.27.2 + node v22.23.3 + npm 10.9.9 (provisioned 2026-10-18, see infra/registry.json toolchains)",
+    "cortex_toolchains": "go 1.27.2, node v22.23.3, npm 10.9.9",
+    "consequence": "External project build/test observation now runs on the builder (SSOT) for Go/Node as well as Rust. Go/Node provisioned 2026-10-18 under /opt with symlinks in /usr/local/bin and /etc/profile.d/cynic-toolchains.sh."
+  }
+}

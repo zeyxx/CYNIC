@@ -4,7 +4,7 @@ use crate::runtime_layout::current_runtime_layout;
 
 pub(crate) fn usage() -> String {
     concat!(
-        "usage: cynic-host-exec <",
+        "usage: cynic <",
         "bridge-bundle --output-dir <dir> | bridge-plan [--bundle-dir <dir>] | ",
         "bridge-install [--bundle-dir <dir>] --apply | bridge-status | ",
         "host-exec-validate-request [--policy <path>] [--declared-services svc1,svc2] < request.json | ",

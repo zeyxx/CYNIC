@@ -2,16 +2,16 @@ mod proofs;
 pub(crate) mod types;
 
 use std::fs;
+use std::path::Path;
 
 use chrono::Utc;
-use cynic_host::bounded_helper::bundle_complete as helper_bundle_complete;
 use cynic_host::filesystem_observation::{path_executable, path_exists, path_mode_equals};
-use cynic_host::install_contract::{MODE_0440, MODE_0644, MODE_0755};
+use cynic_host::install_contract::{MODE_0440, MODE_0644};
 use cynic_host::runtime_layout::current_runtime_layout;
 use serde_json::Value;
 
 use crate::network_actuator_contract::{
-    bundle_required_files, helper_path, policy_path, sudoers_path,
+    bundle_required_files, executor_path, membrane_admission, membrane_path, policy_path,
 };
 use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
 use crate::network_host_substrate;
@@ -24,9 +24,10 @@ use self::types::{NetworkActuatorChecks, RootAuthorityCheck};
 
 #[derive(Debug, Clone)]
 struct NetworkActuatorStatusContext {
-    helper_path: String,
+    executor: String,
     policy_path: String,
-    sudoers_path: String,
+    membrane_target: String,
+    membrane_admission: String,
     bundle_dir: String,
     route_command: String,
     wireguard_command: String,
@@ -39,9 +40,10 @@ impl NetworkActuatorStatusContext {
         let runtime_layout = current_runtime_layout();
         let capabilities = runtime_layout.capabilities();
         Self {
-            helper_path: helper_path(),
+            executor: executor_path(),
             policy_path: policy_path(),
-            sudoers_path: sudoers_path(),
+            membrane_target: membrane_path(),
+            membrane_admission: membrane_admission(),
             bundle_dir: runtime_layout.network_actuator_bundle_dir,
             route_command: capabilities.route_tool.command,
             wireguard_command: capabilities.wireguard_tool.command,
@@ -54,14 +56,16 @@ impl NetworkActuatorStatusContext {
 pub fn activation_status(observation: &NodeObservation) -> NetworkActuatorActivationStatus {
     let root_policy = build_root_policy(observation);
     let context = NetworkActuatorStatusContext::from_current_runtime();
-    let sudoers_content = fs::read_to_string(&context.sudoers_path).unwrap_or_default();
-    let bundle_complete = helper_bundle_complete(&context.bundle_dir, &bundle_required_files());
+    let membrane_content = fs::read_to_string(&context.membrane_target).unwrap_or_default();
+    let bundle_complete = bundle_required_files()
+        .iter()
+        .all(|file| Path::new(&context.bundle_dir).join(file).is_file());
     let root_authority = root_authority();
     let host_context = network_host_substrate::observe_network_host_runtime_context();
     activation_status_with_host_context(
         root_policy,
         context,
-        sudoers_content,
+        membrane_content,
         bundle_complete,
         root_authority,
         host_context.host_profile,
@@ -78,7 +82,7 @@ pub fn activation_status(observation: &NodeObservation) -> NetworkActuatorActiva
 fn activation_status_with_host_context(
     root_policy: crate::network_root_policy::NetworkRootPolicy,
     context: NetworkActuatorStatusContext,
-    sudoers_content: String,
+    membrane_content: String,
     bundle_complete: bool,
     root_authority: RootAuthorityCheck,
     host_profile: &'static str,
@@ -91,40 +95,39 @@ fn activation_status_with_host_context(
     bootstrap_blocked: bool,
 ) -> NetworkActuatorActivationStatus {
     let checks = NetworkActuatorChecks {
-        helper_exists: path_exists(&context.helper_path),
-        helper_mode_0755: path_mode_equals(&context.helper_path, MODE_0755.unix),
-        helper_executable: path_executable(&context.helper_path),
+        executor_exists: path_exists(&context.executor),
+        executor_executable: path_executable(&context.executor),
         policy_exists: path_exists(&context.policy_path),
         policy_mode_0644: path_mode_equals(&context.policy_path, MODE_0644.unix),
-        sudoers_exists: path_exists(&context.sudoers_path),
-        sudoers_mode_0440: path_mode_equals(&context.sudoers_path, MODE_0440.unix),
-        sudoers_rule_matches: sudoers_content.contains(&root_policy.sudoers_rule),
-        sudoers_no_raw_ip: forbidden_pattern_blocked(
+        membrane_exists: path_exists(&context.membrane_target),
+        membrane_mode_0440: path_mode_equals(&context.membrane_target, MODE_0440.unix),
+        membrane_admits_network_actuate: membrane_content.contains(&context.membrane_admission),
+        membrane_no_raw_ip: forbidden_pattern_blocked(
             &root_policy,
-            &sudoers_content,
+            &membrane_content,
             &context.route_command,
         ),
-        sudoers_no_raw_wg: forbidden_pattern_blocked(
+        membrane_no_raw_wg: forbidden_pattern_blocked(
             &root_policy,
-            &sudoers_content,
+            &membrane_content,
             &context.wireguard_command,
         ) && forbidden_pattern_blocked(
             &root_policy,
-            &sudoers_content,
+            &membrane_content,
             "/usr/bin/wg-quick",
         ),
-        sudoers_no_shell: forbidden_pattern_blocked(
+        membrane_no_shell: forbidden_pattern_blocked(
             &root_policy,
-            &sudoers_content,
+            &membrane_content,
             &context.denied_shell_bin,
         ) && forbidden_pattern_blocked(
             &root_policy,
-            &sudoers_content,
+            &membrane_content,
             &context.denied_bash_bin,
         ),
     };
 
-    let mut missing = filesystem_and_sudoers_diagnostics(&checks, bundle_complete);
+    let mut missing = filesystem_and_membrane_diagnostics(&checks, bundle_complete);
     for blocker in blocked_domains {
         missing.push(host_substrate_diagnostic(blocker));
     }
@@ -145,10 +148,10 @@ fn activation_status_with_host_context(
             "missing_activation"
         },
         host_profile,
-        helper_path: context.helper_path,
+        executor: context.executor,
         policy_path: context.policy_path,
-        sudoers_target: context.sudoers_path,
-        sudoers_rule: root_policy.sudoers_rule.clone(),
+        membrane_target: context.membrane_target,
+        membrane_admission: root_policy.membrane_admission.clone(),
         bundle_dir: context.bundle_dir,
         bundle_complete,
         bundle_evidence_source: "default_bundle_dir",
@@ -165,30 +168,23 @@ fn activation_status_with_host_context(
     }
 }
 
-fn filesystem_and_sudoers_diagnostics(
+fn filesystem_and_membrane_diagnostics(
     checks: &NetworkActuatorChecks,
     bundle_complete: bool,
 ) -> Vec<NetworkDiagnostic> {
     let mut missing = Vec::new();
-    if !checks.helper_exists {
+    if !checks.executor_exists {
         missing.push(diagnostic(
-            "helper_exists",
+            "executor_exists",
             "filesystem",
-            "network actuator helper is missing",
+            "cynic executor binary is missing",
         ));
     }
-    if !checks.helper_mode_0755 {
+    if !checks.executor_executable {
         missing.push(diagnostic(
-            "helper_mode_0755",
+            "executor_executable",
             "filesystem",
-            "network actuator helper mode is not 0755",
-        ));
-    }
-    if !checks.helper_executable {
-        missing.push(diagnostic(
-            "helper_executable",
-            "filesystem",
-            "network actuator helper is not executable",
+            "cynic executor binary is not executable",
         ));
     }
     if !checks.policy_exists {
@@ -205,46 +201,46 @@ fn filesystem_and_sudoers_diagnostics(
             "network actuator policy mode is not 0644",
         ));
     }
-    if !checks.sudoers_exists {
+    if !checks.membrane_exists {
         missing.push(diagnostic(
-            "sudoers_exists",
+            "membrane_exists",
             "filesystem",
-            "network actuator sudoers projection is missing",
+            "privilege membrane is missing",
         ));
     }
-    if !checks.sudoers_mode_0440 {
+    if !checks.membrane_mode_0440 {
         missing.push(diagnostic(
-            "sudoers_mode_0440",
+            "membrane_mode_0440",
             "filesystem",
-            "network actuator sudoers mode is not 0440",
+            "privilege membrane mode is not 0440",
         ));
     }
-    if !checks.sudoers_rule_matches {
+    if !checks.membrane_admits_network_actuate {
         missing.push(diagnostic(
-            "sudoers_rule_matches",
-            "sudoers",
-            "sudoers rule does not match the expected actuator rule",
+            "membrane_admits_network_actuate",
+            "membrane",
+            "membrane does not admit the network-actuate capability",
         ));
     }
-    if !checks.sudoers_no_raw_ip {
+    if !checks.membrane_no_raw_ip {
         missing.push(diagnostic(
-            "sudoers_no_raw_ip",
-            "sudoers",
-            "raw route tool access is still exposed in sudoers",
+            "membrane_no_raw_ip",
+            "membrane",
+            "raw route tool access is still exposed in the membrane",
         ));
     }
-    if !checks.sudoers_no_raw_wg {
+    if !checks.membrane_no_raw_wg {
         missing.push(diagnostic(
-            "sudoers_no_raw_wg",
-            "sudoers",
-            "raw wireguard access is still exposed in sudoers",
+            "membrane_no_raw_wg",
+            "membrane",
+            "raw wireguard access is still exposed in the membrane",
         ));
     }
-    if !checks.sudoers_no_shell {
+    if !checks.membrane_no_shell {
         missing.push(diagnostic(
-            "sudoers_no_shell",
-            "sudoers",
-            "shell execution is still exposed in sudoers",
+            "membrane_no_shell",
+            "membrane",
+            "shell execution is still exposed in the membrane",
         ));
     }
     if !bundle_complete {
@@ -267,14 +263,13 @@ fn next_actions(missing: &[NetworkDiagnostic]) -> Vec<NetworkDiagnostic> {
         ));
     }
     if [
-        "helper_exists",
-        "helper_mode_0755",
-        "helper_executable",
+        "executor_exists",
+        "executor_executable",
         "policy_exists",
         "policy_mode_0644",
-        "sudoers_exists",
-        "sudoers_mode_0440",
-        "sudoers_rule_matches",
+        "membrane_exists",
+        "membrane_mode_0440",
+        "membrane_admits_network_actuate",
     ]
     .iter()
     .any(|item| has_diagnostic(missing, item))
@@ -282,10 +277,10 @@ fn next_actions(missing: &[NetworkDiagnostic]) -> Vec<NetworkDiagnostic> {
         actions.push(diagnostic(
             "install_network_actuator_bundle_on_target_node",
             "action",
-            "install helper, policy and sudoers projection on the target node",
+            "install policy and the bridge privilege membrane on the target node",
         ));
     }
-    if ["sudoers_no_raw_ip", "sudoers_no_raw_wg", "sudoers_no_shell"]
+    if ["membrane_no_raw_ip", "membrane_no_raw_wg", "membrane_no_shell"]
         .iter()
         .any(|item| has_diagnostic(missing, item))
     {
@@ -311,9 +306,9 @@ fn next_actions(missing: &[NetworkDiagnostic]) -> Vec<NetworkDiagnostic> {
     }
     if has_diagnostic(missing, "host_bootstrap_blocked") {
         actions.push(diagnostic(
-            "install_host_exec_bridge_once",
+            "install_privilege_membrane_once",
             "action",
-            "install the host exec bridge once so bootstrap can complete",
+            "install the privilege membrane once so bootstrap can complete",
         ));
     }
     actions
@@ -392,9 +387,10 @@ mod tests {
         let status = activation_status_with_host_context(
             root_policy,
             NetworkActuatorStatusContext {
-                helper_path: "/missing/helper".to_string(),
+                executor: "/missing/executor".to_string(),
                 policy_path: "/missing/policy".to_string(),
-                sudoers_path: "/missing/sudoers".to_string(),
+                membrane_target: "/missing/membrane".to_string(),
+                membrane_admission: "/missing/executor privilege exec network-actuate".to_string(),
                 bundle_dir: "/missing/bundle".to_string(),
                 route_command: "/portable/bin/ip".to_string(),
                 wireguard_command: "/portable/bin/wg".to_string(),
@@ -425,13 +421,13 @@ mod tests {
             status
                 .missing
                 .iter()
-                .any(|item| item.code == "helper_exists")
+                .any(|item| item.code == "executor_exists")
         );
         assert!(
             status
                 .missing
                 .iter()
-                .any(|item| item.code == "sudoers_exists")
+                .any(|item| item.code == "membrane_exists")
         );
     }
 }

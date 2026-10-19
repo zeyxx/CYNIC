@@ -164,6 +164,12 @@ fn validate(raw: &str, directories: &BTreeSet<String>, files: &BTreeSet<String>)
     if candidate.contains('<') || candidate.contains('>') {
         return None;
     }
+    // A date placeholder such as `agent-claims-YYYY-MM-DD.jsonl` is a template:
+    // no dated expansion exists until the day it names, and demanding the
+    // template itself exist would forbid documenting the naming scheme.
+    if candidate.contains("YYYY") {
+        return None;
+    }
     // Parent traversal cannot be resolved against the observed set without
     // normalisation this rule deliberately does not perform, so it is rejected
     // rather than guessed at.

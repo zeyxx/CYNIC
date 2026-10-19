@@ -12,7 +12,7 @@
 
 Autonomous multi-agent runtimes currently face a structural paradox:
 1. **Frontier Model Friction**: Frontier LLMs (70B+ parameters, cloud APIs) possess vast general knowledge but suffer from severe epistemic asymmetry when operating low-layer sovereign systems. They hallucinate ad-hoc shell commands (e.g. attempting unadmitted `cargo build` without stack adjustments, unadmitted `git add .`, or bypassing claim protocols), ignore local architectural boundaries, carry heavy token context overhead, and introduce external network egress and credential risks.
-2. **Untapped Execution Wealth**: In CYNIC, every admitted mutation produces an immutable causal trace: an agent claim (`.agent-claims.json`), bounded actions behind typed ports, execution receipts, and a cryptographic read-back proof (`RuntimeProofBundle` with SHA3-512). These traces currently sit as passive audit artifacts in Askesis journals, Antigravity logs, and agent transcripts rather than feeding back into the system's cognitive capability.
+2. **Untapped Execution Wealth**: In CYNIC, every admitted mutation produces an immutable causal trace: an agent claim (`.agent-claims.json`), bounded actions behind typed ports, execution receipts, and a cryptographic read-back proof (`RuntimeProofBundle` with SHA-256). These traces currently sit as passive audit artifacts in Askesis journals, Antigravity logs, and agent transcripts rather than feeding back into the system's cognitive capability.
 3. **Data-Centric Opportunity**: Narrow task specialization demonstrates that a 1.5B parameter model trained on 200–500 verified domain examples consistently outperforms generic frontier models on specific execution tasks, with orders-of-magnitude lower latency, zero cloud dependency, and complete hardware sovereignty.
 
 This specification formalizes the **data-centric distillation loop** for CYNIC: transforming verified execution traces into high-soundness training and evaluation datasets for local, sovereign micro-models.
@@ -110,7 +110,7 @@ where:
   "target_domain": "crate:cynic-release",
   "admissibility": {
     "lease_id": "claim_hermes_supply_chain_001",
-    "read_back_proof_hash": "sha3-512:9f8a...",
+    "read_back_proof_hash": "sha256:9f8a...",
     "constitutional_verdict": "ok"
   },
   "conversations": [
@@ -194,7 +194,7 @@ pub struct EvaluationScorecard {
 - **Packaging & Tooling Authority (`cynic-pkg`)**:
   Manages Python virtual environment and local tooling (`uv`, `huggingface-cli`, model weights cache layouts) through `PrincipalInstallLayout` and `EcosystemPackageExecutionPort` without ambient PATH pollution.
 - **Askesis Engine (`cynic-askesis`)**:
-  Implementation of the `TraceHarvesterPort` reading append-only session and coordination logs to reconstruct verified action trajectories with SHA3-512 checksums.
+  Implementation of the `TraceHarvesterPort` reading append-only session and coordination logs to reconstruct verified action trajectories with SHA-256 checksums.
 - **Inference Runtime (`cynic-inference`)**:
   Local loading of fine-tuned LoRA adapters alongside the base model through `llama.cpp` or `vLLM` adapters, governed by `SlotSemaphore` and `MemoryBudget`.
 - **Operator CLI (`cynic-cli`)**:

@@ -420,10 +420,55 @@ mod tests {
 
     #[test]
     fn forgejo_endpoint_comes_from_runtime_remote_authority() {
+        // Hermetic: the live workspace registry no longer declares a
+        // forgejo-api-tls service, so reading the real registry makes this
+        // test track infra drift instead of the authority wiring. Stage a
+        // minimal authority pair and prove the endpoint is resolved from
+        // it — never hardcoded, never None-by-accident.
+        let root = tempfile::tempdir().expect("tempdir");
+        let infra = root.path().join("infra");
+        std::fs::create_dir_all(&infra).expect("infra dir");
+        std::fs::write(
+            infra.join("registry.json"),
+            serde_json::json!({
+                "nodes": [{
+                    "id": "forgejo",
+                    "services": [
+                        {"name": "forgejo-api-tls", "scheme": "https", "port": 443},
+                        {"name": "ssh", "scheme": "ssh", "port": 22}
+                    ]
+                }],
+                "network_policy": {
+                    "reservations": [
+                        {"name": "forgejo", "dns": ["forgejo.service.cynic"]}
+                    ]
+                }
+            })
+            .to_string(),
+        )
+        .expect("registry fixture");
+        std::fs::write(
+            infra.join("repo-remotes.json"),
+            serde_json::json!({
+                "remotes": [{
+                    "id": "forgejo",
+                    "owner": "jeanterre13",
+                    "repository": "CYNIC",
+                    "git_user": "forgejo",
+                    "machine_principal": "forgejo",
+                    "repository_permission": "read",
+                    "machine_key_fingerprint": "SHA256:test",
+                    "admin_service_ref": {"node": "forgejo", "service": "forgejo-api-tls"},
+                    "git_service_ref": {"node": "forgejo", "service": "ssh"}
+                }]
+            })
+            .to_string(),
+        )
+        .expect("remotes fixture");
         let runner = MapArgvRunner::default();
         let adapter = LocalIntegrationObservationAdapter::with_project_root(
             &runner,
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."),
+            root.path().to_path_buf(),
         );
         assert_eq!(
             adapter.forgejo_endpoint().as_deref(),

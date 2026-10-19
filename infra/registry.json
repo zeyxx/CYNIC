@@ -71,6 +71,7 @@
     "endpoint": "https://pve.synapse.cynic:8006",
     "token_identity": "cynic@pve!runtime",
     "credential_ref": "/etc/cynic/secrets/proxmox-token",
+    "ca_ref": "/etc/cynic/identity/pve-root-ca.pem",
     "credential_lease_metadata_ref": "/etc/cynic/identity/proxmox-credential-lease.json",
     "credential_authority_public_key_ref": "/etc/cynic/identity/proxmox-credential-authority.pub"
   },
@@ -252,11 +253,17 @@
         "canonical": false,
         "purpose": "bare-metal management and hypervisor control"
       },
+      "lan": {
+        "cidr": "192.168.0.0/24",
+        "canonical": false,
+        "purpose": "site LAN (DHCP); compute nodes without service-plane address"
+      },
       "mesh": {
         "cidr": "100.64.0.0/10",
         "canonical": false,
         "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
-        "cidr_basis": "rfc6598"
+        "cidr_basis": "rfc6598",
+        "interface": "wg0"
       }
     },
     "reservations": [
@@ -323,6 +330,12 @@
           "cynic-agent-host.service.cynic"
         ],
         "service": "10.10.10.102"
+      },
+      {
+        "name": "cynic-compute-01",
+        "addresses": {
+          "lan": "192.168.0.25"
+        }
       }
     ]
   },
@@ -381,9 +394,42 @@
           "default_route": false
         }
       ],
-      "services": [],
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server (master 62df181, Vulkan build ~/.local/bin/llama-vk/)",
+          "scheme": "http",
+          "endpoint_host": "10.20.0.3",
+          "port": 8081,
+          "network_plane": "service",
+          "unit": "cynic-embedding-cortex.service",
+          "supervisor": {
+            "provider": "systemd-user"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://10.20.0.3:8081/health"
+          },
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
+          "memory_guard": "MemoryMax=3G",
+          "libs": "/var/lib/cynic/vault/llama-bin/vulkan-b26 (persistent versioned; never /tmp RUNPATH)",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://127.0.0.1:8081/v1#slots=4",
+          "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
+        }
+      ],
       "energy_profile": {
         "class": "always_on"
+      },
+      "observed_gpu_stack": {
+        "gpu": "AMD Cezanne [Radeon Vega Mobile]",
+        "kernel": "7.0.0-38-generic",
+        "mesa_vulkan_drivers": "25.2.8-0ubuntu0.24.04.4",
+        "llama_server": "master 62df181",
+        "measured_embed_throughput_texts_per_s": 120.3,
+        "peer_numeric_drift_vs_compute_01": 0.002476,
+        "observed_at": "2026-10-18"
       }
     },
     {
@@ -467,7 +513,8 @@
             "kind": "http",
             "path": "/health",
             "port": 8000
-          }
+          },
+          "network_plane": "service"
         },
         {
           "name": "runtime-artifact-store",
@@ -490,7 +537,8 @@
             "kind": "https",
             "path": "/health",
             "port": 8443
-          }
+          },
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -610,6 +658,43 @@
       ],
       "energy_profile": {
         "class": "burst"
+      },
+      "toolchains": {
+        "schema": "cynic.builder_toolchains.v1",
+        "provisioned_at": "2026-10-18",
+        "provisioned_by": "hermes (agent/hermes/aegis-consortium)",
+        "tools": [
+          {
+            "name": "go",
+            "version": "go1.27.2",
+            "install_path": "/opt/go",
+            "bin_path": "/opt/go/bin/go",
+            "symlink": "/usr/local/bin/go",
+            "purpose": "Build/test external Go projects (aegisscan, aegis-core) on the builder"
+          },
+          {
+            "name": "node",
+            "version": "v22.23.3",
+            "install_path": "/opt/node",
+            "bin_path": "/opt/node/bin/node",
+            "symlink": "/usr/local/bin/node",
+            "purpose": "Build/test external Node/TypeScript projects (ai-bus) on the builder"
+          },
+          {
+            "name": "npm",
+            "version": "10.9.9",
+            "install_path": "/opt/node",
+            "bin_path": "/opt/node/bin/npm",
+            "symlink": "/usr/local/bin/npm",
+            "purpose": "Package management for external Node/TypeScript projects"
+          }
+        ],
+        "notes": [
+          "Installed 2026-10-18 to close roadmap item 7 build/test observation gap.",
+          "Builder previously had rust/cargo only; Go and Node were absent.",
+          "Paths are durable under /opt; PATH wired via /usr/local/bin symlinks and /etc/profile.d/cynic-toolchains.sh.",
+          "Provisioning is formalized here (SSOT) so future agents discover available toolchains without probing."
+        ]
       }
     },
     {
@@ -639,7 +724,7 @@
       "services": [
         {
           "name": "embedding-server",
-          "artifact": "llama-server",
+          "artifact": "llama-server-embed (embeddinggemma-2-Q8_0.gguf, CPU)",
           "scheme": "http",
           "endpoint_host": "10.10.10.106",
           "port": 8080,
@@ -651,11 +736,32 @@
           "health": {
             "kind": "http",
             "url": "http://10.10.10.106:8080/health"
+          },
+          "exclusion": {
+            "status": "excluded",
+            "since": "2026-10-15",
+            "reason": "no admin access from any known principal (cynic/titouan/user denied); ceiling unmeasurable; fails closed on long inputs",
+            "reentry": "admin access restored plus ceiling measured via the 1101-token probe, then bench_endpoint assigned",
+            "note": "no bench_endpoint key by design: excluded runners never join the cluster"
           }
         }
       ],
       "energy_profile": {
         "class": "always_on"
+      },
+      "maintenance_log": [
+        {
+          "date": "2026-10-18",
+          "action": "model BF16 -> Q8_0 (310MB pushed via pct push); unit restarted, serves Q8_0",
+          "outcome": "/v1/models confirms embeddinggemma-2-Q8_0.gguf"
+        }
+      ],
+      "observed_gpu_stack": {
+        "backend": "CPU (no GPU passthrough)",
+        "model": "embeddinggemma-2-Q8_0.gguf",
+        "peer_numeric_drift_vs_cortex": 0.002476,
+        "peer_numeric_drift_vs_compute_01": 0.002479,
+        "observed_at": "2026-10-18"
       }
     },
     {
@@ -704,8 +810,18 @@
         "method": "write a deterministic byte pattern to a temp file, flush to device, read back twice with an interval, compare sampled positions, then delete",
         "written_bytes": 2147483648,
         "passes": [
-          { "pass": 1, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 },
-          { "pass": 2, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 }
+          {
+            "pass": 1,
+            "bytes_read": 2147483648,
+            "mismatches": 0,
+            "read_errors": 0
+          },
+          {
+            "pass": 2,
+            "bytes_read": 2147483648,
+            "mismatches": 0,
+            "read_errors": 0
+          }
         ],
         "verdict": "passed: the device stores and returns written data faithfully",
         "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",
@@ -759,7 +875,8 @@
         {
           "name": "forgejo-backend",
           "scheme": "http",
-          "port": 3000
+          "port": 3000,
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -807,12 +924,148 @@
           "name": "headscale",
           "scheme": "http",
           "port": 8080,
-          "status": "planned"
+          "status": "planned",
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
         "class": "always_on"
       }
+    },
+    {
+      "id": "cynic-compute-01",
+      "name": "cynic-compute-01",
+      "aliases": [
+        "compute-01",
+        "trixie-apu"
+      ],
+      "role": "embedding_runner",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
+          "trust": "ssh_trust_anchor",
+          "principal": "titouan"
+        }
+      },
+      "network": {
+        "lan": "192.168.0.25",
+        "service": "192.168.0.25"
+      },
+      "observed_hardware": {
+        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
+        "operating_system": "Debian GNU/Linux 13 (trixie)",
+        "ram": "16 GB",
+        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server",
+          "scheme": "http",
+          "endpoint_host": "192.168.0.25",
+          "port": 8080,
+          "network_plane": "lan",
+          "unit": "cynic-embedding-node.service",
+          "supervisor": {
+            "provider": "systemd-user"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://192.168.0.25:8080/health"
+          },
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
+          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
+    },
+    {
+      "id": "cynic-compute-01",
+      "name": "cynic-compute-01",
+      "aliases": [
+        "compute-01",
+        "trixie-apu"
+      ],
+      "role": "embedding_runner",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
+          "trust": "ssh_trust_anchor",
+          "principal": "titouan"
+        }
+      },
+      "network": {
+        "lan": "192.168.0.25",
+        "service": "192.168.0.25"
+      },
+      "observed_hardware": {
+        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
+        "operating_system": "Debian GNU/Linux 13 (trixie)",
+        "ram": "16 GB",
+        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server",
+          "scheme": "http",
+          "endpoint_host": "192.168.0.25",
+          "port": 8080,
+          "network_plane": "lan",
+          "unit": "cynic-embedding-node.service",
+          "supervisor": {
+            "provider": "systemd-user"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://192.168.0.25:8080/health"
+          },
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
+          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      },
+      "observed_gpu_stack": {
+        "gpu": "AMD Lucienne APU",
+        "kernel": "6.12.111+deb13-amd64",
+        "mesa_vulkan_drivers": "26.1.6-1~bpo13+1",
+        "measured_embed_throughput_texts_per_s": 20.4,
+        "vulkan_compute_confirmed": true,
+        "note": "llama-server CPU ~20% under embed load on 2026-10-17; inference on GPU",
+        "observed_at": "2026-10-18 rebooted",
+        "peer_numeric_drift_vs_cortex": 0.001112
+      },
+      "maintenance_log": [
+        {
+          "date": "2026-10-18",
+          "action": "Mesa 25.0.7 -> 26.1.6 via trixie-backports + service restart",
+          "peer_numeric_drift_after": 0.002476,
+          "outcome": "drift unchanged bit-identical; drift is architectural (Vega vs Lucienne), not driver"
+        },
+        {
+          "date": "2026-10-18",
+          "action": "operator repowered laptop; 3-engine drift remeasured",
+          "outcome": "compute01/cortex 0.001112 (was 0.002476), compute01/lxc 0.002479, cortex/lxc 0.002476; drift is state-dependent, range 1-2.5e-3"
+        }
+      ]
     }
   ],
   "fleet_desired": {

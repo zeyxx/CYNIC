@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::domain::chunk::DocumentChunk;
 use crate::domain::scorer::{
-    SearchHit, evaluate_altitude_multiplier, evaluate_contract_floor,
-    evaluate_deprecation_multiplier,
+    evaluate_altitude_multiplier, evaluate_contract_floor, evaluate_deprecation_multiplier,
+    SearchHit,
 };
 
 pub const DEFAULT_RRF_K: f64 = 60.0;
@@ -33,28 +33,28 @@ pub fn fuse_reciprocal_ranks<'a>(
     // 1. Process sparse (BM25) ranks (1-indexed)
     for (idx, hit) in sparse_hits.iter().enumerate() {
         let rank = (idx + 1) as f64;
-        let path = hit.chunk.source_path.as_str();
-        chunk_map.insert(path, hit.chunk);
+        let key = hit.chunk.chunk_id.as_str();
+        chunk_map.insert(key, hit.chunk);
         let score = 1.0 / (k + rank);
-        *rrf_scores.entry(path).or_insert(0.0) += score;
+        *rrf_scores.entry(key).or_insert(0.0) += score;
     }
 
     // 2. Process dense (vector) ranks (1-indexed)
     for (idx, hit) in dense_hits.iter().enumerate() {
         let rank = (idx + 1) as f64;
-        let path = hit.chunk.source_path.as_str();
-        chunk_map.insert(path, hit.chunk);
+        let key = hit.chunk.chunk_id.as_str();
+        chunk_map.insert(key, hit.chunk);
         let score = 1.0 / (k + rank);
-        *rrf_scores.entry(path).or_insert(0.0) += score;
+        *rrf_scores.entry(key).or_insert(0.0) += score;
     }
 
     // 3. Compute final weighted scores with CYNIC altitude and deprecation policy
     let mut fused = Vec::with_capacity(chunk_map.len());
-    for (path, &chunk) in &chunk_map {
-        let base_rrf = rrf_scores.get(path).copied().unwrap_or(0.0);
-        let contract_floor = evaluate_contract_floor(path);
+    for (key, &chunk) in &chunk_map {
+        let base_rrf = rrf_scores.get(key).copied().unwrap_or(0.0);
+        let contract_floor = evaluate_contract_floor(&chunk.source_path);
         let altitude = evaluate_altitude_multiplier(chunk.authority);
-        let deprecation = evaluate_deprecation_multiplier(path, &chunk.content);
+        let deprecation = evaluate_deprecation_multiplier(&chunk.source_path, &chunk.content);
 
         // Normalize RRF by 100.0 so scale matches human-inspectable BM25 numbers
         let final_score = (base_rrf * 100.0 + contract_floor) * altitude * deprecation;
@@ -65,11 +65,22 @@ pub fn fuse_reciprocal_ranks<'a>(
         });
     }
 
-    // 4. Sort in descending order of fused score
+    // 4. Sort in descending order of fused score. Ties break on
+    // (path, span): HashMap iteration order is random per process, so an
+    // unstable tie order would make hybrid rankings nondeterministic
+    // across runs — unacceptable for a graded bench.
     fused.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                a.chunk.source_path.cmp(&b.chunk.source_path).then_with(|| {
+                    a.chunk
+                        .line_start
+                        .cmp(&b.chunk.line_start)
+                        .then_with(|| a.chunk.line_end.cmp(&b.chunk.line_end))
+                })
+            })
     });
 
     fused
@@ -132,5 +143,48 @@ mod tests {
             "docs/foundation/CONSTITUTION.md"
         );
         assert_eq!(fused[0].chunk.authority, AuthorityTier::L0Constitution);
+    }
+
+    #[test]
+    fn test_rrf_ties_break_deterministically_on_path() {
+        // Same authority, mirrored ranks: identical fused scores. The order
+        // must be path-ascending on every run, not HashMap-iteration order.
+        let mk = |path: &str| {
+            DocumentChunk::new(
+                path.into(),
+                1,
+                10,
+                Vec::new(),
+                "same content class".into(),
+                AuthorityTier::L3Operation,
+            )
+        };
+        let (zz, aa) = (mk("z.md"), mk("a.md"));
+        let sparse = vec![
+            SearchHit {
+                chunk: &zz,
+                score: 9.0,
+            },
+            SearchHit {
+                chunk: &aa,
+                score: 8.0,
+            },
+        ];
+        let dense = vec![
+            DenseHit {
+                chunk: &aa,
+                similarity: 0.9,
+            },
+            DenseHit {
+                chunk: &zz,
+                similarity: 0.8,
+            },
+        ];
+        for _ in 0..50 {
+            let fused = fuse_reciprocal_ranks(&sparse, &dense, 60.0);
+            assert_eq!(fused.len(), 2);
+            assert_eq!(fused[0].chunk.source_path, "a.md");
+            assert_eq!(fused[1].chunk.source_path, "z.md");
+        }
     }
 }

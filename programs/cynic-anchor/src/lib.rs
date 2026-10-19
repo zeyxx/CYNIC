@@ -57,20 +57,29 @@ pub mod cynic_anchor {
         require!(market.status == 0, CynicAnchorError::MarketClosed);
         require!(amount_units > 0, CynicAnchorError::InvalidAmount);
 
-        let dx = amount_units as u128;
-        let (x_before, y_before) = if is_yes {
-            (market.no_pool_units as u128, market.yes_pool_units as u128)
+        let (mut in_pool, mut out_pool) = (0u64, 0u64);
+        // Snapshot to avoid dual mutable borrow.
+        if is_yes {
+            in_pool = market.no_pool_units;
+            out_pool = market.yes_pool_units;
         } else {
-            (market.yes_pool_units as u128, market.no_pool_units as u128)
-        };
-        let dy = (y_before * dx) / (x_before + dx);
+            in_pool = market.yes_pool_units;
+            out_pool = market.no_pool_units;
+        }
+
+        let dx = amount_units as u128;
+        let x = in_pool as u128;
+        let y = out_pool as u128;
+
+        let dy = (y * dx) / (x + dx);
+        let shares_bought = dy as u64;
 
         if is_yes {
             market.no_pool_units += amount_units;
-            market.yes_pool_units = market.yes_pool_units.saturating_sub(dy as u64);
+            market.yes_pool_units = market.yes_pool_units.saturating_sub(shares_bought);
         } else {
             market.yes_pool_units += amount_units;
-            market.no_pool_units = market.no_pool_units.saturating_sub(dy as u64);
+            market.no_pool_units = market.no_pool_units.saturating_sub(shares_bought);
         }
 
         Ok(())
@@ -101,18 +110,19 @@ pub mod cynic_anchor {
     /// 5. Destruction déflationniste IGNIS avec Token-2022 Burn CPI
     pub fn execute_ignis_burn(ctx: Context<ExecuteIgnisBurn>, amount: u64) -> Result<()> {
         let mut vault = ctx.accounts.ignis_vault.load_mut()?;
-        
-        let cpi_program = ctx.accounts.token_program.to_account_info();
 
-        if *cpi_program.key == SPL_TOKEN_ID {
-            let cpi_ctx = CpiContext::new(cpi_program.clone(), SplBurn {
+        let token_program_info = ctx.accounts.token_program.to_account_info();
+        let token_program_id = token_program_info.key();
+
+        if token_program_id == SPL_TOKEN_ID {
+            let cpi_ctx = CpiContext::new(token_program_id, SplBurn {
                 mint: ctx.accounts.mint.to_account_info(),
                 from: ctx.accounts.token_source.to_account_info(),
                 authority: ctx.accounts.payer.to_account_info(),
             });
             spl_token::burn(cpi_ctx, amount)?;
         } else {
-            let cpi_ctx = CpiContext::new(cpi_program, Token2022Burn {
+            let cpi_ctx = CpiContext::new(token_program_id, Token2022Burn {
                 mint: ctx.accounts.mint.to_account_info(),
                 from: ctx.accounts.token_source.to_account_info(),
                 authority: ctx.accounts.payer.to_account_info(),

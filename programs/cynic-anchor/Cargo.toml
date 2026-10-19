@@ -1,7 +1,7 @@
 [package]
 name = "cynic-anchor"
 version = "0.30.0"
-description = "CYNIC on-chain sovereign anchor program (PoH, Futarchy CPMM, Ignis Token-2022 Burn) built for Anchor 0.30+ / SVM"
+description = "CYNIC on-chain sovereign anchor program (PoH, Futarchy CPMM, Ignis Token-2022 Burn) built for Anchor 1.2+ / SVM"
 edition = "2021"
 
 [lib]
@@ -16,9 +16,11 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
-anchor-spl = { version = "0.30.1", features = ["token", "token_2022"] }
+anchor-lang = { version = "1.2.1", features = ["init-if-needed"] }
+anchor-spl = { version = "1.2.1", features = ["token", "token_2022"] }
 bytemuck = { version = "1.16", features = ["derive", "min_const_generics"] }
 
-[lints]
-workspace = true
+[workspace]
+
+[profile.release]
+overflow-checks = true

@@ -15,6 +15,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 use crate::runtime_surface::inference_surface;
 
@@ -336,9 +337,7 @@ fn execute_trace_command(command: TraceCommand) -> ExitCode {
             if local_evidence.exists() {
                 local_evidence
             } else {
-                std::path::PathBuf::from(
-                    cynic_inference::domain::chat_trace::ChatTrace::DEFAULT_LEDGER_PATH,
-                )
+                CynicPaths::state_dir().join("evidence/inference_traces.jsonl")
             }
         });
 

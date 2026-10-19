@@ -1,6 +1,7 @@
 //! Build auxiliary services — webhook receiver and credential provisioning.
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 use cynic_lifecycle::LocalArgvRunner;
 
 /// One workload across the federation.
@@ -12,7 +13,7 @@ pub(crate) enum BuildWorkloadCommand {
         #[arg(long)]
         workload_id: String,
         /// Node state root on remote nodes.
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         /// Restrict to the local store (no SSH federation).
         #[arg(long)]
@@ -30,7 +31,7 @@ pub(crate) enum BuildWorkloadCommand {
     /// List workloads known to the federation.
     List {
         /// Node state root on remote nodes.
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         /// Restrict to the local store (no SSH federation).
         #[arg(long)]
@@ -73,8 +74,8 @@ pub(crate) enum BuildCredentialsCommand {
         /// Path to the registry JSON.
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
-        /// Secrets directory (default: /etc/cynic/secrets).
-        #[arg(long, default_value = "/etc/cynic/secrets")]
+        /// Secrets directory (default: the system config secrets dir).
+        #[arg(long, default_value_t = CynicPaths::secrets_dir().display().to_string())]
         secrets_dir: String,
         /// Apply provisioning (generate keys). Without this, only scan.
         #[arg(long)]

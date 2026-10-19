@@ -1,0 +1,6 @@
+{
+  "rule": "SRC-001",
+  "horizon_days": 90,
+  "purpose": "Closed include islands: files that exist only because an UNREACHABLE file attaches them with include!/#[path]. The compiler never reads them, so no build, test, or warning can observe them. Each entry is a dated loan against deletion, never a pardon: an entry past its expiry FAILS the gate, an entry past the horizon FAILS, an entry without an owner or a substantive reason FAILS, and an entry whose file is gone or no longer in an island FAILS. The list starts empty on purpose. cynic-mcp was deleted (87df2f96) instead of being listed here, and that is the expected repair for every entry that appears.",
+  "entries": []
+}

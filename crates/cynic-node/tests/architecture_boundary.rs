@@ -520,7 +520,7 @@ fn network_mesh_plan_reads_registry_through_a_port() {
         "mesh registry DTOs must resolve through network_mesh_plan/model.rs as the single gateway, never as divergent in-crate copies"
     );
     assert!(
-        port.contains("pub(crate) trait NetworkMeshRegistryPort")
+        port.contains("pub trait NetworkMeshRegistryPort")
             && port.contains("fn load_mesh_registry"),
         "mesh plan registry loading must expose a dedicated port"
     );
@@ -530,7 +530,7 @@ fn network_mesh_plan_reads_registry_through_a_port() {
             && adapter.contains("serde_json::from_str"),
         "local mesh registry file loading must live in the local adapter"
     );
-    let tests = planner.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    let tests = planner.split("mod tests").nth(1).unwrap_or_default();
     assert!(
         tests.contains("FakeRegistryReader") && tests.contains("/virtual/registry.json"),
         "network mesh plan tests must prove substituted registry loading"

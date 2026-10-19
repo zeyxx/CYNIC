@@ -5,11 +5,15 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use super::types::{LxcBridgeBundleReport, LxcBridgeInstallPlan, LxcBridgeStatus};
+use cynic_types::paths::CynicPaths;
 
 const HELPER_NAME: &str = "cynic-lxc-exec-bridge";
 const HELPER_TARGET: &str = "/usr/local/libexec/cynic-lxc-exec-bridge";
 const SUDOERS_TARGET: &str = "/etc/sudoers.d/cynic-lxc-exec-bridge";
-const INCIDENT_AUTHORITY_CONFIG: &str = "/etc/cynic/lxc-breakglass-authority.toml";
+/// Target path of the installed breakglass authority file (config authority).
+pub fn incident_authority_config() -> PathBuf {
+    CynicPaths::system_config_dir().join("lxc-breakglass-authority.toml")
+}
 
 pub fn install_plan(helper_source: impl AsRef<Path>) -> LxcBridgeInstallPlan {
     let helper_source = helper_source.as_ref().display().to_string();
@@ -123,7 +127,8 @@ fn write_bundle(output_dir: &Path, helper_source: &Path) -> Result<String, Strin
     fs::set_permissions(&sudoers_path, fs::Permissions::from_mode(0o440))
         .map_err(|error| error.to_string())?;
     let authority_template = format!(
-        "# Installed root-owned configuration; paths are injected by host bootstrap.\n# This file contains no signing secret.\npublic_key_path = \"<incident-authority-public-key>\"\nreceipt_root = \"<durable-breakglass-receipt-root>\"\n# Target: {INCIDENT_AUTHORITY_CONFIG}\n"
+        "# Installed root-owned configuration; paths are injected by host bootstrap.\n# This file contains no signing secret.\npublic_key_path = \"<incident-authority-public-key>\"\nreceipt_root = \"<durable-breakglass-receipt-root>\"\n# Target: {}\n",
+        incident_authority_config().display()
     );
     fs::write(
         output_dir.join("lxc-breakglass-authority.toml.tpl"),
@@ -136,7 +141,7 @@ fn write_bundle(output_dir: &Path, helper_source: &Path) -> Result<String, Strin
         "helper_sha256": format!("sha256:{hash}"),
         "helper_target": HELPER_TARGET,
         "sudoers_target": SUDOERS_TARGET,
-        "incident_authority_config": INCIDENT_AUTHORITY_CONFIG,
+        "incident_authority_config": incident_authority_config(),
         "runtime": "rust_native",
         "shell_execution": false
     });

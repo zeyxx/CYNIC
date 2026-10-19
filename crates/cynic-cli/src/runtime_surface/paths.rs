@@ -22,11 +22,9 @@ struct RuntimePathsView {
     dns_corefile_path: String,
     dns_service_path: String,
     resolved_dropin_path: String,
-    host_exec_helper_path: String,
-    host_exec_sudoers_path: String,
-    network_actuator_helper_path: String,
+    privilege_executor_path: String,
+    privilege_sudoers_path: String,
     network_actuator_policy_path: String,
-    network_actuator_sudoers_path: String,
 }
 
 pub(crate) fn execute_paths(json: bool, registry: Option<String>) -> ExitCode {
@@ -54,18 +52,10 @@ fn runtime_paths_view(paths: &runtime_paths::RuntimePaths) -> RuntimePathsView {
         dns_corefile_path: paths.dns_corefile_path.to_string_lossy().to_string(),
         dns_service_path: paths.dns_service_path.to_string_lossy().to_string(),
         resolved_dropin_path: paths.resolved_dropin_path.to_string_lossy().to_string(),
-        host_exec_helper_path: paths.host_exec_helper_path.to_string_lossy().to_string(),
-        host_exec_sudoers_path: paths.host_exec_sudoers_path.to_string_lossy().to_string(),
-        network_actuator_helper_path: paths
-            .network_actuator_helper_path
-            .to_string_lossy()
-            .to_string(),
+        privilege_executor_path: paths.privilege_executor_path.to_string_lossy().to_string(),
+        privilege_sudoers_path: paths.privilege_sudoers_path.to_string_lossy().to_string(),
         network_actuator_policy_path: paths
             .network_actuator_policy_path
-            .to_string_lossy()
-            .to_string(),
-        network_actuator_sudoers_path: paths
-            .network_actuator_sudoers_path
             .to_string_lossy()
             .to_string(),
     }

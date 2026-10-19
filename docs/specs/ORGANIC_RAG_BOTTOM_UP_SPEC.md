@@ -1,7 +1,8 @@
 # Organic Bottom-Up RAG Specification & Implementation Checklist
 
 **Schema:** `cynic.spec.organic_rag.v1`  
-**Status:** Normative & Operational  
+**Status:** Normative & Operational — phases status current as of 2026-10-15,
+executed path in `RAG_SOTA_PATH.md`  
 **Authority:** `contracts/foundation.json`, `contracts/inference-calibration.json`  
 
 ---
@@ -48,20 +49,50 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
 - [x] **2.1 Dependency Expansion Traversal:**
   - When a chunk is selected by lexical retrieval, query `KnowledgeGraph` (`crates/cynic-knowledge/src/domain/graph.rs`).
   - Automatically fetch parent contracts (`contracts/*.json`) and architectural constraints linked to the document.
-- [x] **2.2 Matrix Re-Ranking Engine ($S_0..S_4 \times C_0..C_4$):**
-  - Implement dynamic multi-tier scoring:
+- [x] **2.2 Authority tiers (rows of the matrix, live):**
+  - `AuthorityTier` (`crates/cynic-knowledge/src/domain/chunk.rs`) has **four**
+    rows, not five: `L0Constitution` (foundation invariants), `L1Specification`
+    (specs, contracts), `L2Design` (design docs, RFCs), `L3Operation`
+    (operational notes, captures). Registry downgrades in
+    `contracts/authority-tiers.json` (`cynic.knowledge.authority_tiers.v1`).
+  - Authority is stored per chunk and used for **conflict ordering** in graph
+    expansion (L0 outranks lower tiers); there is **no multiplicative
+    re-ranking** in the current code — the formula below is a target, kept
+    here so the gap stays visible:
     $$Score = BM25 \times Boost_{Authority} \times Boost_{Layer} \times Freshness_{Git}$$
-  - $L_0$ (Constitution/Foundation) strictly outranks $L_2$ (Design) in conflict resolution.
-- [x] **2.3 Contradiction & Deprecation Pruning:**
+- [ ] **2.3 Confidence columns ($C_0..C_4$, target — no code counterpart yet):**
+  - $C_0$ retrieved (a chunk came back for the query);
+  - $C_1$ lexically relevant (graded relevance $\ge 1$ on the fixture);
+  - $C_2$ authority-resolved (conflicts settled toward the higher tier);
+  - $C_3$ corroborated (linked to its governing contract via `KnowledgeGraph`);
+  - $C_4$ admitted as proof (usable as evidence in a gated decision).
+  - A memory item moves from one column to the next only through these
+    explicit passages, never by default. No passage is implemented to date:
+    only the $C_0 \to C_1$ measurement exists (fixture MRR, see Phase 3).
+- [x] **2.4 Contradiction & Deprecation Pruning:**
   - Filter out obsolete documents flagged in `contracts/foundation.json` deleted authorities.
 
-### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Sémantique)
+### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Semantic)
 - [x] **3.1 Sovereign Embedding Model Integration:**
-  - Wire local embedding pipeline via `cynic-inference::embedding` or lightweight local GGUF embedding server (`bge-small` / `all-MiniLM-L6-v2`).
+  - `embeddinggemma-2-Q8_0` (Unsloth, DIM 768) served by llama-server on
+    cortex (`127.0.0.1:8081`, slots 4) and compute-01 (`192.168.0.25:8080`,
+    slots 4), resolved from `infra/registry.json` by
+    `cynic-inference::EmbeddingBackend::from_env` (PR 104); lxc/106 excluded
+    (no admin access, ceiling unmeasurable). Same-file cross-runner cosine
+    0.99994 — uniform space, end-to-end reproduction is the gate.
+  - Server constraint live: runner enforces n_ctx/--parallel tokens per
+    input (slot law); both runners run `-c 8192 --parallel 4`
+    (2048-token slots). Long inputs fail closed, never truncate.
 - [x] **3.2 Reciprocal Rank Fusion (RRF):**
   - Combine Sparse BM25 ranks and Dense Vector cosine similarity:
     $$RRF(d) = \sum_{m \in \{BM25, Dense\}} \frac{1}{k + rank_m(d)}$$
-  - Resolves semantic synonymy without losing exact keyword precision.
+  - Measured on the graded fixture (85 queries + 5 traps, 12 020 chunks,
+    Q8-uniform, `contracts/embedding-selection.json` entries 1–9):
+    BM25 0.5004, dense 0.5918, RRF k=60 0.4361, convex MinMax 0.5884 @0.80,
+    convex ECDF 0.5269 @0.60, Wilcoxon ECDF-vs-RRF p=0.0039 (5th significant
+    run). Convex method frozen; per-doctype routing live in
+    `cynic-knowledge::domain::query_routing` (routed 0.6113/0.5718 over
+    global). Full executed path: `RAG_SOTA_PATH.md`.
 
 ### Phase 4: Production-Grade Oracle & Agent Exposure (L3 Surface)
 - [ ] **4.1 In-Tree MCP Exposure (`cynic-mcp`):**

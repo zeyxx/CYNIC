@@ -1,6 +1,7 @@
 //! Sovereign daemon execution surface — kernel & node daemons in the single binary.
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 use std::process::ExitCode;
 
 #[derive(Subcommand, Debug, Clone)]
@@ -12,7 +13,7 @@ pub enum DaemonCommand {
     },
     /// Run the CYNIC Node Control daemon (long-running).
     Node {
-        #[arg(long, default_value = "/etc/cynic/node-control.toml")]
+        #[arg(long, default_value_t = CynicPaths::system_config_dir().join("node-control.toml").display().to_string())]
         config: String,
         #[arg(long)]
         check: bool,

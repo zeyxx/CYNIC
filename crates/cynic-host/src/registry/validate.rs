@@ -258,6 +258,7 @@ mod tests {
             substrate: None,
             services: vec![],
             network_links: vec![],
+            source_workspace_layout: None,
         }
     }
 
@@ -291,6 +292,7 @@ mod tests {
             substrate: None,
             services: vec![],
             network_links: vec![],
+            source_workspace_layout: None,
         });
         let errors = validate_registry(&doc);
         assert!(matches!(
@@ -314,6 +316,7 @@ mod tests {
             substrate: None,
             services: vec![],
             network_links: vec![],
+            source_workspace_layout: None,
         });
         let errors = validate_registry(&doc);
         assert!(matches!(
@@ -337,6 +340,7 @@ mod tests {
             substrate: None,
             services: vec![],
             network_links: vec![],
+            source_workspace_layout: None,
         });
         let errors = validate_registry(&doc);
         assert!(matches!(

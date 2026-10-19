@@ -39,14 +39,88 @@ where
 {
     let before = observer.observe(desired);
 
+    // 0. Retention-eligible ephemeral paths, when the pure decision names
+    //    any. Dead weight goes before the non-canonical and canonical steps,
+    //    then the flow continues on a re-observation — same honesty rule as
+    //    the non-canonical step: decide from what is, not from what the
+    //    removal was expected to leave behind.
+    let ephemeral_plan = reconcile_build_cache(desired, &before);
+    if ephemeral_plan.decision == BuildCacheDecision::ReclaimEphemeral {
+        if !apply {
+            return BuildCacheReport {
+                schema: BUILD_CACHE_REPORT_SCHEMA,
+                status: ephemeral_plan.status,
+                mutates: false,
+                blockers: ephemeral_plan.blockers.clone(),
+                before: before.clone(),
+                plan: ephemeral_plan,
+                after: None,
+                evidence: vec!["ephemeral_reclaim_dry_run".to_string()],
+            };
+        }
+        match mutation.reclaim_ephemeral_paths(desired, &ephemeral_plan.ephemeral_targets) {
+            Ok(evidence) => {
+                let current = observer.observe(desired);
+                return reconcile_from_observation(
+                    desired,
+                    apply,
+                    observer,
+                    mutation,
+                    before,
+                    current,
+                    Some(evidence),
+                );
+            }
+            Err(error) => {
+                return BuildCacheReport {
+                    schema: BUILD_CACHE_REPORT_SCHEMA,
+                    status: "blocked",
+                    mutates: true,
+                    blockers: vec![error],
+                    before,
+                    plan: ephemeral_plan,
+                    after: None,
+                    evidence: Vec::new(),
+                };
+            }
+        }
+    }
+
+    reconcile_from_observation(desired, apply, observer, mutation, before.clone(), before, None)
+}
+
+/// The historical non-canonical then canonical flow, entered either with the
+/// fresh observation or with the post-ephemeral re-observation. `before` is
+/// the report's immutable starting point; `current` is what the plan is
+/// decided against.
+fn reconcile_from_observation<O, M>(
+    desired: &BuildCacheDesiredState,
+    apply: bool,
+    observer: &O,
+    mutation: &M,
+    before: BuildCacheObservation,
+    current: BuildCacheObservation,
+    prior_evidence: Option<String>,
+) -> BuildCacheReport
+where
+    O: BuildCacheObservationPort,
+    M: BuildCacheMutationPort,
+{
+    let mut prefix_evidence = Vec::new();
+    if let Some(prior) = prior_evidence {
+        prefix_evidence.push(prior);
+    }
+
     // 1. The declared non-canonical caches, when any are present. A dry run
     //    stops before this and reports the plan the decision would produce.
-    let noncanonical_present = !before.observed_noncanonical_cache_paths.is_empty();
+    //    Decided against `current` (fresh, or post-ephemeral re-observation);
+    //    `before` stays the report's immutable starting point.
+    let noncanonical_present = !current.observed_noncanonical_cache_paths.is_empty();
     if apply && noncanonical_present {
         let evidence = match mutation.reclaim_noncanonical_caches(desired) {
             Ok(evidence) => evidence,
             Err(error) => {
-                let plan = reconcile_build_cache(desired, &before);
+                let plan = reconcile_build_cache(desired, &current);
                 return BuildCacheReport {
                     schema: BUILD_CACHE_REPORT_SCHEMA,
                     status: "blocked",
@@ -87,10 +161,12 @@ where
                 before,
                 plan,
                 after: Some(after_noncanonical),
-                evidence: vec![
-                    evidence,
-                    "noncanonical_caches_absent_read_back".to_string(),
-                ],
+                evidence: {
+                    let mut all = prefix_evidence;
+                    all.push(evidence);
+                    all.push("noncanonical_caches_absent_read_back".to_string());
+                    all
+                },
             };
         }
 
@@ -100,25 +176,38 @@ where
             mutation,
             before,
             after_noncanonical,
-            Some(evidence),
+            Some(combine_evidence(prefix_evidence, evidence)),
         );
     }
 
-    let plan = reconcile_build_cache(desired, &before);
+    let plan = reconcile_build_cache(desired, &current);
     if plan.decision != BuildCacheDecision::ReclaimCanonicalProfile || !apply {
         return BuildCacheReport {
             schema: BUILD_CACHE_REPORT_SCHEMA,
             status: plan.status,
-            mutates: false,
+            mutates: !prefix_evidence.is_empty(),
             blockers: plan.blockers.clone(),
-            before: before.clone(),
+            before,
             plan,
             after: None,
-            evidence: Vec::new(),
+            evidence: prefix_evidence,
         };
     }
 
-    reclaim_canonical(desired, observer, mutation, before.clone(), before, None)
+    reclaim_canonical(
+        desired,
+        observer,
+        mutation,
+        before,
+        current,
+        prefix_evidence.into_iter().reduce(|left, right| format!("{left}|{right}")),
+    )
+}
+
+/// Join prefix evidence (earlier steps) with a step's own evidence line.
+fn combine_evidence(mut prefix: Vec<String>, step: String) -> String {
+    prefix.push(step);
+    prefix.join("|")
 }
 
 /// The canonical-profile step, shared by both entry paths.

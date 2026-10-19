@@ -3,109 +3,9 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use crate::bounded_helper::{BoundedHelperInstallRuntime, BoundedHelperProjection};
-use crate::command_surface::{HostCommandSurface, argv_command, expectation, render_command};
-use crate::install_contract::{MODE_0440, MODE_0644, MODE_0755};
-use crate::runtime_layout::current_runtime_layout;
+use crate::install_contract::{MODE_0440, MODE_0644};
 
-use super::types::HostExecBridgeBundleManifest;
-
-pub(super) struct BridgeBundleContext {
-    pub(super) helper_filename: &'static str,
-    pub(super) sudoers_filename: &'static str,
-    pub(super) helper_runtime: BoundedHelperInstallRuntime,
-    pub(super) projection: BoundedHelperProjection,
-}
-
-pub(super) fn write_bridge_bundle_with_context(
-    output_dir: impl AsRef<Path>,
-    helper_source: &Path,
-    context: BridgeBundleContext,
-    prepare_directories: Option<Vec<HostCommandSurface>>,
-) -> Result<HostExecBridgeBundleManifest, Box<dyn std::error::Error>> {
-    let output_dir = output_dir.as_ref();
-    fs::create_dir_all(output_dir)?;
-
-    let helper_target = output_dir.join(context.helper_filename);
-    let sudoers_target = output_dir.join(context.sudoers_filename);
-    let manifest_target = output_dir.join("manifest.json");
-
-    prepare_bundle_target(&helper_target)?;
-    prepare_bundle_target(&sudoers_target)?;
-
-    fs::copy(helper_source, &helper_target)?;
-    fs::set_permissions(&helper_target, fs::Permissions::from_mode(MODE_0755.unix))?;
-
-    fs::write(&sudoers_target, context.projection.sudoers_projection())?;
-    fs::set_permissions(&sudoers_target, fs::Permissions::from_mode(MODE_0440.unix))?;
-
-    let manifest = bundle_manifest_for_context(
-        &context,
-        prepare_directories.unwrap_or_else(|| context.helper_runtime.prepare_directories()),
-    );
-    fs::write(
-        &manifest_target,
-        format!("{}\n", serde_json::to_string_pretty(&manifest)?),
-    )?;
-    fs::set_permissions(&manifest_target, fs::Permissions::from_mode(MODE_0644.unix))?;
-    Ok(manifest)
-}
-
-pub(super) fn bundle_manifest_for_context(
-    context: &BridgeBundleContext,
-    prepare_directories: Vec<HostCommandSurface>,
-) -> HostExecBridgeBundleManifest {
-    let bundle_files = BTreeMap::from([
-        ("helper", context.helper_filename.to_string()),
-        ("sudoers", context.sudoers_filename.to_string()),
-        ("manifest", "manifest.json".to_string()),
-    ]);
-    let helper_path = context.helper_runtime.helper_target.clone();
-    let sudoers_path = context.helper_runtime.sudoers_target.clone();
-    let runtime_layout = current_runtime_layout();
-    let prove_denied_service_status = argv_command(
-        "prove_denied_service_status",
-        vec![
-            runtime_layout.sudo_bin(),
-            "-n".to_string(),
-            runtime_layout
-                .capabilities()
-                .service_manager
-                .command
-                .clone(),
-            "status".to_string(),
-            "cynic-node.service".to_string(),
-        ],
-    );
-
-    HostExecBridgeBundleManifest {
-        schema: "cynic.host_exec_bridge.bundle_manifest.v1",
-        mutates: true,
-        helper_source: context.helper_filename.to_string(),
-        helper_target: helper_path.clone(),
-        sudoers_target: sudoers_path.clone(),
-        sudoers_rule: context.projection.sudoers_rule(),
-        prepare_directories,
-        required_modes: context.helper_runtime.required_modes(),
-        activation_checks: vec![
-            expectation("prove_status", "bridge-status reports status=active"),
-            expectation(
-                "prove_observe_baseline",
-                format!("sudo -n {helper_path} network-baseline observe succeeds"),
-            ),
-            expectation(
-                "prove_principal_prepare_plan",
-                format!("sudo -n {helper_path} principal-prepare succeeds without mutating"),
-            ),
-            expectation(
-                "prove_denied_service_status",
-                render_command(&prove_denied_service_status),
-            ),
-        ],
-        bundle_dir: ".".to_string(),
-        bundle_files,
-    }
-}
+use super::types::PrivilegeMembraneBundleManifest;
 
 fn prepare_bundle_target(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(parent) = path.parent() {
@@ -115,4 +15,74 @@ fn prepare_bundle_target(path: &Path) -> Result<(), Box<dyn std::error::Error>> 
         fs::remove_file(path)?;
     }
     Ok(())
+}
+
+/// Stage the privilege membrane: render the catalog-derived sudoers file
+/// for the single `cynic` binary. No helper binary is staged or installed;
+/// the executor is the release binary the basket already deploys.
+pub fn write_privilege_membrane_bundle(
+    output_dir: impl AsRef<Path>,
+) -> Result<PrivilegeMembraneBundleManifest, String> {
+    use cynic_protocol::privilege::CapabilityCatalog;
+
+    const SUBJECT: &str = "cynic";
+    const BINARY: &str = "/usr/local/bin/cynic";
+
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir).map_err(|error| format!("membrane bundle dir: {error}"))?;
+    let catalog_path = crate::privilege::capability_catalog::catalog_path_from_env();
+    let raw = fs::read_to_string(&catalog_path).map_err(|error| {
+        format!(
+            "membrane catalog unreadable {}: {error}",
+            catalog_path.display()
+        )
+    })?;
+    let catalog: CapabilityCatalog =
+        serde_json::from_str(&raw).map_err(|error| format!("membrane catalog invalid: {error}"))?;
+    if catalog.capabilities.is_empty() {
+        return Err(
+            "empty_membrane: the catalog declares no capability, refusing to stage".to_string(),
+        );
+    }
+    let content = catalog.sudoers_file(SUBJECT, BINARY);
+    let sudoers_target = output_dir.join("privilege.sudoers");
+    prepare_bundle_target(&sudoers_target).map_err(|error| format!("membrane stage: {error}"))?;
+    fs::write(&sudoers_target, &content).map_err(|error| format!("membrane write: {error}"))?;
+    fs::set_permissions(&sudoers_target, fs::Permissions::from_mode(MODE_0440.unix))
+        .map_err(|error| format!("membrane mode: {error}"))?;
+
+    let capability_ids: Vec<String> = catalog
+        .capabilities
+        .iter()
+        .filter(|capability| capability.requires_root)
+        .map(|capability| capability.id.clone())
+        .collect();
+    let rule_count = capability_ids.len();
+    let bundle_dir = output_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("privilege-bundle")
+        .to_string();
+    let manifest = PrivilegeMembraneBundleManifest {
+        schema: "cynic.privilege_bundle.v1",
+        mutates: false,
+        binary: BINARY.to_string(),
+        subject: SUBJECT.to_string(),
+        sudoers_target: "/etc/sudoers.d/cynic".to_string(),
+        capability_ids,
+        rule_count,
+        bundle_dir,
+        bundle_files: BTreeMap::from([
+            ("sudoers", "privilege.sudoers".to_string()),
+            ("manifest", "manifest.json".to_string()),
+        ]),
+    };
+    let manifest_target = output_dir.join("manifest.json");
+    let rendered = serde_json::to_string_pretty(&manifest)
+        .map_err(|error| format!("membrane manifest: {error}"))?;
+    fs::write(&manifest_target, format!("{rendered}\n"))
+        .map_err(|error| format!("membrane manifest write: {error}"))?;
+    fs::set_permissions(&manifest_target, fs::Permissions::from_mode(MODE_0644.unix))
+        .map_err(|error| format!("membrane manifest mode: {error}"))?;
+    Ok(manifest)
 }
