@@ -1,0 +1,12 @@
+# Least-privilege sudoers for the cynic breakglass user on the hypervisor.
+#
+# Install (as root on pve):
+#   install -m 0440 cynic-proxmox-sudoers /etc/sudoers.d/cynic-proxmox && visudo -c
+#
+# Scope: LXC lifecycle parity with the REST token (clone/destroy/start/stop/
+# status/config/template) plus read-only pvesh. No shell, no package
+# management, no user administration. Every command is absolute-path pinned;
+# pct exec into guests is deliberately EXCLUDED (guest access stays
+# guest-direct SSH with the build key, audited per clone).
+
+cynic ALL=(root) NOPASSWD: /usr/bin/pct clone *, /usr/bin/pct destroy *, /usr/bin/pct start *, /usr/bin/pct stop *, /usr/bin/pct status *, /usr/bin/pct config *, /usr/bin/pct template *, /usr/bin/pvesh *

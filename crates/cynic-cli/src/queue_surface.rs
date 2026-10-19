@@ -15,7 +15,7 @@ use cynic_protocol::queue::{
 use crate::emit_json;
 
 pub(crate) fn execute_queue(json: bool, apply: bool) -> ExitCode {
-    let adapter = LocalQueueAdapter;
+    let adapter = LocalQueueAdapter::default();
     let plan = match adapter.observe() {
         Ok(p) => p,
         Err(e) => {

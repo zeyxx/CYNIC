@@ -1,5 +1,5 @@
 //! InferenceTomlPublisher — persists discovered models into
-//! /etc/cynic/inference.toml (the installed runtime SSOT for routing).
+//! `<config>/inference.toml` (the installed runtime SSOT for routing).
 //!
 //! Idempotent: skips backends already present by (endpoint, model_id).
 

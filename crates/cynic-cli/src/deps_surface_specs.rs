@@ -38,10 +38,10 @@ pub(crate) fn specs() -> Vec<DepSpec> {
             expected_tooling_provenance: None,
             expected_python_provenance: None,
             check_hint: "cynic runtime --help | grep inference-start",
-            update_hint: "cynic deps upgrade --yes --only cynic  (reinstalls this binary to /usr/local/bin)",
+            update_hint: "cynic deps upgrade --yes --only cynic  (reinstalls this binary to the install directory)",
             update_commands: &[
                 "cynic deps upgrade --yes --only cynic",
-                "# or from repo after rebuild: cynic bootstrap framework install-cli --apply --source ./target/debug/cynic --target /usr/local/bin/cynic",
+                "# or from repo after rebuild: cynic bootstrap framework install-cli --apply --source ./target/debug/cynic --target <binary-dir>/cynic",
             ],
         },
         DepSpec {

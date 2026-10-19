@@ -21,6 +21,7 @@ use crate::infra::principal_paths::PrincipalPaths;
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
+use cynic_types::paths::CynicPaths;
 
 const SUPERVISOR_SURFACE: &str = "process";
 
@@ -71,6 +72,26 @@ impl ProcessLocalRuntime {
 
     fn pid_path(&self, alias: &str) -> PathBuf {
         self.state_dir.join(format!("{alias}.pid"))
+    }
+
+    /// Rendezvous file other consumers read without supervisor internals:
+    /// `{state_root}/supervised-inference-endpoint` holding two lines,
+    /// the alias then the `/v1` base URL. The single-engine policy (one
+    /// local engine at a time) keeps this unambiguous.
+    fn rendezvous_path() -> PathBuf {
+        cynic_types::CynicPaths::state_dir().join("supervised-inference-endpoint")
+    }
+
+    fn publish_rendezvous(alias: &str, endpoint: &str) {
+        let _ = fs::write(Self::rendezvous_path(), format!("{alias}\n{endpoint}\n"));
+    }
+
+    fn clear_rendezvous(alias: &str) {
+        let path = Self::rendezvous_path();
+        let current = fs::read_to_string(&path).unwrap_or_default();
+        if current.lines().next() == Some(alias) {
+            let _ = fs::remove_file(&path);
+        }
     }
 
     fn log_path(&self, alias: &str) -> PathBuf {
@@ -221,7 +242,7 @@ impl ProcessLocalRuntime {
         let principal = PrincipalPaths::resolve();
         for key_path in [
             principal.config_dir.join("llama-api-key"),
-            PathBuf::from("/etc/cynic/llama-api-key"),
+            CynicPaths::secret_path("llama-api-key"),
         ] {
             if key_path.is_file() {
                 argv.push("--api-key-file".into());
@@ -435,12 +456,14 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
                 if let Some(pid) = self.read_pid(&other) {
                     Self::kill_pid(pid);
                     let _ = fs::remove_file(self.pid_path(&other));
+                    Self::clear_rendezvous(&other);
                 }
             }
         }
         if let Some(pid) = self.read_pid(alias) {
             Self::kill_pid(pid);
             let _ = fs::remove_file(self.pid_path(alias));
+            Self::clear_rendezvous(alias);
         }
 
         let (bin, argv) = Self::build_argv(&profile)?;
@@ -499,8 +522,12 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             let _ = fs::remove_file(self.pid_path(alias));
         }
         let st = if ok {
+            if let Some(endpoint) = st.endpoint.clone() {
+                Self::publish_rendezvous(alias, &endpoint);
+            }
             st
         } else {
+            Self::clear_rendezvous(alias);
             LocalRuntimeStatus::inactive(format!(
                 "process start failed or model not ready (log {log_hint})"
             ))
@@ -560,6 +587,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             Self::kill_pid(pid);
         }
         let _ = fs::remove_file(self.pid_path(&alias));
+        Self::clear_rendezvous(&alias);
         Ok(LocalRuntimeMutationReport {
             schema: LocalRuntimeMutationReport::SCHEMA,
             surface: SUPERVISOR_SURFACE,

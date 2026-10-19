@@ -1,62 +1,72 @@
 use sha2::{Digest, Sha256};
 use std::fs;
 
-use crate::bounded_helper::BoundedHelperProjection;
 use crate::filesystem_observation::{path_executable, path_exists, path_mode_equals};
-use crate::install_contract::{MODE_0440, MODE_0755};
+use crate::install_contract::MODE_0440;
 
 use super::types::{HostExecBridgeChecks, HostExecBridgeStatus};
 
-pub(super) fn bridge_status_for_projection(
-    projection: &BoundedHelperProjection,
+/// Observe the privilege membrane on a node: the single executor binary
+/// plus the single sudoers file that admits it. No helper binary exists
+/// in this design; the executor is basket-managed (present + executable
+/// is our whole contract on it), while the membrane file is installed by
+/// the bridge (mode and content are verified).
+pub(super) fn bridge_membrane_status(
+    executor: &str,
+    membrane_target: &str,
+    subject: &str,
 ) -> HostExecBridgeStatus {
-    let helper_path = projection.helper_path.clone();
-    let sudoers_path = projection.sudoers_path.clone();
-    let helper_sha256 = file_sha256(&helper_path);
-    let sudoers_sha256 = file_sha256(&sudoers_path);
-    let sudoers_content = fs::read_to_string(&sudoers_path).unwrap_or_default();
-    let checks = HostExecBridgeChecks {
-        helper_exists: path_exists(&helper_path),
-        helper_mode_0755: path_mode_equals(&helper_path, MODE_0755.unix),
-        helper_executable: path_executable(&helper_path),
-        sudoers_exists: path_exists(&sudoers_path),
-        sudoers_mode_0440: path_mode_equals(&sudoers_path, MODE_0440.unix),
-        sudoers_rule_matches: sudoers_content.contains(&projection.sudoers_rule()),
-        sudoers_no_unbounded_helper: !sudoers_content
+    let executor_sha256 = file_sha256(executor);
+    let membrane_sha256 = file_sha256(membrane_target);
+    let membrane_content = fs::read_to_string(membrane_target).unwrap_or_default();
+    let admitted_prefix = format!("{subject} ALL=(root) NOPASSWD: {executor} privilege exec");
+    let admits_executor = membrane_content.contains(&admitted_prefix)
+        && membrane_content
             .lines()
-            .any(|line| line.trim() == unbounded_sudoers_rule_for_projection(projection)),
-        sudoers_no_shell: !sudoers_content.contains("/bin/sh") && !sudoers_content.contains("bash"),
-        sudoers_no_raw_sudo: !sudoers_content.contains("systemctl")
-            && !sudoers_content.contains("apt-get"),
+            .filter(|line| {
+                let line = line.trim();
+                !line.is_empty() && !line.starts_with('#')
+            })
+            .all(|line| line.starts_with(&admitted_prefix));
+    let checks = HostExecBridgeChecks {
+        executor_exists: path_exists(executor),
+        executor_executable: path_executable(executor),
+        membrane_exists: path_exists(membrane_target),
+        membrane_mode_0440: path_mode_equals(membrane_target, MODE_0440.unix),
+        membrane_admits_executor: admits_executor,
+        membrane_no_unbounded_executor: !membrane_content.lines().any(|line| {
+            line.trim() == format!("{subject} ALL=(root) NOPASSWD: {executor}").as_str()
+        }),
+        membrane_no_shell: !membrane_content.contains("/bin/sh")
+            && !membrane_content.contains("bash"),
+        membrane_no_raw_sudo: !membrane_content.contains("systemctl")
+            && !membrane_content.contains("apt-get"),
     };
 
     let mut missing = Vec::new();
-    if !checks.helper_exists {
-        missing.push("helper_exists".to_string());
+    if !checks.executor_exists {
+        missing.push("executor_exists".to_string());
     }
-    if !checks.helper_mode_0755 {
-        missing.push("helper_mode_0755".to_string());
+    if !checks.executor_executable {
+        missing.push("executor_executable".to_string());
     }
-    if !checks.helper_executable {
-        missing.push("helper_executable".to_string());
+    if !checks.membrane_exists {
+        missing.push("membrane_exists".to_string());
     }
-    if !checks.sudoers_exists {
-        missing.push("sudoers_exists".to_string());
+    if !checks.membrane_mode_0440 {
+        missing.push("membrane_mode_0440".to_string());
     }
-    if !checks.sudoers_mode_0440 {
-        missing.push("sudoers_mode_0440".to_string());
+    if !checks.membrane_admits_executor {
+        missing.push("membrane_admits_executor".to_string());
     }
-    if !checks.sudoers_rule_matches {
-        missing.push("sudoers_rule_matches".to_string());
+    if !checks.membrane_no_unbounded_executor {
+        missing.push("membrane_no_unbounded_executor".to_string());
     }
-    if !checks.sudoers_no_unbounded_helper {
-        missing.push("sudoers_no_unbounded_helper".to_string());
+    if !checks.membrane_no_shell {
+        missing.push("membrane_no_shell".to_string());
     }
-    if !checks.sudoers_no_shell {
-        missing.push("sudoers_no_shell".to_string());
-    }
-    if !checks.sudoers_no_raw_sudo {
-        missing.push("sudoers_no_raw_sudo".to_string());
+    if !checks.membrane_no_raw_sudo {
+        missing.push("membrane_no_raw_sudo".to_string());
     }
 
     HostExecBridgeStatus {
@@ -66,11 +76,11 @@ pub(super) fn bridge_status_for_projection(
         } else {
             "missing_activation".to_string()
         },
-        helper_path,
-        sudoers_target: sudoers_path,
-        sudoers_rule: projection.sudoers_rule(),
-        helper_sha256,
-        sudoers_sha256,
+        executor: executor.to_string(),
+        membrane_target: membrane_target.to_string(),
+        admitted_prefix,
+        executor_sha256,
+        membrane_sha256,
         checks,
         missing,
     }
@@ -80,11 +90,4 @@ fn file_sha256(path: &str) -> Option<String> {
     fs::read(path)
         .ok()
         .map(|bytes| format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
-}
-
-fn unbounded_sudoers_rule_for_projection(projection: &BoundedHelperProjection) -> String {
-    format!(
-        "{} ALL=(root) NOPASSWD: {}",
-        projection.subject, projection.helper_path
-    )
 }

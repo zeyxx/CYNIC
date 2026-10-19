@@ -14,13 +14,13 @@ pub mod observation;
 pub mod source;
 pub mod storage;
 pub mod host;
-pub mod hypervisor;
 pub mod compute;
 
 
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 /// Unified node command — all node-level CLI surfaces.
 #[derive(Subcommand)]
@@ -120,7 +120,7 @@ pub enum NodeCommand {
     Observe {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         #[arg(long)]
         fail_on_warning: bool,
@@ -149,12 +149,6 @@ pub enum NodeCommand {
     Compute {
         #[command(subcommand)]
         command: compute::NodeComputeCommand,
-    },
-
-    /// Plan or observe hypervisor VM placement and preflight (node substrate family).
-    Hypervisor {
-        #[command(subcommand)]
-        command: hypervisor::NodeHypervisorCommand,
     },
 
     // === Peer ===
@@ -213,6 +207,28 @@ pub enum NodeCommand {
         observation: String,
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Compose a scheduler observation from live host capacity plus the
+    /// given budgets and lifecycle files. No decision, only evidence.
+    AgentSchedulerObserve {
+        #[arg(long)]
+        node_id: String,
+        #[arg(long)]
+        scheduler_epoch: u64,
+        #[arg(long)]
+        step_id: String,
+        /// JSON file: {"limit": AgentBudget, "reserved": AgentBudget}.
+        #[arg(long)]
+        budgets: String,
+        /// JSON file: AgentWorkspaceLifecyclePlan.
+        #[arg(long)]
+        lifecycle: String,
+        /// Where to write the observation JSON. The load policy is read
+        /// from "<output>.load-policy.json".
+        #[arg(long)]
+        output: String,
         #[arg(long)]
         json: bool,
     },
@@ -360,9 +376,6 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         // === Compute Substrates & Hybrid Mesh ===
         NodeCommand::Compute { command } => compute::dispatch(command).await,
 
-        // === Hypervisor Placement & Preflight (migrated from `agent host`) ===
-        NodeCommand::Hypervisor { command } => hypervisor::execute_node_hypervisor(command),
-
         // === Peer ===
         NodeCommand::Peer { command } => {
             cynic_node::adapters::peer_storage::ingress::execute_peer_command(&command)
@@ -377,6 +390,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         }
         NodeCommand::AgentSchedulerStep { observation, state_root, json: _ } => {
             agent::execute_agent_scheduler_step(&observation, &state_root)
+        }
+        NodeCommand::AgentSchedulerObserve { node_id, scheduler_epoch, step_id, budgets, lifecycle, output, json: _ } => {
+            agent::execute_agent_scheduler_observe(&node_id, scheduler_epoch, &step_id, &budgets, &lifecycle, &output)
         }
         NodeCommand::AgentWorkloadStatus { workload_id, state_root, json: _ } => {
             agent::execute_agent_workload_status(&workload_id, &state_root)

@@ -2,13 +2,13 @@ use cynic_host::network_actuation::{NetworkActuationRuntime, build_network_actua
 use cynic_host::runtime_layout::current_runtime_layout;
 
 use crate::network_actuator::types::NetworkActuatorPolicyDocument;
-use crate::network_actuator_contract::{NETWORK_ACTUATOR_SUDOERS_SUBJECT, helper_path};
+use crate::network_actuator_contract::{NETWORK_ACTUATOR_SUDOERS_SUBJECT, executor_path};
 use crate::network_root_policy::build_root_policy;
 use crate::observe::NodeObservation;
 
 #[derive(Debug, Clone)]
 struct NetworkActuatorPolicyContext {
-    helper_path: String,
+    executor: String,
     systemctl_bin: String,
     wg_quick_unit: String,
     ip_bin: String,
@@ -21,7 +21,7 @@ impl NetworkActuatorPolicyContext {
         let runtime_layout = current_runtime_layout();
         let capabilities = runtime_layout.capabilities();
         Self {
-            helper_path: helper_path(),
+            executor: executor_path(),
             systemctl_bin: capabilities.service_manager.command.clone(),
             wg_quick_unit: runtime_layout.wg_quick_unit(),
             ip_bin: capabilities.route_tool.command.clone(),
@@ -46,7 +46,7 @@ fn build_policy_document_with_context(
     context: NetworkActuatorPolicyContext,
 ) -> NetworkActuatorPolicyDocument {
     let runtime = NetworkActuationRuntime {
-        helper_path: context.helper_path,
+        executor_path: context.executor,
         sudoers_subject: NETWORK_ACTUATOR_SUDOERS_SUBJECT,
         max_timeout_seconds: 60,
         service_manager_bin: context.systemctl_bin,
@@ -87,7 +87,7 @@ mod tests {
         let policy = build_policy_document_with_context(
             &root_policy,
             NetworkActuatorPolicyContext {
-                helper_path: "/portable/bin/cynic-network-actuator".to_string(),
+                executor: "/portable/bin/cynic".to_string(),
                 systemctl_bin: "/portable/bin/systemctl".to_string(),
                 wg_quick_unit: "wg-quick@wg-portable".to_string(),
                 ip_bin: "/portable/bin/ip".to_string(),
@@ -96,7 +96,7 @@ mod tests {
             },
         );
 
-        assert_eq!(policy.helper_path, "/portable/bin/cynic-network-actuator");
+        assert_eq!(policy.executor_path, "/portable/bin/cynic");
         let wireguard = policy.allowed_profiles.get("wireguard-mesh").unwrap();
         let rendered = match &wireguard.command_prefixes[0].invocation {
             crate::network_command_surface::NetworkCommandInvocation::Argv { argv } => argv.clone(),

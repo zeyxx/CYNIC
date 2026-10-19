@@ -12,10 +12,9 @@ use std::sync::Arc;
 
 use cynic_host::federation_runtime::{
     EnrollmentObserver, EnrollmentObserverAdapter, FederationRuntime, KernelObserver,
-    KernelReachabilityObserver, MeshObserver, MeshPeerObserver, NodeControlPort, OsHealthObserver,
+    KernelReachabilityObserver, MeshObserver, MeshPeerObserver, OsHealthObserver,
     OsHealthObserverAdapter, TakeoverObserverAdapter,
 };
-use cynic_node_protocol::federation::FederationReconciliation;
 use cynic_node_protocol::local_autonomy::AutonomyMode;
 
 /// Build a federation runtime with production adapters.

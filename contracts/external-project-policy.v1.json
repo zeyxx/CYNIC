@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.external_project_policy.v1",
+  "version": "0.2.0",
+  "status": "draft",
+  "purpose": "Schema for a per-project policy entry in infra/external-projects.json. Defines the minimum fields required to govern an external (non-CYNIC) project through CYNIC's agentic OS ports.",
+  "required": [
+    "project_id",
+    "display_name",
+    "repo_url",
+    "default_branch",
+    "collaborator_ids",
+    "language_stack",
+    "build_commands",
+    "test_commands",
+    "mutation_policy",
+    "sensitivity"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Stable slug for the project."
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "repo_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "default_branch": {
+      "type": "string"
+    },
+    "collaborator_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "language_stack": {
+      "type": "string",
+      "description": "Observed primary language stack (e.g. go, typescript/node, go+csharp)."
+    },
+    "observed_manifests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "build_commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "test_commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "build_commands_status": {
+      "type": "string",
+      "enum": [
+        "inferred_from_manifest_presence",
+        "observed_on_builder",
+        "verified"
+      ]
+    },
+    "mutation_policy": {
+      "type": "string",
+      "enum": [
+        "read_only",
+        "branch_pr",
+        "direct_push_forbidden"
+      ]
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "sanitized",
+        "private"
+      ]
+    },
+    "ports_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "CYNIC port names this project actually consumes/produces. Empty until wired and observed."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "maintenance": {
+      "type": "object",
+      "properties": {
+        "cadence": {
+          "type": "string",
+          "description": "How often dependency drift is reported (e.g. monthly)."
+        },
+        "channel": {
+          "type": "string",
+          "description": "How drift is observed (e.g. npm-outdated-report, cargo-outdated-report)."
+        },
+        "owner": {
+          "type": "string",
+          "description": "collaborator_id responsible for applying bumps in the product repo."
+        },
+        "bump_policy": {
+          "type": "string",
+          "enum": ["report-only", "human-applied"],
+          "description": "report-only emits findings; human-applied means the owner bumps after review. Automated bumps are forbidden."
+        }
+      },
+      "description": "Dependency maintenance subscription for this project. Observation only; CYNIC never bumps product deps itself."
+    }
+  },
+  "rules": [
+    "Default for a newly added project: mutation_policy=read_only, sensitivity=public.",
+    "aegis-core (sanitized) must never be deployed by CYNIC; read-only observation + build/test only.",
+    "ports_used must be empty until a port is wired and observed; aspirational entries are forbidden.",
+    "build/test commands must be observed on the builder before status=verified.",
+    "maintenance.bump_policy defaults to report-only; no automated dependency bumps without recorded human consent."
+  ]
+}

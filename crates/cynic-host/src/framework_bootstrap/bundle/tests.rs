@@ -1,5 +1,36 @@
+use cynic_types::paths::CynicPaths;
+
+/// Point membrane staging at the repository catalog: the writer resolves
+/// `CYNIC_CAPABILITY_CATALOG` (default repo-relative), and tests run with
+/// the crate dir as cwd, so the relative default does not resolve here.
+fn use_repo_capability_catalog() {
+    let catalog = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../infra/capabilities/catalog.json");
+    // CARGO_MANIFEST_DIR may itself contain `..`-free absolute path already.
+    let catalog = std::fs::canonicalize(&catalog).unwrap_or(catalog);
+    // SAFETY: test-only; serializes with the sibling tests in this module.
+    unsafe {
+        std::env::set_var("CYNIC_CAPABILITY_CATALOG", &catalog);
+    }
+}
+
+fn basket_install_path(binary: &str) -> String {
+    let basket: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../../infra/runtime-basket.json"))
+            .expect("parse authority runtime basket");
+    basket["artifacts"]
+        .as_array()
+        .expect("basket artifacts")
+        .iter()
+        .find(|artifact| artifact["binary"] == binary)
+        .and_then(|artifact| artifact["install_path"].as_str())
+        .expect("basket install_path")
+        .to_string()
+}
+
 #[test]
 fn framework_bootstrap_bundle_writes_security_kit() {
+    use_repo_capability_catalog();
     let out = std::env::temp_dir().join(format!(
         "cynic-framework-bootstrap-test-{}",
         std::time::SystemTime::now()
@@ -12,7 +43,7 @@ fn framework_bootstrap_bundle_writes_security_kit() {
         .expect("framework bootstrap bundle");
 
     assert_eq!(report.status, "written");
-    assert!(out.join("host-exec-bundle/cynic-host-exec").is_file());
+    assert!(out.join("privilege-bundle/privilege.sudoers").is_file());
     assert!(out.join("install.sh").is_file());
     assert!(out.join("enroll.sh").is_file());
     let enroll_script = std::fs::read_to_string(out.join("enroll.sh")).expect("read enroll.sh");
@@ -20,8 +51,8 @@ fn framework_bootstrap_bundle_writes_security_kit() {
     assert!(enroll_script.contains("\"$ROOT/verify.sh\""));
     assert!(enroll_script.contains("one-time HumanAdmin boundary"));
     let install_script = std::fs::read_to_string(out.join("install.sh")).expect("read install.sh");
-    assert!(install_script.contains("principal-prepare --apply"));
-    assert!(install_script.contains("/usr/local/bin/cynic"));
+    assert!(install_script.contains("host principal prepare --apply"));
+    assert!(install_script.contains(&CynicPaths::binary_dir().join("cynic").display().to_string()));
     assert!(!install_script.contains("/home/$RUNTIME_USER"));
     assert!(!install_script.contains("CYNIC_PROJECT_ROOT"));
     assert!(!install_script.contains("organs/supervisor"));
@@ -34,8 +65,8 @@ fn framework_bootstrap_bundle_writes_security_kit() {
     assert!(out.join("runtime-basket.json").is_file());
     assert!(out.join("seed-manifest.json").is_file());
     assert!(out.join("seed-artifacts.sha256").is_file());
-    let manifest = std::fs::read_to_string(out.join("host-exec-bundle/manifest.json"))
-        .expect("read bridge manifest");
+    let manifest = std::fs::read_to_string(out.join("privilege-bundle/manifest.json"))
+        .expect("read membrane manifest");
     let security_policy =
         std::fs::read_to_string(out.join("security-policy.json")).expect("read policy");
     let runtime_basket =
@@ -110,6 +141,7 @@ fn build_runner_bundle_blocks_without_role_payload_and_registry() {
 
 #[test]
 fn build_runner_bundle_projects_node_and_registry() {
+    use_repo_capability_catalog();
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("time")
@@ -121,6 +153,14 @@ fn build_runner_bundle_projects_node_and_registry() {
     std::fs::write(artifacts.join("cynic"), b"cli payload").expect("cli artifact");
     std::fs::write(artifacts.join("cynic-node"), b"node payload").expect("node artifact");
     let registry = root.join("registry.json");
+    let credential_path = CynicPaths::state_dir()
+        .join("identity/artifact-store-token")
+        .display()
+        .to_string();
+    let release_signing_key_path = CynicPaths::state_dir()
+        .join("identity/release-signing-key")
+        .display()
+        .to_string();
     std::fs::write(
         &registry,
         serde_json::json!({
@@ -131,8 +171,8 @@ fn build_runner_bundle_projects_node_and_registry() {
                 "service_name": "runtime-artifact-store",
                 "protocol": "generic_https_put_get",
                 "authentication_kind": "bearer_file",
-                "credential_path": "/var/lib/cynic/identity/artifact-store-token",
-                "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
+                "credential_path": credential_path,
+                "signing_key_path": release_signing_key_path,
                 "signer_identity": "cynic-release",
                 "signature_namespace": "cynic-runtime-seed"
             },
@@ -184,7 +224,10 @@ fn build_runner_bundle_projects_node_and_registry() {
     );
     assert!(control.contains("runtime_artifact_max_bytes = 4294967296"));
     assert!(control.contains("[node_control.build_scheduler]"));
-    assert!(control.contains("registry_path = \"/etc/cynic/registry.json\""));
+    assert!(control.contains(&format!(
+        "registry_path = \"${{CYNIC_RUNTIME_REGISTRY:-{}}}\"",
+        CynicPaths::registry_path().display()
+    )));
     assert!(control.contains("[node_control.build_scheduler.release_publication]"));
     assert!(
         control.contains(
@@ -192,14 +235,15 @@ fn build_runner_bundle_projects_node_and_registry() {
         )
     );
     assert!(control.contains("authentication_kind = \"bearer_file\""));
-    assert!(control.contains("credential_path = \"/var/lib/cynic/identity/artifact-store-token\""));
+    assert!(control.contains(&format!("credential_path = \"{credential_path}\"")));
     assert!(!control.contains("cynic-host-cortex"));
     assert!(!control.contains("[dog]"));
     let service =
         std::fs::read_to_string(out.join("etc/systemd/cynic-node.service")).expect("service");
-    assert!(service.contains(
-        "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml"
-    ));
+    assert_eq!(
+        service,
+        include_str!("../../../../../infra/os/systemd/installed/cynic-node.service")
+    );
     let seed = std::fs::read_to_string(out.join("seed-manifest.json")).expect("seed");
     assert!(seed.contains(r#""target_role": "build_runner""#));
     let checksums = std::fs::read_to_string(out.join("seed-artifacts.sha256")).expect("checksums");
@@ -208,25 +252,28 @@ fn build_runner_bundle_projects_node_and_registry() {
     let install = std::fs::read_to_string(out.join("install.sh")).expect("install script");
     assert!(install.contains("RUNTIME_INSTALL_ROOT"));
     assert!(install.contains("RUNTIME_ARTIFACT_INBOX"));
-    assert!(install.contains("stage_runtime_artifact 'cynic-node' '/usr/local/bin/cynic-node'"));
-    assert!(
-        install.contains("prepare_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
-    );
-    assert!(
-        install.contains("activate_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
-    );
-    assert!(
-        install.contains("read_back_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
-    );
+    let node_install_path = basket_install_path("cynic-node");
+    assert!(install.contains(&format!(
+        "stage_runtime_artifact 'cynic-node' '{node_install_path}'"
+    )));
+    assert!(install.contains(&format!(
+        "prepare_runtime_entrypoint 'cynic-node' '{node_install_path}'"
+    )));
+    assert!(install.contains(&format!(
+        "activate_runtime_entrypoint 'cynic-node' '{node_install_path}'"
+    )));
+    assert!(install.contains(&format!(
+        "read_back_runtime_entrypoint 'cynic-node' '{node_install_path}'"
+    )));
     assert!(install.contains("$RUNTIME_INSTALL_ROOT/current/$binary"));
     assert!(
         !install
             .contains("install -o root -g root -m 0755 \"$ROOT/bin/cynic-node\" \"$NODE_TARGET\"")
     );
     let verify = std::fs::read_to_string(out.join("verify.sh")).expect("verify script");
-    assert!(
-        verify.contains("read_back_runtime_entrypoint 'cynic-node' '/usr/local/bin/cynic-node'")
-    );
+    assert!(verify.contains(&format!(
+        "read_back_runtime_entrypoint 'cynic-node' '{node_install_path}'"
+    )));
     assert!(checksums.contains("  etc/node-control.toml"));
     assert!(checksums.contains("  etc/systemd/cynic-node.service"));
     std::fs::remove_dir_all(root).expect("cleanup");

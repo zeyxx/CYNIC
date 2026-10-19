@@ -6,8 +6,8 @@
 use std::process::Command;
 
 use cynic_vcs::pull_request::{
-    PR_CREATE_PROOF_SCHEMA, PR_MERGE_PROOF_SCHEMA, PrCreateProof, PrMergeProof, PrPort,
-    PrState, PullRequest,
+    PR_CLOSE_PROOF_SCHEMA, PR_CREATE_PROOF_SCHEMA, PR_MERGE_PROOF_SCHEMA, PrCloseProof,
+    PrCreateProof, PrMergeProof, PrPort, PrState, PullRequest,
 };
 
 pub struct ForgejoPrAdapter {
@@ -45,20 +45,52 @@ impl ForgejoPrAdapter {
     }
 
     fn curl_post(&self, url: &str, body: &str) -> Result<serde_json::Value, String> {
+        self.curl_json("POST", url, Some(body))
+    }
+
+    fn curl_patch(&self, url: &str, body: &str) -> Result<serde_json::Value, String> {
+        self.curl_json("PATCH", url, Some(body))
+    }
+
+    fn curl_delete(&self, url: &str) -> Result<(), String> {
+        self.curl_json("DELETE", url, None).map(|_| ())
+    }
+
+    /// Fetch a single PR by number (adapter-internal read-back helper).
+    pub fn get(&self, number: u64) -> Result<PullRequest, String> {
+        let url = format!(
+            "{}/api/v1/repos/{}/{}/pulls/{}",
+            self.api_base, self.owner, self.repo, number
+        );
+        let json = self.curl_get(&url)?;
+        Ok(parse_pr(&json))
+    }
+
+    fn curl_json(
+        &self,
+        method: &str,
+        url: &str,
+        body: Option<&str>,
+    ) -> Result<serde_json::Value, String> {
         let mut cmd = Command::new("curl");
-        cmd.args(["-s", "-f", "-X", "POST", url,
-                  "-H", "Content-Type: application/json", "-d", body]);
+        cmd.args(["-s", "-f", "-X", method, url, "-H", "Content-Type: application/json"]);
+        if let Some(b) = body {
+            cmd.args(["-d", b]);
+        }
         if let Some(h) = self.auth_header() {
             cmd.args(["-H", &h]);
         }
         let out = cmd.output().map_err(|e| format!("curl exec failed: {e}"))?;
         if !out.status.success() {
             return Err(format!(
-                "POST {} failed ({}): {}",
+                "{method} {} failed ({}): {}",
                 url,
                 out.status.code().unwrap_or(-1),
                 String::from_utf8_lossy(&out.stderr)
             ));
+        }
+        if out.stdout.is_empty() {
+            return Ok(serde_json::Value::Null);
         }
         serde_json::from_slice(&out.stdout).map_err(|e| format!("invalid JSON: {e}"))
     }
@@ -139,6 +171,52 @@ impl PrPort for ForgejoPrAdapter {
             pr_number: number,
             merged: true,
             message: format!("PR #{number} merged via Forgejo (style: {style})"),
+        })
+    }
+
+    fn close(&self, number: u64, delete_branch: bool) -> Result<PrCloseProof, String> {
+        // Observe: refuse close of a PR that is not open.
+        let current = self.get(number)?;
+        if current.state != PrState::Open {
+            return Err(format!("pr_not_open:state_{:?}", current.state));
+        }
+        // Apply: Forgejo closes via PATCH state=closed.
+        let url = format!(
+            "{}/api/v1/repos/{}/{}/pulls/{}",
+            self.api_base, self.owner, self.repo, number
+        );
+        self.curl_patch(&url, &serde_json::json!({"state": "closed"}).to_string())?;
+        // Read-back: the PR must now read closed.
+        let closed = self.get(number)?;
+        if closed.state == PrState::Open {
+            return Err(format!("close PR#{number} not reflected on read-back"));
+        }
+        let branch_deleted = if delete_branch {
+            let branch_url = format!(
+                "{}/api/v1/repos/{}/{}/branches/{}",
+                self.api_base, self.owner, self.repo, closed.head_ref
+            );
+            match self.curl_delete(&branch_url) {
+                Ok(()) => true,
+                Err(e) => {
+                    return Ok(PrCloseProof {
+                        schema: PR_CLOSE_PROOF_SCHEMA,
+                        pr_number: number,
+                        closed: true,
+                        branch_deleted: false,
+                        message: format!("PR #{number} closed, branch delete failed: {e}"),
+                    })
+                }
+            }
+        } else {
+            false
+        };
+        Ok(PrCloseProof {
+            schema: PR_CLOSE_PROOF_SCHEMA,
+            pr_number: number,
+            closed: true,
+            branch_deleted,
+            message: format!("PR #{number} closed via Forgejo"),
         })
     }
 }

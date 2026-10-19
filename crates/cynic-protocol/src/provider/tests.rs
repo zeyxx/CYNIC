@@ -35,7 +35,9 @@ fn provider_control_desired(endpoint: &str) -> ProviderControlDesiredState {
         provider: "proxmox".to_string(),
         endpoint: endpoint.to_string(),
         token_identity: "cynic@pve!runtime".to_string(),
-        credential_ref: "/etc/cynic/secrets/proxmox-token".to_string(),
+        credential_ref: cynic_types::paths::CynicPaths::secret_path("proxmox-token")
+            .display()
+            .to_string(),
         ca_ref: None,
         credential_lease_metadata_ref: None,
         credential_authority_public_key_ref: None,

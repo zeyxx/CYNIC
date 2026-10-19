@@ -110,14 +110,12 @@ impl HostPrivilegePort for StaticHostContractPort {
         let layout = current_runtime_layout();
         PrivilegePolicy {
             sudoers_subject: "cynic".to_string(),
-            helper_dir: layout.helper_dir.clone(),
+            executor: layout.privilege_executor_path(),
+            membrane_target: layout.privilege_sudoers_path(),
+            membrane_admission: format!("{} privilege exec", layout.privilege_executor_path()),
             config_dir: layout.config_dir.clone(),
             sudoers_dir: layout.sudoers_dir.clone(),
             denial_proof_required: true,
-            dedicated_helpers: vec![
-                "cynic-network-actuator".to_string(),
-                "cynic-service-actuator".to_string(),
-            ],
         }
     }
 }
@@ -274,7 +272,8 @@ impl HostPrincipalObservationPort for FakeObservationAdapter {
 impl HostPrivilegeObservationPort for FakeObservationAdapter {
     fn observe_privilege(&self, _policy: &PrivilegePolicy) -> PrivilegeObservedState {
         PrivilegeObservedState {
-            helper_dir_present: true,
+            executor_present: true,
+            membrane_present: true,
             sudoers_projection_present: true,
             denial_proof_ready: false,
         }
@@ -319,7 +318,8 @@ impl HostPrincipalObservationPort for ReadyForServiceObservation {
 impl HostPrivilegeObservationPort for ReadyForServiceObservation {
     fn observe_privilege(&self, _policy: &PrivilegePolicy) -> PrivilegeObservedState {
         PrivilegeObservedState {
-            helper_dir_present: true,
+            executor_present: true,
+            membrane_present: true,
             sudoers_projection_present: true,
             denial_proof_ready: true,
         }
@@ -396,7 +396,8 @@ fn principal_status_is_active_when_observed_state_matches_policy() {
 fn privilege_status_requires_denial_proof_when_configured() {
     let policy = StaticHostContractPort.desired_privilege();
     let report = policy.status(&PrivilegeObservedState {
-        helper_dir_present: true,
+        executor_present: true,
+        membrane_present: true,
         sudoers_projection_present: true,
         denial_proof_ready: false,
     });

@@ -43,6 +43,9 @@ members = [
     "crates/cynic-domain-porkbun",
     "crates/cynic-domain-cloudflare",
     "crates/cynic-finance",
+    "crates/cynic-fleet",
+    "crates/cynic-tui",
+    "crates/cynic-traces",
     "crates/cynic-surreal",
     "crates/cynic-knowledge",
 ]

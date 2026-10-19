@@ -20,15 +20,15 @@ fn spec() -> PrivilegeBridgeInstallSpec {
         authority_user: "root".to_string(),
         authority_group: "root".to_string(),
         provider: "sudoers".to_string(),
-        helper_source: "/bundle/cynic-host-exec".to_string(),
-        helper_target: "/libexec/cynic-host-exec".to_string(),
-        helper_mode: 0o755,
-        projection_source: "/bundle/privilege-policy".to_string(),
-        projection_target: "/policy/cynic-host-exec".to_string(),
-        projection_mode: 0o440,
-        expected_projection: "bounded projection".to_string(),
+        executor: "/usr/local/bin/cynic".to_string(),
+        membrane_source: "/bundle/privilege.sudoers".to_string(),
+        membrane_target: "/etc/sudoers.d/cynic".to_string(),
+        membrane_mode: 0o440,
+        expected_membrane: "bounded membrane".to_string(),
         proof_invocation: vec![
-            "/libexec/cynic-host-exec".to_string(),
+            "/usr/local/bin/cynic".to_string(),
+            "privilege".to_string(),
+            "exec".to_string(),
             "principal-prepare".to_string(),
         ],
     }
@@ -46,16 +46,14 @@ fn complete() -> PrivilegeBridgeObservedState {
     PrivilegeBridgeObservedState {
         subject_present: true,
         provider_available: true,
-        helper_present: true,
-        helper_executable: true,
-        helper_mode_matches: true,
-        helper_authority_owned: true,
-        projection_present: true,
-        projection_mode_matches: true,
-        projection_authority_owned: true,
-        projection_valid: true,
+        executor_present: true,
+        executor_executable: true,
+        membrane_present: true,
+        membrane_mode_matches: true,
+        membrane_authority_owned: true,
+        membrane_valid: true,
         invocation_policy_bounded: true,
-        bounded_helper_noninteractive: true,
+        membrane_probe_executed: true,
         unrestricted_shell_denied: true,
     }
 }
@@ -117,7 +115,7 @@ fn plan_contains_only_semantic_operations_and_injected_provider() {
     let json = serde_json::to_string(&plan).expect("serialize plan");
 
     assert_eq!(plan.target, "node-a");
-    assert_eq!(plan.operations.len(), 5);
+    assert_eq!(plan.operations.len(), 3);
     assert!(matches!(
         plan.operations.last(),
         Some(HostOperation::ValidatePrivilegeProjection { provider, .. })
@@ -144,13 +142,13 @@ fn human_admin_apply_executes_and_requires_runtime_secret_independence() {
     );
 
     assert_eq!(report.status, "completed");
-    assert_eq!(runner.calls.get(), 5);
+    assert_eq!(runner.calls.get(), 3);
     assert!(report.blockers.is_empty());
     assert!(
         report
             .proofs_observed
             .iter()
-            .any(|proof| { proof.gate == "bounded_helper_noninteractive_and_shell_denied" })
+            .any(|proof| { proof.gate == "membrane_probe_executed_and_shell_denied" })
     );
 }
 
@@ -219,6 +217,6 @@ fn successful_commands_without_denial_proof_remain_blocked() {
 
     assert_eq!(report.status, "blocked");
     assert!(report.blockers.iter().any(|blocker| {
-        blocker == "postflight_proof_missing:bounded_helper_noninteractive_and_shell_denied"
+        blocker == "postflight_proof_missing:membrane_probe_executed_and_shell_denied"
     }));
 }

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use super::authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
 use super::types::{InstallPrincipalKind, PrincipalInstallLayout, RunAs};
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimePrincipalLayout {
@@ -18,9 +19,9 @@ pub fn default_runtime_principal_layout() -> RuntimePrincipalLayout {
     RuntimePrincipalLayout {
         runtime_user: "cynic".to_string(),
         runtime_group: "cynic".to_string(),
-        home_dir: PathBuf::from("/var/lib/cynic"),
-        state_root: PathBuf::from("/var/lib/cynic"),
-        log_root: PathBuf::from("/var/log/cynic"),
+        home_dir: CynicPaths::state_dir(),
+        state_root: CynicPaths::state_dir(),
+        log_root: CynicPaths::log_dir(),
     }
 }
 

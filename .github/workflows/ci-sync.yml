@@ -1,0 +1,43 @@
+name: .github/workflows/ci-sync.yml
+
+# Restores the Forgejo -> GitHub PR mirror (workflow was disabled with its
+# file deleted; re-enabled 2026-10-18). Forgejo push-mirrors every branch to
+# GitHub on commit (sync_on_commit); this job opens the missing GitHub PRs
+# so mirrored agent branches get CI. Conservative by construction:
+# - only branches matching `agent/**` with no open PR yet,
+# - never closes, merges, or retargets anything,
+# - dry-run by default; set vars.CI_SYNC_LIVE to 'true' to actually open PRs.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  mirror-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Open missing PRs for mirrored agent branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LIVE: ${{ vars.CI_SYNC_LIVE }}
+        run: |
+          set -euo pipefail
+          for b in $(git ls-remote --heads origin 'refs/heads/agent/**' | sed 's|.*refs/heads/||'); do
+            open=$(gh pr list --head "$b" --state open --json number --jq length)
+            if [ "$open" -eq 0 ]; then
+              if [ "${LIVE:-false}" = "true" ]; then
+                gh pr create --head "$b" --base main \
+                  --title "mirror: $b" \
+                  --body "Auto-opened by ci-sync (Forgejo mirror). Review before merge."
+              else
+                echo "DRY-RUN: would open PR for $b"
+              fi
+            fi
+          done

@@ -6,7 +6,7 @@
 //! `crate::service_catalog` (L1 host substrate).
 
 use cynic_vcs::{ForgejoDesiredState, ForgejoRepositoryPermission};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

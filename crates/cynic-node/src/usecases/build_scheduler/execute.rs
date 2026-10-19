@@ -17,6 +17,7 @@ use super::measure::{
     measure_target_dir_size_bytes, persist_cancellation_proof, persist_renewal_proof,
     persist_settlement_proof,
 };
+use super::settlement_wal;
 use super::{evidence, lifecycle, prepare, release_publication};
 use crate::{
     adapters::{
@@ -30,11 +31,40 @@ use crate::{
     },
 };
 
+/// Log-then-apply gate: append the settlement intent to the global WAL
+/// BEFORE the workload store is mutated. Returns `Ok(())` when there is
+/// no WAL (audit degraded, settlement proceeds) or the append succeeds;
+/// returns `Err` (and the caller must skip `lifecycle::finish`, leaving
+/// the workload Claimed) when the append fails.
+async fn append_settlement_gate(
+    wal: Option<&settlement_wal::SettlementWal>,
+    node_id: &str,
+    workload_id: &str,
+    status: &cynic_protocol::AgentCompletionStatus,
+    workload_digest: &str,
+    evidence_strings: &[String],
+) -> Result<(), String> {
+    if let Some(wal) = wal {
+        if let Err(error) = wal.append_settlement(
+            node_id,
+            workload_id,
+            status,
+            workload_digest,
+            evidence_strings,
+            lifecycle::current_unix_ms(),
+        ) {
+            return Err(format!("settlement_wal_append_failed:{error}"));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) async fn execute_claimed(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
     claimed: DurableAgentWorkloadRecord,
+    wal: Option<&settlement_wal::SettlementWal>,
     shutdown: &CancellationToken,
     load_tier: &str,
     capacity_unknowns: &[String],
@@ -303,6 +333,21 @@ pub(crate) async fn execute_claimed(
             .unwrap_or(0);
         let (queue_wait_ms, queue_wait_clamped) =
             compute_queue_wait_ms(first_claim_ms, latest.committed_at_ms);
+        // Log-then-apply: append to WAL first, then settle the store.
+        // Append failure leaves the workload Claimed (retryable).
+        let evidence_strings: Vec<String> = evidence_refs
+            .iter()
+            .map(|r| format!("{}:{}", r.kind, r.digest))
+            .collect();
+        append_settlement_gate(
+            wal,
+            &control.node_id,
+            workload_id,
+            &status,
+            &latest.record_digest,
+            &evidence_strings,
+        )
+        .await?;
         let _receipt = match lifecycle::finish(
             store,
             &latest,
@@ -356,5 +401,89 @@ pub(crate) async fn execute_claimed(
         }
         persist_renewal_proof(workload_id, &guard, renewal_count);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_protocol::AgentCompletionStatus;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    /// Log-then-apply gate: happy path appends one chained entry.
+    #[tokio::test]
+    async fn settlement_gate_appends_chained_entry() {
+        use crate::usecases::build_scheduler::settlement_wal::SettlementWal;
+
+        let wal_dir = std::env::temp_dir().join(format!(
+            "cynic-gate-ok-{}-{}",
+            std::process::id(),
+            QUEUE_SEQ.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&wal_dir);
+        let wal = SettlementWal::open(&wal_dir).expect("open WAL");
+        append_settlement_gate(
+            Some(&wal),
+            "node-1",
+            "build-gate-ok",
+            &AgentCompletionStatus::Completed,
+            "sha256:gate",
+            &["kind:digest".to_string()],
+        )
+        .await
+        .expect("gate passes on healthy WAL");
+        let report = wal.verify_integrity().expect("verify");
+        assert!(report.is_valid, "gate-appended entry must verify");
+        assert_eq!(report.total_entries, 1);
+        let _ = std::fs::remove_dir_all(&wal_dir);
+    }
+
+    /// Log-then-apply gate: oversized payload fails deterministically
+    /// (encode_frame rejects >16MiB) with the `settlement_wal_append_failed`
+    /// prefix the caller matches on to skip `lifecycle::finish`.
+    #[tokio::test]
+    async fn settlement_gate_oversized_payload_fails_loud() {
+        use crate::usecases::build_scheduler::settlement_wal::SettlementWal;
+
+        let wal_dir = std::env::temp_dir().join(format!(
+            "cynic-gate-fail-{}-{}",
+            std::process::id(),
+            QUEUE_SEQ.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&wal_dir);
+        let wal = SettlementWal::open(&wal_dir).expect("open WAL");
+        let huge = "e".repeat(17 * 1024 * 1024);
+        let err = append_settlement_gate(
+            Some(&wal),
+            "node-1",
+            "build-gate-fail",
+            &AgentCompletionStatus::Completed,
+            "sha256:gate",
+            &[huge],
+        )
+        .await
+        .expect_err("oversized payload must fail the gate");
+        assert!(
+            err.starts_with("settlement_wal_append_failed:"),
+            "failure must carry the gate prefix, got: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&wal_dir);
+    }
+
+    /// Log-then-apply gate: no WAL means degraded audit, settlement proceeds.
+    #[tokio::test]
+    async fn settlement_gate_without_wal_passes() {
+        append_settlement_gate(
+            None,
+            "node-1",
+            "build-gate-none",
+            &AgentCompletionStatus::Completed,
+            "sha256:gate",
+            &[],
+        )
+        .await
+        .expect("gate passes without WAL");
     }
 }

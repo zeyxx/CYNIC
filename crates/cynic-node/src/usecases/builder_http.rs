@@ -51,6 +51,10 @@ pub struct BuilderHttpConfig {
 struct AppState {
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
+    /// H4 duplicate-submit collision counter (Task 5). Records every
+    /// submission event; the pure `CollisionCounter` logic determines
+    /// which events collide on idempotency key or source commit within
+    /// the trailing 24h window.
     collisions: Arc<Mutex<CollisionCounter>>,
     evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
 }
@@ -567,10 +571,10 @@ async fn webhook_forgejo(
             authority_ref: "forgejo".into(),
             snapshot: None,
         },
-        // Canonical gate action: the recipe table admits make:check /
-        // make:build / make:build-release only. A push triggers the full
-        // canonical check gate, never an ad-hoc cargo invocation.
-        action: "make:check".into(),
+        // Canonical gate action: a push triggers the full audit gate
+        // (`audit:crate`, the native spelling of what `make:check`
+        // aliased), never an ad-hoc cargo invocation.
+        action: "audit:crate".into(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -817,7 +821,7 @@ mod tests {
                 authority_ref: "forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -941,7 +945,7 @@ mod tests {
                 authority_ref: "forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],

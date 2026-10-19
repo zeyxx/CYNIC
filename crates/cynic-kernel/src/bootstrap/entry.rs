@@ -96,8 +96,11 @@ pub async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
 
     // 1. Check storage-runtime-password integrity
     klog!("Checking storage-runtime-password...");
-    let password_path = std::env::var("CYNIC_STORAGE_PASSWORD_PATH")
-        .unwrap_or_else(|_| "/etc/cynic/secrets/storage-runtime-password".to_string());
+    let password_path = std::env::var("CYNIC_STORAGE_PASSWORD_PATH").unwrap_or_else(|_| {
+        cynic_types::paths::CynicPaths::secret_path("storage-runtime-password")
+            .display()
+            .to_string()
+    });
 
     let length = std::fs::read(&password_path)
         .map_err(|e| format!("cannot read password file: {e}"))?
@@ -122,8 +125,11 @@ pub async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Check registry password reference
     klog!("Checking registry secret seal...");
-    let registry_path = std::env::var("CYNIC_REGISTRY_PATH")
-        .unwrap_or_else(|_| "/etc/cynic/registry.json".to_string());
+    let registry_path = std::env::var("CYNIC_REGISTRY_PATH").unwrap_or_else(|_| {
+        cynic_types::paths::CynicPaths::registry_path()
+            .display()
+            .to_string()
+    });
     let registry_content = std::fs::read_to_string(&registry_path)
         .map_err(|e| format!("cannot read registry: {e}"))?;
     let registry: serde_json::Value = serde_json::from_str(&registry_content)
