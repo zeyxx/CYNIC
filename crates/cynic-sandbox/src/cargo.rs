@@ -44,6 +44,10 @@ pub struct CargoSandboxSpec {
     pub rustup_home: PathBuf,
     /// Extra read-only binds expressed as `(host, sandbox)` pairs.
     pub extra_ro_binds: Vec<(PathBuf, PathBuf)>,
+    /// sccache cache directory. When `Some`, bound read-write so the
+    /// persistent compiler cache survives across sandboxed builds.
+    /// `None` = no sccache cache bind (behavior unchanged).
+    pub sccache_cache_dir: Option<PathBuf>,
 }
 
 /// System base directories mirrored read-only inside every cargo sandbox.
@@ -86,6 +90,10 @@ impl CargoSandboxSpec {
         let target_directory = target_directory
             .or_else(|| std::env::var("CARGO_TARGET_DIR").map(PathBuf::from).ok())
             .unwrap_or_else(|| working_directory.join("target"));
+        let sccache_cache_dir = std::env::var("SCCACHE_DIR")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from);
         let path_dirs = std::env::split_paths(&path_value).collect::<Vec<_>>();
         // Only bind directories that exist: bwrap fails the whole sandbox
         // on a missing source, and PATH routinely names absent entries
@@ -106,6 +114,7 @@ impl CargoSandboxSpec {
             cargo_home,
             rustup_home,
             extra_ro_binds,
+            sccache_cache_dir,
         })
     }
 
@@ -188,6 +197,11 @@ pub fn build_cargo_sandbox_argv(
         argv.push(writable.display().to_string());
         argv.push(writable.display().to_string());
     }
+    if let Some(cache_dir) = &spec.sccache_cache_dir {
+        argv.push("--bind".to_string());
+        argv.push(cache_dir.display().to_string());
+        argv.push(cache_dir.display().to_string());
+    }
     argv.push("--tmpfs".to_string());
     argv.push("/tmp".to_string());
     argv.push("--proc".to_string());
@@ -251,6 +265,7 @@ mod tests {
                     PathBuf::from("/usr/local/bin"),
                 ),
             ],
+            sccache_cache_dir: None,
         }
     }
 
@@ -330,5 +345,33 @@ mod tests {
             let _ = pos;
         }
         assert!(argv.contains(&"HOME".to_string()));
+    }
+
+    #[test]
+    fn sandbox_argv_binds_sccache_cache_dir_writable_when_present() {
+        let mut spec = fixture_spec();
+        spec.sccache_cache_dir = Some(PathBuf::from("/var/lib/cynic/sccache-cache"));
+        let argv = build_cargo_sandbox_argv(&spec, &fixture_command(), &[]).unwrap();
+        assert!(
+            argv.windows(3).any(|w| w[0] == "--bind"
+                && w[1] == "/var/lib/cynic/sccache-cache"
+                && w[2] == "/var/lib/cynic/sccache-cache"),
+            "sccache cache dir must be bound writable when present"
+        );
+    }
+
+    #[test]
+    fn sandbox_argv_has_no_sccache_bind_when_absent() {
+        let spec = fixture_spec();
+        assert!(
+            spec.sccache_cache_dir.is_none(),
+            "precondition: sccache_cache_dir must be absent"
+        );
+        let argv = build_cargo_sandbox_argv(&spec, &fixture_command(), &[]).unwrap();
+        assert!(
+            !argv.windows(3).any(|w| w[0] == "--bind"
+                && w[1] == "/var/lib/cynic/sccache-cache"),
+            "no sccache bind must appear when sccache_cache_dir is None"
+        );
     }
 }

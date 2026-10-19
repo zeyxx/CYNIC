@@ -15,6 +15,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 use crate::runtime_surface::inference_surface;
 
@@ -22,6 +23,9 @@ use crate::runtime_surface::inference_surface;
 pub(crate) enum InferenceCommand {
     /// Report the sovereign inference configuration as machine-readable JSON.
     Config {
+        /// Probe live health/reachability of each declared backend.
+        #[arg(long)]
+        probe: bool,
         #[arg(long)]
         json: bool,
     },
@@ -219,7 +223,9 @@ pub(crate) enum HfCommand {
 }
 pub(crate) fn execute_inference_command(command: InferenceCommand) -> ExitCode {
     match command {
-        InferenceCommand::Config { json } => inference_surface::execute_inference(json),
+        InferenceCommand::Config { probe, json } => {
+            inference_surface::execute_inference(probe, json)
+        }
         InferenceCommand::Vault { json } => inference_surface::execute_inference_vault(json),
         InferenceCommand::Status { json, tail } => {
             inference_surface::execute_inference_status(json, tail)
@@ -324,14 +330,14 @@ struct TracePostureReport {
 }
 
 fn execute_trace_command(command: TraceCommand) -> ExitCode {
-    let ledger_path = std::env::var(cynic_inference::adapters::chat_trace_sink::LEDGER_ENV_KEY)
+    let ledger_path = std::env::var(cynic_inference::domain::chat_trace::ChatTrace::LEDGER_ENV_KEY)
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
             let local_evidence = std::path::PathBuf::from("evidence/inference_traces.jsonl");
             if local_evidence.exists() {
                 local_evidence
             } else {
-                std::path::PathBuf::from(cynic_inference::adapters::chat_trace_sink::DEFAULT_LEDGER_PATH)
+                CynicPaths::state_dir().join("evidence/inference_traces.jsonl")
             }
         });
 
@@ -365,7 +371,11 @@ fn execute_trace_command(command: TraceCommand) -> ExitCode {
 
             let report = TracePostureReport {
                 schema: "cynic.inference.trace_posture.v1",
-                status: if records.is_empty() { "empty_ledger" } else { "active" },
+                status: if records.is_empty() {
+                    "empty_ledger"
+                } else {
+                    "active"
+                },
                 ledger_path: ledger_path.display().to_string(),
                 total_turns: summary.turns,
                 ok_rate: summary.ok_rate,
@@ -405,7 +415,11 @@ fn execute_trace_command(command: TraceCommand) -> ExitCode {
                 println!("No inference traces recorded in {}.", ledger_path.display());
                 ExitCode::SUCCESS
             } else {
-                println!("Last {} inference trace(s) from {}:", slice.len(), ledger_path.display());
+                println!(
+                    "Last {} inference trace(s) from {}:",
+                    slice.len(),
+                    ledger_path.display()
+                );
                 for (idx, trace) in slice.iter().enumerate() {
                     let status_str = match trace.status {
                         cynic_inference::domain::chat_trace::TraceStatus::Ok => "OK",

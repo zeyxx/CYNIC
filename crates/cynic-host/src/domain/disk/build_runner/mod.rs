@@ -9,8 +9,11 @@ pub use reconcile::reconcile_build_cache_resources;
 pub use types::{
     BUILD_CACHE_OBSERVATION_SCHEMA, BUILD_CACHE_PLAN_SCHEMA, BUILD_CACHE_REPORT_SCHEMA,
     BuildCacheDecision, BuildCacheDesiredState, BuildCacheObservation, BuildCachePathState,
-    BuildCachePlan, BuildCacheReport,
+    BuildCachePlan, BuildCacheReport, EphemeralEntry, EphemeralKind, EphemeralScope,
 };
+
+#[cfg(test)]
+pub mod retention_tests;
 
 #[cfg(test)]
 mod tests {
@@ -27,6 +30,9 @@ mod tests {
             reclaim_profile: "debug".to_string(),
             preserved_profiles: vec!["release".to_string()],
             noncanonical_cache_paths: Vec::new(),
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
         let observation = BuildCacheObservation {
             schema: BUILD_CACHE_OBSERVATION_SCHEMA,
@@ -38,6 +44,9 @@ mod tests {
             reclaim_profile_state: BuildCachePathState::SafeDirectory,
             preserved_profile_states: vec![BuildCachePathState::SafeDirectory],
             observed_noncanonical_cache_paths: Vec::new(),
+            observed_ephemeral: Vec::new(),
+            ephemeral_skipped: Vec::new(),
+            unlinked_checkouts: Vec::new(),
             unknowns: Vec::new(),
         };
 

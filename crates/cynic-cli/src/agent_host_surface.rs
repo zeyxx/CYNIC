@@ -11,7 +11,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use clap::Subcommand;
-use cynic_host::agent_host::{
+use cynic_proxmox::agent_host::{
     AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
     plan_agent_host_vm,
 };

@@ -1,6 +1,8 @@
 # Fleet Network — Canonical Architecture (first principles, data-centric)
 
-Status: `proposed` — awaiting operator validation before any code moves.
+Status: `superseded` — never validated, superseded by the ratified MYCELIUM RFC
+(NETWORK_MYCELIUM_SPECIFICATION.md) and the real-fleet needs matrix
+(`docs/specs/fleet-network-needs-matrix.md`). Kept as historical record; do not execute.
 Schema: `cynic.fleet_network_architecture.v1`
 Scope: mesh overlay, fleet membership, network observation, network actuation,
 network policy. Supersedes the scattered mesh types listed in §2.

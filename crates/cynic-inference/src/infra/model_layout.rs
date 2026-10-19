@@ -8,6 +8,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use cynic_huggingface::HfLocalPaths;
+
 pub use crate::domain::model_layout_report::{ModelLayoutEnvKeys, ModelLayoutReport};
 
 /// Default unit template for native on-demand llama-server instances.
@@ -84,6 +86,15 @@ impl ModelLayout {
     pub fn vault_download_dir(&self, repo_id: &str) -> PathBuf {
         let slug = repo_id.replace('/', "__");
         self.vault_dir.join("hf").join(slug)
+    }
+
+    /// Explicit paths required by the Hugging Face provider crate.
+    pub fn hf_local_paths(&self) -> HfLocalPaths {
+        HfLocalPaths::from_components(
+            self.vault_dir.clone(),
+            self.hf_cache_dir.clone(),
+            self.hf_bin.clone(),
+        )
     }
 }
 

@@ -104,6 +104,8 @@ use cynic_protocol::{
             mandate_binding: None,
             input: None,
             resource_budget: None,
+            source_commit: None,
+            branch: None,
             action: AgentBoundedAction {
                 argv: vec!["cynic".to_string()],
                 working_directory: None,

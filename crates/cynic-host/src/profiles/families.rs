@@ -285,38 +285,15 @@ impl HostFamilyProfile {
     }
 
     pub fn privilege_policy(&self) -> PrivilegePolicy {
+        let layout = current_runtime_layout();
         PrivilegePolicy {
             sudoers_subject: "cynic".to_string(),
-            helper_dir: self.helper_dir.clone(),
+            executor: layout.privilege_executor_path(),
+            membrane_target: layout.privilege_sudoers_path(),
+            membrane_admission: format!("{} privilege exec", layout.privilege_executor_path()),
             config_dir: self.config_dir.clone(),
             sudoers_dir: self.sudoers_dir.clone(),
             denial_proof_required: true,
-            dedicated_helpers: self.dedicated_helpers(),
-        }
-    }
-
-    fn dedicated_helpers(&self) -> Vec<String> {
-        match self.kind {
-            HostFamilyKind::DebianSystemd => vec![
-                "cynic-network-actuator".to_string(),
-                "cynic-service-actuator".to_string(),
-                "cynic-dns-actuator".to_string(),
-                "cynic-host-exec".to_string(),
-            ],
-            HostFamilyKind::AlpineOpenRc => vec![
-                "cynic-network-actuator".to_string(),
-                "cynic-service-actuator".to_string(),
-                "cynic-dns-actuator".to_string(),
-                "cynic-host-exec".to_string(),
-            ],
-            HostFamilyKind::ProxmoxHypervisor => vec![
-                "cynic-host-exec".to_string(),
-                "cynic-lxc-exec-bridge".to_string(),
-            ],
-            HostFamilyKind::WindowsService => vec![
-                "cynic-node.exe".to_string(),
-                "cynic-host-exec.exe".to_string(),
-            ],
         }
     }
 }

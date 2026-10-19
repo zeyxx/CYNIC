@@ -7,6 +7,7 @@
 
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::cleanup::*;
+use cynic_types::paths::CynicPaths;
 
 pub struct CleanupAgent<R: ArgvRunner> {
     runner: R,
@@ -45,12 +46,13 @@ impl<R: ArgvRunner> CleanupAgent<R> {
             .map_err(|_| format!("parse available: {}", parts[10]))?;
         let disk_used_percent = ((used as f64 / total as f64) * 100.0) as u8;
 
+        let checkouts_glob = format!("{}/*", CynicPaths::state_dir().join("checkouts").display());
         let du_output = self.runner.run(&[
             "ssh",
             cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
             "du",
             "-sh",
-            "/var/lib/cynic/checkouts/*",
+            checkouts_glob.as_str(),
         ]);
         let mut items = Vec::new();
         for line in du_output.stdout.lines() {
@@ -166,7 +168,7 @@ mod tests {
                 (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
                  cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
-                     stdout: "Filesystem                        Size  Used  Avail Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   40G   38G     0 100% /".to_string(),
+                     stdout: "Filesystem                        1B-blocks         Used    Available Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   42949672960   42949672960     0 100% /".to_string(),
                      stderr: String::new(),
                      spawn_error: None,
                  }),

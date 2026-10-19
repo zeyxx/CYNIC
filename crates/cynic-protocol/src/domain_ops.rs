@@ -229,11 +229,17 @@ pub fn extract_tld(domain: &str) -> Option<&str> {
 /// External provider binding for a domain operation.
 ///
 /// `provider` is the adapter name (e.g. "porkbun", "cloudflare").
-/// `credential` is a structured `SecretReference` — never an inline secret.
+/// `credential` is the primary structured `SecretReference` — never an
+/// inline secret. `credential_secret` is optional and is required only by
+/// adapters that need a second secret (e.g. Porkbun's API key + secret).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
     pub provider: String,
     pub credential: SecretReference,
+    /// Secondary secret reference for adapters requiring a second credential
+    /// (optional, defaults to `None`). Porkbun uses this for `secret_api_key`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_secret: Option<SecretReference>,
 }
 
 /// HTTP edge probe specification for post-action verification.

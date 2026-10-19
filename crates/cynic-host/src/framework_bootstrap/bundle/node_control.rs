@@ -1,3 +1,5 @@
+use cynic_types::paths::CynicPaths;
+
 pub(super) fn render_node_control_config(
     registry: &serde_json::Value,
     target_role: &str,
@@ -39,10 +41,21 @@ pub(super) fn render_node_control_config(
     let target_role = toml_string(target_role)?;
     let capabilities = toml_string_array(&capabilities)?;
     let observed_services = toml_string_array(&observed_services)?;
+    // Target-side resolution: state paths flow through ${CYNIC_STATE_ROOT}
+    // (already honored by this template); the registry and config-dir paths
+    // keep a generation-time default so an unset target env still resolves
+    // to the installed norm.
+    // Resolved install paths never contain TOML string metacharacters, so the
+    // raw display form is safe to interpolate inside the quoted template.
+    let registry_default = CynicPaths::registry_path().display().to_string();
+    let authority_key_default = CynicPaths::system_config_dir()
+        .join("enrollment-authority.pub")
+        .display()
+        .to_string();
     let build_scheduler = if build_scheduler_enabled {
         let release_publication = render_release_publication_config(registry)?;
         format!(
-            "\n[node_control.build_scheduler]\nregistry_path = \"/etc/cynic/registry.json\"\nrepository_id = \"cynic\"\n{release_publication}"
+            "\n[node_control.build_scheduler]\nregistry_path = \"${{CYNIC_RUNTIME_REGISTRY:-{registry_default}}}\"\nrepository_id = \"cynic\"\n{release_publication}"
         )
     } else {
         String::new()
@@ -51,11 +64,11 @@ pub(super) fn render_node_control_config(
         "[node_control]\n\
 kernel_url = \"${{CYNIC_KERNEL_URL}}\"\n\
 node_id = {node_id}\n\
-signing_key_path = \"/var/lib/cynic/identity/node-signing.key\"\n\
-enrollment_request_path = \"/var/lib/cynic/identity/enrollment-request.json\"\n\
-enrollment_grant_path = \"/var/lib/cynic/identity/enrollment-grant.json\"\n\
-enrollment_authority_public_key_path = \"/etc/cynic/enrollment-authority.pub\"\n\
-enrollment_token_path = \"/var/lib/cynic/identity/enrollment-token\"\n\
+signing_key_path = \"${{CYNIC_STATE_ROOT}}/identity/node-signing.key\"\n\
+enrollment_request_path = \"${{CYNIC_STATE_ROOT}}/identity/enrollment-request.json\"\n\
+enrollment_grant_path = \"${{CYNIC_STATE_ROOT}}/identity/enrollment-grant.json\"\n\
+enrollment_authority_public_key_path = \"${{CYNIC_CONFIG_DIR:-{authority_key_default}}}/enrollment-authority.pub\"\n\
+enrollment_token_path = \"${{CYNIC_STATE_ROOT}}/identity/enrollment-token\"\n\
 enrollment_seed_id = \"${{CYNIC_ENROLLMENT_SEED_ID}}\"\n\
 enrollment_role = {target_role}\n\
 agent_workload_state_root = \"${{CYNIC_STATE_ROOT}}\"\n\

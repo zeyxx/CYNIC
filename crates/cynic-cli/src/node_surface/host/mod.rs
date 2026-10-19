@@ -10,10 +10,10 @@ use std::process::ExitCode;
 
 pub(crate) use capacity::execute_capacity;
 pub(crate) use cpu::execute_cpu;
-pub(crate) use disk::{RuntimeDiskCommand, execute_disk, execute_disk_command};
+pub(crate) use disk::{RuntimeDiskCommand, execute_disk_command};
 pub(crate) use memory::execute_memory;
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum NodeHostCommand {
     /// Probe host CPU model, topology, jiffies, and pressure stalls.
     Cpu {

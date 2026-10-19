@@ -1,0 +1,42 @@
+{
+  "schema": "cynic.builder_retention.v1",
+  "owner": "cynic-host",
+  "scope": "builder 10.10.10.119 disposable build caches (reproducible, never source)",
+  "rules": [
+    {
+      "id": "per_sha_checkout_ttl",
+      "path": "/var/lib/cynic/checkouts/cynic-<12hex>",
+      "retain_days": 7,
+      "condition": "HEAD SHA contained in origin/main OR older than TTL with no live claim",
+      "action": "remove directory"
+    },
+    {
+      "id": "session_checkout_ttl",
+      "path": "/var/lib/cynic/checkouts/agent-<name>-<scope>",
+      "retain_days": 7,
+      "condition": "owning session ended AND HEAD contained in origin/main",
+      "action": "remove directory"
+    },
+    {
+      "id": "provenanceless_ttl",
+      "path": "/var/lib/cynic/checkouts/* without .git",
+      "retain_days": 7,
+      "condition": "no git metadata (zero provenance) AND older than TTL",
+      "action": "remove directory"
+    },
+    {
+      "id": "builder_tmp_ttl",
+      "path": "/tmp/cynic-*",
+      "retain_days": 2,
+      "condition": "older than TTL AND no live claim; today's sibling clones are hands-off",
+      "action": "remove directory"
+    }
+  ],
+  "protected": [
+    "/var/lib/cynic/source",
+    "/var/lib/cynic/sccache",
+    "any checkout with HEAD dated < 48h",
+    "any path named by a live claim"
+  ],
+  "read_back": "du -sh + df -h after every purge; inventory (name, SHA, bytes) reported before delete"
+}

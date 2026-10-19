@@ -10,6 +10,8 @@ use crate::ports::build_runner::{
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
+use cynic_types::paths::CynicPaths;
+use std::path::PathBuf;
 
 /// Minimal argv command runner (no shell composition).
 ///
@@ -124,7 +126,7 @@ fn observe_log_path() -> Option<String> {
 pub struct SshBuildRunner {
     pub host: String,
     pub user: String,
-    /// Base dir for per-SHA checkouts, e.g. `/var/lib/cynic/checkouts`.
+    /// Base dir for per-SHA checkouts, e.g. `<state>/checkouts`.
     pub checkout_base: String,
     /// Source of truth cloned when no checkout exists for the SHA.
     pub ssot_url: String,
@@ -139,17 +141,25 @@ pub struct SshBuildRunner {
 }
 
 /// Default checkout base on runner nodes.
-pub const DEFAULT_CHECKOUT_BASE: &str = "/var/lib/cynic/checkouts";
+pub fn default_checkout_base() -> PathBuf {
+    CynicPaths::state_dir().join("checkouts")
+}
 /// Shared compilation cache across per-SHA checkouts. Third-party
 /// dependencies (same lockfile, same toolchain) compile once; only the
 /// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
 /// isolated; concurrent builds serialize on the target-dir lock.
-pub const DEFAULT_SHARED_TARGET_DIR: &str = "/var/lib/cynic/shared-target";
+pub fn default_shared_target_dir() -> PathBuf {
+    CynicPaths::state_dir().join("shared-target")
+}
 /// Default shared sccache dir on runner nodes (created on first use).
-pub const DEFAULT_SCCACHE_DIR: &str = "/var/lib/cynic/sccache";
+pub fn default_sccache_dir() -> PathBuf {
+    CynicPaths::state_dir().join("sccache")
+}
 /// Absolute sccache binary on runners (non-interactive SSH has no cargo/bin
 /// on PATH, so the wrapper must never rely on PATH resolution).
-pub const DEFAULT_SCCACHE_BIN: &str = "/var/lib/cynic/bin/sccache";
+pub fn default_sccache_bin() -> PathBuf {
+    CynicPaths::state_dir().join("bin/sccache")
+}
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
 
@@ -232,7 +242,9 @@ impl BuildRunnerPort for SshBuildRunner {
         // Blocked. Only the two cases below — a runner we cannot reach, and a
         // trigger that refuses its own configuration — stay errors, because in
         // those cases no observation of the commit exists to record.
-        let blocked = |broken_layer: Option<String>, reason: String| -> Result<BuildProofBundle, BuildError> {
+        let blocked = |broken_layer: Option<String>,
+                       reason: String|
+         -> Result<BuildProofBundle, BuildError> {
             Ok(self.proof(
                 &sha,
                 action,
@@ -349,10 +361,13 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
+            format!(
+                "CARGO_TARGET_DIR={}",
+                default_shared_target_dir().display()
+            ),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
-            argv.push(format!("RUSTC_WRAPPER={DEFAULT_SCCACHE_BIN}"));
+            argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));
             argv.push(format!("SCCACHE_DIR={dir}"));
         }
         argv.extend(cargo);
@@ -435,6 +450,21 @@ impl BuildRunnerPort for SshBuildRunner {
     }
 }
 
+impl SshBuildRunner {
+    /// Pre-flight capacity read-back: free RAM available on the runner via
+    /// `free -b` (coreutils, no PATH dependence on the remote binary).
+    /// Parsing is the pure protocol predicate; a missing/incompatible
+    /// output is `None` — the caller records the unknown, never a number.
+    pub fn probe_free_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        if !out.success() {
+            return None;
+        }
+        cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
+    }
+}
+
 /// Busy jiffies (user + nice + system) from the aggregate `cpu ` line of
 /// `/proc/stat`. Kept local (5 lines) because `cynic-node` must not depend
 /// on `cynic-host`'s probe; the verdict-free parse is the shared shape.
@@ -514,9 +544,9 @@ fn build_evidence(stderr: &str) -> String {
     // A cargo error block starts at `error` and runs until the next blank
     // separator or the next top-level `error`/`warning`. Keep the first block:
     // one real error is what an operator acts on.
-    let start = lines.iter().position(|l| {
-        l.starts_with("error") && !l.starts_with("error: could not compile")
-    });
+    let start = lines
+        .iter()
+        .position(|l| l.starts_with("error") && !l.starts_with("error: could not compile"));
     if let Some(start) = start {
         let mut out = String::new();
         for line in lines.iter().skip(start) {
@@ -550,6 +580,9 @@ fn build_evidence(stderr: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // PipelineStatus is only referenced by tests; the file-level import was
+    // dropped to silence the unused warning on normal builds.
+    use crate::ports::build_runner::PipelineStatus;
 
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
@@ -760,8 +793,14 @@ mod tests {
         assert_eq!(proof.status, PipelineStatus::Blocked);
         assert_eq!(proof.layers[0].status, LayerStatus::Failed);
         let reason = proof.verdict_reason.expect("a blocked proof says why");
-        assert!(reason.contains(&"d".repeat(40)), "reason names the observed head: {reason}");
-        assert!(reason.contains(&commit), "reason names the expected commit: {reason}");
+        assert!(
+            reason.contains(&"d".repeat(40)),
+            "reason names the observed head: {reason}"
+        );
+        assert!(
+            reason.contains(&commit),
+            "reason names the expected commit: {reason}"
+        );
     }
 
     #[test]
@@ -789,8 +828,13 @@ mod tests {
         assert_eq!(proof.broken_layer.as_deref(), Some("cynic-host"));
         assert_eq!(proof.layers[0].layer, "cynic-host");
         assert_eq!(proof.layers[0].status, LayerStatus::Failed);
-        let reason = proof.verdict_reason.expect("the compiler output is retained");
-        assert!(reason.contains("E0432"), "the reason carries the compiler output: {reason}");
+        let reason = proof
+            .verdict_reason
+            .expect("the compiler output is retained");
+        assert!(
+            reason.contains("E0432"),
+            "the reason carries the compiler output: {reason}"
+        );
         // Wall time burned by the failed build is evidence too.
         assert!(proof.duration_ms > 0 || proof.duration_ms == 0);
     }
@@ -879,7 +923,9 @@ mod tests {
         // cargo prints errors FIRST and the summary LAST. A plain tail keeps
         // the summary and the warnings, and drops the error — the one thing an
         // operator acts on.
-        let mut stderr = String::from("error[E0432]: unresolved import `foo`\n --> src/lib.rs:3:5\n  |\n3 | use foo::bar;\n  |     ^^^ no `foo` in the root\n\n");
+        let mut stderr = String::from(
+            "error[E0432]: unresolved import `foo`\n --> src/lib.rs:3:5\n  |\n3 | use foo::bar;\n  |     ^^^ no `foo` in the root\n\n",
+        );
         // Pad with warnings so the error is pushed out of a 2 KiB tail.
         for i in 0..80 {
             stderr.push_str(&format!(
@@ -889,10 +935,7 @@ mod tests {
         stderr.push_str("error: could not compile `cynic-cli` (lib) due to 1 previous error\n");
 
         let evidence = build_evidence(&stderr);
-        assert!(
-            evidence.contains("E0432"),
-            "the error survives: {evidence}"
-        );
+        assert!(evidence.contains("E0432"), "the error survives: {evidence}");
         assert!(
             evidence.contains("no `foo` in the root"),
             "the explanation survives: {evidence}"

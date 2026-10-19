@@ -56,6 +56,7 @@ impl Default for TokenUncertaintyParams {
     fn default() -> Self {
         Self {
             exploration_top_probability: 0.6,
+            exploration_top_probability: 0.5,
             exploitation_top_probability: 0.75,
         }
     }
@@ -190,6 +191,9 @@ pub fn assess_token_uncertainty(
     let level = if mean_top_probability < params.exploration_top_probability {
         TokenUncertaintyLevel::Exploration
     } else if mean_top_probability > params.exploitation_top_probability {
+    let level = if mean_top_probability <= params.exploration_top_probability {
+        TokenUncertaintyLevel::Exploration
+    } else if mean_top_probability >= params.exploitation_top_probability {
         TokenUncertaintyLevel::Exploitation
     } else {
         TokenUncertaintyLevel::Balanced
@@ -251,6 +255,11 @@ mod tests {
         assert!(assessment
             .residual_unknowns
             .contains(&"no_token_snapshots_observed".to_string()));
+        assert!(
+            assessment
+                .residual_unknowns
+                .contains(&"no_token_snapshots_observed".to_string())
+        );
     }
 
     #[test]

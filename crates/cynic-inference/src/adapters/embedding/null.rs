@@ -15,28 +15,6 @@ impl EmbeddingPort for NullEmbedding {
     }
 }
 
-#[derive(Debug)]
-pub struct FixedEmbedding {
-    vector: Vec<f32>,
-}
-
-impl FixedEmbedding {
-    pub fn new(vector: Vec<f32>) -> Self {
-        Self { vector }
-    }
-}
-
-#[async_trait]
-impl EmbeddingPort for FixedEmbedding {
-    async fn embed(&self, _text: &str) -> Result<Embedding, EmbeddingError> {
-        Ok(Embedding {
-            vector: self.vector.clone(),
-            dimensions: self.vector.len(),
-            prompt_tokens: None,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

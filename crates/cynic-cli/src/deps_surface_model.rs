@@ -21,6 +21,8 @@ pub(crate) struct PinEntry {
     #[serde(default)]
     pub(crate) min_capability: Option<String>,
     #[serde(default)]
+    pub(crate) commit: Option<String>,
+    #[serde(default)]
     pub(crate) required: Option<bool>,
     #[serde(default)]
     pub(crate) notes: Option<String>,
@@ -76,6 +78,7 @@ pub(crate) struct PinView {
     pub(crate) min_build: Option<u64>,
     pub(crate) desired_build: Option<u64>,
     pub(crate) min_capability: Option<String>,
+    pub(crate) commit: Option<String>,
     pub(crate) notes: Option<String>,
 }
 

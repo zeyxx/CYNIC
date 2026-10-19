@@ -17,6 +17,7 @@ default = []
 [dependencies]
 # cynic-inference removed: types and loader extracted to kernel-local modules
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-types = { path = "../cynic-types" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-storage = { path = "../cynic-storage" }

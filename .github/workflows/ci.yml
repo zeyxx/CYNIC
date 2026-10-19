@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -30,6 +32,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Validate Foundation & Infra JSON Contracts
+        id: validate_json
         run: |
           jq empty contracts/foundation.json
           jq empty infra/runtime-authority.json
@@ -38,7 +41,87 @@ jobs:
           jq empty infra/ecosystem-pins.json
 
       - name: Check Workspace Compilation
+        id: check_compile
         run: cargo check --workspace
 
+      # Test suites run with continue-on-error so every suite executes to
+      # completion in one job instead of fail-fast truncating the report.
+      # The raw result survives in steps.<id>.outcome; the final
+      # "Aggregate Test Suite Verdict" step is the single gate that decides
+      # the job's fate. See docs/design/CI_EVOLUTION.md.
+
       - name: Run Core Types Test Suite
-        run: cargo test -p cynic-types --lib
+        id: test_core_types
+        continue-on-error: true
+        run: cargo test -p cynic-types
+
+      - name: Run Knowledge Test Suite
+        id: test_knowledge
+        continue-on-error: true
+        run: cargo test -p cynic-knowledge
+
+      - name: Run Inference Test Suite
+        id: test_inference
+        continue-on-error: true
+        run: cargo test -p cynic-inference
+
+      - name: Run Canonical Paths Coherence Test
+        id: test_canonical_paths
+        continue-on-error: true
+        run: cargo test -p cynic-cli --test canonical_paths_coherence
+
+      - name: Aggregate Test Suite Verdict
+        if: always()
+        env:
+          JSON_VALIDATION_OUTCOME: ${{ steps.validate_json.outcome }}
+          COMPILE_OUTCOME: ${{ steps.check_compile.outcome }}
+          CORE_TYPES_OUTCOME: ${{ steps.test_core_types.outcome }}
+          KNOWLEDGE_OUTCOME: ${{ steps.test_knowledge.outcome }}
+          INFERENCE_OUTCOME: ${{ steps.test_inference.outcome }}
+          CANONICAL_PATHS_OUTCOME: ${{ steps.test_canonical_paths.outcome }}
+        run: |
+          set -u
+
+          # A hard gate that did not run successfully means the suites were never
+          # all executed; that is a failure of the run, not of a suite.
+          hard_gate_failed=0
+          for entry in "validate_json:${JSON_VALIDATION_OUTCOME}" \
+                       "check_compile:${COMPILE_OUTCOME}"; do
+            gate="${entry%%:*}"
+            outcome="${entry#*:}"
+            if [ "${outcome}" != "success" ]; then
+              hard_gate_failed=1
+              printf '  %-18s %s (hard gate)\n' "${gate}" "${outcome}"
+            fi
+          done
+
+          # `outcome` is the raw step result before continue-on-error is applied,
+          # so `failure` here is a genuinely failing suite.
+          failed_suites=""
+          skipped_suites=""
+          for suite in core_types knowledge inference canonical_paths; do
+            var="$(printf '%s_OUTCOME' "${suite}" | tr '[:lower:]' '[:upper:]')"
+            outcome="${!var}"
+            printf '  %-18s %s\n' "${suite}" "${outcome}"
+            case "${outcome}" in
+              failure|timed_out) failed_suites="${failed_suites} ${suite}" ;;
+              skipped) skipped_suites="${skipped_suites} ${suite}" ;;
+            esac
+          done
+
+          if [ "${hard_gate_failed}" -eq 1 ]; then
+            echo "::error::Aggregate verdict: FAIL — a hard gate did not succeed, so the suites did not all execute."
+          fi
+          if [ -n "${failed_suites}" ]; then
+            echo "::error::Aggregate verdict: FAIL — failing suites:${failed_suites}"
+          fi
+          if [ -n "${skipped_suites}" ] && [ "${hard_gate_failed}" -eq 0 ]; then
+            echo "::warning::Aggregate verdict: suites skipped without a broken hard gate:${skipped_suites}"
+          fi
+
+          if [ "${hard_gate_failed}" -eq 1 ] || [ -n "${failed_suites}" ]; then
+            echo "Aggregate verdict: FAIL"
+            exit 1
+          fi
+
+          echo "Aggregate verdict: PASS — every executed test suite succeeded."

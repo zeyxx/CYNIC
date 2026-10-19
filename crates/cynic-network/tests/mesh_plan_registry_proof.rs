@@ -9,6 +9,8 @@
 
 use std::path::PathBuf;
 
+use cynic_network::plane_vocabulary::{Plane, UNDERLAY_KEY};
+
 fn repo_registry_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../infra/registry.json")
 }
@@ -111,9 +113,12 @@ fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
             .unwrap_or("?");
         if let Some(network) = node.get("network").and_then(|net| net.as_object()) {
             for key in network.keys() {
+                // Authority is the canonical Plane model (service/admin/mesh/lan)
+                // plus the underlay alias — never a hardcoded trio. Lan covers
+                // operator workstations on the home LAN (non-fleet, non-mesh).
                 assert!(
-                    ["service", "admin", "mesh", "local"].contains(&key.as_str()),
-                    "node '{name}' network key '{key}' is outside the canonical trio vocabulary"
+                    Plane::from_name(key.as_str()).is_some() || key.as_str() == UNDERLAY_KEY,
+                    "node '{name}' network key '{key}' is outside the canonical plane vocabulary"
                 );
             }
         }
@@ -125,10 +130,74 @@ fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
         for service in services {
             if let Some(plane) = service.get("network_plane").and_then(|p| p.as_str()) {
                 assert!(
-                    ["service", "admin", "mesh"].contains(&plane),
-                    "node '{name}' service network_plane '{plane}' is outside the trio"
+                    Plane::from_name(plane).is_some(),
+                    "node '{name}' service network_plane '{plane}' is outside the canonical plane vocabulary"
                 );
             }
         }
     }
+}
+
+#[test]
+fn firewall_policy_derives_from_repo_registry() {
+    // Proves the declared data and the fail-closed renderer agree on the
+    // live file: any undeclared plane or missing mesh interface breaks here,
+    // not in production.
+    let raw = std::fs::read_to_string(repo_registry_path())
+        .expect("read infra/registry.json from workspace");
+    let registry: serde_json::Value =
+        serde_json::from_str(&raw).expect("parse infra/registry.json");
+    let policy = cynic_network::firewall_policy::derive_firewall_policy_from_registry(
+        &registry, "forgejo", 1000,
+    )
+    .expect("derive firewall policy from live registry");
+    assert!(
+        policy.bindings.iter().any(|b| b.port == 3000),
+        "forgejo backend binding missing"
+    );
+    let ruleset = policy.render_nftables_ruleset();
+    assert!(
+        ruleset.contains("10.10.10.0/24 tcp dport 3000 accept"),
+        "service-plane rule missing: {ruleset}"
+    );
+}
+
+#[test]
+fn every_repo_registry_service_declares_its_plane() {
+    // Pins the firewall derivation to declared data: an undeclared service
+    // silently falls back to ServiceOnly in derive_firewall_policy_from_registry.
+    // This test fails the moment a service is added without network_plane.
+    let raw = std::fs::read_to_string(repo_registry_path())
+        .expect("read infra/registry.json from workspace");
+    let registry: serde_json::Value =
+        serde_json::from_str(&raw).expect("parse infra/registry.json");
+    let nodes = registry
+        .get("nodes")
+        .and_then(|nodes| nodes.as_array())
+        .expect("registry has nodes");
+    let mut undeclared = Vec::new();
+    for node in nodes {
+        let name = node.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+        let empty = Vec::new();
+        let services = node
+            .get("services")
+            .and_then(|services| services.as_array())
+            .unwrap_or(&empty);
+        for service in services {
+            let plane = service
+                .get("network_plane")
+                .and_then(|plane| plane.as_str())
+                .map(str::trim)
+                .filter(|plane| !plane.is_empty());
+            if plane.is_none() {
+                let service_name = service.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+                undeclared.push(format!("{name}/{service_name}"));
+            }
+        }
+    }
+    assert!(
+        undeclared.is_empty(),
+        "services without declared network_plane: {}",
+        undeclared.join(", ")
+    );
 }

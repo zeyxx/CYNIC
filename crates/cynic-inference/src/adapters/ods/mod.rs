@@ -6,7 +6,7 @@
 //! | Layer | Owner | Role |
 //! |---|---|---|
 //! | **CYNIC native** | `adapters::local`, routing SSOT | vault, profiles, start/stop, sovereign routing |
-//! | **Peer plane** | this adapter + `application::peer_attach` | probe `/v1` listeners; optional publish into SSOT |
+//! | **Peer plane** | this adapter + `cynic-node::peer_attach` | probe `/v1` listeners; optional publish into SSOT |
 //! | **ODS product** | [Osmantic/ODS](https://github.com/Osmantic/ODS) (external) | optional full-stack bootstrap (WebUI, agents, …) |
 //! | **Install** | `cynic-host` ecosystem provider `ods` | clone pin + `install.sh` — **not** this crate |
 //!
@@ -22,12 +22,9 @@
 //! cynic deps upgrade --yes --only ods                # optional product install
 //! ```
 //!
-//! Prefer `crate::application::peer_attach` for new call sites (stable report).
+//! Prefer `cynic-node::peer_attach` for new call sites (stable report).
 //! Historical entrypoint: `crate::ods_discovery`.
 
-pub use crate::application::peer_attach::{
-    PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
-};
 pub use crate::ods_discovery::{
     DiscoveredService, DiscoveryReport, discover_ods_services, run_sync_pipeline,
     sync_discovered_backends,

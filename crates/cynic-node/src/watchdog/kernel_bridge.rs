@@ -133,7 +133,7 @@ impl WatchdogKernelProbePort for LocalWatchdogKernelProbe {
 mod tests {
     use super::observation_payload;
     use crate::config::{KernelConfig, NodeConfig, WatchdogConfig, WatchdogRuntimeConfig};
-    use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+    use cynic_types::paths::CynicPaths;
     use serde_json::json;
 
     fn config() -> WatchdogConfig {
@@ -153,7 +153,7 @@ mod tests {
             watchdog: WatchdogRuntimeConfig {
                 interval_secs: 30,
                 http_timeout_secs: 5,
-                registry_path: DEFAULT_REGISTRY_PATH.to_string(),
+                registry_path: CynicPaths::registry_path().display().to_string(),
             },
         }
     }

@@ -16,9 +16,9 @@ pub struct HardwareBaselineReconcileReport {
     pub status: &'static str,
     pub mutates: bool,
     pub requested_apply: bool,
-    pub helper_argv: Vec<String>,
+    pub exec_argv: Vec<String>,
     pub bundle: Option<HardwareBaselineBundleProof>,
-    pub helper_status: Option<String>,
+    pub exec_status: Option<String>,
     pub blockers: Vec<String>,
 }
 
@@ -29,19 +29,20 @@ pub fn reconcile_hardware_baseline(
     store: &impl HardwareBaselineBundleStorePort,
     runner: &impl ArgvRunner,
 ) -> HardwareBaselineReconcileReport {
-    let helper_argv = vec![
+    let exec_argv = vec![
         layout.sudo_bin(),
         "-n".to_string(),
-        layout.host_exec_helper_path(),
+        layout.privilege_executor_path(),
+        "privilege".to_string(),
+        "exec".to_string(),
         "hardware-baseline-enroll".to_string(),
-        "--apply".to_string(),
     ];
     if plan.status == "converged" {
         return report(
             "converged",
             false,
             requested_apply,
-            helper_argv,
+            exec_argv,
             None,
             None,
             Vec::new(),
@@ -52,32 +53,32 @@ pub fn reconcile_hardware_baseline(
             "blocked",
             false,
             requested_apply,
-            helper_argv,
+            exec_argv,
             None,
             None,
             vec!["hardware_baseline_plan_not_ready".to_string()],
         );
     }
     if !requested_apply {
-        return report("planned", false, false, helper_argv, None, None, Vec::new());
+        return report("planned", false, false, exec_argv, None, None, Vec::new());
     }
     let bundle = match build_hardware_baseline_bundle(plan) {
         Ok(bundle) => bundle,
         Err(blockers) => {
-            return report("blocked", false, true, helper_argv, None, None, blockers);
+            return report("blocked", false, true, exec_argv, None, None, blockers);
         }
     };
     let bundle_proof =
         match store.persist_absent_or_matching(&layout.hardware_baseline_bundle_path(), &bundle) {
             Ok(proof) => proof,
             Err(error) => {
-                return report("blocked", false, true, helper_argv, None, None, vec![error]);
+                return report("blocked", false, true, exec_argv, None, None, vec![error]);
             }
         };
-    let argv = helper_argv.iter().map(String::as_str).collect::<Vec<_>>();
+    let argv = exec_argv.iter().map(String::as_str).collect::<Vec<_>>();
     let output = runner.run(&argv);
     let helper_json = serde_json::from_str::<serde_json::Value>(output.stdout.trim()).ok();
-    let helper_status = helper_json
+    let exec_status = helper_json
         .as_ref()
         .and_then(|value| value.get("status"))
         .and_then(serde_json::Value::as_str)
@@ -87,14 +88,14 @@ pub fn reconcile_hardware_baseline(
         .and_then(|value| value.get("schema"))
         .and_then(serde_json::Value::as_str)
         == Some("cynic.host.hardware_baseline_reconcile.v1");
-    if output.success() && helper_schema_valid && helper_status.as_deref() == Some("completed") {
+    if output.success() && helper_schema_valid && exec_status.as_deref() == Some("completed") {
         return report(
             "completed",
             true,
             true,
-            helper_argv,
+            exec_argv,
             Some(bundle_proof),
-            helper_status,
+            exec_status,
             Vec::new(),
         );
     }
@@ -114,16 +115,16 @@ pub fn reconcile_hardware_baseline(
     if !helper_schema_valid {
         blockers.push("helper_report_schema_invalid".to_string());
     }
-    if helper_status.as_deref() != Some("completed") {
+    if exec_status.as_deref() != Some("completed") {
         blockers.push("helper_did_not_complete".to_string());
     }
     report(
         "blocked",
         bundle_proof.created,
         true,
-        helper_argv,
+        exec_argv,
         Some(bundle_proof),
-        helper_status,
+        exec_status,
         blockers,
     )
 }
@@ -132,9 +133,9 @@ fn report(
     status: &'static str,
     mutates: bool,
     requested_apply: bool,
-    helper_argv: Vec<String>,
+    exec_argv: Vec<String>,
     bundle: Option<HardwareBaselineBundleProof>,
-    helper_status: Option<String>,
+    exec_status: Option<String>,
     blockers: Vec<String>,
 ) -> HardwareBaselineReconcileReport {
     HardwareBaselineReconcileReport {
@@ -142,9 +143,9 @@ fn report(
         status,
         mutates,
         requested_apply,
-        helper_argv,
+        exec_argv,
         bundle,
-        helper_status,
+        exec_status,
         blockers,
     }
 }
@@ -231,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn dry_run_only_projects_the_bounded_helper_argv() {
+    fn dry_run_only_projects_the_bounded_exec_argv() {
         let report = reconcile_hardware_baseline(
             &plan(),
             false,
@@ -241,26 +242,32 @@ mod tests {
         );
         assert_eq!(report.status, "planned");
         assert_eq!(report.bundle, None);
+        // The executor path is install-site configuration (CYNIC_BIN); the
+        // membrane shape after it is the property under test.
+        let executor = layout().privilege_executor_path();
         assert_eq!(
-            report.helper_argv,
+            report.exec_argv,
             vec![
-                "sudo",
-                "-n",
-                "/usr/local/libexec/cynic/cynic-host-exec",
-                "hardware-baseline-enroll",
-                "--apply"
+                "sudo".to_string(),
+                "-n".to_string(),
+                executor,
+                "privilege".to_string(),
+                "exec".to_string(),
+                "hardware-baseline-enroll".to_string(),
             ]
         );
     }
 
     #[test]
-    fn apply_accepts_only_the_exact_completed_helper_report() {
+    fn apply_accepts_only_the_exact_completed_membrane_report() {
+        let executor = layout().privilege_executor_path();
         let expected = vec![
             "sudo".to_string(),
             "-n".to_string(),
-            "/usr/local/libexec/cynic/cynic-host-exec".to_string(),
+            executor,
+            "privilege".to_string(),
+            "exec".to_string(),
             "hardware-baseline-enroll".to_string(),
-            "--apply".to_string(),
         ];
         let runner = MapArgvRunner {
             responses: vec![(

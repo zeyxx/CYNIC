@@ -107,33 +107,24 @@ fn load_inference_config_from_path(
     })
 }
 
-/// Resolve the runtime registry path.
-/// Lookup order:
-/// 1. `CYNIC_REGISTRY_PATH` env var (explicit override)
-/// 2. `/etc/cynic/registry.json` (system-wide)
-/// 3. `$XDG_CONFIG_HOME/cynic/registry.json` (user)
+/// Resolve the runtime registry path via canonical CynicPaths SSOT.
 pub(crate) fn resolve_runtime_registry_path(_override: Option<&str>) -> Result<PathBuf, String> {
-    if let Ok(path) = std::env::var("CYNIC_REGISTRY_PATH") {
-        return Ok(PathBuf::from(path));
+    if let Some(ov) = _override {
+        return Ok(PathBuf::from(ov));
     }
-
-    let system_path = PathBuf::from("/etc/cynic/registry.json");
-    if system_path.exists() {
-        return Ok(system_path);
-    }
-
-    let user_path = std::env::var("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".config")))
-        .map(|base| base.join("cynic").join("registry.json"));
-
-    if let Ok(ref p) = user_path {
-        if p.exists() {
-            return Ok(p.clone());
+    let p = cynic_types::CynicPaths::registry_path();
+    if p.exists() {
+        Ok(p)
+    } else if let Some(user_dir) = cynic_types::CynicPaths::user_config_dir() {
+        let user_registry = user_dir.join(cynic_types::CynicPaths::DEFAULT_REGISTRY_FILENAME);
+        if user_registry.exists() {
+            Ok(user_registry)
+        } else {
+            Ok(p)
         }
+    } else {
+        Ok(p)
     }
-
-    Ok(system_path)
 }
 
 pub(crate) fn resolve_registry_placeholders(mut content: String) -> String {

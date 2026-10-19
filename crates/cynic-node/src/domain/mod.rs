@@ -7,6 +7,7 @@ pub mod mesh_coordination;
 pub mod network_execution;
 pub(crate) mod network_mesh_apply;
 pub mod network_projection;
+pub mod node_contribution;
 pub mod node_observation;
 pub mod observation_plan;
 pub mod observation_runtime;

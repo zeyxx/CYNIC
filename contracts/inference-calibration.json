@@ -1,0 +1,54 @@
+{
+  "schema": "cynic.inference.calibration.v1",
+  "status": "normative",
+  "purpose": "Authoritative hardware calibration and memory admission rules for sovereign inference nodes.",
+  "citations": [
+    "GPU Memory Math for LLMs (2026 Edition) by Ahmad Osman (https://x.com/TheAhmadOsman)",
+    "Memory Bandwidth for Local AI Hardware (2026 Edition) by Ahmad Osman (https://x.com/TheAhmadOsman)"
+  ],
+  "hardware_substrate": {
+    "node_name": "cortex",
+    "soc": "AMD Ryzen 7 5700G (Cezanne / Zen 3 APU)",
+    "gpu_engine": "Vulkan0 RADV",
+    "total_ram_bytes": 14532366336,
+    "swap_bytes": 0,
+    "bandwidth_tier": "sub100_legacy_ddr",
+    "measured_sustained_bandwidth_gbps": 38.0
+  },
+  "admission_policy": {
+    "host_os_reserve_bytes": 536870912,
+    "safety_margin_ratio": 0.20,
+    "concurrent_active_models_max": 1,
+    "rule": "Refuse launch if physical available RAM < (Weights + KV Cache + Activations + 20% margin) + 512MB OS reserve."
+  },
+  "calibrated_backends": [
+    {
+      "alias": "lfm25-2b-q4",
+      "model_file": "LFM2.5-2.6B-Q4_K_M.gguf",
+      "port": 8085,
+      "architecture": "lfm2",
+      "context_length": 8192,
+      "kv_quantization": "fp16",
+      "parallel_slots": 4,
+      "required_footprint_bytes": 3619684352,
+      "measured_ttft_ms": 418,
+      "measured_decode_tps": 24.15,
+      "streaming_sse": true,
+      "status": "calibrated_sovereign"
+    },
+    {
+      "alias": "qwen35-2b-q4",
+      "model_file": "Qwen3.5-2B-Q4_K_M.gguf",
+      "port": 8088,
+      "architecture": "qwen2",
+      "context_length": 8192,
+      "kv_quantization": "fp16",
+      "parallel_slots": 4,
+      "required_footprint_bytes": 3145728000,
+      "measured_ttft_ms": 300,
+      "measured_decode_tps": 26.6,
+      "streaming_sse": true,
+      "status": "calibrated_sovereign"
+    }
+  ]
+}

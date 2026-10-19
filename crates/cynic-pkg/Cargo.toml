@@ -10,6 +10,7 @@ publish = false
 
 [dependencies]
 cynic-network = { path = "../cynic-network" }
+cynic-types = { path = "../cynic-types" }
 cynic-protocol = { path = "../cynic-protocol" }
 serde.workspace = true
 serde_json.workspace = true

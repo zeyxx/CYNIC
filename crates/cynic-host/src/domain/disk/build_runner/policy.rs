@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::types::{
     BUILD_CACHE_PLAN_SCHEMA, BuildCacheDecision, BuildCacheDesiredState, BuildCacheObservation,
-    BuildCachePathState, BuildCachePlan,
+    BuildCachePathState, BuildCachePlan, EphemeralEntry, EphemeralKind, EphemeralScope,
 };
 
 #[derive(Deserialize)]
@@ -27,6 +27,27 @@ struct BuildLifecycle {
     canonical_target_relative_path: String,
     canonical_cache_reclaim: CacheReclaim,
     noncanonical_cache_candidates: Vec<CacheCandidate>,
+    /// Opt-in retention for ephemeral scopes. Absent in registries that
+    /// predate it — absence disables retention and preserves behavior.
+    #[serde(default)]
+    ephemeral_retention: Option<EphemeralRetention>,
+}
+
+#[derive(Deserialize)]
+struct EphemeralRetention {
+    schema: String,
+    max_age_ms: u64,
+    pressure_grace_ms: u64,
+    scopes: Vec<EphemeralScopeDecl>,
+}
+
+#[derive(Deserialize)]
+struct EphemeralScopeDecl {
+    base: String,
+    relative_path: String,
+    kind: String,
+    #[serde(default)]
+    workload_store_relative_path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -78,6 +99,28 @@ pub fn load_build_cache_desired_state(
             _ => Err("build_cache_candidate_base_unsupported".to_string()),
         })
         .collect::<Result<Vec<_>, _>>()?;
+    let retention = &policy.ephemeral_retention;
+    let mut ephemeral_scopes = Vec::new();
+    if let Some(retention) = retention {
+        for scope in &retention.scopes {
+            let kind = match scope.kind.as_str() {
+                "evidence_checkout" => EphemeralKind::EvidenceCheckout,
+                "workload_workspace" => EphemeralKind::WorkloadWorkspace,
+                _ => return Err("build_cache_retention_kind_unsupported".to_string()),
+            };
+            if scope.kind.as_str() == "workload_workspace"
+                && scope.workload_store_relative_path.is_none()
+            {
+                return Err("build_cache_retention_workspace_store_missing".to_string());
+            }
+            ephemeral_scopes.push(EphemeralScope {
+                base: scope.base.clone(),
+                relative_path: scope.relative_path.clone(),
+                kind,
+                workload_store_relative_path: scope.workload_store_relative_path.clone(),
+            });
+        }
+    }
     Ok(BuildCacheDesiredState {
         node_id: node_id.to_string(),
         state_root: path_string(state_root)?,
@@ -90,6 +133,11 @@ pub fn load_build_cache_desired_state(
             .iter()
             .map(|path| path_string(path))
             .collect::<Result<Vec<_>, _>>()?,
+        ephemeral_scopes,
+        retention_max_age_ms: retention.as_ref().map(|retention| retention.max_age_ms),
+        retention_pressure_grace_ms: retention
+            .as_ref()
+            .map(|retention| retention.pressure_grace_ms),
     })
 }
 
@@ -103,6 +151,14 @@ pub fn reconcile_build_cache(
     {
         blockers.push("build_cache_observation_identity_mismatch".to_string());
         BuildCacheDecision::Blocked
+    } else if !ephemeral_eligible(desired, observed).is_empty() {
+        // Dead weight goes before everything else, including the
+        // non-canonical refusal: ephemeral entries are verified dead
+        // (terminal workspaces) or retention-aged (checkouts past the hard
+        // cap, or past the pressure grace under pressure), while a present
+        // non-canonical cache may still be live. Reclaiming the dead first
+        // is strictly safer than refusing on the ungoverned.
+        BuildCacheDecision::ReclaimEphemeral
     } else if !observed.observed_noncanonical_cache_paths.is_empty() {
         blockers.push("noncanonical_build_cache_present".to_string());
         BuildCacheDecision::Blocked
@@ -135,24 +191,79 @@ pub fn reconcile_build_cache(
     };
     blockers.sort();
     blockers.dedup();
+    let ephemeral_targets = match decision {
+        BuildCacheDecision::ReclaimEphemeral => ephemeral_eligible(desired, observed)
+            .into_iter()
+            .map(|entry| entry.path)
+            .collect(),
+        _ => Vec::new(),
+    };
     BuildCachePlan {
         schema: BUILD_CACHE_PLAN_SCHEMA,
         status: match decision {
             BuildCacheDecision::Satisfied => "satisfied",
+            BuildCacheDecision::ReclaimEphemeral => "planned",
             BuildCacheDecision::ReclaimCanonicalProfile => "planned",
             BuildCacheDecision::Blocked => "blocked",
         },
         node_id: desired.node_id.clone(),
-        mutates: decision == BuildCacheDecision::ReclaimCanonicalProfile,
+        mutates: matches!(
+            decision,
+            BuildCacheDecision::ReclaimEphemeral | BuildCacheDecision::ReclaimCanonicalProfile
+        ),
         decision,
         target_profile: desired.reclaim_profile.clone(),
         target_path: observed.reclaim_profile_path.clone(),
+        ephemeral_targets,
         preserved_profiles: desired.preserved_profiles.clone(),
         minimum_available_bytes: desired.minimum_available_bytes,
         observed_available_bytes: observed.available_bytes,
         blockers,
         rollback_intent: "none_reproducible_build_cache_only",
     }
+}
+
+/// Pure eligibility for ephemeral retention, eldest first.
+///
+/// Retention is opt-in: without a declared `ephemeral_retention` section
+/// (both `Option`s `None`) nothing is ever eligible and the historical
+/// decision chain runs unchanged. Liveness is fail-closed: a workspace is
+/// eligible only on a verified terminal read-back; live or unclassifiable
+/// entries are never eligible, whatever their age or the pressure.
+fn ephemeral_eligible(
+    desired: &BuildCacheDesiredState,
+    observed: &BuildCacheObservation,
+) -> Vec<EphemeralEntry> {
+    let (Some(max_age_ms), Some(grace_ms)) = (
+        desired.retention_max_age_ms,
+        desired.retention_pressure_grace_ms,
+    ) else {
+        return Vec::new();
+    };
+    let pressure = observed
+        .available_bytes
+        .is_some_and(|bytes| bytes < desired.minimum_available_bytes);
+    let mut eligible: Vec<EphemeralEntry> = observed
+        .observed_ephemeral
+        .iter()
+        .filter(|entry| match entry.kind {
+            EphemeralKind::EvidenceCheckout => {
+                entry.age_ms > max_age_ms || (pressure && entry.age_ms > grace_ms)
+            }
+            EphemeralKind::WorkloadWorkspace => {
+                entry.workload_terminal == Some(true)
+                    && (pressure || entry.age_ms > max_age_ms)
+            }
+        })
+        .cloned()
+        .collect();
+    eligible.sort_by(|left, right| {
+        right
+            .age_ms
+            .cmp(&left.age_ms)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    eligible
 }
 
 fn validate_policy(
@@ -179,8 +290,34 @@ fn validate_policy(
             .noncanonical_cache_candidates
             .iter()
             .any(|candidate| !safe_relative(&candidate.relative_path))
+        {
+            return Err("build_cache_policy_invalid".to_string());
+        }
+        if let Some(retention) = &policy.ephemeral_retention {
+            validate_retention(retention)?;
+        }
+        Ok(())
+        }
+
+fn validate_retention(retention: &EphemeralRetention) -> Result<(), String> {
+    if retention.schema != "cynic.build_runner.ephemeral_retention.v1"
+        || retention.max_age_ms == 0
+        || retention.scopes.is_empty()
     {
-        return Err("build_cache_policy_invalid".to_string());
+        return Err("build_cache_retention_invalid".to_string());
+    }
+    for scope in &retention.scopes {
+        let kind_ok =
+            scope.kind == "evidence_checkout" || scope.kind == "workload_workspace";
+        let base_ok = scope.base == "state_root" || scope.base == "temporary_directory";
+        let store_ok = scope.kind != "workload_workspace"
+            || scope
+                .workload_store_relative_path
+                .as_deref()
+                .is_some_and(|path| safe_relative(path));
+        if !kind_ok || !base_ok || !safe_relative(&scope.relative_path) || !store_ok {
+            return Err("build_cache_retention_scope_invalid".to_string());
+        }
     }
     Ok(())
 }

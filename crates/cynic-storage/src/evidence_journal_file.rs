@@ -1,7 +1,7 @@
 //! Cold-evidence journal file adapter (D1, layer L0).
 //!
 //! Append-only writer + offline verifier for `EvidenceJournalEntry`
-//! segments under a root directory (default `/var/lib/cynic/evidence`).
+//! segments under a root directory (default `<state>/evidence`).
 //!
 //! Layout: one JSONL segment per month (`evidence-YYYYMM.journal`). Each
 //! segment's first entry chains from the previous segment's final hash
@@ -9,7 +9,7 @@
 //! single-line appends followed by flush; no truncate, no rewrite.
 //!
 //! The adapter owns ONLY file mechanics; validation lives in the pure
-//! contract (`cynic_eval::evidence_journal`). Verification is fully
+//! contract (`cynic_protocol::evidence_journal`). Verification is fully
 //! offline: reading the files back and replaying the chain needs no DB,
 //! no network, no running kernel.
 
@@ -191,10 +191,10 @@ mod tests {
     fn append_then_verify_holds_offline() {
         let (store, dir) = tmp_store("append");
         let a = store
-            .append("evidence.entry.sealed", "sha3-512:aa11", 1_700_000_000)
+            .append("evidence.entry.sealed", "sha256:aa11", 1_700_000_000)
             .unwrap();
         let b = store
-            .append("evidence.entry.sealed", "sha3-512:bb22", 1_700_000_100)
+            .append("evidence.entry.sealed", "sha256:bb22", 1_700_000_100)
             .unwrap();
         assert_eq!(a.sequence, 1);
         assert_eq!(b.sequence, 2);
@@ -212,10 +212,10 @@ mod tests {
     fn tampering_a_written_line_is_detected_on_disk() {
         let (store, dir) = tmp_store("tamper");
         store
-            .append("evidence.entry.sealed", "sha3-512:cc33", 1_700_000_000)
+            .append("evidence.entry.sealed", "sha256:cc33", 1_700_000_000)
             .unwrap();
         store
-            .append("evidence.entry.sealed", "sha3-512:dd44", 1_700_000_100)
+            .append("evidence.entry.sealed", "sha256:dd44", 1_700_000_100)
             .unwrap();
 
         // Corrupt the FIRST line on disk (simulated bitrot/attacker).
@@ -223,7 +223,7 @@ mod tests {
         let raw = std::fs::read_to_string(&seg).unwrap();
         let mut lines: Vec<String> = raw.lines().map(String::from).collect();
         let mut first: EvidenceJournalEntry = serde_json::from_str(&lines[0]).unwrap();
-        first.payload_digest = "sha3-512:evil".to_string();
+        first.payload_digest = "sha256:evil".to_string();
         lines[0] = serde_json::to_string(&first).unwrap();
         std::fs::write(&seg, lines.join("\n") + "\n").unwrap();
 
@@ -248,8 +248,8 @@ mod tests {
         let dir_b = std::env::temp_dir().join(format!("cynic_evj_mb_{}", std::process::id()));
         let a = EvidenceJournalStore::open(&dir_a, "node-a").unwrap();
         let b = EvidenceJournalStore::open(&dir_b, "node-b").unwrap();
-        let ea = a.append("k", "sha3-512:a1", 1000).unwrap();
-        let eb = b.append("k", "sha3-512:b1", 1000).unwrap();
+        let ea = a.append("k", "sha256:a1", 1000).unwrap();
+        let eb = b.append("k", "sha256:b1", 1000).unwrap();
         // Same sequence numbers are fine ACROSS nodes; each chain is valid alone.
         assert_eq!(ea.sequence, eb.sequence);
         assert_ne!(ea.entry_hash, eb.entry_hash);

@@ -306,6 +306,7 @@ mod tests {
                 substrate: None,
                 services: vec![],
                 network_links: vec![],
+                source_workspace_layout: None,
             }],
             fleet_desired: None,
         }
@@ -356,6 +357,7 @@ mod tests {
             substrate: None,
             services: vec![],
             network_links: vec![],
+            source_workspace_layout: None,
         });
 
         let file = NamedTempFile::new().unwrap();
