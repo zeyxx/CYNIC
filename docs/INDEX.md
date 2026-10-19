@@ -26,6 +26,7 @@ Authority: contracts/foundation.json §docs
    - `CI_SOVEREIGNTY.md` — CI role split (Forgejo blocking gate vs GitHub advisory hygiene), runner pool and label design, single-writer rule for `main` with the divergence watchdog spec.
    - `session-report-knowledge-canon.md` — Epistemic distillation and knowledge base.
    - `CI_EVOLUTION.md` — CI suite survivability, the five adoption metrics, and the branch-protection step.
+   - `NETWORK_ENROLLMENT.md` — Mandatory network enrollment gate: status machine, per-plane probes, registry record. No IP/route/peer/workload before enrollment.
 
 ---
 
