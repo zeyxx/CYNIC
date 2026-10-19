@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 use crate::adapters::local_runtime_federation_queue_store::LocalRuntimeFederationQueueStore;
+use crate::adapters::workload_request_signer::WorkloadRequestSigner;
 use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir,
     deterministic_fallback_verdict, kernel_websocket_url,
@@ -44,15 +45,27 @@ impl WebSocketFederationAdapter {
             api_key,
             node_public_key,
             node_identity: node_identity.to_string(),
+            signing_key_path: signing_key_path_from_env(),
             queue_dir: default_queue_dir(queue_home),
         })
     }
 
     pub fn new(config: RuntimeFederationConfig) -> Self {
+        let signer = config
+            .signing_key_path
+            .clone()
+            .and_then(|path| match WorkloadRequestSigner::new(path) {
+                Ok(signer) => Some(signer),
+                Err(error) => {
+                    tracing::warn!("workload signing key unusable, WS handshake unsigned: {error}");
+                    None
+                }
+            });
         Self {
             client: Arc::new(WebSocketClient::new(
                 config.kernel_ws_url,
                 config.api_key,
+                signer,
                 config.node_public_key,
                 config.node_identity,
                 Arc::new(LocalRuntimeFederationQueueStore::new(config.queue_dir)),
@@ -88,6 +101,12 @@ impl RuntimeFederationPort for WebSocketFederationAdapter {
         tracing::debug!("stimulus processed and verdict queued");
         Ok(())
     }
+}
+
+fn signing_key_path_from_env() -> Option<PathBuf> {
+    std::env::var("CYNIC_NODE_SIGNING_KEY_FILE")
+        .ok()
+        .map(PathBuf::from)
 }
 
 fn fallback_verdict_for_stimulus(stimulus: PendingStimulus) -> Result<PendingVerdict, String> {
@@ -157,6 +176,7 @@ mod tests {
             api_key: "key".to_string(),
             node_public_key: "public-key".to_string(),
             node_identity: "node-a".to_string(),
+            signing_key_path: None,
             queue_dir: std::path::PathBuf::from("/var/lib/cynic/node"),
         });
     }
