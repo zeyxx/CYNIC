@@ -215,25 +215,19 @@ impl<R: ArgvRunner> RetentionExecutor for RemoteBuildArtefactAdapter<R> {
 }
 
 fn execute_gc_item(item: &RetentionItem) -> RetentionItemExecution {
-    if item.argv.is_empty() {
+    if item.path.is_empty() {
         return RetentionItemExecution {
             item_id: item.id.clone(),
             success: false,
             exit_code: None,
             stdout_tail: String::new(),
-            stderr_tail: "empty argv".to_string(),
+            stderr_tail: "empty path".to_string(),
         };
     }
-    let (bin, args): (&str, Vec<&str>) = if item.requires_privilege {
-        ("sudo", item.argv.iter().map(|s| s.as_str()).collect())
-    } else {
-        (
-            item.argv[0].as_str(),
-            item.argv[1..].iter().map(|s| s.as_str()).collect(),
-        )
-    };
     // For remote execution, we'd need to SSH. For now, return a stub.
     // The actual execution happens via the local adapter.
+    // NOTE: no argv is built here — when remote execution lands it must
+    // go through `crate::domain::build_artefact::gc_argv`, never inline.
     RetentionItemExecution {
         item_id: item.id.clone(),
         success: false,

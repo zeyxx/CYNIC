@@ -156,21 +156,24 @@ impl RetentionExecutor for LocalBuildArtefactAdapter {
 }
 
 fn execute_gc_item(item: &RetentionItem) -> RetentionItemExecution {
-    if item.argv.is_empty() {
+    if item.path.is_empty() {
         return RetentionItemExecution {
             item_id: item.id.clone(),
             success: false,
             exit_code: None,
             stdout_tail: String::new(),
-            stderr_tail: "empty argv".to_string(),
+            stderr_tail: "empty path".to_string(),
         };
     }
+    // Rebuilt from path through the single domain helper — the plan's
+    // carried argv is for queue reuse, never trusted blindly here.
+    let argv = crate::domain::build_artefact::gc_argv(&item.path);
     let (bin, args): (&str, Vec<&str>) = if item.requires_privilege {
-        ("sudo", item.argv.iter().map(|s| s.as_str()).collect())
+        ("sudo", argv.iter().map(|s| s.as_str()).collect())
     } else {
         (
-            item.argv[0].as_str(),
-            item.argv[1..].iter().map(|s| s.as_str()).collect(),
+            argv[0].as_str(),
+            argv[1..].iter().map(|s| s.as_str()).collect(),
         )
     };
     match capture_command(bin, &args) {
@@ -487,12 +490,8 @@ mod tests {
         for it in &plan.items {
             assert_eq!(
                 it.argv,
-                vec![
-                    "rm".to_string(),
-                    "-rf".to_string(),
-                    it.path.clone()
-                ],
-                "argv rm -rf path"
+                crate::domain::build_artefact::gc_argv(&it.path),
+                "argv built by the single gc_argv helper"
             );
         }
         assert_eq!(plan.total_reclaimable_bytes, 15_000);
