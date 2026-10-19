@@ -59,6 +59,7 @@ pub mod framework;
 pub mod fresh_data;
 pub mod gasdf;
 pub mod hardening;
+pub mod hash_chain;
 pub mod health_signal;
 pub mod host_substrate;
 pub use host_substrate::cpu;
