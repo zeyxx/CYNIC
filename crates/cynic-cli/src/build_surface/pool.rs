@@ -9,7 +9,7 @@ use cynic_host::adapters::local_toolchain_probe::LocalToolchainProbe;
 use cynic_host::domain::pool_eligibility::{
     evaluate_pool_eligibility, PoolDeclaration, PoolEligibility, ToolRequirement,
 };
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::LocalArgvRunner;
 use serde::Deserialize;
 use std::fs;
 
