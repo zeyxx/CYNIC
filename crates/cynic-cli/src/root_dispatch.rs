@@ -121,6 +121,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         }
         Command::Mcp { command } => crate::mcp_surface::dispatch(command).await,
         Command::Daemon { command } => crate::daemon_surface::dispatch(command).await,
+        Command::Supervise { command } => crate::supervise_surface::dispatch(command).await,
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
             ExitCode::SUCCESS

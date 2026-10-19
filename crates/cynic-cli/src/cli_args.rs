@@ -278,6 +278,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::daemon_surface::DaemonCommand,
     },
+    /// Sovereign supervisor (read-only observation until a parent holds state).
+    Supervise {
+        #[command(subcommand)]
+        command: crate::supervise_surface::SuperviseCommand,
+    },
 }
 
 #[derive(Subcommand)]

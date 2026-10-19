@@ -67,6 +67,7 @@ pub mod mcp_call_proof_index;
 pub mod topology_write;
 
 pub mod daemon_surface;
+pub mod supervise_surface;
 pub mod mcp_surface;
 pub mod network_audit;
 pub mod network_notify_surface;

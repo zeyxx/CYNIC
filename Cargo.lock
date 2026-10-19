@@ -743,6 +743,11 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
+<<<<<<< HEAD
+=======
+ "cynic-supervisor",
+ "cynic-surreal",
+>>>>>>> origin/agent/hermes/supervision-convergence
  "cynic-tui",
  "cynic-types",
  "cynic-vcs",
@@ -920,10 +925,12 @@ dependencies = [
  "cynic-pool",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-supervisor",
  "cynic-types",
  "cynic-workload",
  "futures-util",
  "reqwest 0.13.5",
+ "rustix 1.1.5",
  "serde",
  "serde_json",
  "tempfile",
@@ -1153,6 +1160,7 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
+ "cynic-supervisor",
  "cynic-types",
  "cynic-vcs",
  "cynic-workload",
@@ -1347,6 +1355,34 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "cynic-supervisor"
+version = "0.8.0"
+dependencies = [
+ "cynic-protocol",
+ "libc",
+ "process-wrap",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "cynic-surreal"
+version = "0.8.0"
+dependencies = [
+ "cynic-protocol",
+ "cynic-secrets",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
+>>>>>>> origin/agent/hermes/supervision-convergence
 name = "cynic-traces"
 version = "0.8.0"
 dependencies = [

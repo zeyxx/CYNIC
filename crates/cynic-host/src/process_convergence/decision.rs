@@ -1,5 +1,8 @@
 use cynic_eval::convergence::ConvergenceStatus;
-use cynic_protocol::{ServiceSupervisorObservation, ServiceSupervisorUnitObservation};
+use cynic_protocol::{
+    ServiceSupervisorObservation, ServiceSupervisorUnitObservation,
+    supervision::{SupervisorState, unit_status_state},
+};
 
 use super::types::{
     PROCESS_CONVERGENCE_DECISION_SCHEMA, ProcessConvergenceDecision, ProcessConvergenceRequest,
@@ -66,8 +69,10 @@ pub fn decide_process_convergence(
         ConvergenceStatus::Blocked
     } else if !residual_unknowns.is_empty() {
         ConvergenceStatus::Unknown
-    } else if observed_unit.is_some_and(|unit| unit.status == "active")
-        && read_back_unit.is_some_and(|unit| unit.status == "active")
+    } else if observed_unit
+        .is_some_and(|unit| unit_status_state(unit.status) == SupervisorState::Active)
+        && read_back_unit
+            .is_some_and(|unit| unit_status_state(unit.status) == SupervisorState::Active)
     {
         ConvergenceStatus::Complete
     } else {
@@ -109,9 +114,12 @@ fn classify_unit(
     blockers: &mut Vec<String>,
     residual_unknowns: &mut Vec<String>,
 ) {
-    match unit.map(|unit| unit.status) {
-        Some("active") => {}
-        Some("degraded") => blockers.push(format!("process_{phase}_degraded")),
+    // Health-to-lifecycle mapping (G3): degraded reports as Failed and keeps
+    // its degraded blocker; unnormalised output reports as Unknown. The
+    // observable blocker and residual strings are unchanged.
+    match unit.map(|unit| unit_status_state(unit.status)) {
+        Some(SupervisorState::Active) => {}
+        Some(SupervisorState::Failed) => blockers.push(format!("process_{phase}_degraded")),
         Some(_) => residual_unknowns.push(format!("process_{phase}_unknown")),
         None => residual_unknowns.push(format!("process_{phase}_service_missing")),
     }
