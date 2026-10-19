@@ -1,0 +1,59 @@
+{
+  "schema": "cynic.deploy_policy.v1",
+  "status": "normative",
+  "purpose": "Single source of truth for canary deployment of the cynic binary to fleet machines. Data, not code: the plan, the order, the gates, and the rollback ladder are declared here; cynic-release decides from this file, cynic-cli renders the plan, and (couche B) the executor applies it. Couche A executes manually following the safe-production-deploy procedure.",
+  "artifact": {
+    "name": "cynic",
+    "source": "cargo build --release --bin cynic",
+    "target_profile": "release",
+    "binary_locations_registry": "infra/binary-locations.json"
+  },
+  "canary_order": ["builder", "cortex", "cynic-agent-host"],
+  "per_step_gates": {
+    "health": [
+      {
+        "name": "version_match",
+        "description": "Deployed binary reports the deployed commit SHA",
+        "command": "cynic --version",
+        "pass_condition": "output contains the deployed source SHA"
+      },
+      {
+        "name": "smoke",
+        "description": "Deployed binary answers a read-only probe through the real path",
+        "command": "cynic source status --json",
+        "pass_condition": "exit code 0 and valid JSON"
+      },
+      {
+        "name": "pid_cycled",
+        "description": "The service process actually restarted (PID changed)",
+        "pass_condition": "post-deploy PID differs from pre-deploy PID"
+      }
+    ]
+  },
+  "stop_before_swap": true,
+  "backup": {
+    "pattern": "binary.bak-<sha>",
+    "retain": "last-known-good plus current live only; older backups are removed by every deploy"
+  },
+  "containment_ladder": [
+    {
+      "rung": 1,
+      "name": "config_out",
+      "action": "remove the new stanza, restart, probe",
+      "clears": "config-gated regressions without touching binaries"
+    },
+    {
+      "rung": 2,
+      "name": "binary_rollback",
+      "action": "restore the .bak-<sha> binary, restart, probe",
+      "clears": "code regressions"
+    },
+    {
+      "rung": 3,
+      "name": "stop_and_diagnose",
+      "action": "stop deploying, diagnose the host (disk, locks, flood)",
+      "clears": "environmental causes when both rungs fail"
+    }
+  ],
+  "promotion_rule": "A step promotes to the next machine only when all its health gates pass. Any gate failure climbs the containment ladder before any further promotion. Couche A: ladder climbed manually. Couche C: ladder climbed automatically."
+}

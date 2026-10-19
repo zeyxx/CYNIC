@@ -254,6 +254,22 @@ pub(crate) enum BuildCommand {
         local: bool,
         #[arg(long)]
         json: bool,
+    },
+    /// Render the canary deploy plan for a release commit (read-only).
+    /// Couche A: the plan is data — execution stays manual.
+    Deploy {
+        /// Exact 40-character source commit to deploy.
+        #[arg(long)]
+        commit: String,
+        /// Path to the deploy policy (cynic.deploy_policy.v1).
+        #[arg(long, default_value = "infra/deploy-policy.json")]
+        policy: String,
+        /// Comma-separated machines to include (default: all known).
+        #[arg(long)]
+        machines: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
         },
         /// Issue a repo-scoped Actions runner registration token via Forgejo API.
         RunnerToken {
@@ -268,6 +284,83 @@ pub(crate) enum BuildCommand {
             json: bool,
         },
     }
+/// Render the canary deploy plan (read-only, couche A).
+/// Eligibility is assumed-manual: the operator verifies the release verdict
+/// before executing. The plan is data from the policy, nothing is applied.
+fn render_deploy_plan(
+    commit: &str,
+    policy_path: &str,
+    machines_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    if commit.len() != 40 || !commit.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("commit must be an exact 40-character SHA".to_string());
+    }
+    let policy_text = std::fs::read_to_string(policy_path)
+        .map_err(|e| format!("read policy {policy_path}: {e}"))?;
+    let policy: cynic_release::DeployPolicyContract =
+        cynic_release::DeployPolicyContract::parse(&policy_text)
+            .map_err(|e| format!("parse policy: {e}"))?;
+    let policy_doc: serde_json::Value = serde_json::from_str(&policy_text)
+        .map_err(|e| format!("parse policy document: {e}"))?;
+    let gate_names: Vec<String> = policy_doc
+        .pointer("/per_step_gates/health")
+        .and_then(|v| v.as_array())
+        .map(|gates| {
+            gates
+                .iter()
+                .filter_map(|g| g.get("name")?.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let locations_text = std::fs::read_to_string("infra/binary-locations.json")
+        .map_err(|e| format!("read binary locations: {e}"))?;
+    let locations: serde_json::Value = serde_json::from_str(&locations_text)
+        .map_err(|e| format!("parse binary locations: {e}"))?;
+    let mut known: Vec<String> = locations
+        .get("machines")
+        .and_then(|v| v.as_array())
+        .map(|ms| {
+            ms.iter()
+                .filter_map(|m| m.get("hostname")?.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(filter) = machines_filter {
+        let wanted: Vec<String> = filter.split(',').map(|s| s.trim().to_string()).collect();
+        known.retain(|m| wanted.contains(m));
+    }
+    // Couche A: eligibility verified manually via the release verdict.
+    let verdict = cynic_release::ReleaseEligibilityVerdict::Eligible {
+        schema: "cynic.release_verdict.v1",
+        version: cynic_release::ReleaseVersion::new(0, 0, 0, None),
+        commit_sha: commit.to_string(),
+        tag_name: "assumed-manual-couche-a".to_string(),
+        decided_at_unix_s: 0,
+    };
+    let plan =
+        cynic_release::decide_deploy_plan(&verdict, &policy, &known, &gate_names, commit)?;
+    if json {
+        let text = serde_json::to_string_pretty(&plan)
+            .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
+        println!("{text}");
+    } else {
+        println!("deploy plan for {commit} (eligibility assumed-manual):");
+        for step in &plan.steps {
+            println!(
+                "  {}. {} (gates: {})",
+                step.order + 1,
+                step.machine,
+                step.gate_names.join(", ")
+            );
+        }
+        println!(
+            "(read-only — verify the release verdict, then execute manually)"
+        );
+    }
+    Ok(())
+}
+
 /// Render the archive report (JSON or text).
 fn render_archive_report(report: &ArchiveReport, json: bool) {
     if json {
@@ -513,6 +606,12 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 _ => Err("build runner-token failed".to_string()),
             }
         }
+        BuildCommand::Deploy {
+            commit,
+            policy,
+            machines,
+            json,
+        } => render_deploy_plan(&commit, &policy, machines.as_deref(), json),
         BuildCommand::Runs { json } => {
             let code = execute_runs(Path::new("."), json);
             match code {
