@@ -28,9 +28,9 @@
       ],
       "dev_depends_on": [],
       "justified": true,
-      "kind": "binary",
+      "kind": "library",
       "layer": "L1",
-      "loc": 6516
+      "loc": 6342
     },
     "cynic-build": {
       "consumers": [
@@ -50,7 +50,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 10255
+      "loc": 13020
     },
     "cynic-channel": {
       "consumers": [
@@ -76,6 +76,7 @@
         "cynic-discovery",
         "cynic-domain-ops",
         "cynic-eval",
+        "cynic-fleet",
         "cynic-forensics",
         "cynic-host",
         "cynic-inference",
@@ -94,6 +95,7 @@
         "cynic-sandbox",
         "cynic-secrets",
         "cynic-storage",
+        "cynic-tui",
         "cynic-types",
         "cynic-vcs",
         "cynic-vcs-providers",
@@ -106,12 +108,15 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 38984
+      "loc": 45693
     },
     "cynic-consensus": {
       "consumers": [
         "cynic-cli",
+        "cynic-inference",
+        "cynic-market",
         "cynic-node",
+        "cynic-pool",
         "cynic-storage",
         "cynic-workload"
       ],
@@ -123,7 +128,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 2666
+      "loc": 2736
     },
     "cynic-discovery": {
       "consumers": [
@@ -138,7 +143,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 413
+      "loc": 634
     },
     "cynic-domain-ops": {
       "consumers": [
@@ -153,7 +158,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 3031
+      "loc": 3984
     },
     "cynic-eval": {
       "consumers": [
@@ -172,7 +177,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 10340
+      "loc": 10719
     },
     "cynic-finance": {
       "consumers": [
@@ -180,9 +185,12 @@
         "cynic-consensus",
         "cynic-host",
         "cynic-inference",
+        "cynic-market",
         "cynic-network",
         "cynic-node",
-        "cynic-storage"
+        "cynic-pool",
+        "cynic-storage",
+        "cynic-workload"
       ],
       "depends_on": [
         "cynic-protocol"
@@ -191,7 +199,18 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 1049
+      "loc": 1546
+    },
+    "cynic-fleet": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L2",
+      "loc": 345
     },
     "cynic-forensics": {
       "consumers": [
@@ -203,7 +222,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1279
+      "loc": 1284
     },
     "cynic-host": {
       "consumers": [
@@ -241,7 +260,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 90023
+      "loc": 90755
     },
     "cynic-inference": {
       "consumers": [
@@ -250,19 +269,22 @@
         "cynic-node"
       ],
       "depends_on": [
+        "cynic-consensus",
         "cynic-eval",
         "cynic-finance",
         "cynic-knowledge",
         "cynic-network",
+        "cynic-pool",
         "cynic-protocol",
         "cynic-secrets",
-        "cynic-types"
+        "cynic-types",
+        "cynic-workload"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 16401
+      "loc": 18018
     },
     "cynic-intel": {
       "consumers": [
@@ -299,7 +321,8 @@
     },
     "cynic-kernel": {
       "consumers": [
-        "cynic-cli"
+        "cynic-cli",
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-askesis",
@@ -313,7 +336,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 3969
+      "loc": 4538
     },
     "cynic-knowledge": {
       "consumers": [
@@ -328,7 +351,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6472
+      "loc": 6558
     },
     "cynic-lifecycle": {
       "consumers": [
@@ -371,8 +394,12 @@
         "cynic-node"
       ],
       "depends_on": [
+        "cynic-consensus",
+        "cynic-finance",
         "cynic-intel",
-        "cynic-protocol"
+        "cynic-pool",
+        "cynic-protocol",
+        "cynic-workload"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -414,7 +441,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6588
+      "loc": 7059
     },
     "cynic-node": {
       "consumers": [
@@ -428,6 +455,7 @@
         "cynic-host",
         "cynic-inference",
         "cynic-intel-soc",
+        "cynic-kernel",
         "cynic-lifecycle",
         "cynic-lxc",
         "cynic-market",
@@ -448,7 +476,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 61029
+      "loc": 62030
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -485,9 +513,15 @@
     },
     "cynic-pool": {
       "consumers": [
+        "cynic-inference",
+        "cynic-market",
         "cynic-node"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "cynic-consensus",
+        "cynic-finance",
+        "cynic-workload"
+      ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
@@ -538,7 +572,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 39451
+      "loc": 39700
     },
     "cynic-proxmox": {
       "consumers": [
@@ -556,7 +590,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3679
+      "loc": 4566
     },
     "cynic-release": {
       "consumers": [
@@ -571,7 +605,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1719
+      "loc": 1970
     },
     "cynic-sandbox": {
       "consumers": [
@@ -646,7 +680,27 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 4818
+      "loc": 5307
+    },
+    "cynic-traces": {
+      "consumers": [],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": false,
+      "kind": "library",
+      "layer": "L2",
+      "loc": 3526
+    },
+    "cynic-tui": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L2",
+      "loc": 469
     },
     "cynic-types": {
       "consumers": [
@@ -672,7 +726,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 945
+      "loc": 948
     },
     "cynic-vcs": {
       "consumers": [
@@ -692,7 +746,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 9079
+      "loc": 10218
     },
     "cynic-vcs-providers": {
       "consumers": [
@@ -708,7 +762,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 1980
+      "loc": 2892
     },
     "cynic-workload": {
       "consumers": [
@@ -716,17 +770,21 @@
         "cynic-cli",
         "cynic-eval",
         "cynic-host",
-        "cynic-node"
+        "cynic-inference",
+        "cynic-market",
+        "cynic-node",
+        "cynic-pool"
       ],
       "depends_on": [
         "cynic-consensus",
+        "cynic-finance",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "cross_cutting",
-      "loc": 6299
+      "loc": 6383
     },
     "cynic-zeroclaw-solana": {
       "consumers": [
@@ -745,14 +803,15 @@
     }
   },
   "extraction_order": [
+    "cynic-fleet",
     "cynic-forensics",
-    "cynic-pool",
+    "cynic-traces",
+    "cynic-tui",
     "cynic-types",
     "cynic-knowledge",
     "cynic-protocol",
     "cynic-askesis",
     "cynic-audit-engine",
-    "cynic-discovery",
     "cynic-finance",
     "cynic-lxc",
     "cynic-node-protocol",
@@ -765,7 +824,6 @@
     "cynic-intel",
     "cynic-network",
     "cynic-intel-soc",
-    "cynic-market",
     "cynic-pkg",
     "cynic-storage",
     "cynic-vcs",
@@ -774,11 +832,14 @@
     "cynic-build",
     "cynic-eval",
     "cynic-kernel",
+    "cynic-pool",
     "cynic-vcs-providers",
     "cynic-inference",
     "cynic-lifecycle",
+    "cynic-market",
     "cynic-sandbox",
     "cynic-host",
+    "cynic-discovery",
     "cynic-mcp",
     "cynic-proxmox",
     "cynic-node",
@@ -941,7 +1002,6 @@
     ],
     "L1": [
       "cynic-audit-engine",
-      "cynic-discovery-host",
       "cynic-forensics",
       "cynic-host",
       "cynic-knowledge",
@@ -959,22 +1019,20 @@
       "cynic-channel",
       "cynic-consensus",
       "cynic-discovery",
-      "cynic-domain-cloudflare",
       "cynic-domain-ops",
-      "cynic-domain-porkbun",
       "cynic-eval",
       "cynic-finance",
-      "cynic-huggingface",
+      "cynic-fleet",
       "cynic-inference",
       "cynic-intel",
-      "cynic-intel-futarchy",
       "cynic-intel-soc",
       "cynic-market",
       "cynic-node-protocol",
       "cynic-pool",
       "cynic-solana-pay",
       "cynic-storage",
-      "cynic-surreal",
+      "cynic-traces",
+      "cynic-tui",
       "cynic-vcs",
       "cynic-vcs-providers",
       "cynic-zeroclaw-solana"
@@ -994,15 +1052,15 @@
   },
   "measured": {
     "acyclic": true,
-    "binaries": 6,
-    "crates": 44,
+    "binaries": 5,
+    "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 368026,
-    "pending_disposition": 3,
-    "runtime_edges": 175,
-    "unjustified": 0,
-    "upward_edges": 14
+    "loc_total": 388431,
+    "pending_disposition": 4,
+    "runtime_edges": 173,
+    "unjustified": 1,
+    "upward_edges": 12
   },
   "pending_disposition": {
     "cynic-channel": {
@@ -1016,6 +1074,10 @@
     "cynic-pool": {
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
       "reason": "measured 0 runtime, 0 dev dependents, phantom [[bin]] removed 2026-10-06; library-only, candidate for deletion"
+    },
+    "cynic-traces": {
+      "disposition": "under construction: Rust rewrite of the session-trace ingestion pipeline",
+      "reason": "measured 0 runtime, 0 dev dependents, not a binary; 6 commits and 3049 LOC on the cynic-traces rewrite, consumers arrive with the next tranche"
     }
   },
   "purpose": "Machine-readable crate dependency topology. Single source of truth for the DAG, the layer assignment, and crate justification. Replaces the prose taxonomy in AGENTS.md and the tables in infra/CANONICAL_CRATE_MAP.md, which can drift from the build graph and from each other and are not executable. A vertical slice names crates; this file gives the topological order to extract them in.",
