@@ -235,6 +235,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic source release [--root <path>] [--dry-run] [--apply] [--json]",
                     "cynic source sync [--root <path>] [--apply] [--json]",
                     "cynic source worktree [--root <path>] [--workspace-store <path>] [--apply] [--json]",
+                    "cynic source divergence [--root <path>] [--json]",
                 ],
             },
             CommandDomain {
