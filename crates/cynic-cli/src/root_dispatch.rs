@@ -95,6 +95,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Court { command } => crate::constitutional_court_surface::execute_court(command),
         Command::Task { command } => crate::task_surface::execute_task(command),
         Command::Federation { command } => crate::federation_surface::execute_federation(command),
+        Command::Coordination { command } => crate::coordination_surface::execute_coordination(command),
         Command::Build { command } => execute_build(command)
             .map(|_| ExitCode::SUCCESS)
             .unwrap_or_else(|e| {
