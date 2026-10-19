@@ -98,6 +98,23 @@ pub struct PoolEligibility {
     pub reasons: Vec<String>,
 }
 
+/// Extract the first version-looking token from a version banner.
+///
+/// Tool banners are prose: `cargo 1.95.0 (f2d3ce0bd 2026-03-21)`. The
+/// version to compare is the first dotted numeric token in the line.
+pub fn extract_version(banner: &str) -> Option<String> {
+    for token in banner.split_whitespace() {
+        let candidate = token.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
+        if candidate.is_empty() {
+            continue;
+        }
+        if candidate.contains('.') && candidate.split('.').all(|part| part.parse::<u64>().is_ok()) {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
 /// Compare dotted version strings. `None` when either side is unparsable.
 pub fn compare_versions(a: &str, b: &str) -> Option<std::cmp::Ordering> {
     let parse = |s: &str| -> Option<Vec<u64>> {
@@ -164,19 +181,28 @@ pub fn evaluate_pool_eligibility(
             check.detail = Some(format!("{} not found in PATH", requirement.name));
         } else if let Some(minimum) = &requirement.min_version {
             match observation.and_then(|o| o.version.as_deref()) {
-                Some(version) => match compare_versions(version, minimum) {
-                    Some(std::cmp::Ordering::Less) => {
-                        check.present = false;
-                        check.detail = Some(format!("{version} is older than required {minimum}"));
+                Some(banner) => {
+                    let extracted = extract_version(banner);
+                    match extracted
+                        .as_deref()
+                        .and_then(|version| compare_versions(version, minimum))
+                    {
+                        Some(std::cmp::Ordering::Less) => {
+                            check.present = false;
+                            check.detail = Some(format!(
+                                "{} is older than required {minimum}",
+                                extracted.unwrap_or_default()
+                            ));
+                        }
+                        Some(_) => {}
+                        None => {
+                            check.present = false;
+                            check.detail = Some(format!(
+                                "version {banner} is not comparable to required {minimum}"
+                            ));
+                        }
                     }
-                    Some(_) => {}
-                    None => {
-                        check.present = false;
-                        check.detail = Some(format!(
-                            "version {version} is not comparable to required {minimum}"
-                        ));
-                    }
-                },
+                }
                 None => {
                     check.present = false;
                     check.detail = Some(format!("version unknown, required {minimum}"));
@@ -258,6 +284,16 @@ mod tests {
             Some(std::cmp::Ordering::Greater)
         );
         assert_eq!(compare_versions("not-a-version", "1.0.0"), None);
+    }
+
+    #[test]
+    fn version_token_is_extracted_from_a_prose_banner() {
+        assert_eq!(
+            extract_version("cargo 1.95.0 (f2d3ce0bd 2026-03-21)").as_deref(),
+            Some("1.95.0")
+        );
+        assert_eq!(extract_version("v22.23.3").as_deref(), Some("22.23.3"));
+        assert_eq!(extract_version("no version here"), None);
     }
 
     #[test]
