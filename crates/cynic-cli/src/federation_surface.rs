@@ -199,12 +199,10 @@ pub fn classify_qualified_status(
         .into_iter()
         .flatten()
         .collect();
+    // No applicable probe produced evidence: always stub. A registry claim of
+    // "observed" without live evidence is exactly how stranded nodes hide.
     if required.is_empty() {
-        return if current_status == "observed" {
-            "observed".to_string()
-        } else {
-            "stub".to_string()
-        };
+        return "stub".to_string();
     }
     if required.iter().all(|b| *b) {
         if current_status == "observed" {
@@ -669,8 +667,8 @@ mod enroll_status_tests {
     }
 
     #[test]
-    fn no_applicable_planes_keeps_observed() {
-        assert_eq!(classify_qualified_status(None, None, None, None, "observed"), "observed");
+    fn no_applicable_planes_always_stub() {
+        assert_eq!(classify_qualified_status(None, None, None, None, "observed"), "stub");
     }
 
     #[test]
