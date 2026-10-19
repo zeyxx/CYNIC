@@ -285,12 +285,7 @@ fn apply_stable_workspace(
     layout.workspace_root = workspace_root;
     // Recompute the evidence digest so it describes the actual workspace
     // path after the override, not the registry-declared path (C1).
-    layout.evidence_digest = recompute_layout_digest(
-        &layout,
-        "", // node_id not needed for the resolved-layout digest
-        "", // repository_id not needed for the resolved-layout digest
-        "", // workspace_id not needed for the resolved-layout digest
-    )?;
+    // RED: digest recompute disabled for verification
     Ok(layout)
 }
 
