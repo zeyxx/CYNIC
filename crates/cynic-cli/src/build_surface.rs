@@ -89,7 +89,10 @@ pub(crate) enum BuildCommand {
         /// Exact 40-character source commit.
         #[arg(long)]
         commit: String,
-        /// Build phase: check, build, or activate.
+        /// Build phase: check, build, test, or activate.
+        ///
+        /// The test phase runs the test suite ON THE RUNNER: the operator
+        /// host is not a test machine.
         #[arg(long, default_value = "check")]
         phase: String,
         /// Explicit runner host override (breakglass only). When absent, the
