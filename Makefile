@@ -215,6 +215,14 @@ check: ## DEPRECATED alias of audit-crate (kept one release, then removed)
 	@$(MAKE) audit-crate
 
 .PHONY: audit
+# The non-vacuity gate (tranche T5). Every guard in the table must FAIL on its
+# pre-fix source; a test that passes before AND after its fix guards nothing.
+# `check_nonvacuity.py --python` selects the pytest interpreter (CI provides
+# one with the pipeline test deps); Rust rows use the ambient cargo.
+.PHONY: audit.nonvacuity
+audit.nonvacuity: ## Guards fail on pre-fix source (Python + Rust tables, exit-code gated)
+	python3 apps/cynic-data/check_nonvacuity.py --python $$(command -v python3)
+
 audit: ## Native unified audit of all crates, architecture boundaries, and secrets
 	$(source_bin)
 	$(CYNIC_SOURCE_BIN) audit all --json
