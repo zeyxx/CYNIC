@@ -1,0 +1,78 @@
+{
+  "schema": "cynic.idea_ledger.v1",
+  "status": "seed",
+  "ideas": [
+    {
+      "idea_id": "cynicpedia",
+      "title": "CYNICpedia knowledge registry",
+      "description": "Registry of CYNIC knowledge articles (docs, contracts, traces, designs) with provenance and lifecycle status.",
+      "domain": "knowledge",
+      "status": "seed",
+      "freshness": "fresh",
+      "consumed_by": [],
+      "compounds": [],
+      "created_at": "2026-10-19T00:00:00Z",
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    {
+      "idea_id": "bitcointalk-post",
+      "title": "BitcoinTalk announcement post",
+      "description": "Announcement post on BitcoinTalk to introduce CYNIC and gather early community feedback.",
+      "domain": "publication",
+      "status": "seed",
+      "freshness": "fresh",
+      "consumed_by": [],
+      "compounds": [],
+      "created_at": "2026-10-19T00:00:00Z",
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    {
+      "idea_id": "forum-cynic",
+      "title": "CYNIC community forum",
+      "description": "Dedicated community forum for CYNIC contributors and operators.",
+      "domain": "community",
+      "status": "seed",
+      "freshness": "fresh",
+      "consumed_by": [],
+      "compounds": [],
+      "created_at": "2026-10-19T00:00:00Z",
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    {
+      "idea_id": "forum-asdfasdfa",
+      "title": "asdfasdfa forum experiment",
+      "description": "Experimental forum concept (asdfasdfa) for rapid community prototyping.",
+      "domain": "community",
+      "status": "seed",
+      "freshness": "fresh",
+      "consumed_by": [],
+      "compounds": [],
+      "created_at": "2026-10-19T00:00:00Z",
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    {
+      "idea_id": "whitepaper-completion",
+      "title": "Complete CYNIC whitepaper",
+      "description": "Finish and publish the CYNIC whitepaper documenting architecture and invariants.",
+      "domain": "docs",
+      "status": "seed",
+      "freshness": "fresh",
+      "consumed_by": [],
+      "compounds": [],
+      "created_at": "2026-10-19T00:00:00Z",
+      "updated_at": "2026-10-19T00:00:00Z"
+    },
+    {
+      "idea_id": "context-engineering",
+      "title": "Context engineering for agents",
+      "description": "Design and implement context engineering primitives for multi-agent systems.",
+      "domain": "engineering",
+      "status": "seed",
+      "freshness": "fresh",
+      "consumed_by": [],
+      "compounds": [],
+      "created_at": "2026-10-19T00:00:00Z",
+      "updated_at": "2026-10-19T00:00:00Z"
+    }
+  ]
+}

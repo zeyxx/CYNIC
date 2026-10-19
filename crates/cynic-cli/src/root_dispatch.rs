@@ -93,6 +93,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Doctor { json } => execute_operator_doctor(json),
         Command::Errors { json } => execute_operator_errors(json),
         Command::Court { command } => crate::constitutional_court_surface::execute_court(command),
+        Command::Idea { command } => crate::idea_surface::execute_idea(command),
         Command::Task { command } => crate::task_surface::execute_task(command),
         Command::Federation { command } => crate::federation_surface::execute_federation(command),
         Command::Coordination { command } => crate::coordination_surface::execute_coordination(command),
