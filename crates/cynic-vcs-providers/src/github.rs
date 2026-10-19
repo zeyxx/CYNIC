@@ -19,11 +19,18 @@ use serde::Deserialize;
 pub struct GitHubExternalSourceAdapter {
     pub base_url: String,
     pub token: String,
+    /// Optional builder URL. When set, clone_repo executes git on the remote
+    /// builder via HTTP /exec so the clone path lives where builds run.
+    pub builder_url: Option<String>,
 }
 
 impl GitHubExternalSourceAdapter {
     pub fn new(base_url: String, token: String) -> Self {
-        Self { base_url, token }
+        Self {
+            base_url,
+            token,
+            builder_url: None,
+        }
     }
 
     /// Run a closure with a reqwest blocking client on a dedicated OS thread.
@@ -99,6 +106,45 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
             "https://x-access-token:{}@github.com/{}/{}.git",
             self.token, owner, repo_name
         );
+
+        // Remote clone on builder when builder_url is set, so the clone path
+        // lives where the build runs.
+        if let Some(builder_url) = &self.builder_url {
+            let exec_url = format!("{}/exec", builder_url.trim_end_matches('/'));
+            let clone_cmd = format!(
+                "rm -rf {tp} && git clone {url} {tp}",
+                tp = target_path, url = auth_url
+            );
+            let (clone_exit, clone_out) = post_exec(&exec_url, &clone_cmd, "")?;
+            if clone_exit != Some(0) {
+                return Ok(ExternalCloneResult {
+                    schema: "cynic.vcs.external_clone_proof.v1",
+                    project_id: repo.project_id.clone(),
+                    clone_path: target_path.to_string(),
+                    head_sha: String::new(),
+                    default_branch: repo.default_branch.clone(),
+                    success: false,
+                    error: Some(clone_out),
+                });
+            }
+            let sha_cmd = format!("git -C {} rev-parse HEAD", target_path);
+            let (sha_exit, sha_out) = post_exec(&exec_url, &sha_cmd, "")?;
+            let head_sha = if sha_exit == Some(0) {
+                sha_out.trim().to_string()
+            } else {
+                String::new()
+            };
+            return Ok(ExternalCloneResult {
+                schema: "cynic.vcs.external_clone_proof.v1",
+                project_id: repo.project_id.clone(),
+                clone_path: target_path.to_string(),
+                head_sha,
+                default_branch: repo.default_branch.clone(),
+                success: sha_exit == Some(0),
+                error: None,
+            });
+        }
+
         let output = Command::new("git")
             .args(["clone", &auth_url, target_path])
             .output()
@@ -134,7 +180,6 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
             success: true,
             error: None,
         })
-    }
 
     fn fetch(&self, repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
         self.list_branches(repo)
@@ -298,4 +343,39 @@ mod tests {
         assert_eq!(owner, "owner");
         assert_eq!(name, "repo");
     }
+}
+
+
+/// POST {command, work_dir} to builder /exec and return (exit_code, stdout-or-stderr).
+fn post_exec(exec_url: &str, command: &str, work_dir: &str) -> Result<(Option<i32>, String), String> {
+    let exec_url = exec_url.to_string();
+    let command = command.to_string();
+    let work_dir = work_dir.to_string();
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .map_err(|e| format!("http client init failed: {e}"))?;
+        let payload = serde_json::json!({
+            "command": command,
+            "work_dir": work_dir,
+        });
+        let res = client
+            .post(&exec_url)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("failed to POST /exec to {exec_url}: {e}"))?;
+        if !res.status().is_success() {
+            let status = res.status();
+            let body = res.text().unwrap_or_default();
+            return Err(format!("builder /exec failed ({status}): {body}"));
+        }
+        #[derive(serde::Deserialize)]
+        struct R { exit_code: Option<i32>, stdout: String, stderr: String }
+        let r: R = res.json().map_err(|e| format!("parse /exec response: {e}"))?;
+        let out = if r.exit_code == Some(0) { r.stdout } else { r.stderr };
+        Ok((r.exit_code, out))
+    })
+    .join()
+    .map_err(|_| "builder /exec thread panicked".to_string())?
 }

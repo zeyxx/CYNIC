@@ -97,8 +97,17 @@ pub fn execute_run(
         return fail("cannot determine provider from repo URL (use --forgejo-url for Forgejo)");
     };
 
-    // Instantiate source adapter
-    let source_port: Box<dyn ExternalSourcePort> = match provider {
+    // Resolve builder URL up-front so the source adapter clones on the builder.
+    let resolved_builder_url = match builder_url {
+        Some(url) => url.to_string(),
+        None => match HttpExternalBuildAdapter::from_resolved_url() {
+            Ok(adapter) => adapter.builder_url,
+            Err(e) => return fail(e),
+        },
+    };
+
+    // Instantiate source adapter (clone on builder when builder_url is set)
+    let mut source_port: Box<dyn ExternalSourcePort> = match provider {
         ExternalProvider::GitHub => {
             let token = match github_token
                 .map(|s| s.to_string())
@@ -107,10 +116,12 @@ pub fn execute_run(
                 Some(t) => t,
                 None => return fail("GITHUB_TOKEN is required for GitHub provider"),
             };
-            Box::new(GitHubExternalSourceAdapter::new(
+            let mut adapter = GitHubExternalSourceAdapter::new(
                 "https://api.github.com".to_string(),
                 token,
-            ))
+            );
+            adapter.builder_url = Some(resolved_builder_url.clone());
+            Box::new(adapter)
         }
         ExternalProvider::Forgejo => {
             let base = match forgejo_url {
@@ -124,19 +135,15 @@ pub fn execute_run(
                 Some(t) => t,
                 None => return fail("FORGEJO_TOKEN is required for Forgejo provider"),
             };
-            Box::new(ForgejoExternalSourceAdapter::new(base, token))
+            let mut adapter = ForgejoExternalSourceAdapter::new(base, token);
+            adapter.builder_url = Some(resolved_builder_url.clone());
+            Box::new(adapter)
         }
         _ => return fail("unsupported provider"),
     };
 
     // Instantiate build adapter
-    let build_port = match builder_url {
-        Some(url) => HttpExternalBuildAdapter::new(url.to_string()),
-        None => match HttpExternalBuildAdapter::from_resolved_url() {
-            Ok(adapter) => adapter,
-            Err(e) => return fail(e),
-        },
-    };
+    let build_port = HttpExternalBuildAdapter::new(resolved_builder_url);
 
     // Instantiate evidence adapter
     let evidence_path = evidence_dir
