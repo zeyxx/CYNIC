@@ -75,6 +75,27 @@
    }
   },
   {
+   "slug": "tokensage",
+   "pin": {
+    "file": "infra/external-pins.json",
+    "slug": "tokensage"
+   },
+   "ownership": {
+    "cynic_operator": "Titouan Corneloup",
+    "upstream_authority": "sollama58 (GCRtrd)",
+    "contribution_mode": "PR-based; acceptance at upstream discretion. License MIT with Commons Clause: no selling or paid-product use without permission — read-only observation until clarified."
+   },
+   "adoption_mode": "contributed",
+   "surfaces_declared": [
+    "rest"
+   ],
+   "status": "observed",
+   "roots": {
+    "referential": "/var/lib/cynic/source/repositories/external/tokensage",
+    "state": "/var/lib/cynic/projects/tokensage"
+   }
+  },
+  {
    "slug": "holddex",
    "pin": {
     "file": "infra/external-pins.json",
