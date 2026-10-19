@@ -102,6 +102,45 @@
         "test_result": "FAIL (npm test exit 1): 2 failing tests (strict fast-forward pull, normal push to fake local remote) \u2014 environment-dependent (git config/remote); 33 tests passed vs 33 failures on cortex",
         "notes": "Build baseline green on builder. Test failures are environment-dependent (git remote config). Project targets Windows 10/11 per README."
       }
+    },
+    {
+      "project_id": "gasdf",
+      "display_name": "GASdf",
+      "repo_url": "https://github.com/zeyxx/GASdf.git",
+      "default_branch": "main",
+      "collaborator_ids": [
+        "zeyxx"
+      ],
+      "language_stack": "node",
+      "observed_manifests": [
+        "package.json",
+        "Dockerfile"
+      ],
+      "build_commands": [
+        "npm start",
+        "npm test"
+      ],
+      "test_commands": [
+        "npm test"
+      ],
+      "build_commands_status": "inferred_from_manifest_presence",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "maintenance": {
+        "cadence": "monthly",
+        "channel": "npm-outdated-report",
+        "owner": "zeyxx",
+        "bump_policy": "report-only"
+      },
+      "notes": "Operator-owned gasless relay (Kora-backed, x402). Live clone NOT under ~/.cynic/external (declared divergence): ${HOME}/Bureau/SOLANA/asdf-forge/zeyxx/GASdf @ 0aef98c on feat/gasdf-launch-prep-2026-06-14 (2026-10-18), 12 commits ahead of main. main @ 43d0521 is the 2026-04-08 hackathon snapshot (ancien code). Stale twin: ${HOME}/Documents/gasdf-repo @ 43d0521 (removal pending operator). Relay-107 VERIFIED 2026-10-18: runs relay-gateway/ (name gasdf-relay-gateway 0.1.0, dist built 2026-10-16, no .git on guest); source adopted into this branch at 3afcbdf (reproduces dist byte-for-byte).",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "cortex (node v22.23.3 present)",
+        "build_result": "not run",
+        "test_result": "not run",
+        "notes": "Scripts from package.json (start/dev/test/lint/format); run on builder pending before verified."
+      }
     }
   ],
   "rules": [
