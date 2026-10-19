@@ -83,8 +83,15 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   prouvé 2026-10-19 : zéro session silver, zéro normaliseur/capture/runner/test,
   seules mentions = bruit (modèle `Qwen3.6` dans hermes_contract, variable
   `cursor` sqlite, docs). Rien à retirer, rien à capsuler.
-- Restent : `claude_code` (106 sessions),
-  `antigravity` (500, vertical partiel).
+- Restent : `antigravity` (500, vertical partiel).
+- `claude_code` (quatrième, HITL opérateur) : normaliseur 333 lignes
+  (sans FIELD_FATE ; 5 tests contractuels + sweep supprimés avec
+  `test_normalizers_contract.py`) + capture + runner supprimés ; registre
+  UNCONTRACTED + doc `ports.py` nettoyés ; capsule
+  `docs/specs/harness-claude-code.md`. Données intactes (106 sessions
+  silver + 349 fichiers gelés). Perte assumée : live ACTIF
+  (`~/.claude/projects`, 107 fichiers et ça grandit) — ingestion
+  stoppée jusqu'au vertical Rust (T7), re-dérivable à tout moment.
 - `omp` (troisième, HITL opérateur) : normaliseur 867 lignes (FIELD_FATE
   129 lignes, famille NATIVE-pointer : REPLY/TOOL_CALL natifs, edges
   COMPACTION/MODEL_CHANGE) + capture + runner + 3 tests supprimés ;
