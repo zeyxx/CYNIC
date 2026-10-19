@@ -314,6 +314,7 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_vcs::external_source::ExternalProvider;
 
     #[test]
     fn parse_owner_repo_https() {
