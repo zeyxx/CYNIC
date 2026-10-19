@@ -73,11 +73,17 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   FIELD_FATE complet, 4 racines sources, réparations `_load_chat`).
   Données intactes (34 sessions silver + 69k fichiers vault). Perte
   assumée : ingestion restante impossible sans vertical Rust (T7).
+- `codex` (deuxième, HITL opérateur) : normaliseur 332 lignes (sans
+  FIELD_FATE ; 5 tests contractuels supprimés) + capture + runner
+  supprimés ; registre UNCONTRACTED + doc `ports.py` nettoyés ; capsule
+  `docs/specs/harness-codex.md` (5 types de lignes, nommage natif,
+  écart de provenance 193 sessions / 94 fichiers gelés consigné).
+  Données intactes (193 sessions silver + 94+95 fichiers).
 - `cursor, vscode, kiro, amp, qwen, droid, opencode` : SANS OBJET —
   prouvé 2026-10-19 : zéro session silver, zéro normaliseur/capture/runner/test,
   seules mentions = bruit (modèle `Qwen3.6` dans hermes_contract, variable
   `cursor` sqlite, docs). Rien à retirer, rien à capsuler.
-- Restent : `codex` (195 sessions), `omp` (~90), `claude_code` (106),
+- Restent : `omp` (~90 sessions), `claude_code` (106),
   `antigravity` (500, vertical partiel).
 
 ### T7 — Modèle graphe + projection géodésique [ ]
