@@ -73,6 +73,8 @@ pub use domain::memory_admission::{
 pub use domain::model_store::{ModelArtifact, ModelStoreReport};
 pub use domain::summarization::{SummarizationError, SummarizeRequest, SummarizeResponse};
 pub use domain::token_entropy::{
+    TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel, TokenUncertaintyParams,
+    assess_token_uncertainty, token_entropy_from_logits,
     TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel,
     TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_logits,
     token_entropy_from_probabilities,
@@ -97,6 +99,7 @@ pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
+pub use ports::token_entropy_port::TokenEntropyPort;
 pub use ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, PublishResult};
 pub use ports::model_store_port::ModelStorePort;
 pub use ports::token_entropy_port::TokenEntropyPort;
@@ -105,4 +108,5 @@ pub use ports::token_entropy_port::TokenEntropyPort;
 pub use math::roofline::{BandwidthTier, assess_roofline};
 
 // Adapter re-exports
+pub use adapters::empirical_store::{DEFAULT_EMPIRICAL_LEDGER_PATH, FsEmpiricalStore};
 pub use adapters::inference::token_entropy::TokenEntropyAdapter;

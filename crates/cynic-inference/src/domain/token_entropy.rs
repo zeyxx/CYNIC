@@ -11,6 +11,7 @@
 
 use cynic_protocol::information::{self, EntropyError};
 use serde::{Deserialize, Serialize};
+use std::vec::Vec;
 
 pub const TOKEN_ENTROPY_SNAPSHOT_SCHEMA: &str = "cynic.inference_token_entropy.v1";
 pub const TOKEN_UNCERTAINTY_ASSESSMENT_SCHEMA: &str = "cynic.inference_token_uncertainty.v1";
@@ -54,6 +55,7 @@ pub struct TokenUncertaintyParams {
 impl Default for TokenUncertaintyParams {
     fn default() -> Self {
         Self {
+            exploration_top_probability: 0.6,
             exploration_top_probability: 0.5,
             exploitation_top_probability: 0.75,
         }
@@ -113,6 +115,14 @@ pub fn token_entropy_from_logits(
         }
     }
     let max_logit = logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if !max_logit.is_finite() {
+        for (index, value) in logits.iter().enumerate() {
+            if !value.is_finite() {
+                return Err(EntropyError::NonFiniteProbability { index });
+            }
+        }
+        return Err(EntropyError::EmptyDistribution);
+    }
 
     let mut exps = Vec::with_capacity(logits.len());
     let mut exp_sum = 0.0_f64;
@@ -178,6 +188,9 @@ pub fn assess_token_uncertainty(
         .sum::<f64>()
         / snapshots.len() as f64;
 
+    let level = if mean_top_probability < params.exploration_top_probability {
+        TokenUncertaintyLevel::Exploration
+    } else if mean_top_probability > params.exploitation_top_probability {
     let level = if mean_top_probability <= params.exploration_top_probability {
         TokenUncertaintyLevel::Exploration
     } else if mean_top_probability >= params.exploitation_top_probability {
@@ -239,6 +252,9 @@ mod tests {
         let assessment = assess_token_uncertainty(&[], TokenUncertaintyParams::default());
         assert_eq!(assessment.level, TokenUncertaintyLevel::Unobservable);
         assert_eq!(assessment.snapshots_observed, 0);
+        assert!(assessment
+            .residual_unknowns
+            .contains(&"no_token_snapshots_observed".to_string()));
         assert!(
             assessment
                 .residual_unknowns

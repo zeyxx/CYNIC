@@ -48,6 +48,8 @@ mod tests {
     fn adapter_classifies_uniform_logits_as_exploration() {
         let adapter = TokenEntropyAdapter;
         let snapshot = adapter.token_entropy(&[0.0, 0.0], 0).unwrap();
+        let assessment = adapter
+            .assess_sequence(&[snapshot], TokenUncertaintyParams::default());
         let assessment = adapter.assess_sequence(&[snapshot], TokenUncertaintyParams::default());
         assert_eq!(
             assessment.level,

@@ -9,3 +9,4 @@ pub mod routing_event_port;
 pub mod summarization_port;
 pub mod token_entropy_port;
 pub mod trace_sink_port;
+pub mod token_entropy_port;
