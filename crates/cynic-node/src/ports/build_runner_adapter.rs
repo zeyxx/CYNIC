@@ -181,6 +181,10 @@ impl SshBuildRunner {
             BuildPhase::Activate => Err(BuildError::ConfigurationRefused(
                 "remote activate not supported by trigger phase 1".to_string(),
             )),
+            // The test proof runs on the runner, not on the operator host:
+            // the workstation is not a test machine and the builder is the
+            // build-and-test SSOT.
+            BuildPhase::Test => Ok("cargo:test"),
         }
     }
 
