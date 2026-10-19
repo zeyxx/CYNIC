@@ -14,6 +14,7 @@ pub mod network;
 pub mod package_provenance;
 pub mod packages;
 pub mod principal;
+pub mod pool_eligibility;
 pub mod privilege;
 pub mod process;
 pub mod queue;

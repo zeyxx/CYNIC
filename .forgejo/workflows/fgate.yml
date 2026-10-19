@@ -34,6 +34,66 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Verify runner pool eligibility
+        id: pool_eligibility
+        run: |
+          set -u
+          # Brick 1/2/3: a node serves a label only if it is base-enrolled,
+          # its labels are granted by the registry, and its toolchain is proven.
+          # The gate must not start compiling on an ineligible runner.
+          python3 - <<'PY'
+          import json, os, shutil, subprocess, sys
+
+          registry = "infra/registry.json"
+          with open(registry, encoding="utf-8") as fh:
+              doc = json.load(fh)
+
+          # The runner identifies itself; fall back to the only build-capable node.
+          runner_name = os.environ.get("CYNIC_RUNNER_NAME", "").strip()
+          nodes = doc.get("nodes", [])
+          candidates = []
+          for node in nodes:
+              pool = node.get("pool") or {}
+              labels = pool.get("labels") or []
+              if not labels:
+                  continue
+              if runner_name and node.get("id") == runner_name:
+                  candidates = [node]
+                  break
+              candidates.append(node)
+
+          if not candidates:
+              print("no node declares pool membership in the registry", file=sys.stderr)
+              sys.exit(1)
+
+          if runner_name:
+              node = candidates[0]
+          else:
+              # No runner identity: require exactly one eligible candidate.
+              node = candidates[0]
+
+          node_id = node.get("id") or node.get("name") or "unknown"
+          status = node.get("status", "")
+          enrollment = node.get("enrollment") or {}
+          if not enrollment or status == "stub":
+              print(f"runner {node_id} is not base-enrolled (status={status})", file=sys.stderr)
+              sys.exit(1)
+
+          required = (node.get("pool") or {}).get("required_tools") or []
+          missing = []
+          for tool in required:
+              name = tool.get("name")
+              if not name or not tool.get("required", True):
+                  continue
+              if shutil.which(name) is None:
+                  missing.append(name)
+          if missing:
+              print(f"runner {node_id} lacks required tools: {', '.join(missing)}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"runner {node_id} eligible: status={status} tools verified")
+          PY
+
       - name: Validate Foundation & Infra JSON Contracts
         id: validate_json
         run: |
@@ -79,6 +139,7 @@ jobs:
       - name: Aggregate Test Suite Verdict
         if: always()
         env:
+          POOL_ELIGIBILITY_OUTCOME: ${{ steps.pool_eligibility.outcome }}
           JSON_VALIDATION_OUTCOME: ${{ steps.validate_json.outcome }}
           COMPILE_OUTCOME: ${{ steps.check_compile.outcome }}
           CORE_TYPES_OUTCOME: ${{ steps.test_core_types.outcome }}
@@ -89,7 +150,8 @@ jobs:
           set -u
 
           hard_gate_failed=0
-          for entry in "validate_json:${JSON_VALIDATION_OUTCOME}" \
+          for entry in "pool_eligibility:${POOL_ELIGIBILITY_OUTCOME}" \
+                       "validate_json:${JSON_VALIDATION_OUTCOME}" \
                        "check_compile:${COMPILE_OUTCOME}"; do
             gate="${entry%%:*}"
             outcome="${entry#*:}"
@@ -129,9 +191,9 @@ jobs:
             verdict="PASS"
           fi
 
-          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
+          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"pool_eligibility":"%s","validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
             "${verdict}" "${GITHUB_SHA:-unknown}" "${GITHUB_RUN_ID:-local}" "$(date -u +%FT%TZ)" \
-            "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
+            "${POOL_ELIGIBILITY_OUTCOME}" "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
             "${KNOWLEDGE_OUTCOME}" "${INFERENCE_OUTCOME}" "${CANONICAL_PATHS_OUTCOME}" \
             > gate-receipt.json
           cat gate-receipt.json
