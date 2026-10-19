@@ -473,6 +473,17 @@ impl SshBuildRunner {
             .run(&["ssh", target.as_str(), "test", "-x", bin.as_str()])
             .success()
     }
+
+    /// Total RAM bytes, or None when unmeasurable. Same fail-closed
+    /// semantics as the free probe: unknown, never zero.
+    pub fn probe_total_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        if !out.success() {
+            return None;
+        }
+        cynic_protocol::capacity::parse_mem_total_bytes(&out.stdout)
+    }
 }
 
 /// Busy jiffies (user + nice + system) from the aggregate `cpu ` line of
