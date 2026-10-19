@@ -225,6 +225,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::knowledge_surface::KnowCommand,
     },
+    /// CYNICpedia — registry of knowledge articles (docs, contracts, traces, designs).
+    Wiki {
+        #[command(subcommand)]
+        command: crate::wiki_surface::WikiCommand,
+    },
     /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
     Queue {
         #[arg(long)]

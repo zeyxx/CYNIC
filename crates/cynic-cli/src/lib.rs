@@ -93,6 +93,7 @@ pub mod task_ledger;
 pub mod task_surface;
 pub mod transport_surface;
 pub mod version_surface;
+pub mod wiki_surface;
 pub mod workload_observation;
 
 pub use cli_args::Cli;
