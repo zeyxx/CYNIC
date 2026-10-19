@@ -259,6 +259,8 @@ fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
         fs::create_dir_all(parent)
             .map_err(|_| "build_workspace_parent_create_failed".to_string())?;
     }
+    // Always prune stale registrations so a prior fallback removal (or a
+    // manual rm -rf) cannot leave a registration that blocks re-creation.
     Ok(())
 }
 
