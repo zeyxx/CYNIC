@@ -83,8 +83,14 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   prouvé 2026-10-19 : zéro session silver, zéro normaliseur/capture/runner/test,
   seules mentions = bruit (modèle `Qwen3.6` dans hermes_contract, variable
   `cursor` sqlite, docs). Rien à retirer, rien à capsuler.
-- Restent : `omp` (~90 sessions), `claude_code` (106),
+- Restent : `claude_code` (106 sessions),
   `antigravity` (500, vertical partiel).
+- `omp` (troisième, HITL opérateur) : normaliseur 867 lignes (FIELD_FATE
+  129 lignes, famille NATIVE-pointer : REPLY/TOOL_CALL natifs, edges
+  COMPACTION/MODEL_CHANGE) + capture + runner + 3 tests supprimés ;
+  registre UNCONTRACTED nettoyé ; capsule `docs/specs/harness-omp.md`.
+  Données intactes (88 sessions silver + 1341 fichiers gelés, miroir
+  du live). Perte assumée : ingestion restante sans vertical Rust (T7).
 
 ### T7 — Modèle graphe + projection géodésique [ ]
 - Gated derrière T1–T6 (loi de Gall). Implémente R1–R6 du delta géodésique
