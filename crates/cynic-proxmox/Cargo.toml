@@ -8,6 +8,7 @@ publish = false
 [dev-dependencies]
 walkdir.workspace = true
 futures.workspace = true
+tokio.workspace = true
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

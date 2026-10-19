@@ -19,6 +19,20 @@ use reqwest::Certificate;
 use reqwest::blocking::Client;
 use serde_json::Value;
 
+/// Validate CA PEM bytes: must contain at least one PEM-armored certificate
+/// block AND parse. `Certificate::from_pem` alone accepts bare garbage
+/// (empty cert list), so the armor check is the real fail-closed gate.
+fn validate_ca_pem(pem: &[u8]) -> Result<(), String> {
+    if !pem
+        .windows(b"-----BEGIN CERTIFICATE-----".len())
+        .any(|w| w == b"-----BEGIN CERTIFICATE-----")
+    {
+        return Err("blocked_tls_invalid_ca:no_pem_block".to_string());
+    }
+    Certificate::from_pem(pem).map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
+    Ok(())
+}
+
 use crate::agent_host::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
 
 // ---------------------------------------------------------------------------
@@ -72,11 +86,15 @@ impl ResolvedNode {
 /// Constructed via `ProxmoxRestAgentHostObserver::new`; callers must supply
 /// the endpoint, token identity, token secret, and an optional CA PEM bundle.
 /// No defaults, no env reads — those belong in the CLI thin projection.
+/// Threading: the blocking HTTP client is never stored. Every request builds
+/// its client, sends, and parses inside a dedicated OS thread, so nothing
+/// blocking is ever constructed or dropped on a Tokio runtime
+/// (`Cannot drop a runtime in a context where blocking is not allowed`).
 pub struct ProxmoxRestAgentHostObserver {
     base_url: String,
     token_id: String,
     token_secret: String,
-    client: Client,
+    ca_pem: Vec<u8>,
 }
 
 impl std::fmt::Debug for ProxmoxRestAgentHostObserver {
@@ -102,21 +120,15 @@ impl ProxmoxRestAgentHostObserver {
         let Some(pem) = ca_pem else {
             return Err("blocked_tls_unproven:no_ca_pem_supplied".to_string());
         };
-        let cert = Client::builder().build().ok(); // just to validate; real cert below
-        drop(cert);
-        let certificate =
-            Certificate::from_pem(pem).map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .add_root_certificate(certificate)
-            .build()
-            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        // Validate the PEM now (pure parse, no runtime); the client itself is
+        // built per-request inside a dedicated thread (see `get_json`).
+        validate_ca_pem(pem)?;
 
         Ok(Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token_id: token_id.into(),
             token_secret: token_secret.into(),
-            client,
+            ca_pem: pem.to_vec(),
         })
     }
 
@@ -124,21 +136,35 @@ impl ProxmoxRestAgentHostObserver {
         format!("PVEAPIToken={}={}", self.token_id, self.token_secret)
     }
 
+    /// Whole-request boundary: build the blocking client, send, and parse to
+    /// an owned `Value` inside a dedicated OS thread. Nothing blocking is
+    /// constructed, used, or dropped on the caller's (possibly async) thread.
     fn get_json(&self, path: &str) -> Result<Value, String> {
         let url = format!("{}{}", self.base_url, path);
-        let res = self
-            .client
-            .get(&url)
-            .header("Authorization", self.auth_header())
-            .send()
-            .map_err(|e| format!("pve_api_request_failed:{e}"))?;
-
-        if !res.status().is_success() {
-            return Err(format!("pve_api_http_error:{}", res.status()));
-        }
-
-        let json: Value = res.json().map_err(|e| format!("invalid_pve_json:{e}"))?;
-        Ok(json.get("data").cloned().unwrap_or(json))
+        let auth = self.auth_header();
+        let ca_pem = self.ca_pem.clone();
+        std::thread::spawn(move || {
+            let certificate = Certificate::from_pem(&ca_pem)
+                .map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
+            let res = Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .add_root_certificate(certificate)
+                .build()
+                .map_err(|e| format!("http_client_init_failed:{e}"))?
+                .get(&url)
+                .header("Authorization", auth)
+                .send()
+                .map_err(|e| format!("pve_api_request_failed:{e}"))?;
+            if !res.status().is_success() {
+                return Err(format!("pve_api_http_error:{}", res.status()));
+            }
+            let json: Value = res
+                .json()
+                .map_err(|e| format!("invalid_pve_json:{e}"))?;
+            Ok(json.get("data").cloned().unwrap_or(json))
+        })
+        .join()
+        .map_err(|_| "pve_request_thread_panicked".to_string())?
     }
 
     /// Discover and resolve the Proxmox node name from `desired.hypervisor_target`.
@@ -805,6 +831,27 @@ mod tests {
         assert!(
             err.contains("blocked_tls_unproven"),
             "expected tls_unproven error, got: {err}"
+        );
+    }
+
+    /// Building the REST observer inside a Tokio runtime must not panic.
+    /// Regression test for the `Cannot drop a runtime in a context where
+    /// blocking is not allowed` panic (blocking reqwest client built and
+    /// dropped inside async context). The CA is a throwaway 2-day test cert
+    /// (`src/adapters/test-ca.pem`, parse gate only — regenerate with
+    /// `openssl req -x509 -newkey rsa:2048 -nodes -subj "/CN=test-ca"`).
+    #[tokio::test]
+    async fn rest_observer_builds_inside_async_runtime() {
+        let result = ProxmoxRestAgentHostObserver::new(
+            "https://pve.service.cynic:8006",
+            "cynic@pve!runtime",
+            "secret",
+            Some(include_str!("test-ca.pem").as_bytes()),
+        );
+        assert!(
+            result.is_ok(),
+            "observer build must not panic/fail in async context: {:?}",
+            result.err()
         );
     }
 }

@@ -435,7 +435,10 @@ impl ProxmoxControlAdapter {
         if upid.is_empty()
             || upid.len() > 512
             || !upid.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b':' | b'-' | b'_' | b'.')
+                // Real UPIDs carry the task owner (`user@realm` or
+                // `user@realm!token`), so `@` and `!` are legitimate.
+                byte.is_ascii_alphanumeric()
+                    || matches!(byte, b':' | b'-' | b'_' | b'.' | b'@' | b'!')
             })
         {
             return Err("invalid Proxmox task id".to_string());

@@ -2,8 +2,22 @@
 
 ## Status
 
-Proposed. Implements option 2 (native mutating surface). Adversarial review
-required before any slice.
+SUPERSEDED on implementation. Mapping the existing tree before building
+revealed the canonical mutating surface already exists:
+`cynic node compute provision --apply` → `ProxmoxControlAdapter::provision_lxc`
+(async reqwest, UPID poll, read-back, no blocking client — immune to the
+Tokio-drop panic by construction). Building a second creator in
+`cynic-proxmox` duplicated it; the duplicate was deleted
+(`refactor(proxmox): drop duplicate create module`).
+
+What this tranche actually shipped:
+1. Thread-boundary fix for the REST observer (dedicated OS thread per
+   request — the real `Cannot drop a runtime` panic, proven RED/GREEN).
+2. `validate_ca_pem` armor gate (`from_pem` accepts bare garbage — measured).
+3. Measured precedents below (kept: they calibrate the existing surface).
+
+Use `cynic node compute provision --vmid 107 --hostname relay-107
+--template-volid <volid> --storage-pool local --apply` for the live proof.
 
 ## Shape
 
