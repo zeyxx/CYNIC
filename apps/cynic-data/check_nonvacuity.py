@@ -9,9 +9,15 @@ FAILS LOUDLY if any of them still passes — a vacuous guard.
 
 Two tables in one runner: the Python pipeline guards (paths re-anchored after
 the infra/data_system -> apps/cynic-data move; pre-move paths kept as
-fallbacks) and the Rust rewrite guards (tranche commits T2-T4; files created
+fallbacks) and the Rust rewrite guards (tranche commits T3-T4; files created
 by the commit itself are DELETED for the pre-fix run — a genesis file cannot
 be reverted, only removed).
+
+E8: a genesis commit is not a guard. Non-vacuity applies from the first FIX:
+T2 created kernel/conservation/ports together with their tests, so no
+pre-existing test can fail on their absence (proven: reverting T2 leaves
+0 lib tests, architecture_boundary is path-based and passes). The table
+starts where a test predates the fix it guards.
 
 Mutation happens in the working tree and is restored in a finally block; the
 run refuses to start on a dirty tree. Pass --python for the pytest rows and
@@ -78,21 +84,7 @@ GUARDS: dict[str, dict] = {
                 "-q", "-p", "no:cacheprovider", "tests/test_hermes_conservation.py"],
         "cwd": "apps/cynic-data",
     },
-    # --- Rust rewrite (tranches T2-T4) ---
-    "f70d6645": {
-        "files": [
-            "crates/cynic-traces/src/conservation.rs",
-            "crates/cynic-traces/src/kernel/contract.rs",
-            "crates/cynic-traces/src/kernel/errors.rs",
-            "crates/cynic-traces/src/kernel/ids.rs",
-            "crates/cynic-traces/src/kernel/mod.rs",
-            "crates/cynic-traces/src/lib.rs",
-            "crates/cynic-traces/src/ports.rs",
-        ],
-        "run": ["cargo", "test", "-p", "cynic-traces", "--lib", "-q"],
-        "cwd": ".",
-        "env": {"RUSTFLAGS": "-C debuginfo=0"},
-    },
+    # --- Rust rewrite (first fixes, not genesis — see E8) ---
     "44a109c0": {
         "files": [
             "crates/cynic-traces/src/adapters/hermes/contract.rs",
