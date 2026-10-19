@@ -16,7 +16,6 @@ import re
 import pytest
 
 from cynic_data.canonical.adapters.normalizers.antigravity import AntigravityNormalizer
-from cynic_data.canonical.adapters.normalizers.claude_code import ClaudeCodeNormalizer
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.domain.conservation import Fate, parse_fate
 
@@ -33,7 +32,6 @@ UNCONTRACTED = {
     "antigravity": lambda: AntigravityNormalizer(
         "/var/lib/cynic/vault/archive/linux_sessions_2026/gemini_antigravity/conversations"
     ),
-    "claude_code": lambda: ClaudeCodeNormalizer("/home/user/.claude/projects"),
 }
 
 
