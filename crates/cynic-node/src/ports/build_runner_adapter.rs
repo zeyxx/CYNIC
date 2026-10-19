@@ -397,8 +397,11 @@ impl BuildRunnerPort for SshBuildRunner {
         if is_test_phase {
             let mut harness_argv = argv.clone();
             // Replace `test` with `check --tests` in the cargo argv tail.
+            // `--no-fail-fast` belongs to `cargo test` only; `cargo check`
+            // rejects it, so the harness compile drops it.
             if let Some(position) = harness_argv.iter().position(|word| word == "test") {
                 harness_argv[position] = "check".to_string();
+                harness_argv.retain(|word| word != "--no-fail-fast");
                 harness_argv.push("--tests".to_string());
                 harness_argv.push("--keep-going".to_string());
             }
