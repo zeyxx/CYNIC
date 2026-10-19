@@ -126,12 +126,22 @@ jobs:
                   try:
                       import subprocess
 
-                      banner = subprocess.run(
+                      probe = subprocess.run(
                           [name, "--version"],
                           capture_output=True,
                           text=True,
                           timeout=20,
-                      ).stdout.splitlines()[0]
+                      )
+                      # Some tools (node) print their banner on stderr.
+                      streams = [probe.stdout, probe.stderr]
+                      banner = ""
+                      for stream in streams:
+                          lines = [
+                              line for line in stream.splitlines() if line.strip()
+                          ]
+                          if lines:
+                              banner = lines[0]
+                              break
                   except Exception:
                       banner = ""
                   token = None
