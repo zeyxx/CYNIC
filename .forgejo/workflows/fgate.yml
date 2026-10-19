@@ -89,10 +89,35 @@ jobs:
               for tool in (node.get("pool") or {}).get("required_tools") or []:
                   name = tool.get("name")
                   if name and tool.get("required", True):
-                      required[name] = tool.get("min_version")
+                      required[name] = (
+                          tool.get("min_version"),
+                          tool.get("kind", "binary"),
+                      )
 
           missing = []
-          for name, minimum in sorted(required.items()):
+          for name, (minimum, kind) in sorted(required.items()):
+              if kind == "pkg_config":
+                  # System libraries have no executable: pkg-config proves them.
+                  if shutil.which("pkg-config") is None:
+                      missing.append("pkg-config")
+                      continue
+                  import subprocess
+
+                  probe = subprocess.run(
+                      ["pkg-config", "--modversion", name],
+                      capture_output=True,
+                      text=True,
+                  )
+                  if probe.returncode != 0 or not probe.stdout.strip():
+                      missing.append(f"{name}(pkg-config module)")
+                      continue
+                  version = probe.stdout.strip().splitlines()[0]
+                  if minimum:
+                      have = tuple(int(p) for p in version.split(".") if p.isdigit())
+                      want = tuple(int(p) for p in minimum.split(".") if p.isdigit())
+                      if have < want:
+                          missing.append(f"{name}({version} < {minimum})")
+                  continue
               if shutil.which(name) is None:
                   missing.append(name)
                   continue
