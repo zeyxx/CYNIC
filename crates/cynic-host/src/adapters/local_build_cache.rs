@@ -11,8 +11,41 @@ use crate::domain::disk::build_runner::{
     EphemeralKind,
 };
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LocalBuildCacheAdapter;
+/// The unit executables the reclaim refuses to touch.
+///
+/// A function pointer keeps the production path reading the real unit files
+/// while a test can declare the executables it wants to protect. The choice
+/// is made at the call site, not from a global, so a test never depends on
+/// what the host happens to run.
+type UnitExecutables = fn() -> Vec<crate::adapters::live_service_paths::UnitExecutable>;
+
+/// Read the real unit executables.
+fn observe_real_unit_executables() -> Vec<crate::adapters::live_service_paths::UnitExecutable> {
+    crate::adapters::live_service_paths::observe_unit_executables()
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LocalBuildCacheAdapter {
+    unit_executables: UnitExecutables,
+}
+
+impl Default for LocalBuildCacheAdapter {
+    fn default() -> Self {
+        Self {
+            unit_executables: observe_real_unit_executables,
+        }
+    }
+}
+
+impl LocalBuildCacheAdapter {
+    /// An adapter that protects the declared executables.
+    ///
+    /// The production adapter reads the unit files; this one takes the list
+    /// as given, so the decision can be exercised against a known state.
+    pub fn protecting(unit_executables: UnitExecutables) -> Self {
+        Self { unit_executables }
+    }
+}
 
 impl BuildCacheObservationPort for LocalBuildCacheAdapter {
     fn observe(&self, desired: &BuildCacheDesiredState) -> BuildCacheObservation {
@@ -201,7 +234,7 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
             // list that can drift from what the units actually do.
             if crate::adapters::live_service_paths::is_live_service_path(
                 path,
-                &crate::adapters::live_service_paths::observe_unit_executables(),
+                &(self.unit_executables)(),
             ) {
                 skipped_live_service.push(raw.clone());
                 continue;
@@ -691,7 +724,7 @@ mod tests {
             retention_pressure_grace_ms: None,
         };
 
-        LocalBuildCacheAdapter
+        LocalBuildCacheAdapter::default()
             .reclaim_profile(&desired)
             .expect("bounded reclaim");
 
@@ -726,7 +759,7 @@ mod tests {
             retention_pressure_grace_ms: None,
         };
 
-        let evidence = LocalBuildCacheAdapter
+        let evidence = LocalBuildCacheAdapter::default()
             .reclaim_noncanonical_caches(&desired)
             .expect("both declared caches are within their bases");
 
@@ -754,12 +787,91 @@ mod tests {
             retention_pressure_grace_ms: None,
         };
 
-        let evidence = LocalBuildCacheAdapter
+        let evidence = LocalBuildCacheAdapter::default()
             .reclaim_noncanonical_caches(&desired)
             .expect("an absent cache is the desired state, not a failure");
 
         assert!(evidence.contains("removed_noncanonical_caches:none"));
         assert!(evidence.contains("skipped_absent:"));
+    }
+
+    #[test]
+    fn noncanonical_reclaim_never_removes_a_cache_a_live_unit_executes_from() {
+        // The builder's soak daemon executes from inside the Cargo cache this
+        // policy reclaims. Removing that path would delete the binary of a
+        // running service.
+        let root = tempfile::tempdir().unwrap();
+        let served = root.path().join("shared-target");
+        fs::create_dir_all(served.join("debug")).unwrap();
+        fs::write(served.join("debug/cynic"), b"running binary").unwrap();
+        let desired = BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
+            canonical_target: root.path().join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: vec![served.display().to_string()],
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
+        };
+
+        let served_path = served.clone();
+        let evidence = LocalBuildCacheAdapter::protecting(move || {
+            vec![crate::adapters::live_service_paths::UnitExecutable {
+                unit: "cynic-supervise-soak-node.service".to_string(),
+                executable: served_path.join("debug/cynic"),
+            }]
+        })
+        .reclaim_noncanonical_caches(&desired)
+        .expect("a served cache is skipped, not an error");
+
+        assert!(evidence.contains("removed_noncanonical_caches:none"));
+        assert!(evidence.contains("skipped_live_service:"));
+        // The binary of the running service is still there.
+        assert!(served.join("debug/cynic").is_file());
+    }
+
+    #[test]
+    fn noncanonical_reclaim_reports_absent_and_served_separately() {
+        // Two different reasons to skip. Collapsing them would make an
+        // operator read "skipped" without knowing which.
+        let root = tempfile::tempdir().unwrap();
+        let absent = root.path().join("never-created");
+        let served = root.path().join("served-target");
+        fs::create_dir_all(served.join("debug")).unwrap();
+        fs::write(served.join("debug/cynic"), b"running binary").unwrap();
+        let desired = BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
+            canonical_target: root.path().join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: vec![
+                absent.display().to_string(),
+                served.display().to_string(),
+            ],
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
+        };
+
+        let served_path = served.clone();
+        let evidence = LocalBuildCacheAdapter::protecting(move || {
+            vec![crate::adapters::live_service_paths::UnitExecutable {
+                unit: "cynic-supervise-soak-node.service".to_string(),
+                executable: served_path.join("debug/cynic"),
+            }]
+        })
+        .reclaim_noncanonical_caches(&desired)
+        .expect("skips are not failures");
+
+        assert!(evidence.contains(&format!("skipped_absent:{}", absent.display())));
+        assert!(evidence.contains(&format!("skipped_live_service:{}", served.display())));
     }
 
     #[test]
@@ -781,7 +893,7 @@ mod tests {
             retention_pressure_grace_ms: None,
         };
 
-        let error = LocalBuildCacheAdapter
+        let error = LocalBuildCacheAdapter::default()
             .reclaim_noncanonical_caches(&desired)
             .expect_err("a path under neither root must be refused");
 
@@ -813,7 +925,7 @@ mod tests {
             retention_pressure_grace_ms: None,
         };
 
-        let error = LocalBuildCacheAdapter
+        let error = LocalBuildCacheAdapter::default()
             .reclaim_noncanonical_caches(&desired)
             .expect_err("a symlinked cache must be refused, not followed");
 
@@ -844,7 +956,7 @@ mod tests {
             retention_pressure_grace_ms: None,
         };
 
-        let error = LocalBuildCacheAdapter
+        let error = LocalBuildCacheAdapter::default()
             .reclaim_profile(&desired)
             .expect_err("symlinked ancestor must block");
 
@@ -914,7 +1026,7 @@ mod tests {
         symlink(outside.path().join("real"), parent.join("cynic-eeeeeeee")).unwrap();
         let desired = retention_desired(root.path(), vec![checkout_scope()]);
 
-        let observation = LocalBuildCacheAdapter.observe(&desired);
+        let observation = LocalBuildCacheAdapter::default().observe(&desired);
 
         assert_eq!(observation.observed_ephemeral.len(), 1);
         let entry = &observation.observed_ephemeral[0];
@@ -959,7 +1071,7 @@ mod tests {
         write_record(root.path(), "build-1111111111111111", "claimed");
         let desired = retention_desired(root.path(), vec![workspace_scope()]);
 
-        let observation = LocalBuildCacheAdapter.observe(&desired);
+        let observation = LocalBuildCacheAdapter::default().observe(&desired);
 
         let terminal = |name: &str| {
             observation
@@ -1006,7 +1118,7 @@ mod tests {
         .unwrap();
         let desired = retention_desired(root.path(), vec![workspace_scope()]);
 
-        let observation = LocalBuildCacheAdapter.observe(&desired);
+        let observation = LocalBuildCacheAdapter::default().observe(&desired);
 
         let terminal = observation
             .observed_ephemeral
@@ -1032,13 +1144,13 @@ mod tests {
         write_record(root.path(), "build-aaaaaaaaaaaaaaaa", "claimed");
         let desired = retention_desired(root.path(), vec![checkout_scope(), workspace_scope()]);
 
-        let evidence = LocalBuildCacheAdapter
+        let evidence = LocalBuildCacheAdapter::default()
             .reclaim_ephemeral_paths(&desired, &[dead.display().to_string()])
             .expect("dead checkout removes");
         assert!(!dead.exists());
         assert!(evidence.contains("cynic-deadbeef"), "got: {evidence}");
 
-        let error = LocalBuildCacheAdapter
+        let error = LocalBuildCacheAdapter::default()
             .reclaim_ephemeral_paths(&desired, &[live.display().to_string()])
             .expect_err("live workspace must abort");
         assert!(error.contains("workspace_live"), "got: {error}");
@@ -1063,7 +1175,7 @@ mod tests {
         });
         let desired = retention_desired(root.path(), scopes);
 
-        let observation = LocalBuildCacheAdapter.observe(&desired);
+        let observation = LocalBuildCacheAdapter::default().observe(&desired);
 
         assert_eq!(
             observation.unlinked_checkouts.len(),
@@ -1098,7 +1210,7 @@ mod tests {
         fs::create_dir_all(&rogue).unwrap();
         let desired = retention_desired(root.path(), vec![checkout_scope()]);
 
-        let error = LocalBuildCacheAdapter
+        let error = LocalBuildCacheAdapter::default()
             .reclaim_ephemeral_paths(&desired, &[rogue.display().to_string()])
             .expect_err("outside any scope parent must be refused");
         assert!(error.contains("outside_declared_scopes"), "got: {error}");
