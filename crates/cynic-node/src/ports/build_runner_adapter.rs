@@ -693,6 +693,9 @@ mod tests {
         script: Arc<Mutex<Script>>,
     }
 
+    /// The state root the fake runner reports for its own layout.
+    const FAKE_STATE_ROOT: &str = "/var/lib/cynic";
+
     impl FakeRunner {
         fn with(responses: Vec<CommandOutput>) -> Self {
             Self {
@@ -714,6 +717,19 @@ mod tests {
             script
                 .log
                 .push(argv.iter().map(|arg| (*arg).to_string()).collect());
+            // The runner's own layout is answered by argv, not by position:
+            // it is read at a different point in the sequence than the
+            // scripted responses assume.
+            let args: Vec<&str> = argv.to_vec();
+            if args.iter().any(|arg| *arg == "paths") && args.iter().any(|arg| *arg == "--json") {
+                return CommandOutput {
+                    exit_code: Some(0),
+                    stdout: format!(
+                        "{{\"schema\":\"cynic.runtime_paths.v1\",\"state_root\":\"{FAKE_STATE_ROOT}\"}}"
+                    ),
+                    ..Default::default()
+                };
+            }
             script.responses.pop_front().unwrap_or_default()
         }
     }
