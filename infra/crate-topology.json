@@ -114,7 +114,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 40548
+      "loc": 39034
     },
     "cynic-consensus": {
       "consumers": [
@@ -1139,7 +1139,7 @@
     "crates": 46,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 375607,
+    "loc_total": 374093,
     "pending_disposition": 3,
     "runtime_edges": 177,
     "unjustified": 0,
