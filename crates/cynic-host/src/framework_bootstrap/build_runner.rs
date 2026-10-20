@@ -363,7 +363,7 @@ pub fn observe_build_runner_bootstrap(
     let resource_plan =
         match load_build_cache_desired_state(registry, node_id, state_root, temporary_root) {
             Ok(desired) => {
-                let observed = LocalBuildCacheAdapter.observe(&desired);
+                let observed = LocalBuildCacheAdapter::default().observe(&desired);
                 let plan = reconcile_build_cache(&desired, &observed);
                 if plan.status != "satisfied" {
                     blockers.extend(plan.blockers.iter().cloned());
