@@ -11,10 +11,6 @@ env:
   CARGO_TERM_COLOR: always
   CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
   RUSTFLAGS: "-C debuginfo=0"
-  # Persistent, shared build cache: the runner keeps one target directory
-  # across jobs, so a job starts warm instead of recompiling the workspace
-  # from scratch (measured on builder-119: 256s cold vs 96s warm).
-  CARGO_TARGET_DIR: /var/lib/cynic/build-targets/fgate
   POOL_LABEL: cynic/build
 
 jobs:
@@ -38,6 +34,15 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
           rustc --version
           cargo --version
 
@@ -94,6 +99,15 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
 
       - name: Check Workspace Compilation
         run: cargo check --workspace
@@ -115,6 +129,15 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
 
       - name: Run Core Types Test Suite
         run: cargo test -p cynic-types
@@ -136,6 +159,15 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
 
       - name: Run Knowledge Test Suite
         run: cargo test -p cynic-knowledge
@@ -157,6 +189,15 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
 
       - name: Run Inference Test Suite
         run: cargo test -p cynic-inference
@@ -178,6 +219,15 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
 
       - name: Run Canonical Paths Coherence Test
         run: cargo test -p cynic-cli --test canonical_paths_coherence
