@@ -284,7 +284,7 @@ Any crate without a workspace consumer is an orphan.
 
 | Plane | CIDR | Purpose | Registry key |
 |-------|------|---------|--------------|
-| synapse | 10.10.10.0/24 | Service plane, DNS zone `synapse.cynic` | `network_policy.planes.synapse` |
+| service | 10.10.10.0/24 | Service plane, DNS zone `service.cynic` | `network_policy.planes.service` |
 | management | 192.168.100.0/24 | Direct bare-metal management | `network_policy.planes.management` |
 | overlay | 10.20.0.0/24 | WireGuard encrypted full-mesh | `network_policy.planes.overlay` |
 
@@ -292,7 +292,7 @@ Any crate without a workspace consumer is an orphan.
 
 ## 7. REGISTERED HOSTS
 
-| Node ID | Role | Synapse IP | Services |
+| Node ID | Role | Service IP | Services |
 |---------|------|------------|----------|
 | cynic-host-proxmox | hypervisor | 10.10.10.1 | — |
 | local-kernel | kernel_primary | 10.10.10.100 | cynic-kernel (HTTP :3030) |

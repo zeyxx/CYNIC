@@ -26,7 +26,7 @@
 ## II. WHAT (Que dit la loi CYNIC sur le fonctionnement hors-site ?)
 
 ### 1. La Règle de Dualité Souveraine
-* **Forgejo (`forgejo.synapse.cynic`)** : Candidat SSOT Souverain sur le LAN Proxmox.
+* **Forgejo (`forgejo.service.cynic`)** : Candidat SSOT Souverain sur le LAN Proxmox.
 * **GitHub (`https://github.com/zeyxx/CYNIC.git`)** : Relais public (*Public Relay*) pour la collaboration distante et le déploiement CI.
 
 ### 2. Invariant de Non-Blocage (*Graceful Degradation*)
@@ -42,7 +42,7 @@
  1. Tentative de Synchronisation (`git push` ou `cynic forgejo plan`)
             │
             ▼
- 2. Sonde Rapide TCP (< 200 ms) vers `forgejo.synapse.cynic:3000`
+ 2. Sonde Rapide TCP (< 200 ms) vers `forgejo.service.cynic:3000`
             │
             ├──► Si Joignable (LAN)  : Push vers Forgejo (SSOT Souverain)
             │

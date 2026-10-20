@@ -37,7 +37,7 @@ Conformément à l'audit `registry_claim_audit.rs` (F2c : *« an unmodelled occu
 
 ### A. Réservation d'IP sur le plan Synapse
 * **IP réservée** : `10.10.10.40`
-* **Noms DNS** : `headscale.synapse.cynic`, `organ-headscale.synapse.cynic`, `cynic-lxc-headscale.synapse.cynic`
+* **Noms DNS** : `headscale.service.cynic`, `organ-headscale.service.cynic`, `cynic-lxc-headscale.service.cynic`
 
 ### B. Nœud et Service
 * **ID nœud** : `cynic-lxc-headscale`
@@ -55,7 +55,7 @@ L'ancienne instance `organ-headscale` avait été mise en quarantaine car son AP
 ### Règle d'Admission de Transport :
 L'API de contrôle Headscale ne doit **JAMAIS** transiter en clair sur un réseau non chiffré :
 1. **Option 1 (Overlay-Only)** : L'API de contrôle écoute exclusivement sur l'adresse WireGuard `10.20.0.X` du conteneur, garantissant que tout échange de clés est encapsulé dans WireGuard L4.
-2. **Option 2 (mTLS Natif)** : Terminaison TLS via reverse-proxy ou configuration native Headscale (`server_url: https://headscale.synapse.cynic:8443`) avec certificat validé par l'autorité de certificat interne CYNIC.
+2. **Option 2 (mTLS Natif)** : Terminaison TLS via reverse-proxy ou configuration native Headscale (`server_url: https://headscale.service.cynic:8443`) avec certificat validé par l'autorité de certificat interne CYNIC.
 
 ---
 
@@ -76,7 +76,7 @@ pub trait MeshCoordinationPort {
 2. **Génération du token** : `cynic-node` appelle `HeadscaleAdapter::create_join_grant("cynic", "cynic-builder-02", 10m)`.
 3. **Injection Cloud-Init** : Le jeton `preauthkey` à usage unique est injecté dans le payload de démarrage :
    ```bash
-   tailscale up --login-server=https://headscale.synapse.cynic:8443 --authkey=${PREAUTH_KEY} --hostname=cynic-builder-02
+   tailscale up --login-server=https://headscale.service.cynic:8443 --authkey=${PREAUTH_KEY} --hostname=cynic-builder-02
    ```
 4. **Auto-formation** : Le nœud rejoint le réseau, reçoit son IP Synapse, et les autres nœuds apprennent sa route immédiatement via Headscale.
 5. **Révocation à la destruction** : Le workflow de destruction Proxmox invoque `HeadscaleAdapter::revoke_node("cynic-builder-02")`, libérant immédiatement l'allocation d'IP.

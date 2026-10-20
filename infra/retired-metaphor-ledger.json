@@ -28,18 +28,18 @@
   },
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "files": 158,
-    "occurrences": 974,
+    "files": 154,
+    "occurrences": 957,
     "by_term": {
       "dog": 1121,
       "dogs": 416,
       "metabolic": 25,
       "metabolism": 135,
-      "organ": 318,
-      "organic": 160,
+      "organ": 317,
+      "organic": 151,
       "organism": 333,
-      "organs": 170,
-      "synapse": 145
+      "organs": 169,
+      "synapse": 92
     }
   },
   "entries": [
@@ -50,7 +50,6 @@
     {"path": "contracts/infrastructure-discovery.json", "count": 3, "evidence": "contracts/infrastructure-discovery.json:42", "terms": "synapse"},
     {"path": "contracts/observability-facts.json", "count": 3, "evidence": "contracts/observability-facts.json:19", "terms": "synapse"},
     {"path": "contracts/publication.json", "count": 1, "evidence": "contracts/publication.json:226", "terms": "synapse"},
-    {"path": "contracts/relay-policy.json", "count": 1, "evidence": "contracts/relay-policy.json:6", "terms": "synapse"},
     {"path": "crates/cynic-cli/src/agent_surface/mod.rs", "count": 1, "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:38", "terms": "organism"},
     {"path": "crates/cynic-cli/src/branch_audit.rs", "count": 1, "evidence": "crates/cynic-cli/src/branch_audit.rs:2", "terms": "organism"},
     {"path": "crates/cynic-cli/src/build_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/build_surface.rs:132", "terms": "metabolic"},
@@ -189,16 +188,13 @@
     {"path": "docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json", "count": 1, "evidence": "docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json:1", "terms": "DOG"},
     {"path": "infra/agent-exposure.json", "count": 7, "evidence": "infra/agent-exposure.json:542", "terms": "metabolism, organism, organ"},
     {"path": "infra/agent-roles.json", "count": 2, "evidence": "infra/agent-roles.json:146", "terms": "metabolic"},
-    {"path": "infra/agent-source-protocol.json", "count": 6, "evidence": "infra/agent-source-protocol.json:9", "terms": "synapse, Synapse"},
     {"path": "infra/audit-debt-ledger.json", "count": 3, "evidence": "infra/audit-debt-ledger.json:1039", "terms": "organic"},
-    {"path": "infra/cynicpedia.json", "count": 14, "evidence": "infra/cynicpedia.json:478", "terms": "Organic, organic, ORGANIC, synapse, Synapse, SYNAPSE"},
-    {"path": "infra/directory-tree.json", "count": 3, "evidence": "infra/directory-tree.json:48", "terms": "synapse, organs, organ"},
+    {"path": "infra/cynicpedia.json", "count": 11, "evidence": "infra/cynicpedia.json:478", "terms": "Organic, organic, ORGANIC, synapse"},
+    {"path": "infra/directory-tree.json", "count": 2, "evidence": "infra/directory-tree.json:198", "terms": "organs, organ"},
     {"path": "infra/module-inversion-ledger.json", "count": 1, "evidence": "infra/module-inversion-ledger.json:138", "terms": "dog"},
     {"path": "infra/os/network/topology-observation.json", "count": 8, "evidence": "infra/os/network/topology-observation.json:21", "terms": "synapse"},
-    {"path": "infra/registries/single-node.json", "count": 4, "evidence": "infra/registries/single-node.json:6", "terms": "synapse"},
     {"path": "infra/registry.json", "count": 10, "evidence": "infra/registry.json:4", "terms": "organism, synapse, organ"},
     {"path": "infra/registry_authority.json", "count": 8, "evidence": "infra/registry_authority.json:16", "terms": "synapse, organ"},
-    {"path": "infra/repo-remotes.json", "count": 2, "evidence": "infra/repo-remotes.json:12", "terms": "synapse"},
     {"path": "infra/runtime-authority.json", "count": 2, "evidence": "infra/runtime-authority.json:4", "terms": "organism, organs"},
     {"path": "services/relay-gateway/package-lock.json", "count": 3, "evidence": "services/relay-gateway/package-lock.json:4501", "terms": "Dog, DOg"}
   ]

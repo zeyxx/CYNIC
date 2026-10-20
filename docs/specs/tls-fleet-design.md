@@ -15,7 +15,7 @@ Ce doc devient des types purs + adapters une fois validé.
 
 | Plan | CIDR | Canonique | Usage réel |
 |---|---|---|---|
-| synapse | 10.10.10.0/24 | oui | services inter-nœuds |
+| service | 10.10.10.0/24 | oui | services inter-nœuds |
 | overlay WG | 10.20.0.0/24 | **non** | chiffré full-mesh, watchdogs L4 |
 | management | 192.168.100.0/24 | non | proxmox, kernel_url builder actuel |
 
@@ -70,8 +70,8 @@ Ce doc devient des types purs + adapters une fois validé.
   - clé intermédiaire sur l'hôte pve (management) OU via l'artifact store
     signé — décision D-TLS2 ci-dessous ;
   - durée 5 ans racine, 1 an intermédiaire, rotation documentée.
-- SAN obligatoires : `cynic-kernel.synapse.cynic`,
-  `cynic-builder.synapse.cynic`, etc. (DNS synapse = source des noms).
+- SAN obligatoires : `cynic-kernel.service.cynic`,
+  `cynic-builder.service.cynic`, etc. (DNS service = source des noms).
 - Algorithme : ed25519 pour les CA (cohérent avec l'identité ed25519 déjà
   utilisée par MachineEnrollment), P-256 accepté si compat exigée.
 
@@ -112,7 +112,7 @@ jamais remplacée par le seul certificat.
   "ca_ref": "secret://runtime-machine-identity/ca-bundle",
   "cert_ref": "secret://runtime-machine-identity/tls-cert",
   "key_ref": "secret://runtime-machine-identity/tls-key",   // PrincipalOwnedFile
-  "san_dns": ["cynic-builder.synapse.cynic"],
+  "san_dns": ["cynic-builder.service.cynic"],
   "renewal_before_expiry_s": 604800
 }
 ```
@@ -136,7 +136,7 @@ un check dédié.
 
 | # | Gap | Sévérité | Couche owner | Correction structurelle |
 |---|-----|----------|--------------|------------------------|
-| G1 | Kernel REST sans TLS sur synapse/management | **haute** | kernel server.rs + PKI | axum-server rustls + certs §2.2 |
+| G1 | Kernel REST sans TLS sur service/management | **haute** | kernel server.rs + PKI | axum-server rustls + certs §2.2 |
 | G2 | Node-control bloqué par sa propre loi (service down sur builder) | haute (symptôme de G1) | config registry | pointer sur https + mTLS après G1 ; PAS de contournement |
 | G3 | Forgejo HTTPS déclaré mais non joignable (000) | haute | infra forgejo (hors crates) | activer/réparer le vhost TLS forgejo-api-tls (port 443 déjà déclaré) |
 | G4 | Artifact store 8443 injoignable | moyenne | infra storage | vérifier unit + firewall ; cert requis §2.1 |
@@ -191,7 +191,7 @@ D-TLS6. Le proxy socat : détruit ou gardé en fallback explicitement taggé?
    types purs `transport_security` étendus (refs, SAN, policy renewal) +
    tests table-driven. Aucun hôte touché.
 2. **Kernel serveur TLS** : axum-server/rustls derrière feature flag,
-   dual-stack temporaire (http loopback + https synapse), read-back
+   dual-stack temporaire (http loopback + https service), read-back
    `/health` en https. Tests avec certs fixture générées in-test.
 3. **CSR enrollment TLS** : activer/tester csr-enroll_handler e2e
    (fixture), policy admission côté kernel, renewal loop côté node.

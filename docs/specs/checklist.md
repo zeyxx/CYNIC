@@ -43,7 +43,7 @@
 - **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)
 - **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)
 - **Builder:** `10.10.10.119` (build/test SSOT)
-- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`
+- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`
 
 ---
 
@@ -212,7 +212,7 @@ After crash or reboot:
 
 ```bash
 # 1. Restore from origin
-git clone ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git \
+git clone ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git \
   /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC
 
 # 2. Verify

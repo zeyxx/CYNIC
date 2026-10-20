@@ -12,7 +12,7 @@
 
 ### 1.1 Problem
 
-CYNIC currently manages **internal** DNS only: the `synapse.cynic` zone served by
+CYNIC currently manages **internal** DNS only: the `service.cynic` zone served by
 CoreDNS, hosts files, WireGuard mesh. There is no mechanism for an agent to:
 
 - Register an external domain through a registrar API (Porkbun)

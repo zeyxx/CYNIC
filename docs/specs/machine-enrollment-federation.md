@@ -73,7 +73,7 @@ single_use, evidence_refs }` avec variantes :
 - `provider_attestation` : l'hyperviseur ATTESTE la ressource qu'il a lui-
   même créée (Proxmox sait que lxc/105 existe, son ID, son réseau) —
   surface `provider-enrollment-plan/apply` déjà présente ;
-- `sponsor_node` : un nœud enrollé transmet le voucher par le plan synapse
+- `sponsor_node` : un nœud enrollé transmet le voucher par le plan service
   (jamais par un canal qu'il crée ad hoc) — l'ancre reste le grant du
   sponsor, borné par ses propres capacités ;
 - (futur) `tpm_hardware` : chaîne matérielle — hors périmètre immédiat.

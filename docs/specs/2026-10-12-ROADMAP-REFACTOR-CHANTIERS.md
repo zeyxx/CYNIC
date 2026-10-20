@@ -67,7 +67,7 @@
 ## Chantier 2 : Réseau Souverain (QUIC/HTTP/3 L7 & Mesh WireGuard L3)
 
 ### Diagnostic factuel
-- Le maillage inter-nœuds repose sur WireGuard (`synapse` 10.10.10.0/24), ce qui garantit un chiffrement L3 robuste.
+- Le maillage inter-nœuds repose sur WireGuard (`service` 10.10.10.0/24), ce qui garantit un chiffrement L3 robuste.
 - Les communications applicatives inter-agents utilisent actuellement TCP (HTTP/1.1 et HTTP/2), exposées au Head-of-Line blocking lors de micro-coupures ou d'instabilités réseau (laptops, runners mobiles, NAT traversal).
 
 ### Objectif d'arrivée
@@ -88,7 +88,7 @@
   - Validation test unitaire et de roundtrip `quic_domain_tests` vert sur le builder 10.10.10.119 (8/8 tests passés).
 - [ ] **Tranche 2.3 — Automatisation de l'admission Headscale & CoreDNS :**
   - Intégrer la génération et la révocation dynamique des clés Headscale via le coordinateur `10.10.10.40:8080`.
-  - Assurer la résolution DNS dynamique `*.synapse.cynic` sans fichiers hosts statiques.
+  - Assurer la résolution DNS dynamique `*.service.cynic` sans fichiers hosts statiques.
 
 ---
 
