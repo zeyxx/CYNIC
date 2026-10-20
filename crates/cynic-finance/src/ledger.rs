@@ -170,7 +170,10 @@ fn decrement_unit(unit: &crate::types::ResourceUnit, amount: f64) -> crate::type
 }
 
 /// Increments a resource unit by a given amount.
-fn increment_unit(unit: &crate::types::ResourceUnit, amount: f64) -> crate::types::ResourceUnit {
+///
+/// Public for the same reason as `decrement_unit`: the arithmetic that
+/// moves a balance belongs to one place.
+pub fn increment_unit(unit: &crate::types::ResourceUnit, amount: f64) -> crate::types::ResourceUnit {
     use crate::types::ResourceUnit::*;
     match unit {
         ComputeCpuMs(v) => ComputeCpuMs(*v + amount as u64),
