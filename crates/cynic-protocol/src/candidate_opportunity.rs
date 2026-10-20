@@ -1,13 +1,13 @@
-//! Pure organic-opportunity contract — read-only compass.
+//! Pure candidate-opportunity contract — read-only compass.
 //!
-//! An **organic opportunity** is an observed, bounded candidate for operator
+//! A **candidate opportunity** is an observed, bounded proposal for operator
 //! attention. It is not a task, a grant, a claim, or authority to mutate.
 //! It arises when unfinished work, recurring session friction, emerging
 //! patterns, plumbing debt, or cross-surface dependency evidence indicates
 //! that a small next step could unlock disproportionate proof, coverage, or
 //! operator capacity.
 //!
-//! `Organic always wins` is a priority law. It does not create a task,
+//! `Candidate always wins` is a priority law. It does not create a task,
 //! claim, grant, urgency signal, or mutation authority.
 //!
 //! No I/O lives here. This contract is consumed by host adapters
@@ -25,12 +25,12 @@ use serde::{Deserialize, Serialize};
 // SCHEMA
 // ===========================================================================
 
-/// Stable schema identifier for the organic-opportunity contract.
-pub const ORGANIC_OPPORTUNITY_SCHEMA: &str = "cynic.organic_opportunity.v1";
+/// Stable schema identifier for the candidate-opportunity contract.
+pub const CANDIDATE_OPPORTUNITY_SCHEMA: &str = "cynic.candidate_opportunity.v1";
 /// Stable schema for the value-frame ranking predicate input.
-pub const ORGANIC_VALUE_FRAME_SCHEMA: &str = "cynic.organic_value_frame.v1";
-/// Stable schema for the ranked organic-opportunity report.
-pub const ORGANIC_OPPORTUNITY_REPORT_SCHEMA: &str = "cynic.organic_opportunity_report.v1";
+pub const CANDIDATE_VALUE_FRAME_SCHEMA: &str = "cynic.candidate_value_frame.v1";
+/// Stable schema for the ranked candidate-opportunity report.
+pub const CANDIDATE_OPPORTUNITY_REPORT_SCHEMA: &str = "cynic.candidate_opportunity_report.v1";
 /// Stable schema for explicit operator decision records (Phase 4 decision boundary).
 pub const OPPORTUNITY_DECISION_SCHEMA: &str = "cynic.opportunity_decision.v1";
 
@@ -193,7 +193,7 @@ pub struct OpportunityDecisionRecord {
 
 /// Pure helper applying a matching decision record to an opportunity.
 pub fn apply_decision_record(
-    opportunity: &mut OrganicOpportunity,
+    opportunity: &mut CandidateOpportunity,
     record: &OpportunityDecisionRecord,
 ) {
     if opportunity.opportunity_id == record.opportunity_digest
@@ -204,16 +204,16 @@ pub fn apply_decision_record(
 }
 
 // ===========================================================================
-// CONTRACT — one organic opportunity
+// CONTRACT — one candidate opportunity
 // ===========================================================================
 
-/// One typed organic opportunity.
+/// One typed candidate opportunity.
 ///
 /// `actionable` is always `false`: the compass is a read-only projection
 /// that recommends, never executes. No field here grants mutation
 /// authority.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OrganicOpportunity {
+pub struct CandidateOpportunity {
     pub schema: String,
     /// Stable identity (digest of the canonical fields).
     pub opportunity_id: String,
@@ -278,12 +278,12 @@ pub enum ValueDimension {
 // RANKED REPORT
 // ===========================================================================
 
-/// A ranked organic-opportunity report for one declared value frame.
+/// A ranked candidate-opportunity report for one declared value frame.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OrganicOpportunityReport {
+pub struct CandidateOpportunityReport {
     pub schema: String,
     pub frame: ValueFrame,
-    pub opportunities: Vec<OrganicOpportunity>,
+    pub opportunities: Vec<CandidateOpportunity>,
     /// Sources that were requested but unavailable (e.g. MCP blocked).
     pub unavailable_sources: Vec<OpportunitySourceKind>,
     /// Wall-clock at report generation.
@@ -306,9 +306,9 @@ pub struct OrganicOpportunityReport {
 /// The function is pure: same input + same frame => same output.
 pub fn rank_in_value_frame(
     frame: &ValueFrame,
-    opportunities: &[OrganicOpportunity],
-) -> Vec<OrganicOpportunity> {
-    let mut filtered: Vec<&OrganicOpportunity> = opportunities
+    opportunities: &[CandidateOpportunity],
+) -> Vec<CandidateOpportunity> {
+    let mut filtered: Vec<&CandidateOpportunity> = opportunities
         .iter()
         .filter(|o| !matches!(o.operator_disposition, OperatorDisposition::Rejected { .. }))
         .collect();
@@ -373,10 +373,10 @@ fn joules_to_u64(j: f64) -> u64 {
 /// helper applies a defer record while leaving the underlying record
 /// intact. It does NOT mutate priority by itself.
 pub fn defer_opportunity(
-    opportunity: &OrganicOpportunity,
+    opportunity: &CandidateOpportunity,
     at_unix_s: u64,
     reason: &str,
-) -> OrganicOpportunity {
+) -> CandidateOpportunity {
     let mut updated = opportunity.clone();
     updated.operator_disposition = OperatorDisposition::Deferred {
         at_unix_s,
@@ -388,7 +388,7 @@ pub fn defer_opportunity(
 /// Unknown energy is data, not zero. Returns the same opportunity
 /// unchanged; the predicate exists so adapters can assert this contract
 /// without re-deriving it.
-pub fn unknown_stays_unknown(opportunity: &OrganicOpportunity) -> bool {
+pub fn unknown_stays_unknown(opportunity: &CandidateOpportunity) -> bool {
     match &opportunity.estimated_energy {
         EnergyEstimate::Unknown { .. } => true,
         EnergyEstimate::Measured { .. } | EnergyEstimate::Range { .. } => false,
@@ -419,9 +419,9 @@ mod tests {
         freshness: u64,
         confidence: f64,
         unknowns: Vec<&str>,
-    ) -> OrganicOpportunity {
-        OrganicOpportunity {
-            schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+    ) -> CandidateOpportunity {
+        CandidateOpportunity {
+            schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
             opportunity_id: id.to_string(),
             scope: scope.to_string(),
             sources: vec![mk_source(
@@ -441,11 +441,11 @@ mod tests {
 
     #[test]
     fn schema_names_are_stable_contracts() {
-        assert_eq!(ORGANIC_OPPORTUNITY_SCHEMA, "cynic.organic_opportunity.v1");
-        assert_eq!(ORGANIC_VALUE_FRAME_SCHEMA, "cynic.organic_value_frame.v1");
+        assert_eq!(CANDIDATE_OPPORTUNITY_SCHEMA, "cynic.candidate_opportunity.v1");
+        assert_eq!(CANDIDATE_VALUE_FRAME_SCHEMA, "cynic.candidate_value_frame.v1");
         assert_eq!(
-            ORGANIC_OPPORTUNITY_REPORT_SCHEMA,
-            "cynic.organic_opportunity_report.v1"
+            CANDIDATE_OPPORTUNITY_REPORT_SCHEMA,
+            "cynic.candidate_opportunity_report.v1"
         );
     }
 
@@ -492,7 +492,7 @@ mod tests {
             vec![],
         );
         let frame = ValueFrame {
-            schema: ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+            schema: CANDIDATE_VALUE_FRAME_SCHEMA.to_string(),
             frame_id: "frame-energy".to_string(),
             description: "lower energy first".to_string(),
             tie_break: vec![ValueDimension::EnergyLow],
@@ -528,7 +528,7 @@ mod tests {
             vec![],
         );
         let frame = ValueFrame {
-            schema: ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+            schema: CANDIDATE_VALUE_FRAME_SCHEMA.to_string(),
             frame_id: "frame-fanout".to_string(),
             description: "fan-out first".to_string(),
             tie_break: vec![ValueDimension::UnlockFanOut],
@@ -567,7 +567,7 @@ mod tests {
             vec![],
         );
         let frame = ValueFrame {
-            schema: ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+            schema: CANDIDATE_VALUE_FRAME_SCHEMA.to_string(),
             frame_id: "frame-default".to_string(),
             description: "default".to_string(),
             tie_break: vec![ValueDimension::ConfidenceHigh],
@@ -632,7 +632,7 @@ mod tests {
             vec!["u1", "u2"],
         );
         let frame = ValueFrame {
-            schema: ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+            schema: CANDIDATE_VALUE_FRAME_SCHEMA.to_string(),
             frame_id: "f".to_string(),
             description: "d".to_string(),
             tie_break: vec![ValueDimension::SafetyBlock, ValueDimension::EnergyLow],
@@ -655,7 +655,7 @@ mod tests {
     fn compass_remains_non_actionable() {
         // The contract is structural: there is no `actionable: true` field.
         // We assert by serialization round-trip: the schema MUST be the
-        // organic-opportunity one, not a judgment or task.
+        // candidate-opportunity one, not a judgment or task.
         let opp = mk_opp(
             "opp-na",
             "x",
@@ -668,7 +668,7 @@ mod tests {
             vec![],
         );
         let json = serde_json::to_string(&opp).unwrap();
-        assert!(json.contains(ORGANIC_OPPORTUNITY_SCHEMA));
+        assert!(json.contains(CANDIDATE_OPPORTUNITY_SCHEMA));
         assert!(!json.contains("actionable"));
     }
 

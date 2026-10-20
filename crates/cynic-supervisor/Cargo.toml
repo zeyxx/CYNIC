@@ -1,0 +1,22 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-supervisor"
+version.workspace = true
+edition.workspace = true
+publish = false
+description = "Bounded OS effects for CYNIC-owned child processes: group-aware spawn and SIGTERM/KILL stop"
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+tokio.workspace = true
+process-wrap = { version = "9.1", features = ["tokio1"] }
+libc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

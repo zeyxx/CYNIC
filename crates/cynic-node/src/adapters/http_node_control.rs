@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use ed25519_dalek::{Signer, SigningKey};
 use reqwest::{Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::adapters::workload_request_signer::{WorkloadRequestSigner, apply_signature_headers};
 use crate::ports::{
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort},
@@ -24,12 +24,7 @@ use cynic_workload::{
 pub struct HttpNodeControlAdapter {
     client: Client,
     base_url: String,
-    identity: FileWorkloadIdentity,
-}
-
-#[derive(Debug, Clone)]
-struct FileWorkloadIdentity {
-    signing_key_path: PathBuf,
+    signer: WorkloadRequestSigner,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,8 +82,7 @@ impl HttpNodeControlAdapter {
         {
             return Err("node control requires TLS or a loopback transport".to_string());
         }
-        let signing_key_path = signing_key_path.into();
-        validate_private_key_file(&signing_key_path)?;
+        let signer = WorkloadRequestSigner::new(signing_key_path.into())?;
         let client = Client::builder()
             .timeout(timeout)
             .build()
@@ -96,7 +90,7 @@ impl HttpNodeControlAdapter {
         Ok(Self {
             client,
             base_url,
-            identity: FileWorkloadIdentity { signing_key_path },
+            signer,
         })
     }
 
@@ -121,17 +115,15 @@ impl HttpNodeControlAdapter {
             .map_err(|_| "system clock precedes unix epoch".to_string())?
             .as_secs()
             .to_string();
-        let signing_key = self.identity.load()?;
-        let public_key = hex::encode(signing_key.verifying_key().as_bytes());
-        let payload = signed_payload(&timestamp, method.as_str(), path, &body);
-        let signature = hex::encode(signing_key.sign(&payload).to_bytes());
-        let mut request = self
-            .client
-            .request(method, format!("{}{}", self.base_url, path))
-            .header("X-Cynic-Public-Key", public_key)
-            .header("X-Cynic-Signature", signature)
-            .header("X-Cynic-Timestamp", timestamp)
-            .header(reqwest::header::CONTENT_TYPE, "application/json");
+        let signature = self
+            .signer
+            .sign_request(&timestamp, method.as_str(), path, &body)?;
+        let mut request = apply_signature_headers(
+            self.client
+                .request(method, format!("{}{}", self.base_url, path)),
+            &signature,
+        )
+        .header(reqwest::header::CONTENT_TYPE, "application/json");
         if let Some(token) = enrollment_token {
             request = request.header("X-Cynic-Enrollment-Token", token);
         }
@@ -146,7 +138,7 @@ impl HttpNodeControlAdapter {
         &self,
         params: BootstrapEnrollmentParams<'_>,
     ) -> Result<(), String> {
-        let signing_key = self.identity.load()?;
+        let signing_key = self.signer.load()?;
         let machine_public_key_hex = hex::encode(signing_key.verifying_key().as_bytes());
         let machine_identity_digest = format!(
             "sha256:{}",
@@ -210,7 +202,7 @@ impl HttpNodeControlAdapter {
     }
 
     pub async fn renew_enrollment(&self, params: RenewEnrollmentParams<'_>) -> Result<(), String> {
-        let signing_key = self.identity.load()?;
+        let signing_key = self.signer.load()?;
         let machine_public_key_hex = hex::encode(signing_key.verifying_key().as_bytes());
         let machine_identity_digest = format!(
             "sha256:{}",
@@ -506,66 +498,5 @@ impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
             return Err("workload completion read-back is invalid".to_string());
         }
         Ok(envelope.value)
-    }
-}
-
-impl FileWorkloadIdentity {
-    fn load(&self) -> Result<SigningKey, String> {
-        let raw = std::fs::read_to_string(&self.signing_key_path).map_err(|error| {
-            format!(
-                "read workload identity {}: {error}",
-                self.signing_key_path.display()
-            )
-        })?;
-        let bytes = hex::decode(raw.trim())
-            .map_err(|_| "workload signing key must be hex encoded".to_string())?;
-        let secret: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| "workload signing key must contain 32 bytes".to_string())?;
-        Ok(SigningKey::from_bytes(&secret))
-    }
-}
-
-fn signed_payload(timestamp: &str, method: &str, path: &str, body: &[u8]) -> Vec<u8> {
-    let mut payload = timestamp.as_bytes().to_vec();
-    payload.extend_from_slice(method.as_bytes());
-    payload.push(b'|');
-    payload.extend_from_slice(path.as_bytes());
-    payload.push(b'|');
-    payload.extend_from_slice(body);
-    payload
-}
-
-fn validate_private_key_file(path: &Path) -> Result<(), String> {
-    if !path.is_absolute() || !path.is_file() {
-        return Err("workload signing key must be an existing absolute file".to_string());
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let mode = std::fs::metadata(path)
-            .map_err(|error| format!("inspect workload identity: {error}"))?
-            .mode()
-            & 0o777;
-        if mode & 0o027 != 0 {
-            return Err(
-                "workload signing key must not be group-writable or accessible by others"
-                    .to_string(),
-            );
-        }
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn signing_payload_matches_kernel_wire_format() {
-        assert_eq!(
-            signed_payload("12", "GET", "/node-control/node-a/desired-state", &[]),
-            b"12GET|/node-control/node-a/desired-state|"
-        );
     }
 }

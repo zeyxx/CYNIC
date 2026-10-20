@@ -8,8 +8,7 @@
 use std::process::ExitCode;
 
 use cynic_inference::{
-    LocalModelInventory, LocalRuntimeServiceAny, LocalRuntimeState, LocalRuntimeStatus,
-    load_inference_config,
+    LocalModelInventory, LocalRuntimeServiceAny, LocalRuntimeStatus, load_inference_config,
 };
 use serde::Serialize;
 
@@ -92,10 +91,9 @@ pub(crate) fn build_operator_status() -> OperatorStatusReport {
     let runtime = LocalRuntimeServiceAny::from_env();
     let inventory = observe(runtime.list_inventory());
     let local_runtime = observe(runtime.status());
-    let actively_supervised = local_runtime
-        .value
-        .as_ref()
-        .map(|status| status.state == LocalRuntimeState::Active);
+    let actively_supervised = local_runtime.value.as_ref().map(|status| {
+        status.state.supervisor_state() == cynic_protocol::supervision::SupervisorState::Active
+    });
 
     let status = match actively_supervised {
         Some(true) => "active",

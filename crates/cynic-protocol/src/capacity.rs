@@ -2,7 +2,7 @@
 //!
 //! Implémente `.hermes/plans/2026-08-24_universal-time-energy-task-roi-plan.md`
 //! §6 étape 2 : le métabolisme (`LoadTier`, jusqu'ici port host-only dans
-//! `cynic-host/src/ports/metabolism.rs`) devient un CONTRAT protocol, et les
+//! `cynic-host/src/ports/throughput.rs`) devient un CONTRAT protocol, et les
 //! seuils deviennent une policy déclarée par nœud (décision HITL Q3 :
 //! « policy déclarée par nœud, seuils = données »).
 //!

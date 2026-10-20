@@ -293,6 +293,12 @@ pub(crate) struct FederationConfig {
     pub(crate) node_public_key: Option<String>,
     pub(crate) queue_dir: Option<PathBuf>,
     pub(crate) kernel_ws_url: Option<String>,
+    pub(crate) signing_key_path: Option<PathBuf>,
+    pub(crate) signing_key_env: Option<String>,
+    /// Absolute path of the ML-DSA-44 workload signing key. When present,
+    /// the node signs every request twice (Ed25519 + ML-DSA-44) over the
+    /// same payload: the hybrid handshake.
+    pub(crate) pqc_signing_key_path: Option<PathBuf>,
 }
 
 impl Default for HealthConfig {

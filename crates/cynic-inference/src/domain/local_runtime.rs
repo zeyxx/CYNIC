@@ -62,6 +62,20 @@ impl LocalRuntimeState {
             Self::Unknown => "unknown",
         }
     }
+
+    /// Map onto the generic supervisor lifecycle (G10). The inference states
+    /// align 1:1 with the contract vocabulary: quiescent absence is `Stopped`,
+    /// launch transition is `Starting`, no state is invented.
+    pub fn supervisor_state(&self) -> cynic_protocol::supervision::SupervisorState {
+        use cynic_protocol::supervision::SupervisorState as S;
+        match self {
+            Self::Inactive => S::Stopped,
+            Self::Activating => S::Starting,
+            Self::Active => S::Active,
+            Self::Failed => S::Failed,
+            Self::Unknown => S::Unknown,
+        }
+    }
 }
 
 /// Observed native runtime instance (one slot on the default local port).
@@ -133,4 +147,19 @@ pub struct LocalRuntimeMutationReport {
 impl LocalRuntimeMutationReport {
     pub const SCHEMA: &'static str = "cynic.inference.local_runtime_mutation.v1";
     pub const SURFACE: &'static str = "native";
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_protocol::supervision::SupervisorState as S;
+
+    #[test]
+    fn local_runtime_state_maps_onto_supervisor_lifecycle() {
+        assert_eq!(LocalRuntimeState::Inactive.supervisor_state(), S::Stopped);
+        assert_eq!(LocalRuntimeState::Activating.supervisor_state(), S::Starting);
+        assert_eq!(LocalRuntimeState::Active.supervisor_state(), S::Active);
+        assert_eq!(LocalRuntimeState::Failed.supervisor_state(), S::Failed);
+        assert_eq!(LocalRuntimeState::Unknown.supervisor_state(), S::Unknown);
+    }
 }

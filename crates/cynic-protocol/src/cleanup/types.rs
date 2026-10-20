@@ -1,4 +1,4 @@
-//! Cleanup agent types — pure shapes for organism self-maintenance.
+//! Cleanup agent types — pure shapes for deployment self-maintenance.
 //!
 //! Pattern: types.rs (pures) → observe.rs (transducteur) → reconcile.rs (décision pure) → apply.rs (effet)
 //!

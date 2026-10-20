@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use process_wrap::tokio::{ChildWrapper, CommandWrap};
+use process_wrap::tokio::ChildWrapper;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
@@ -87,16 +87,23 @@ impl Backoff {
 
     /// Increment the attempt counter and return the next delay (capped at `max_delay`).
     ///
-    /// Delay formula: `initial_delay * 2^(attempt - 1)` after increment.
+    /// Delay math is the shared canonical formula in
+    /// `cynic_protocol::supervision::delay_for_attempt`: `initial * 2^(attempt-1)`
+    /// after increment. Node keeps its own configured values here (see the
+    /// recorded `2/120` vs contract `5/60` divergence); only the formula is
+    /// shared, never the policy.
     pub(crate) fn next_delay(&mut self) -> Duration {
         self.attempt = self.attempt.saturating_add(1);
-        // 2^(attempt-1) — attempt is at least 1 after the increment above.
-        // Clamp the shift to prevent u64 overflow: 2^63 already exceeds any
-        // realistic delay, and Duration::saturating_mul handles overflow anyway.
-        let shift = (self.attempt - 1).min(30); // 2^30 ≈ 1 billion seconds, well past any cap
-        let multiplier = 1u32.checked_shl(shift).unwrap_or(u32::MAX);
-        let delay = self.initial_delay.saturating_mul(multiplier);
-        delay.min(self.max_delay)
+        let policy = cynic_protocol::supervision::RestartPolicy {
+            max_attempts: self.max_attempts,
+            initial_delay_secs: self.initial_delay.as_secs(),
+            max_delay_secs: self.max_delay.as_secs(),
+            min_uptime_secs: self.min_uptime.as_secs(),
+        };
+        Duration::from_secs(cynic_protocol::supervision::delay_for_attempt(
+            &policy,
+            self.attempt,
+        ))
     }
 
     /// Sleep for `next_delay()`, but cancel immediately if `shutdown` is triggered.
@@ -113,99 +120,59 @@ impl Backoff {
 
 /// Spawn the inference backend process.
 ///
-/// Uses `process-wrap` for cross-platform orphan safety:
-/// - Unix: `ProcessGroup::leader()` + `KillOnDrop`
-/// - Windows: `JobObject` + `KillOnDrop`
-///
-/// Stdio is inherited (NOT piped) to avoid pipe-buffer deadlock.
-/// Returns `Err` if `command` is empty.
+/// Delegates to the shared `cynic-supervisor` effects crate so node and
+/// future roles share one group-aware spawn. See that crate for the
+/// `process-wrap` containment details.
 pub(crate) fn spawn_backend(
     command: &[impl AsRef<OsStr>],
     working_dir: Option<&str>,
     env: &HashMap<String, String>,
 ) -> io::Result<Box<dyn ChildWrapper>> {
-    let (program, args) = command
-        .split_first()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "command must be non-empty"))?;
-
-    let mut cmd = CommandWrap::with_new(program, |c| {
-        c.args(args)
-            .stdin(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit());
-        if let Some(dir) = working_dir {
-            c.current_dir(dir);
-        }
-        for (k, v) in env {
-            c.env(k, v);
-        }
-    });
-
-    #[cfg(unix)]
-    {
-        use process_wrap::tokio::{KillOnDrop, ProcessGroup};
-        cmd.wrap(ProcessGroup::leader()).wrap(KillOnDrop);
-    }
-    #[cfg(windows)]
-    {
-        use process_wrap::tokio::{JobObject, KillOnDrop};
-        cmd.wrap(JobObject).wrap(KillOnDrop);
-    }
-
-    cmd.spawn()
+    cynic_supervisor::spawn_backend(command, working_dir, env)
 }
 
 // ── graceful_stop ─────────────────────────────────────────────────────────────
 
 /// Gracefully stop a child process.
 ///
-/// Sends SIGTERM (Unix) or initiates a kill (Windows), then waits up to
-/// `timeout_secs`. If the process has not exited by then, sends SIGKILL and
-/// waits unconditionally.
+/// Delegates to the shared `cynic-supervisor` stop ladder (SIGTERM on the
+/// process group, bounded wait, then SIGKILL).
 pub(crate) async fn graceful_stop(
     child: &mut Box<dyn ChildWrapper>,
     timeout_secs: u64,
 ) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-        // SIGTERM the process group (ProcessGroup wrapper propagates to group).
-        // Ignore send errors — process may already be dead.
-        let _ = child.signal(libc::SIGTERM);
-    }
-    #[cfg(not(unix))]
-    {
-        // Windows: initiate kill, then give it a moment to flush.
-        let _ = child.start_kill();
-    }
-
-    let timeout = Duration::from_secs(timeout_secs);
-    match tokio::time::timeout(timeout, child.wait()).await {
-        Ok(result) => result.map(|_| ()),
-        Err(_elapsed) => {
-            // Timed out — force kill.
-            let _ = child.start_kill();
-            child.wait().await.map(|_| ())
-        }
-    }
+    cynic_supervisor::graceful_stop(child, timeout_secs).await
 }
 
 // ── spawn_with_retries ────────────────────────────────────────────────────────
 
-/// Try to spawn the backend up to `max` times with 1-second delays between
-/// attempts. Returns the live child or the last error.
+/// Try to spawn the backend under a declared restart policy.
+///
+/// Each failed spawn asks the canonical `decide_restart` (spawn-time uptime
+/// is zero: no stable run yet) and sleeps the decided delay. `GiveUp` ends
+/// the loop with the last error. Returns the live child on first success.
 pub(crate) async fn spawn_with_retries(
     command: &[impl AsRef<OsStr>],
     working_dir: Option<&str>,
     env: &HashMap<String, String>,
-    max: u32,
+    policy: &cynic_protocol::supervision::RestartPolicy,
 ) -> io::Result<Box<dyn ChildWrapper>> {
+    use cynic_protocol::supervision::{RestartDecision, decide_restart};
     let mut last_err = io::Error::other("no attempts made");
-    for _ in 0..max {
+    let mut attempt: u32 = 0;
+    loop {
         match spawn_backend(command, working_dir, env) {
             Ok(child) => return Ok(child),
             Err(e) => {
                 last_err = e;
-                sleep(Duration::from_secs(1)).await;
+                match decide_restart(policy, attempt, 0, true) {
+                    RestartDecision::Restart { delay_secs } => {
+                        attempt = attempt.saturating_add(1);
+                        sleep(Duration::from_secs(delay_secs)).await;
+                    }
+                    RestartDecision::GiveUp { .. } => break,
+                    RestartDecision::NoRestart => break,
+                }
             }
         }
     }
@@ -350,8 +317,16 @@ mod tests {
 
     #[tokio::test]
     async fn spawn_with_retries_bad_binary() {
+        use cynic_protocol::supervision::RestartPolicy;
         let env: HashMap<String, String> = HashMap::new();
-        let result = spawn_with_retries(&["/nonexistent/binary"], None, &env, 3).await;
+        // Zero-delay policy: proves GiveUp without sleeping the suite.
+        let policy = RestartPolicy {
+            max_attempts: 2,
+            initial_delay_secs: 0,
+            max_delay_secs: 0,
+            min_uptime_secs: u64::MAX,
+        };
+        let result = spawn_with_retries(&["/nonexistent/binary"], None, &env, &policy).await;
         assert!(result.is_err(), "bad binary should fail after retries");
     }
 }

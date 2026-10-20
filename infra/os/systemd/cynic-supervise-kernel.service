@@ -1,0 +1,35 @@
+[Unit]
+Description=CYNIC supervised parent — kernel role (boot-safe)
+After=network-online.target
+Wants=network-online.target
+# Boot-sensitive (spec amendment A9): ordered after network, never before
+# multi-user.target, never a hard boot dependency. A crash-looping kernel
+# parent stops trying instead of churning boot.
+# No double ownership: the standalone role unit must never run beside the parent.
+Conflicts=cynic-kernel.service
+StartLimitIntervalSec=180
+StartLimitBurst=3
+
+[Service]
+# projection_class: operator_projection
+# Supervised parent (docs/design/supervised-parent-scope.md step 3).
+# Holds the kernel child handle; restarts follow the contract backoff.
+# Keep minimally sandboxed like cynic-kernel.service until a stricter profile
+# is proven under live restart conditions.
+Type=simple
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic supervise run --role kernel -- /usr/local/bin/cynic daemon kernel
+EnvironmentFile=/etc/cynic/env
+Environment="SURREALDB_PASS_FILE=/etc/cynic/secrets/storage-runtime-password"
+Environment="CYNIC_STORAGE_CONFIG=/etc/cynic/storage.toml"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target

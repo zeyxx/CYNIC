@@ -167,6 +167,14 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "supervise",
+                commands: vec![
+                    "cynic supervise observe [--role <id>] [--status-file <path>]",
+                    "cynic supervise run --role <id> -- <command>",
+                    "cynic supervise stop --role <id> --apply",
+                ],
+            },
+            CommandDomain {
                 name: "discovery",
                 commands: vec![
                     "cynic discovery capabilities [--json]",
@@ -212,7 +220,16 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic agent claim --agent-id <id> --target <path> [--claim-type <file|crate>] [--ttl-seconds <n>] [--budget-actions <n>] [--budget-wall-seconds <n>] [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
-                    "cynic agent session-context [--registry <path>] [--json]",
+                    "cynic agent session context [--registry <path>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "idea",
+                commands: vec![
+                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
+                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -375,6 +392,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
                     "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
+                    "cynic coordination send --to <agent:id|role:r> --summary <140c> --body <text> [--priority 0-3] [--in-reply-to <msg>] [--json]",
+                    "cynic coordination inbox [--unopened] [--full] [--limit <n>] [--log <path>] [--json]",
+                    "cynic coordination ack <msg_id> [--state delivered|opened] [--json]",
                     "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
                     "cynic coordination metrics [--json] [--claims <path>] [--log <path>] [--root <path>]",
                 ],

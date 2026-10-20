@@ -7,7 +7,7 @@
 //! Substrate (files, processes, runner) is injected via traits; no hardcoded
 //! machine paths live here.
 
-use cynic_protocol::organic_opportunity::{OpportunitySourceKind, OrganicOpportunity};
+use cynic_protocol::candidate_opportunity::{OpportunitySourceKind, CandidateOpportunity};
 use serde::{Deserialize, Serialize};
 
 /// Observation status for one evidence family.
@@ -46,7 +46,7 @@ impl<T> SourceObservationStatus<T> {
 }
 
 /// Port trait implemented by all host opportunity observation adapters.
-pub trait OrganicOpportunityObserver: Send + Sync {
+pub trait CandidateOpportunityObserver: Send + Sync {
     /// Name of this observer for logging and audit attribution.
     fn observer_name(&self) -> &'static str;
 
@@ -54,7 +54,7 @@ pub trait OrganicOpportunityObserver: Send + Sync {
     fn source_kind(&self) -> OpportunitySourceKind;
 
     /// Observe opportunities without mutating source or runtime state.
-    fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>>;
+    fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>>;
 }
 
 #[cfg(test)]
@@ -63,9 +63,9 @@ mod tests {
 
     #[test]
     fn unavailable_is_distinct_from_empty() {
-        let empty: SourceObservationStatus<Vec<OrganicOpportunity>> =
+        let empty: SourceObservationStatus<Vec<CandidateOpportunity>> =
             SourceObservationStatus::Empty;
-        let unavail: SourceObservationStatus<Vec<OrganicOpportunity>> =
+        let unavail: SourceObservationStatus<Vec<CandidateOpportunity>> =
             SourceObservationStatus::Unavailable {
                 kind: OpportunitySourceKind::SessionTrace,
                 reason: "directory not found".to_string(),
