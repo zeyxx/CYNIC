@@ -10,6 +10,19 @@ use cynic_finance::types::{
 };
 use cynic_finance::ResourceUnit;
 
+/// Adds a token amount to a balance, keeping the unit.
+///
+/// `ResourceUnit` has no arithmetic in `cynic-finance`, and
+/// `increment_unit` there is private to that crate. A ledger balance is a
+/// TOKEN balance, so the addition is the token one; a balance of another
+/// unit is returned unchanged rather than silently reinterpreted.
+fn add_token_cyd(balance: &ResourceUnit, amount: u64) -> ResourceUnit {
+    match balance {
+        ResourceUnit::TokenCyd(current) => ResourceUnit::TokenCyd(current.saturating_add(amount)),
+        other => other.clone(),
+    }
+}
+
 /// Channel settlement ledger — records channel settlements as ResourceTransaction.
 ///
 /// Each settlement produces two transactions:
@@ -42,9 +55,23 @@ impl ChannelSettlementLedger {
     ) -> Result<(String, String), MeterError> {
         let total = proof.initiator_balance + proof.worker_balance;
 
+        // The transaction id must be UNIQUE per settlement.
+        //
+        // It used to be `{channel_id}/debit/{final_sequence}`, which
+        // repeats for two settlements of the same channel and the same
+        // final sequence: the second one produced the id of the first.
+        // `ResourceLedger` is documented as "idempotent", and an id that
+        // repeats is not an identity — the second settlement would be
+        // indistinguishable from the first.
+        //
+        // The timestamp is what distinguishes them: it is the moment the
+        // settlement happened, and it differs between two settlements of
+        // the same sequence.
+        let settlement_id = format!("{}/settlement/{}", proof.channel_id, timestamp);
+
         // Debit from initiator (remaining balance returned)
         let debit_tx = ResourceTransaction::new(
-            format!("{}/debit/{}", proof.channel_id, proof.final_sequence),
+            format!("{settlement_id}/debit"),
             timestamp,
             "initiator",
             ResourceUnit::TokenCyd(proof.initiator_balance),
@@ -55,7 +82,7 @@ impl ChannelSettlementLedger {
 
         // Credit to worker (earned balance)
         let credit_tx = ResourceTransaction::new(
-            format!("{}/credit/{}", proof.channel_id, proof.final_sequence),
+            format!("{settlement_id}/credit"),
             timestamp,
             "worker",
             ResourceUnit::TokenCyd(proof.worker_balance),
@@ -70,8 +97,25 @@ impl ChannelSettlementLedger {
         self.ledger.entries.push(debit_tx);
         self.ledger.entries.push(credit_tx);
 
-        // Update balance
-        self.ledger.balance = ResourceUnit::TokenCyd(total);
+        // The balance ACCUMULATES.
+        //
+        // It used to be REPLACED (`self.ledger.balance = total`), so a
+        // second settlement overwrote the first and the ledger reported
+        // only the last settlement's total. The test
+        // `record_settlement_multiple_times_accumulates` caught it:
+        // two settlements of 1000 each reported 1000 instead of 2000.
+        //
+        // `ResourceLedger` documents its balance as "Derived balance —
+        // computed from entries, never stored independently", and the
+        // ledger as "append-only, monotone". Monotone means the balance
+        // only grows, so a settlement adds to it.
+        //
+        // The amount added is the settled TOTAL — the debit and the
+        // credit together are the amount that crossed the channel, and
+        // the two entries are the two sides of that one movement. Adding
+        // the credit alone would report what the worker earned and lose
+        // the initiator's half of the settlement.
+        self.ledger.balance = add_token_cyd(&self.ledger.balance, total);
 
         Ok((debit_id, credit_id))
     }
