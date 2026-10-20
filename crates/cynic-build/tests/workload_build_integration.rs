@@ -183,10 +183,11 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
         .expect("derive workload grant");
 
     assert_eq!(grant.source_commit, source_commit);
-    assert_eq!(
-        grant.allowed_actions,
-        vec!["cargo:check", "cargo:run", "cargo:test"]
-    );
+    // The grant carries exactly the scope the canonical policy derives from
+    // the requested action: `cargo:check` is self-admitting since
+    // `f20981c8` moved every gate to the native spellings. The grant
+    // validator re-derives the same list and refuses any drift.
+    assert_eq!(grant.allowed_actions, vec!["cargo:check"]);
     assert_eq!(grant.workload_record_digest, durable.record_digest);
     assert!(
         validate_build_workload_grant(
