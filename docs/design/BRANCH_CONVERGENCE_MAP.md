@@ -123,6 +123,52 @@ what was underneath them. `crates/cynic-host/src/adapters/local_build_artefact.r
 carries the same signature — a doubled doc-comment and `use std::path::Path;`
 declared alongside `use std::path::{Path, PathBuf};`.
 
+The originating merge is named in the history:
+
+```
+ebd93f79 Merge origin/main into agent/hermes/rag-dense-margin (union resolution)
+```
+
+A union merge pulled `main` back over `rag-dense-margin`'s work and
+duplicated the exports.
+
+### The repair is smaller than it looks, and `main` is ahead
+
+`main`'s own `crates/cynic-knowledge/src/domain/mod.rs` is 58 lines and
+already exports the **union** of the two blocks — `synthesis`, `vector_cache`
+and `vectorizer` are there exactly once, and `main`'s last commit on the
+file is `a0444479 Bind vector cache to producing engine; refuse cross-engine
+mixing`, which is *newer* than the aggregate's copy.
+
+So on this file `main` is ahead, not behind: the aggregate is not carrying
+new knowledge-domain content, it is carrying a broken copy of older content.
+Every module the two blocks reference (`vector_cache`, `synthesis`,
+`vectorizer`, `scorer`, `hybrid_rrf`, …) exists in `main`.
+
+The repair is therefore: resolve the duplicates in favour of `main`, drop the
+second block, and let the aggregate's real new content stand. That is a
+mechanical merge conflict resolution on 8 files, followed by a gate run —
+not a rewrite of 203 commits.
+
+### What the aggregate is genuinely worth
+
+Measured as files `main` does not have at all: **55**. Not 185.
+
+| Content | Files |
+|---|---|
+| `crates/cynic-supervisor` — a whole crate: `parent.rs`, `spawn.rs`, `stop.rs`, `watch.rs` | 6 |
+| `contracts/supervisor-contract.json` — `cynic.supervisor_contract.v1`, normative | 1 |
+| `docs/design/supervision-convergence-map.md`, `supervision-watch-pattern.md`, `supervised-parent-scope.md`, `sovereign-supervisor.md` | 4 |
+| `docs/specs/agent-messaging.md`, `deploy-surface-measured.md` | 2 |
+| `infra/os/systemd/cynic-supervise-*.service`, `infra/deploy-locations.json`, `infra/gc-surfaces.json`, `infra/model-metadata.json` | 8+ |
+| `crates/cynic-build`, `crates/cynic-eval`, `crates/cynic-release`, `crates/cynic-audit-engine` — new crates | ~30 |
+
+The supervision slice is the reason to recover the aggregate: it holds the
+`supervise` verb the soak bench needs, the contract that makes supervision a
+first-class authority, and the two design documents the soak units cite. That
+slice is worth recovering. The other 130 files are mostly `main`'s content in
+an older arrangement.
+
 **This is the fourth failure mode**, and it is the reason the branch was never
 proposed: an aggregate branch is not a merge candidate until it compiles.
 Two hundred and three commits of content, none of it reachable.
