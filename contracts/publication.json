@@ -68,6 +68,10 @@
       "status": "public"
     },
     {
+      "path": ".forgejo/workflows/release.yml",
+      "status": "public"
+    },
+    {
       "path": "Cargo.toml",
       "status": "public"
     },
