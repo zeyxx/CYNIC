@@ -93,32 +93,32 @@ pub fn reconcile_health_signal(
             stop_condition: "handshake renewed".to_string(),
             rollback_intent: "none".to_string(),
         }),
-        HealthSignalPayload::OrganSilence {
-            organ_id,
+        HealthSignalPayload::ComponentSilence {
+            component_id,
             silent_duration_seconds,
         } => Some(AutonomicRemediationPlan {
             schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
-            plan_id: format!("remediation-organ-{now_unix_s}"),
+            plan_id: format!("remediation-component-{now_unix_s}"),
             signal_id: signal.signal_id.clone(),
             generated_at_unix_s: now_unix_s,
             severity: SignalSeverity::Warning,
             is_actionable: false,
             action: AutonomicActionKind::RecordObservationOnly {
-                reason: format!("Organ '{organ_id}' silent for {silent_duration_seconds}s"),
+                reason: format!("Component '{component_id}' silent for {silent_duration_seconds}s"),
             },
             reasoning: format!(
-                "Organ '{organ_id}' stopped emitting observations — check cron/logs"
+                "Component '{component_id}' stopped emitting observations — check cron/logs"
             ),
-            stop_condition: "organ emits observation".to_string(),
+            stop_condition: "component emits observation".to_string(),
             rollback_intent: "none".to_string(),
         }),
-        HealthSignalPayload::MetabolismAnomaly {
+        HealthSignalPayload::ThroughputAnomaly {
             metric,
             observed_value,
             threshold_value,
         } => Some(AutonomicRemediationPlan {
             schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
-            plan_id: format!("remediation-metabolism-{now_unix_s}"),
+            plan_id: format!("remediation-throughput-{now_unix_s}"),
             signal_id: signal.signal_id.clone(),
             generated_at_unix_s: now_unix_s,
             severity: SignalSeverity::Warning,
@@ -128,7 +128,7 @@ pub fn reconcile_health_signal(
                     "Metric '{metric}'={observed_value:.2} below threshold {threshold_value:.2}"
                 ),
             },
-            reasoning: format!("Metabolic pressure anomaly on metric '{metric}'"),
+            reasoning: format!("Throughput pressure anomaly on metric '{metric}'"),
             stop_condition: "metric recovers above threshold".to_string(),
             rollback_intent: "none".to_string(),
         }),

@@ -51,7 +51,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use cynic_protocol::vocabulary::RETIRED_METAPHORS;
+use cynic_protocol::vocabulary::{
+    INFRASTRUCTURE_COMPOSED_IDENTIFIERS, RETIRED_METAPHORS,
+};
 use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
 
 use super::rules::AuditRule;
@@ -275,6 +277,15 @@ fn canonical_hint() -> String {
 /// the metaphor, and a rule that only scanned one of them would let the
 /// other rot.
 fn retired_terms_in_line(line: &str) -> Vec<String> {
+    // A line that names a known infrastructure identifier is exempt. The
+    // name is a NAME: `organ-headscale` is a running machine, and the
+    // segment `organ` inside it is part of the address, not a metaphor.
+    // The exemption is by WHOLE identifier, so an identifier that merely
+    // starts with a known name is still reported.
+    if line_contains_infrastructure_identifier(line) {
+        return Vec::new();
+    }
+
     let mut found = Vec::new();
 
     // Identifier parts: split on separators and case boundaries.
@@ -296,6 +307,18 @@ fn retired_terms_in_line(line: &str) -> Vec<String> {
     }
 
     found
+}
+
+/// True when the line names a known infrastructure identifier.
+///
+/// The identifier is matched as written — including its separators — so
+/// `organ-headscale` is found in prose, in a string literal, and in a
+/// comment alike.
+fn line_contains_infrastructure_identifier(line: &str) -> bool {
+    let lowered = line.to_ascii_lowercase();
+    INFRASTRUCTURE_COMPOSED_IDENTIFIERS
+        .iter()
+        .any(|known| lowered.contains(*known))
 }
 
 /// Split a line into identifier-sized parts.
@@ -386,6 +409,34 @@ mod tests {
             found.iter().any(|term| term == "dogs"),
             "expected dogs in {:?}",
             found
+        );
+    }
+
+    /// A real machine name is a name, not a metaphor. `organ-headscale` is
+    /// a running container on the Proxmox hypervisor, and the audit must
+    /// not report it — but the exemption is by WHOLE identifier, so a
+    /// near-miss is still reported.
+    #[test]
+    fn an_infrastructure_identifier_is_not_a_metaphor() {
+        assert!(terms_in("organ-headscale holds 10.10.10.40 on the canonical plane").is_empty());
+        assert!(terms_in("let host = \"organ-forgejo\";").is_empty());
+        assert!(terms_in("/// organ-surrealdb holds the live database").is_empty());
+    }
+
+    /// The exemption must not become a blanket: a bare `organ` is still
+    /// retired, and an identifier that merely starts with a known name is
+    /// still reported.
+    #[test]
+    fn the_infrastructure_exemption_is_not_a_blanket() {
+        assert!(
+            terms_in("let organ = 1;").iter().any(|term| term == "organ"),
+            "a bare organ must still be reported"
+        );
+        assert!(
+            terms_in("let organ_headscale_extra = 1;")
+                .iter()
+                .any(|term| term == "organ"),
+            "a near-miss of a known name must still be reported"
         );
     }
 

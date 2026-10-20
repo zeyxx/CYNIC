@@ -114,7 +114,7 @@ impl InferenceStatusProof {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostProofSubmission {
     pub schema: &'static str,
-    pub source_organ: String,
+    pub source_component: String,
     pub event_type: String,
     pub payload: serde_json::Value,
 }
@@ -123,13 +123,13 @@ impl HostProofSubmission {
     pub const SCHEMA: &'static str = "cynic.host_proof_submission.v1";
 
     pub fn new(
-        source_organ: impl Into<String>,
+        source_component: impl Into<String>,
         event_type: impl Into<String>,
         payload: serde_json::Value,
     ) -> Self {
         Self {
             schema: Self::SCHEMA,
-            source_organ: source_organ.into(),
+            source_component: source_component.into(),
             event_type: event_type.into(),
             payload,
         }

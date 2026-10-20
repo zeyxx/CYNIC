@@ -23,6 +23,9 @@
 //! | `dog`       | `evaluator`    | an axiom scorer in a quorum |
 //! | `organism`  | `deployment`   | the assembled running system |
 //! | `organic`   | `candidate`    | an unclaimed opportunity |
+//! | `metabolism`| `throughput`   | the rate work is consumed |
+//! | `metabolic` | `throughput`   | the rate work is consumed |
+//! | `genome`    | `baseline`     | the declared reference shape |
 //!
 //! ## What this module does NOT rename
 //!
@@ -34,6 +37,12 @@
 //!   `service`; `synapse` is the legacy registry key, handled by
 //!   `cynic_network::plane_vocabulary`.
 //! - `cortex` — the operator workstation hostname (`cynic-host-cortex`).
+//!
+//! A third case is a NAME that merely CONTAINS a retired term:
+//! `organ-headscale` is a running container, `organ-forge` is a live
+//! service domain. Those are listed in
+//! [`INFRASTRUCTURE_COMPOSED_IDENTIFIERS`], and the exemption is by
+//! WHOLE identifier — a bare `organ` stays retired.
 //!
 //! ## How to use it
 //!
@@ -78,6 +87,21 @@ pub const RETIRED_METAPHORS: &[VocabularyMapping] = &[
         retired: "organic",
         canonical: "candidate",
         meaning: "an observed, unclaimed opportunity",
+    },
+    VocabularyMapping {
+        retired: "metabolism",
+        canonical: "throughput",
+        meaning: "the rate at which work is consumed and its budget released",
+    },
+    VocabularyMapping {
+        retired: "metabolic",
+        canonical: "throughput",
+        meaning: "the rate at which work is consumed and its budget released",
+    },
+    VocabularyMapping {
+        retired: "genome",
+        canonical: "baseline",
+        meaning: "the declared reference shape of a tree or a source set",
     },
 ];
 
@@ -135,6 +159,11 @@ pub fn canonical_persisted_key(key: &str) -> &str {
         "organism" => "deployment",
         "organic_opportunities" => "candidates",
         "organic_opportunity" => "candidate",
+        "metabolic_invoice" => "throughput_invoice",
+        "metabolic_invoices" => "throughput_invoices",
+        "metabolism" => "throughput",
+        "genome" => "baseline",
+        "genomes" => "baselines",
         other => other,
     }
 }
@@ -143,6 +172,46 @@ pub fn canonical_persisted_key(key: &str) -> &str {
 /// [`canonical_persisted_key`] rather than renamed in place.
 pub fn is_legacy_persisted_key(key: &str) -> bool {
     canonical_persisted_key(key) != key
+}
+
+/// Infrastructure identifiers that CONTAIN a retired term as a segment.
+///
+/// `organ-headscale` is a real machine — VMID 100 on the Proxmox
+/// hypervisor, running the mesh coordinator at 10.10.10.40. Its name is
+/// recorded as "real and misnamed" in `infra/registry_authority.json`, but
+/// renaming it would break live DNS, the mesh coordinator lookup, and the
+/// hypervisor inventory. So it stays, and the audit must not report it.
+///
+/// The exemption is BY CONSTRUCTION, like `synapse` and `cortex`: a
+/// composed identifier is exempt only when the WHOLE identifier is
+/// listed here. A bare `organ` is still retired, and an identifier that
+/// merely starts with one of these segments is still reported. That is the
+/// difference between exempting a machine and exempting the vocabulary.
+///
+/// The names are infrastructure, so they carry no canonical replacement:
+/// a machine is addressed by the name it has.
+pub const INFRASTRUCTURE_COMPOSED_IDENTIFIERS: &[&str] = &[
+    // The mesh coordinator container on the Proxmox hypervisor.
+    "organ-headscale",
+    // The Forgejo host container on the same hypervisor.
+    "organ-forgejo",
+    // The SurrealDB container on the same hypervisor.
+    "organ-surrealdb",
+    // The Forgejo service domain, validated in cynic-lifecycle
+    // (ACTIVATION_REQUEST_CONSUMER = "organ-forge-hermes-agent").
+    "organ-forge",
+];
+
+/// True when `identifier` is a known infrastructure name, in which case a
+/// retired term inside it is a name, not a metaphor.
+///
+/// The comparison is case-insensitive and whole-identifier, so
+/// `organ-headscale` is exempt but `organ_headscale_extra` is not.
+pub fn is_infrastructure_identifier(identifier: &str) -> bool {
+    let lowered = identifier.to_ascii_lowercase();
+    INFRASTRUCTURE_COMPOSED_IDENTIFIERS
+        .iter()
+        .any(|known| lowered == *known)
 }
 
 #[cfg(test)]

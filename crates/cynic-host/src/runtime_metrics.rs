@@ -407,17 +407,17 @@ fn sovereign_git_metric() -> RuntimeMetric {
     }
 }
 
-fn organic_compass_metric(external_proof: Option<&RuntimeProofBundle>) -> RuntimeMetric {
+fn candidate_compass_metric(external_proof: Option<&RuntimeProofBundle>) -> RuntimeMetric {
     proof_gate_metric(
         external_proof,
         &ProofGateMetricSpec {
-            id: "organic_compass_percent",
-            label: "Organic opportunities compass",
-            gate: "organic_opportunities_observed",
-            source: "cynic.organic_opportunity_report.v1",
+            id: "candidate_compass_percent",
+            label: "Candidate opportunities compass",
+            gate: "candidate_opportunities_observed",
+            source: "cynic.candidate_opportunity_report.v1",
             target_percent: 85,
             critical: false,
-            missing_detail: "requires organic opportunity observation report",
+            missing_detail: "requires candidate opportunity observation report",
         },
     )
 }

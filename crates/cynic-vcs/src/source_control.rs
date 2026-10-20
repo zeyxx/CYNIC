@@ -8,7 +8,7 @@ pub const SOURCE_CHANGE_PROPOSAL_SCHEMA: &str = "cynic.source.change_proposal.v1
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceMatterClass {
-    Genome,
+    Baseline,
     DesiredState,
     Adapter,
     Evidence,
@@ -147,7 +147,7 @@ pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmis
         SourceMatterClass::GeneratedArtifact => {
             blockers.push("generated_artifact_requires_release_store".to_string())
         }
-        SourceMatterClass::Genome
+        SourceMatterClass::Baseline
         | SourceMatterClass::DesiredState
         | SourceMatterClass::Adapter
         | SourceMatterClass::Evidence => {}

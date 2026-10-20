@@ -5,13 +5,13 @@
 
 use std::path::PathBuf;
 
-use cynic_protocol::organic_opportunity::{
-    EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
-    OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
+use cynic_protocol::candidate_opportunity::{
+    EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
+    OpportunitySourceKind, CandidateOpportunity, SmallestNextStep,
 };
 use serde::{Deserialize, Serialize};
 
-use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
+use super::port::{CandidateOpportunityObserver, SourceObservationStatus};
 
 /// Summary entry of a detected debt finding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,7 +53,7 @@ impl AuditValidationObserver {
     pub fn analyze_findings(
         findings: &[DebtFindingEntry],
         _now_unix_s: u64,
-    ) -> Vec<OrganicOpportunity> {
+    ) -> Vec<CandidateOpportunity> {
         let mut opportunities = Vec::new();
 
         for finding in findings {
@@ -74,8 +74,8 @@ impl AuditValidationObserver {
 
             let confidence = if is_tier1 { 0.90 } else { 0.70 };
 
-            let opp = OrganicOpportunity {
-                schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+            let opp = CandidateOpportunity {
+                schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
                 opportunity_id: format!("opp:audit_debt:{}", &digest[..16.min(digest.len())]),
                 scope: format!("debt/{}", finding.debt_id),
                 sources: vec![OpportunitySource {
@@ -141,7 +141,7 @@ impl AuditValidationObserver {
     }
 }
 
-impl OrganicOpportunityObserver for AuditValidationObserver {
+impl CandidateOpportunityObserver for AuditValidationObserver {
     fn observer_name(&self) -> &'static str {
         "audit_validation_observer"
     }
@@ -150,7 +150,7 @@ impl OrganicOpportunityObserver for AuditValidationObserver {
         OpportunitySourceKind::ValidationAudit
     }
 
-    fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
+    fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>> {
         let path = &self.config.debt_file_path;
         if !path.exists() {
             return SourceObservationStatus::Unavailable {

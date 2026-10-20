@@ -70,7 +70,7 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 anti_responsibilities: vec![
                     "decide fleet topology",
                     "own network mesh semantics",
-                    "persist global organism memory",
+                    "persist global deployment memory",
                 ],
             },
             DevelopmentSurface {
@@ -122,7 +122,7 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 id: "agent_exposure",
                 layer: "l6_agent_interface",
                 owner: "cynic-mcp",
-                responsibility: "Expose only compiled and policy-backed organism capabilities to agents.",
+                responsibility: "Expose only compiled and policy-backed deployment capabilities to agents.",
                 mutation_scope: "MCP/tool projections, not domain ownership",
                 canonical_commands: vec![
                     "make check",

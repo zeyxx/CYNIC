@@ -27,7 +27,7 @@ pub enum CynicErrorDomain {
     Toolchain,
     /// Publication consent, scope boundaries, unwhitelisted field disclosure.
     Publication,
-    /// Organic opportunities observation, value frames, decision lineage.
+    /// Candidate opportunities observation, value frames, decision lineage.
     Opportunity,
     /// Runtime storage: disk full, capacity pressure, extension required.
     Runtime,

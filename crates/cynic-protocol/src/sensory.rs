@@ -1,7 +1,7 @@
 //! Sensory observation domain contracts.
 //!
 //! Provides the universal, typed observation interface for external sensory
-//! inputs and local tool data stores (e.g. RTK token metabolism, RSS feeds).
+//! inputs and local tool data stores (e.g. RTK token throughput, RSS feeds).
 //!
 //! Replaces untyped key-value metric bags (`Vec<Metric>`) with schema-versioned,
 //! content-addressed `SensorySnapshot` payloads.
@@ -75,8 +75,8 @@ impl SensorySnapshot {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "family")]
 pub enum SensoryPayload {
-    /// Token metabolism and CLI optimization statistics (RTK).
-    TokenMetabolism(TokenMetabolismPayload),
+    /// Token throughput and CLI optimization statistics (RTK).
+    TokenThroughput(TokenThroughputPayload),
     /// Host hardware and OS substrate metrics.
     HostSubstrate(HostSubstrateSensoryPayload),
     /// Ingested web/API feed items.
@@ -88,9 +88,9 @@ pub enum SensoryPayload {
     },
 }
 
-/// Token savings and metabolism metrics produced by RTK proxy.
+/// Token savings and throughput metrics produced by RTK proxy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TokenMetabolismPayload {
+pub struct TokenThroughputPayload {
     pub total_commands: u64,
     pub total_input_tokens: u64,
     pub total_saved_tokens: u64,
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn sensory_snapshot_schema_and_digest_are_deterministic() {
-        let payload = SensoryPayload::TokenMetabolism(TokenMetabolismPayload {
+        let payload = SensoryPayload::TokenThroughput(TokenThroughputPayload {
             total_commands: 2276,
             total_input_tokens: 1_900_000,
             total_saved_tokens: 1_450_000,
@@ -168,7 +168,7 @@ mod tests {
         assert!(snapshot.evidence_digest.starts_with("sha256:"));
 
         let json = serde_json::to_string(&snapshot).unwrap();
-        assert!(json.contains("token_metabolism"));
+        assert!(json.contains("token_throughput"));
         assert!(json.contains("2276"));
     }
 

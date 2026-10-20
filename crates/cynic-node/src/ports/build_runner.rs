@@ -350,9 +350,9 @@ pub trait BuildRunnerPort {
 pub fn invoice_from_proofs(
     source_commit: &str,
     proofs: &[BuildProofBundle],
-) -> cynic_protocol::metabolic_invoice::MetabolicInvoice {
+) -> cynic_protocol::throughput_invoice::ThroughputInvoice {
     use cynic_protocol::energy_ledger::EnergyDimensions;
-    use cynic_protocol::metabolic_invoice::{METABOLIC_INVOICE_SCHEMA, MetabolicInvoiceLine};
+    use cynic_protocol::throughput_invoice::{THROUGHPUT_INVOICE_SCHEMA, ThroughputInvoiceLine};
 
     let mut lines = Vec::new();
     let mut unknowns = Vec::new();
@@ -368,7 +368,7 @@ pub fn invoice_from_proofs(
         }
         if proof.layers.len() == 1 {
             let layer = &proof.layers[0];
-            lines.push(MetabolicInvoiceLine {
+            lines.push(ThroughputInvoiceLine {
                 layer: layer.layer.clone(),
                 action: proof.action.clone(),
                 status: match layer.status {
@@ -392,8 +392,8 @@ pub fn invoice_from_proofs(
         unknowns.push("some proofs carry no observed CPU time".to_string());
     }
 
-    cynic_protocol::metabolic_invoice::MetabolicInvoice {
-        schema: METABOLIC_INVOICE_SCHEMA.to_string(),
+    cynic_protocol::throughput_invoice::ThroughputInvoice {
+        schema: THROUGHPUT_INVOICE_SCHEMA.to_string(),
         source_commit: source_commit.to_string(),
         proofs_observed: proofs.len(),
         proofs_invoiced: lines.len(),

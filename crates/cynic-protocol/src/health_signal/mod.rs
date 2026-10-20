@@ -1,7 +1,7 @@
 //! Typed health signals, anomalies, and autonomic remediation contracts.
 //!
 //! Replaces brittle string heuristics with typed, schema-validated signals
-//! for closed-loop organism homeostasis.
+//! for closed-loop deployment homeostasis.
 
 pub mod reconcile;
 pub mod types;

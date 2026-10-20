@@ -164,8 +164,8 @@ mod tests {
     #[test]
     fn near_duplicate_detected() {
         let result = detect_overlap(
-            "the quick brown fox jumps over the lazy dog",
-            "the quick brown fox jumps over the lazy dog today",
+            "the quick brown fox jumps over the lazy hound",
+            "the quick brown fox jumps over the lazy hound today",
         );
         assert!(result.is_some());
         assert!(result.unwrap() >= ContaminationRisk::NearDuplicate);

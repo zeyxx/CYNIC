@@ -15,6 +15,9 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use cynic_audit_engine::retired_metaphor_rule::observe;
+use cynic_protocol::vocabulary::{
+    INFRASTRUCTURE_COMPOSED_IDENTIFIERS, RETIRED_METAPHORS,
+};
 use cynic_audit_engine::scanner::scan_workspace;
 
 fn main() {
@@ -66,11 +69,16 @@ fn main() {
     );
     document.push_str("  },\n");
     document.push_str("  \"vocabulary\": {\n");
-    document.push_str("    \"organ\": \"component\",\n");
-    document.push_str("    \"dog\": \"evaluator\",\n");
-    document.push_str("    \"organism\": \"deployment\",\n");
-    document.push_str("    \"organic\": \"candidate\"\n");
-    document.push_str("  },\n");
+    // The vocabulary block is DERIVED from the canonical mapping, never
+    // typed here: a second copy of the list is a second place to be wrong,
+    // and a baseline that names a term the rule does not know is a
+    // baseline that describes a rule that does not exist.
+    let vocabulary_lines: Vec<String> = RETIRED_METAPHORS
+        .iter()
+        .map(|mapping| format!("    \"{}\": \"{}\"", mapping.retired, mapping.canonical))
+        .collect();
+    document.push_str(&vocabulary_lines.join(",\n"));
+    document.push_str("\n  },\n");
     document.push_str("  \"exempt_infrastructure_identifiers\": {\n");
     document.push_str(
         "    \"synapse\": \"the service network plane (*.synapse.cynic); renaming it \
@@ -81,6 +89,17 @@ fn main() {
          renaming it would break host addressing\"\n",
     );
     document.push_str("  },\n");
+    document.push_str("  \"exempt_composed_identifiers\": {\n");
+    // Also derived: a name that merely CONTAINS a retired term is a
+    // machine or a service domain, not a metaphor.
+    let composed_lines: Vec<String> = INFRASTRUCTURE_COMPOSED_IDENTIFIERS
+        .iter()
+        .map(|identifier| {
+            format!("    \"{identifier}\": \"a live name, exempted by whole identifier\"")
+        })
+        .collect();
+    document.push_str(&composed_lines.join(",\n"));
+    document.push_str("\n  },\n");
     document.push_str("  \"measured\": {\n");
     document.push_str(
         "    \"note\": \"Observation at ratification. Regenerated only by deliberate act.\",\n",

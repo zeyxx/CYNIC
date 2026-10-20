@@ -1,6 +1,6 @@
 //! VM Disk Extension — pure types for hypervisor storage management.
 //!
-//! CYNIC supervises Proxmox. When a VM disk is full, the organism
+//! CYNIC supervises Proxmox. When a VM disk is full, the deployment
 //! requests an extension via the REST API (not ad-hoc scripts).
 //!
 //! Pattern: types.rs → observe.rs → reconcile.rs → apply.rs → proof
