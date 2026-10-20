@@ -44,13 +44,14 @@
         "cynic-network",
         "cynic-node-protocol",
         "cynic-protocol",
+        "cynic-types",
         "cynic-workload"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 13020
+      "loc": 13014
     },
     "cynic-channel": {
       "consumers": [
@@ -707,6 +708,7 @@
     },
     "cynic-types": {
       "consumers": [
+        "cynic-build",
         "cynic-cli",
         "cynic-eval",
         "cynic-host",
@@ -729,7 +731,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 948
+      "loc": 967
     },
     "cynic-vcs": {
       "consumers": [
@@ -1059,9 +1061,9 @@
     "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 388563,
+    "loc_total": 388576,
     "pending_disposition": 3,
-    "runtime_edges": 174,
+    "runtime_edges": 175,
     "unjustified": 0,
     "upward_edges": 12
   },
