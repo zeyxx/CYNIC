@@ -29,27 +29,21 @@ installed on a production node: a 30-day crash-rate bench has no business
 running there. Keeping it in a separate directory makes that boundary
 explicit instead of implied.
 
-## The ExecStart points into a Cargo cache
+## The ExecStart points at the installed binary
 
-Both units execute `/var/lib/cynic/shared-target/debug/cynic`. That path is
-inside a Cargo target directory, which is exactly the kind of path the build
-cache reclaim policy is allowed to remove.
+Both units execute `/usr/local/bin/cynic`. That path is outside the Cargo
+tree, and that is deliberate: a build in the shared target directory replaces
+the file a running unit executes, which is a service-under-a-reclaimable-path
+failure. The installed binary is versioned; the cache is not.
 
-Two consequences, both now handled in code rather than by convention:
-
-1. The reclaim refuses to remove a path a live unit executes from. The
-   decision reads the unit files themselves, so it cannot drift from what the
-   units actually run.
-2. The evidence distinguishes the two reasons a path is skipped —
-   `skipped_absent` (already gone) and `skipped_live_service` (in use by a
-   running unit) — so an operator reading a reclaim result knows which
-   happened.
-
-The durable fix is to install the soak binary outside the Cargo tree
-(`/usr/local/bin/cynic` on builder-119 is 0.8.0 and does not yet know the
-`supervise` verb, so it cannot be switched over yet). Until the binary is
-rebuilt and reinstalled, the units keep pointing at the cache and the fence
-keeps the cache alive.
+The intermediate state was recorded here and is kept for the audit trail: the
+units used to execute `/var/lib/cynic/shared-target/debug/cynic`, and the
+reclaim then had to be fenced against live service paths to keep that cache
+alive. The fence is still in place and still correct — a path a running unit
+executes from is never reclaimed — but the soak no longer depends on it.
+The evidence distinguishes the two reasons a path is skipped
+(`skipped_absent` and `skipped_live_service`), so an operator reading a
+reclaim result knows which happened.
 
 ## Install
 
