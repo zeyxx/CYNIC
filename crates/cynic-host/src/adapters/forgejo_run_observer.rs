@@ -116,9 +116,13 @@ pub fn observations_from_runs(
                 runner: runner_of(run),
                 label: label.to_string(),
                 status: run.status.clone(),
+                head_sha: run.head_sha.clone(),
+                job_name: run.name.clone(),
                 queue_seconds: None,
                 run_seconds: wall,
                 wall_seconds: wall,
+                started_epoch: started,
+                ended_epoch: ended,
             }
         })
         .collect()

@@ -339,6 +339,42 @@ pub fn measure_pool_from_forgejo(
             runner.failure_rate * 100.0
         );
     }
+    let inefficiencies = &report.inefficiencies;
+    println!();
+    println!("Execution inefficiencies:");
+    println!("  groups:              {}", inefficiencies.groups);
+    println!(
+        "  wasted:              {}s of {}s ({:.1}%)",
+        inefficiencies.redundant_wall_seconds + inefficiencies.failed_wall_seconds,
+        inefficiencies.total_wall_seconds,
+        inefficiencies.wasted_ratio * 100.0
+    );
+    println!("  redundant jobs:      {}", inefficiencies.redundant_jobs);
+    println!(
+        "  rework (failed):     {}s",
+        inefficiencies.failed_wall_seconds
+    );
+    if let Some(speedup) = inefficiencies.mean_parallel_speedup {
+        println!("  mean speedup:        {speedup:.2}x");
+    }
+    println!("  serial groups:       {}", inefficiencies.serial_groups);
+    for group in &inefficiencies.worst_groups {
+        println!(
+            "  worst {:<8} jobs={:<3} unique={:<3} redundant={:<3} span={}s speedup={}",
+            &group.head_sha.chars().take(8).collect::<String>(),
+            group.jobs,
+            group.unique_jobs,
+            group.redundant_jobs,
+            group
+                .span_seconds
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "-".to_string()),
+            group
+                .parallel_speedup
+                .map(|s| format!("{s:.2}x"))
+                .unwrap_or_else(|| "-".to_string())
+        );
+    }
     Ok(())
 }
 
