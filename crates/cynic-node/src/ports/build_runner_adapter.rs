@@ -303,7 +303,7 @@ impl SshBuildRunner {
                 return Ok(PathBuf::from(explicit));
             }
         }
-        match cynic_host::registry::resolve_canonical_target_relative_path(None) {
+        match cynic_host::registry::resolve::resolve_canonical_target_relative_path(None) {
             Ok(relative) => Ok(CynicPaths::state_dir().join(relative)),
             Err(reason) => {
                 // The build cannot proceed against an undeclared cache:
