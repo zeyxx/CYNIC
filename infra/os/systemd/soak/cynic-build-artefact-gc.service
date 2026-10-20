@@ -1,0 +1,20 @@
+[Unit]
+Description=CYNIC build artefact retention — reclaim orphan checkouts
+Documentation=infra/os/systemd/soak/README.md
+# The retention policy exists in code and is proven by the builder gate, but
+# nothing called it: the clones were only ever removed by hand. This timer is
+# that missing caller.
+#
+# The command is the native one, not a script:
+#   cynic runtime build artefact gc --apply
+# It observes first, plans, then applies, and it refuses any path that a live
+# service executes (the live-service fence).
+
+[Service]
+Type=oneshot
+ExecStart=/var/lib/cynic/bin/cynic runtime build artefact gc --apply
+# The GC deletes directories; a run that overruns must not overlap the next.
+TimeoutStartSec=30min
+# Retention is best-effort housekeeping: a failure is logged and retried at
+# the next tick, never escalated into a failed unit that masks the real state.
+SuccessExitStatus=0

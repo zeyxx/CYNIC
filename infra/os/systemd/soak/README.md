@@ -115,3 +115,31 @@ One parent may hold the lock for a given `--state-dir`: a second parent on
 the same state directory exits `1` rather than evicting the first. That is
 the intended single-writer contract, and it is why a failed start looks
 like a plain exit `1`.
+
+## The retention timer — the missing caller
+
+The retention policy exists in code (`cynic_protocol::retention`, the
+`RetentionObserver` → `RetentionPlanner` → `RetentionExecutor` trio) and
+`cynic runtime build artefact gc` is its native surface. It was never called
+by anything: the checkout clones were only ever removed by hand.
+
+Measured on builder-119, read-only (`--json`, no `--apply`):
+
+| Observation | Value |
+|---|---|
+| schema | `cynic.retention_observation.v1` |
+| items | 16 |
+| reclaimable | 7.27 GiB |
+| orphans | 12 |
+| live-service paths | 0 |
+
+`cynic-build-artefact-gc.timer` is the caller. It runs
+`cynic runtime build artefact gc --apply` daily, with a randomized delay so
+several builders do not reclaim in lockstep, and `Persistent=true` so a
+missed window is caught up once after a reboot.
+
+Two properties come from the command rather than from the unit: the GC
+observes and plans before it applies, and it refuses any path a live service
+executes (the live-service fence). The unit therefore needs no path list of
+its own — inventing one there would be a second, weaker authority for the
+same decision.

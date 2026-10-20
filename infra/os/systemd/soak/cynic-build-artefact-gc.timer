@@ -1,0 +1,14 @@
+[Unit]
+Description=Run the CYNIC build artefact retention daily
+
+[Timer]
+# Once a day, off the hour, with a random delay so several builders do not
+# reclaim in lockstep.
+OnCalendar=daily
+RandomizedDelaySec=30m
+# Catch up after a reboot or a missed window, but only once.
+Persistent=true
+Unit=cynic-build-artefact-gc.service
+
+[Install]
+WantedBy=timers.target
