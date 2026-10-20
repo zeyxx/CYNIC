@@ -39,9 +39,8 @@ pub fn resolve_runner_host(host: Option<&str>, registry: &str) -> Result<String,
 pub fn resolve_ssot_url(ssot_url: &str, registry: &str) -> Result<String, String> {
     match ssot_url.trim() {
         explicit if !explicit.is_empty() => Ok(explicit.to_string()),
-        _ => resolve_source_transport_uri(Some(registry), "cynic").map_err(|error| {
-            format!("build source unresolvable in registry {registry}: {error}")
-        }),
+        _ => resolve_source_transport_uri(Some(registry), "cynic")
+            .map_err(|error| format!("build source unresolvable in registry {registry}: {error}")),
     }
 }
 
@@ -57,6 +56,7 @@ pub fn ssh_build_runner(
     ssot_url: String,
     package: Option<String>,
     sccache_dir: String,
+    minimum_available_bytes: Option<u64>,
 ) -> SshBuildRunner {
     SshBuildRunner {
         host,
@@ -77,6 +77,7 @@ pub fn ssh_build_runner(
         } else {
             Some(sccache_dir)
         },
+        minimum_available_bytes,
         runner: Box::new(LocalCommandRunner),
     }
 }

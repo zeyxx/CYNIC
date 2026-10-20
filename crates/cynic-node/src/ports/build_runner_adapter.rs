@@ -10,6 +10,9 @@ use crate::ports::build_runner::{
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
+use cynic_protocol::build_disk_capacity::{
+    DiskCapacityDecision, decide_disk_capacity, parse_df_available_bytes,
+};
 use cynic_types::paths::CynicPaths;
 use std::path::PathBuf;
 
@@ -137,6 +140,14 @@ pub struct SshBuildRunner {
     /// hash (profile/flags/rustc in key), so hits are byte-identical across
     /// SHAs — proof value unchanged.
     pub sccache_dir: Option<String>,
+    /// Minimum free bytes the runner must have before a checkout may be
+    /// materialized. `None` means the gate is off.
+    ///
+    /// The ENOSPC incident of 2026-09-08 and the 92 % disk of 2026-10-20
+    /// share one cause: a checkout was materialized on a disk that could not
+    /// hold it. The gate reads the runner's free space before the clone and
+    /// refuses with an explicit verdict instead.
+    pub minimum_available_bytes: Option<u64>,
     pub runner: Box<dyn CommandRunner>,
 }
 
@@ -258,6 +269,56 @@ impl BuildRunnerPort for SshBuildRunner {
             ))
         };
 
+        // Step 0: the runner's disk must be able to hold the checkout.
+        //
+        // This is the pre-trigger gate. Materializing a checkout on a disk
+        // that cannot hold it produces an ENOSPC failure mid-fetch, which
+        // reads to the operator like a broken toolchain and is not one. The
+        // gate reads the runner's free space first and refuses with an
+        // explicit verdict when the disk cannot hold the build.
+        //
+        // The gate is fail-closed: an unobservable disk is not a free disk.
+        if let Some(minimum) = self.minimum_available_bytes {
+            let df = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "df",
+                "-k",
+                "--output=avail",
+                self.checkout_base.as_str(),
+            ]);
+            if let Some(e) = &df.spawn_error {
+                return Err(BuildError::RunnerUnreachable(e.clone()));
+            }
+            let available = if df.success() {
+                parse_df_available_bytes(&df.stdout, &self.checkout_base)
+            } else {
+                None
+            };
+            let assessment = decide_disk_capacity(available, minimum);
+            match assessment.decision {
+                DiskCapacityDecision::Proceed => {}
+                DiskCapacityDecision::Refused {
+                    available_bytes,
+                    minimum_bytes,
+                } => {
+                    return blocked(
+                        Some("runner_disk_capacity".to_string()),
+                        format!(
+                            "runner disk below minimum: {available_bytes} bytes available, \
+                             {minimum_bytes} required"
+                        ),
+                    );
+                }
+                DiskCapacityDecision::Unknown { reason } => {
+                    return blocked(
+                        Some("runner_disk_capacity".to_string()),
+                        format!("runner disk capacity unobserved: {reason}"),
+                    );
+                }
+            }
+        }
+
         // Step 1: ensure a checkout exists for the SHA.
         let probe = self.runner.run(&[
             "ssh",
@@ -361,10 +422,7 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!(
-                "CARGO_TARGET_DIR={}",
-                default_shared_target_dir().display()
-            ),
+            format!("CARGO_TARGET_DIR={}", default_shared_target_dir().display()),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
             argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));

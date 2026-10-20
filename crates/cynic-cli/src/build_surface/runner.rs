@@ -73,15 +73,13 @@ pub(crate) fn trigger_build(
     let host = match host.filter(|value| !value.trim().is_empty()) {
         Some(explicit) => explicit.to_string(),
         None => match runner.filter(|value| !value.trim().is_empty()) {
-            Some(named) => {
-                cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
-                    .into_iter()
-                    .find(|candidate| candidate.node_id == named)
-                    .map(|candidate| candidate.ssh_target)
-                    .ok_or_else(|| {
-                        format!("named runner {named} unresolvable in registry {registry}")
-                    })?
-            }
+            Some(named) => cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
+                .into_iter()
+                .find(|candidate| candidate.node_id == named)
+                .map(|candidate| candidate.ssh_target)
+                .ok_or_else(|| {
+                    format!("named runner {named} unresolvable in registry {registry}")
+                })?,
             None => cynic_node::cli_factory::resolve_runner_host(None, registry)?,
         },
     };
@@ -106,6 +104,9 @@ pub(crate) fn trigger_build(
         cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
         package,
         sccache_dir.to_string(),
+        // The pre-trigger disk gate reads its threshold from the registry, so
+        // the policy lives in one place and the code never hardcodes a floor.
+        cynic_host::registry::resolve::minimum_available_bytes_for_runner(registry, &host)?,
     );
     let health = runner.observe_runner();
     if !health.reachable {
@@ -382,8 +383,7 @@ mod tests {
     #[test]
     fn package_warns_for_every_action_while_payload_is_dropped() {
         for action in ["check", "build", "build-release", "test"] {
-            let warning =
-                package_scope_warning(action, Some("cynic-cli")).expect("must warn");
+            let warning = package_scope_warning(action, Some("cynic-cli")).expect("must warn");
             assert!(warning.contains("cynic-cli"), "{action}: {warning}");
             assert!(warning.contains("ignored"), "{action}: {warning}");
         }

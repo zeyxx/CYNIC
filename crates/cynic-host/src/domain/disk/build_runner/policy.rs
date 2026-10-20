@@ -251,8 +251,7 @@ fn ephemeral_eligible(
                 entry.age_ms > max_age_ms || (pressure && entry.age_ms > grace_ms)
             }
             EphemeralKind::WorkloadWorkspace => {
-                entry.workload_terminal == Some(true)
-                    && (pressure || entry.age_ms > max_age_ms)
+                entry.workload_terminal == Some(true) && (pressure || entry.age_ms > max_age_ms)
             }
         })
         .cloned()
@@ -290,14 +289,43 @@ fn validate_policy(
             .noncanonical_cache_candidates
             .iter()
             .any(|candidate| !safe_relative(&candidate.relative_path))
-        {
-            return Err("build_cache_policy_invalid".to_string());
-        }
-        if let Some(retention) = &policy.ephemeral_retention {
-            validate_retention(retention)?;
-        }
-        Ok(())
-        }
+    {
+        return Err("build_cache_policy_invalid".to_string());
+    }
+    if let Some(retention) = &policy.ephemeral_retention {
+        validate_retention(retention)?;
+    }
+    Ok(())
+}
+
+/// Resolve the minimum free bytes a node requires before a checkout may be
+/// materialized on it.
+///
+/// The value is declared in the registry under
+/// `build_lifecycle.minimum_available_bytes`. It is the threshold the
+/// pre-trigger disk gate enforces: below it, the build is refused with an
+/// explicit verdict instead of materializing a checkout that cannot fit.
+///
+/// A node without a `build_lifecycle` block has no declared threshold, and
+/// the gate stays off for it. Absent policy is not a silent zero: it is an
+/// explicit `None`, and the caller decides whether the absence is a gap.
+pub fn resolve_minimum_available_bytes(
+    registry_path: &Path,
+    node_id: &str,
+) -> Result<Option<u64>, String> {
+    let bytes = fs::read(registry_path)
+        .map_err(|error| format!("build_cache_registry_read_failed:{error}"))?;
+    let registry: Registry = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("build_cache_registry_decode_failed:{error}"))?;
+    let node = registry
+        .nodes
+        .into_iter()
+        .find(|node| node.id.as_deref() == Some(node_id) || node.name.as_deref() == Some(node_id))
+        .ok_or_else(|| "build_cache_node_missing".to_string())?;
+    Ok(node
+        .build_lifecycle
+        .map(|policy| policy.minimum_available_bytes))
+}
 
 fn validate_retention(retention: &EphemeralRetention) -> Result<(), String> {
     if retention.schema != "cynic.build_runner.ephemeral_retention.v1"
@@ -307,8 +335,7 @@ fn validate_retention(retention: &EphemeralRetention) -> Result<(), String> {
         return Err("build_cache_retention_invalid".to_string());
     }
     for scope in &retention.scopes {
-        let kind_ok =
-            scope.kind == "evidence_checkout" || scope.kind == "workload_workspace";
+        let kind_ok = scope.kind == "evidence_checkout" || scope.kind == "workload_workspace";
         let base_ok = scope.base == "state_root" || scope.base == "temporary_directory";
         let store_ok = scope.kind != "workload_workspace"
             || scope
