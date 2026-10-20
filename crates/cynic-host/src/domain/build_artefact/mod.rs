@@ -81,11 +81,13 @@ pub fn plan_build_artefacts(obs: &RetentionObservation, policy: &RetentionPolicy
                         .unwrap_or(false)
             })
             .collect();
-        // Freshest first, so that skipping `preserve_count` keeps the newest
-        // and evicts the oldest.
-        fresh.sort_by(|a, b| a.age.cmp(&b.age));
+        // Oldest first: the least recently touched artefact is the most
+        // disposable. The `preserve_count` freshest are dropped from the
+        // tail so the newest survive.
+        fresh.sort_by(|a, b| b.age.cmp(&a.age));
         let keep = policy.preserve_count.min(fresh.len());
-        for item in fresh.into_iter().skip(keep) {
+        let evictable = fresh.len() - keep;
+        for item in fresh.into_iter().take(evictable) {
             if items.iter().any(|i| i.path == item.path) {
                 continue;
             }
