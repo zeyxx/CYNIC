@@ -150,6 +150,63 @@ second block, and let the aggregate's real new content stand. That is a
 mechanical merge conflict resolution on 8 files, followed by a gate run —
 not a rewrite of 203 commits.
 
+### The repair, executed
+
+The procedure was run end to end on the builder and its result is measured,
+not projected:
+
+1. Merge the aggregate into `main` — 19 conflict hunks across 8 files.
+2. Resolve every conflict in favour of `main` (`git checkout --ours`). The
+   conflicts are stale LOC counters and a superseded gate step; `main` is
+   right in all 19.
+3. For the 36 files carrying the duplicate-declaration signature, restore
+   `main`'s version. The aggregate added a broken copy of content `main` had
+   already resolved.
+4. Restore the aggregate's genuinely new content: the supervision slice
+   (`cynic-protocol/src/supervision.rs`, `cynic-node/src/supervise.rs`,
+   `runtime_supervision/`, the whole `cynic-supervisor` crate), the CLI
+   surface (`cli_args.rs`, `root_dispatch.rs`, `supervise_surface.rs`), the
+   `fresh_data_*` adapters, and the `live_service_paths` declaration that
+   `main` already had and the aggregate's older `mod.rs` did not.
+5. Merge the two `mod.rs` files rather than choosing one: `main` has
+   `live_service_paths`, the aggregate has `fresh_data_*`, and both are
+   needed.
+
+Measured result:
+
+```
+cargo check --workspace --lib   ->   Finished
+86 files changed, 11479 insertions(+), 259 deletions(-)
+  30 files `main` already had (modified)
+  55 files `main` never had (added)
+```
+
+The `supervise` verb is present after the repair:
+`cli_args.rs:282` declares `Command::Supervise`, `root_dispatch.rs:124`
+dispatches it, and `crates/cynic-supervisor/` holds `parent.rs`, `spawn.rs`,
+`stop.rs`, `watch.rs`.
+
+### The rule that made it work
+
+**`main` wins on every file it has already resolved; the aggregate wins on
+every file it alone created.** Neither side wins on principle — the decision
+is per file, and it is decided by whether `main` has the file at all.
+
+Two counter-examples that a blanket rule would have got wrong:
+
+- Restoring `main`'s `cynic-protocol/src/supervision.rs` over the
+  aggregate's version **erased the supervision vocabulary** — 11 unresolved
+  imports. The aggregate's version had to win, because it is the only one
+  carrying that content.
+- Restoring `main`'s `cynic-host/src/adapters/mod.rs` dropped
+  `live_service_paths`, the module the live-service fence (killchain 9)
+  depends on. The two `mod.rs` had to be merged.
+
+The aggregate also declares modules that were never written —
+`pub mod null;` and `pub mod openai_compat;` in
+`cynic-inference/src/adapters/inference/mod.rs`, with no matching files in
+either branch. Those declarations are not content and must not survive.
+
 ### What the aggregate is genuinely worth
 
 Measured as files `main` does not have at all: **55**. Not 185.
