@@ -48,6 +48,10 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "fresh",
+                commands: vec!["cynic fresh data [--json] [--force] [--quick]"],
+            },
+            CommandDomain {
                 name: "runtime",
                 commands: vec![
                     "cynic runtime paths --json [--registry <path>]",
@@ -207,15 +211,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "idea",
-                commands: vec![
-                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
-                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
-                ],
-            },
-            CommandDomain {
                 name: "node",
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
@@ -364,13 +359,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic wiki list [--kind <kind>] [--status <status>] [--registry <path>] [--json]",
                     "cynic wiki search <query> [--limit <n>] [--json]",
                     "cynic wiki show <article-id> [--registry <path>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "coordination",
-                commands: vec![
-                    "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
-                    "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
                 ],
             },
         ],
