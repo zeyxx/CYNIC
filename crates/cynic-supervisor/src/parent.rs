@@ -1,0 +1,432 @@
+//! Supervised parent: one process per role holding the child handle.
+//!
+//! The parent owns the `KillOnDrop` handle for its whole lifetime, so the
+//! child dies with the parent and never orphans. Restart decisions come from
+//! the canonical `decide_restart`; restart counts persist across parent
+//! restarts; live state is published through an atomic status file that
+//! `cynic supervise observe` reads. See
+//! `docs/design/supervised-parent-scope.md` (spec + adversarial review).
+
+use std::{
+    collections::HashMap,
+    io,
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+use cynic_protocol::supervision::{
+    ParentStatusEnvelope, RestartDecision, RestartPolicy, SupervisorObservation, SupervisorState,
+    decide_restart,
+};
+use process_wrap::tokio::ChildWrapper;
+
+use crate::{graceful_stop, spawn_backend};
+
+/// How often the parent refreshes the status file heartbeat.
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
+/// Takeover grace: a lock older than this with a dead holder may be taken.
+const TAKEOVER_GRACE: Duration = Duration::from_secs(10);
+
+/// Parent configuration for one role. The command argv is declared by the
+/// caller (systemd unit); the parent never invents it.
+#[derive(Debug, Clone)]
+pub struct RoleRunConfig {
+    pub role_id: String,
+    pub command: Vec<String>,
+    pub working_dir: Option<String>,
+    pub env: HashMap<String, String>,
+    pub policy: RestartPolicy,
+    pub stop_grace_secs: u64,
+    pub state_dir: PathBuf,
+    pub status_file: PathBuf,
+}
+
+/// How a parent run ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoleRunOutcome {
+    /// Child exited cleanly; parent stops without restarting.
+    Clean,
+    /// Restart bound reached; parent stops with the decision reason.
+    GiveUp { reason: String },
+}
+
+/// Single-parent lock: `(pid, epoch_uuid, started_at_ms)`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ParentLock {
+    pid: u32,
+    epoch: String,
+    started_at_ms: u128,
+}
+
+/// Persisted restart history across parent restarts (spec amendment A4).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+struct RestartHistory {
+    count: u32,
+    window_start_ms: u128,
+}
+
+fn now_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|t| t.as_millis())
+        .unwrap_or(0)
+}
+
+fn lock_path(state_dir: &Path, role_id: &str) -> PathBuf {
+    state_dir.join(format!("supervise-{role_id}.lock"))
+}
+
+fn restarts_path(state_dir: &Path, role_id: &str) -> PathBuf {
+    state_dir.join(format!("supervise-{role_id}.restarts.json"))
+}
+
+/// Atomic file write: temp + rename, fsync'd before the rename so a crash
+/// never leaves a half-written file behind.
+fn write_atomic(path: &Path, payload: &[u8]) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("tmp");
+    {
+        use std::io::Write;
+        let mut file = std::fs::File::create(&tmp)?;
+        file.write_all(payload)?;
+        file.sync_all()?;
+    }
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn holder_alive(pid: u32) -> bool {
+    Path::new(&format!("/proc/{pid}")).is_dir()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn holder_alive(pid: u32) -> bool {
+    // No /proc outside Linux: liveness unknown, fall back to mtime grace.
+    let _ = pid;
+    false
+}
+
+/// Acquire the single-parent lock or fail with a named error.
+/// A lock whose holder is dead past the takeover grace is taken over;
+/// the takeover is reported to the caller for the first observation.
+fn acquire_lock(state_dir: &Path, role_id: &str) -> io::Result<Option<String>> {
+    let path = lock_path(state_dir, role_id);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let lock = ParentLock {
+        pid: std::process::id(),
+        epoch: format!("{}-{}", std::process::id(), now_ms()),
+        started_at_ms: now_ms(),
+    };
+    let payload = serde_json::to_vec(&lock)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            use std::io::Write;
+            file.write_all(&payload)?;
+            Ok(None)
+        }
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            let raw = std::fs::read(&path)?;
+            let old: ParentLock = serde_json::from_slice(&raw)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            let mtime_age_ms = std::fs::metadata(&path)?
+                .modified()
+                .ok()
+                .and_then(|t| t.elapsed().ok())
+                .map(|d| d.as_millis())
+                .unwrap_or(u128::MAX);
+            let dead = !holder_alive(old.pid);
+            let stale = mtime_age_ms > TAKEOVER_GRACE.as_millis();
+            if dead && stale {
+                write_atomic(&path, &payload)?;
+                Ok(Some(format!("supervisor_lock_takeover:{}", old.epoch)))
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    format!("supervisor_parent_holds_role:{role_id} (pid {})", old.pid),
+                ))
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn load_history(state_dir: &Path, role_id: &str) -> RestartHistory {
+    let path = restarts_path(state_dir, role_id);
+    let raw = std::fs::read(&path).unwrap_or_default();
+    serde_json::from_slice(&raw).unwrap_or_default()
+}
+
+fn save_history(state_dir: &Path, role_id: &str, history: &RestartHistory) -> io::Result<()> {
+    let payload =
+        serde_json::to_vec(history).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    write_atomic(&restarts_path(state_dir, role_id), &payload)
+}
+
+/// Publish one status envelope atomically, bumping the heartbeat counter.
+fn publish(
+    status_file: &Path,
+    counter: &mut u64,
+    observation: SupervisorObservation,
+) -> io::Result<()> {
+    *counter = counter.saturating_add(1);
+    let envelope = ParentStatusEnvelope {
+        schema: cynic_protocol::supervision::PARENT_STATUS_FILE_SCHEMA.to_string(),
+        heartbeat_counter: *counter,
+        observation,
+    };
+    let payload = serde_json::to_vec_pretty(&envelope)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    write_atomic(status_file, &payload)
+}
+
+/// Run the parent loop for one role until clean exit or give-up.
+/// Returns the outcome; the child handle is held for the whole run.
+pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
+    if cfg.command.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "role command must be non-empty",
+        ));
+    }
+    let takeover = acquire_lock(&cfg.state_dir, &cfg.role_id)?;
+    let mut history = load_history(&cfg.state_dir, &cfg.role_id);
+    let mut counter: u64 = 0;
+    let mut residuals: Vec<String> = takeover.into_iter().collect();
+    let mut last_exit: Option<String> = None;
+
+    // Expire history outside the policy window (min_uptime bounds stability).
+    if now_ms().saturating_sub(history.window_start_ms)
+        > (cfg.policy.min_uptime_secs as u128).saturating_mul(1000).saturating_mul(60)
+    {
+        history = RestartHistory::default();
+    }
+    if history.count == 0 {
+        history.window_start_ms = now_ms();
+    }
+
+    loop {
+        let attempt = history.count;
+        let started = now_ms();
+        let mut child = spawn_backend(
+            &cfg.command,
+            cfg.working_dir.as_deref(),
+            &cfg.env,
+        )?;
+        publish(
+            &cfg.status_file,
+            &mut counter,
+            SupervisorObservation {
+                schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                role_id: cfg.role_id.clone(),
+                state: SupervisorState::Active,
+                restart_count: attempt,
+                last_exit_reason: last_exit.clone(),
+                observed_at_unix_ms: now_ms(),
+                residual_unknowns: residuals.clone(),
+            },
+        )?;
+
+        // Wait for the child, heartbeating while it lives.
+        let mut ticker = tokio::time::interval(HEARTBEAT_INTERVAL);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let status = loop {
+            tokio::select! {
+                result = child.wait() => break result?,
+                _ = ticker.tick() => {
+                    publish(
+                        &cfg.status_file,
+                        &mut counter,
+                        SupervisorObservation {
+                            schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                            role_id: cfg.role_id.clone(),
+                            state: SupervisorState::Active,
+                            restart_count: attempt,
+                            last_exit_reason: last_exit.clone(),
+                            observed_at_unix_ms: now_ms(),
+                            residual_unknowns: residuals.clone(),
+                        },
+                    )?;
+                }
+            }
+        };
+
+        let uptime_secs = now_ms().saturating_sub(started) / 1000;
+        let uptime_secs = uptime_secs.min(u64::MAX as u128) as u64;
+        if status.success() {
+            publish(
+                &cfg.status_file,
+                &mut counter,
+                SupervisorObservation {
+                    schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                    role_id: cfg.role_id.clone(),
+                    state: SupervisorState::Stopped,
+                    restart_count: attempt,
+                    last_exit_reason: Some("clean_exit".to_string()),
+                    observed_at_unix_ms: now_ms(),
+                    residual_unknowns: residuals.clone(),
+                },
+            )?;
+            release_lock(&cfg.state_dir, &cfg.role_id);
+            return Ok(RoleRunOutcome::Clean);
+        }
+
+        last_exit = Some(format!("child_exit:{status}"));
+        residuals.clear();
+        match decide_restart(&cfg.policy, attempt, uptime_secs, true) {
+            RestartDecision::Restart { delay_secs } => {
+                history.count = history.count.saturating_add(1);
+                save_history(&cfg.state_dir, &cfg.role_id, &history)?;
+                publish(
+                    &cfg.status_file,
+                    &mut counter,
+                    SupervisorObservation {
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                        role_id: cfg.role_id.clone(),
+                        state: SupervisorState::Failed,
+                        restart_count: history.count,
+                        last_exit_reason: last_exit.clone(),
+                        observed_at_unix_ms: now_ms(),
+                        residual_unknowns: Vec::new(),
+                    },
+                )?;
+                tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+            }
+            RestartDecision::GiveUp { reason } => {
+                publish(
+                    &cfg.status_file,
+                    &mut counter,
+                    SupervisorObservation {
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                        role_id: cfg.role_id.clone(),
+                        state: SupervisorState::Failed,
+                        restart_count: history.count,
+                        last_exit_reason: Some(reason.to_string()),
+                        observed_at_unix_ms: now_ms(),
+                        residual_unknowns: Vec::new(),
+                    },
+                )?;
+                release_lock(&cfg.state_dir, &cfg.role_id);
+                return Ok(RoleRunOutcome::GiveUp {
+                    reason: reason.to_string(),
+                });
+            }
+            RestartDecision::NoRestart => {
+                release_lock(&cfg.state_dir, &cfg.role_id);
+                return Ok(RoleRunOutcome::Clean);
+            }
+        }
+    }
+}
+
+fn release_lock(state_dir: &Path, role_id: &str) {
+    let _ = std::fs::remove_file(lock_path(state_dir, role_id));
+}
+
+/// Stop a running child with the shared ladder (re-exported for CLI stop arms later).
+pub async fn stop_child(
+    child: &mut Box<dyn ChildWrapper>,
+    timeout_secs: u64,
+) -> io::Result<()> {
+    graceful_stop(child, timeout_secs).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_protocol::supervision::RestartPolicy;
+
+    fn test_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("cynic-parent-test-{name}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    fn test_policy() -> RestartPolicy {
+        RestartPolicy {
+            max_attempts: 2,
+            initial_delay_secs: 0,
+            max_delay_secs: 0,
+            min_uptime_secs: u64::MAX,
+        }
+    }
+
+    #[test]
+    fn second_parent_refuses_while_first_holds_lock() {
+        let dir = test_dir("lock-contention");
+        let first = acquire_lock(&dir, "node");
+        assert!(first.unwrap().is_none());
+        let second = acquire_lock(&dir, "node");
+        let err = second.unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
+        assert!(err.to_string().contains("supervisor_parent_holds_role:node"));
+        release_lock(&dir, "node");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn failing_child_reaches_give_up_with_status_file() {
+        let dir = test_dir("give-up");
+        let status_file = dir.join("supervise-node.status.json");
+        let cfg = RoleRunConfig {
+            role_id: "node".to_string(),
+            command: vec!["/bin/false".to_string()],
+            working_dir: None,
+            env: HashMap::new(),
+            policy: test_policy(),
+            stop_grace_secs: 1,
+            state_dir: dir.clone(),
+            status_file: status_file.clone(),
+        };
+        let outcome = run_role(&cfg).await.unwrap();
+        assert_eq!(
+            outcome,
+            RoleRunOutcome::GiveUp {
+                reason: "max_restart_attempts_reached".to_string()
+            }
+        );
+        let raw = std::fs::read(&status_file).unwrap();
+        let envelope: ParentStatusEnvelope = serde_json::from_slice(&raw).unwrap();
+        assert_eq!(envelope.observation.state, SupervisorState::Failed);
+        assert_eq!(envelope.observation.restart_count, 2);
+        assert_eq!(
+            envelope.observation.last_exit_reason,
+            Some("max_restart_attempts_reached".to_string())
+        );
+        assert!(envelope.heartbeat_counter >= 3);
+        release_lock(&dir, "node");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn clean_child_exits_clean_without_restart() {
+        let dir = test_dir("clean");
+        let status_file = dir.join("supervise-node.status.json");
+        let cfg = RoleRunConfig {
+            role_id: "node".to_string(),
+            command: vec!["/bin/true".to_string()],
+            working_dir: None,
+            env: HashMap::new(),
+            policy: test_policy(),
+            stop_grace_secs: 1,
+            state_dir: dir.clone(),
+            status_file: status_file.clone(),
+        };
+        let outcome = run_role(&cfg).await.unwrap();
+        assert_eq!(outcome, RoleRunOutcome::Clean);
+        let raw = std::fs::read(&status_file).unwrap();
+        let envelope: ParentStatusEnvelope = serde_json::from_slice(&raw).unwrap();
+        assert_eq!(envelope.observation.state, SupervisorState::Stopped);
+        assert_eq!(envelope.observation.restart_count, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

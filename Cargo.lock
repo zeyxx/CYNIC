@@ -744,7 +744,12 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
+<<<<<<< HEAD
  "cynic-tui",
+=======
+ "cynic-supervisor",
+ "cynic-surreal",
+>>>>>>> 2c4954fa (feat(supervision): parent step 1 run role loop with lock, restarts, status file plus observe wiring)
  "cynic-types",
  "cynic-vcs",
  "cynic-vcs-providers",
@@ -1355,12 +1360,21 @@ dependencies = [
 name = "cynic-traces"
 version = "0.9.0"
 dependencies = [
+<<<<<<< HEAD
  "chrono",
  "regex",
  "rusqlite",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+=======
+ "cynic-protocol",
+ "libc",
+ "process-wrap",
+ "serde",
+ "serde_json",
+ "tokio",
+>>>>>>> 2c4954fa (feat(supervision): parent step 1 run role loop with lock, restarts, status file plus observe wiring)
 ]
 
 [[package]]
