@@ -260,6 +260,51 @@ to point at the README.
 
 ---
 
+## Killchain 12 — a build replaced a running service's binary in place
+
+**Condition.** The soak units execute
+`/var/lib/cynic/shared-target/debug/cynic`. That path is a Cargo target
+directory, so every build that writes to it rewrites the binary a running
+system service depends on — in place, under the service's feet, with no
+restart and no coordination.
+
+**Evidence.** The chain is fully dated:
+
+| When | Fact | Source |
+|---|---|---|
+| 2026-10-16 02:25 | The watcher starts and keeps running | `ps -o lstart= -p 2901553` |
+| 2026-10-19 00:57 | The parent's last successful observation: `state: active`, `restart_count: 0` | `node.status.json` mtime and content |
+| 2026-10-20 16:44 | The binary at that path is rewritten | `stat -c %y /var/lib/cynic/shared-target/debug/cynic` |
+| now | The parent is `failed` with `NRestarts=4` | `systemctl show` |
+
+The replacement binary does not know the verb the unit asks for:
+`cynic supervise --help` on the current file answers
+`error: unrecognized subcommand 'supervise'`. The watcher survives only
+because its image was already loaded into memory on 16 October; the parent,
+which systemd restarts, cannot start at all.
+
+**Why it matters.** This is the end state of Killchain 9. The fence added for
+Killchain 9 stops the *reclaim* from removing the path — but it does nothing
+about a *build* overwriting the file inside it. The path was treated as a
+disposable cache by the build system and as an installation directory by
+systemd, and no artifact in the system recorded the contradiction.
+
+**Correction.** A service never executes from a build output directory. The
+soak's `ExecStart` must point at a binary installed under the declared
+binary root, installed atomically, and never overwritten in place by a
+build. The build system and systemd must agree on one directory per role:
+`infra/directory-tree.json` already declares it (`bin/` → `current/`), and
+the unit does not use it.
+
+The blocker to the move is now identified and it is not the fence: the
+`supervise` verb does not exist in the CLI of this repository at all
+(`grep -rn "supervise" crates/cynic-cli/src/` finds only unrelated
+supervision fields), so the installed `cynic` cannot serve the soak whether
+it is installed at `/usr/local/bin` or in the cache. The bench cannot run
+until the verb it exercises is in the tree.
+
+---
+
 ## Hygiene defects found in the same pass
 
 | Defect | Evidence | Correction |
