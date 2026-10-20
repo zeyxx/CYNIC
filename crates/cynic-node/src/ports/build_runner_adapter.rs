@@ -1061,6 +1061,10 @@ mod tests {
             ssot_url: "ssh://example/CYNIC.git".into(),
             package: Some("cynic-host".into()),
             sccache_dir: None,
+            // The build cache path is resolved from the registry at build
+            // time. The fake runner never reaches the network, so the
+            // tests that assert on the argv pass an explicit path.
+            target_dir: Some("/var/lib/cynic/shared-target".into()),
             runner: Box::new(fake),
         };
         (runner, handle)
