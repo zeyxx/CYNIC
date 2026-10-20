@@ -760,6 +760,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "uuid",
  "walkdir",
 ]
 
@@ -927,6 +928,7 @@ dependencies = [
  "cynic-workload",
  "futures-util",
  "reqwest 0.13.5",
+ "rustix 1.1.5",
  "serde",
  "serde_json",
  "tempfile",
