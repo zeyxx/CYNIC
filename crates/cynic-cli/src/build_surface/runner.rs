@@ -94,6 +94,11 @@ pub(crate) fn trigger_build(
         "online" => NetworkMode::Online,
         other => return Err(format!("invalid network mode: {other}")),
     };
+    // The pre-trigger disk gate reads its threshold from the registry, so
+    // the policy lives in one place and the code never hardcodes a floor.
+    // Resolved before `host` is moved into the runner.
+    let minimum_available_bytes =
+        cynic_host::registry::resolve::minimum_available_bytes_for_runner(Some(registry), &host)?;
     let runner = cynic_node::cli_factory::ssh_build_runner(
         host,
         user.to_string(),
@@ -104,9 +109,7 @@ pub(crate) fn trigger_build(
         cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
         package,
         sccache_dir.to_string(),
-        // The pre-trigger disk gate reads its threshold from the registry, so
-        // the policy lives in one place and the code never hardcodes a floor.
-        cynic_host::registry::resolve::minimum_available_bytes_for_runner(Some(registry), &host)?,
+        minimum_available_bytes,
     );
     let health = runner.observe_runner();
     if !health.reachable {
