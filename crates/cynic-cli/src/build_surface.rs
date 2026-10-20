@@ -19,7 +19,10 @@ pub(crate) use pool::BuildPoolCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
-use pool::{evaluate_label, evaluate_local_node, local_node_id, render_eligibility};
+use pool::{
+    evaluate_label, evaluate_local_node, local_node_id, measure_pool_from_forgejo,
+    render_eligibility,
+};
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
     list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
@@ -506,6 +509,14 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                     }
                     Err(error) => Err(error),
                 }
+            }
+            BuildPoolCommand::Metrics {
+                label,
+                limit,
+                registry,
+                json,
+            } => {
+                measure_pool_from_forgejo(std::path::Path::new("."), &registry, &label, limit, json)
             }
         },
         BuildCommand::Proofs { command } => match command {

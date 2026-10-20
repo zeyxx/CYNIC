@@ -5,11 +5,15 @@
 //! it never registers, unregisters, or mutates a runner.
 
 use clap::Subcommand;
+use cynic_host::adapters::forgejo_run_observer::{
+    observations_from_runs, RunRecord as ForgejoRunRecord,
+};
 use cynic_host::adapters::local_toolchain_probe::LocalToolchainProbe;
 use cynic_host::domain::pool_eligibility::{
     evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility, ToolKind,
     ToolRequirement,
 };
+use cynic_host::domain::pool_metrics::measure_pool;
 use cynic_lifecycle::LocalArgvRunner;
 use serde::Deserialize;
 use std::fs;
@@ -29,6 +33,21 @@ pub(crate) enum BuildPoolCommand {
         /// Labels the runner advertises, as observed.
         #[arg(long, value_delimiter = ',', default_value = "")]
         observed_labels: Vec<String>,
+        /// Registry path (infra/registry.json).
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Measure the cost and latency of the pool jobs.
+    Metrics {
+        /// Pool label to measure (e.g. `cynic/build`).
+        #[arg(long, default_value = "cynic/build")]
+        label: String,
+        /// Number of recent runs to observe.
+        #[arg(long, default_value_t = 100)]
+        limit: usize,
         /// Registry path (infra/registry.json).
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
@@ -258,6 +277,69 @@ pub fn evaluate_local_node(
         observed_labels,
         &observations,
     ))
+}
+
+/// Measure the pool cost and latency from the sovereign Forgejo runs.
+///
+/// Read-only. Forgejo 11 does not expose the executor of a run, so the
+/// attribution falls back to the label; the observation keeps the measured
+/// latency, which is what placement decisions need.
+pub fn measure_pool_from_forgejo(
+    root: &std::path::Path,
+    registry_path: &str,
+    label: &str,
+    limit: usize,
+    json: bool,
+) -> Result<(), String> {
+    let (api_url, owner, repo, token) =
+        super::forgejo::resolve_forgejo(root).map_err(|e| format!("registry error: {e}"))?;
+    let url = format!("{api_url}/api/v1/repos/{owner}/{repo}/actions/tasks?limit={limit}");
+    let value = super::forgejo::http_get_json(&url, &token)
+        .map_err(|e| format!("forgejo request failed: {e}"))?;
+    let runs: Vec<ForgejoRunRecord> = value
+        .get("workflow_runs")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let observations = observations_from_runs(&runs, label, &|_| label.to_string());
+    let report = measure_pool(&observations);
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+        );
+        return Ok(());
+    }
+    println!("Pool metrics: {label}");
+    println!("  jobs:        {}", report.jobs);
+    println!(
+        "  outcome:     {} success, {} failed, {} cancelled ({:.1}% failure)",
+        report.succeeded,
+        report.failed,
+        report.cancelled,
+        report.failure_rate * 100.0
+    );
+    if let Some(mean) = report.mean_wall_seconds {
+        println!("  mean wall:   {mean:.1}s");
+    }
+    if let Some(median) = report.median_wall_seconds {
+        println!("  median wall: {median:.1}s");
+    }
+    if let Some(p95) = report.p95_wall_seconds {
+        println!("  p95 wall:    {p95:.1}s");
+    }
+    if let Some(queue) = report.mean_queue_seconds {
+        println!("  mean queue:  {queue:.1}s");
+    }
+    for runner in &report.runners {
+        println!(
+            "  runner {:<16} jobs={:<4} failure={:.1}%",
+            runner.runner,
+            runner.jobs,
+            runner.failure_rate * 100.0
+        );
+    }
+    Ok(())
 }
 
 /// Render the verdict for the operator.
