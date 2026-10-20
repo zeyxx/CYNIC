@@ -1375,10 +1375,40 @@ mod tests {
 
     #[test]
     fn firewall_policy_executes_without_panic() {
+        // The registry is an input, not an ambient authority. Reading
+        // CynicPaths::registry_path() made this test read whatever
+        // /etc/cynic/registry.json happened to hold on the machine
+        // running it, so it passed on one host and failed on another
+        // for reasons that had nothing to do with the code under test:
+        // the installed registry there had no network_policy plane
+        // interface, and the derivation fails closed without one.
+        // The policy derivation itself is covered hermetically in
+        // cynic-network::firewall_policy; what this test owns is the
+        // CLI arm, so it gets its own registry.
+        let registry = tempfile::NamedTempFile::new().expect("temp registry");
+        std::fs::write(
+            registry.path(),
+            serde_json::json!({
+                "network_policy": {
+                    "canonical_service_plane": "service",
+                    "planes": {
+                        "service": { "cidr": "10.10.10.0/24" },
+                        "admin": { "cidr": "192.168.100.0/24" },
+                        "mesh": { "cidr": "100.64.0.0/10", "interface": "wg0" }
+                    }
+                },
+                "nodes": [
+                    { "id": "probe-node", "services": [] }
+                ]
+            })
+            .to_string(),
+        )
+        .expect("write registry fixture");
+
         let cmd = NetworkCommands::FirewallPolicy {
             json: true,
-            registry: CynicPaths::registry_path().display().to_string(),
-            node_id: None,
+            registry: registry.path().display().to_string(),
+            node_id: Some("probe-node".to_string()),
             audit: false,
         };
         let code = execute_network_command(&cmd);
