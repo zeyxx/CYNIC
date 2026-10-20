@@ -3,8 +3,6 @@
 //! Defined in `docs/design/AGENT_FLEET_HOSTING_DESIGN.md` and `docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md`.
 //! Pure types and predicates without I/O.
 
-use std::path::PathBuf;
-
 use serde::{Deserialize, Serialize};
 
 use crate::agent_isolation::SandboxStrategy;
@@ -364,11 +362,15 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
     // Shared git admin detection (reject shared checkout paths)
     let source_root = cynic_types::paths::CynicPaths::state_dir().join("source");
     let shared_markers = [
-        source_root.join("repositories").join("CYNIC"),
-        PathBuf::from("/.git"),
+        source_root
+            .join("repositories")
+            .join("CYNIC")
+            .display()
+            .to_string(),
+        "/.git".to_string(),
     ];
     for marker in &shared_markers {
-        if git_dir.starts_with(marker) || workspace.starts_with(marker) {
+        if git_dir.starts_with(marker.as_str()) || workspace.starts_with(marker.as_str()) {
             violations.push("blocked_shared_git_admin".to_string());
             break;
         }
@@ -391,16 +393,16 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
         "/lib",
     ];
     let forbidden_state_prefixes = [
-        state_root.join("source"),
-        state_root.join("identity"),
+        state_root.join("source").display().to_string(),
+        state_root.join("identity").display().to_string(),
     ];
 
     for mount in &allocation.mounts {
         if !mount.read_only {
             let blocked = forbidden_rw_prefixes.iter().any(|prefix| {
-                mount.target == prefix || mount.target.starts_with(&format!("{prefix}/"))
+                mount.target == *prefix || mount.target.starts_with(&format!("{prefix}/"))
             }) || forbidden_state_prefixes.iter().any(|prefix| {
-                mount.target == prefix || mount.target.starts_with(&format!("{}/", prefix.display()))
+                mount.target == *prefix || mount.target.starts_with(&format!("{prefix}/"))
             });
             if blocked {
                 violations.push("blocked_excessive_rw_mount".to_string());
