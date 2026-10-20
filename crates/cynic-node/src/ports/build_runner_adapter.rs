@@ -823,40 +823,86 @@ fn build_evidence(stderr: &str) -> String {
 /// its own assertion, and the first block says nothing about the others. The
 /// operator needs the whole list: which test broke, and why.
 ///
-/// The evidence keeps every `failures:` block and every panic line, bounded
-/// by a larger limit because a test run's detail is the deliverable.
+/// THE TWO STREAMS ARE NOT INTERLEAVABLE. Cargo writes the test NAMES and
+/// the `---- <name> stdout ----` headers on stdout, and the PANIC MESSAGES
+/// on stderr. Concatenating them (`stdout.lines().chain(stderr.lines())`)
+/// puts every panic BEFORE every header, so a parser that expects a
+/// header followed by its panic finds nothing: the header comes after its
+/// own assertion, and the evidence ends up as a list of "Running
+/// tests/..." lines with no reason attached.
+///
+/// So the streams are read SEPARATELY: stdout gives the failing test
+/// names, stderr gives the assertions, and the two are joined by name.
+/// A failing test that has no matching panic in stderr keeps its name, so
+/// the evidence still says WHAT failed even when the reason is elsewhere.
+///
+/// The evidence keeps every failing target and its assertion, bounded by
+/// a larger limit because a test run's detail is the deliverable.
 fn test_evidence(stdout: &str, stderr: &str) -> String {
     const LIMIT: usize = 8192;
-    let mut blocks: Vec<String> = Vec::new();
+    let mut out = String::new();
+
+    // The failing test names, from stdout: `test <name> ... FAILED` and the
+    // `---- <name> stdout ----` headers.
+    let mut failed_names: Vec<String> = Vec::new();
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("---- ") {
+            let name = rest
+                .strip_suffix(" stdout ----")
+                .or_else(|| rest.strip_suffix(" output ----"))
+                .unwrap_or(rest);
+            if !name.is_empty() && !failed_names.iter().any(|n| n == name) {
+                failed_names.push(name.to_string());
+            }
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("test ") {
+            if rest.ends_with(" ... FAILED") {
+                let name = rest.trim_end_matches(" ... FAILED").trim();
+                if !name.is_empty() && !failed_names.iter().any(|n| n == name) {
+                    failed_names.push(name.to_string());
+                }
+            }
+        }
+    }
+
+    // The assertions, from BOTH streams.
+    //
+    // libtest prints the panic on the stream it was given, and which one
+    // that is depends on how the test binary is wired: a test run shows
+    // the panic on stdout (`---- <name> stdout ----` followed by the
+    // panic), while a cargo-level failure shows it on stderr. So both
+    // streams are scanned for panics, and the stdout is scanned for the
+    // `---- <name> stdout ----` headers that name the failing test.
+    let mut assertions: Vec<String> = Vec::new();
     let mut current: Vec<&str> = Vec::new();
-    let mut in_failures = false;
     for line in stdout.lines().chain(stderr.lines()) {
         let trimmed = line.trim_start();
-        if trimmed.starts_with("failures:") || trimmed.starts_with("---- ") {
-            in_failures = true;
+        if trimmed.starts_with("thread '") && trimmed.contains("panicked at") {
             if !current.is_empty() {
-                blocks.push(current.join("\n"));
+                assertions.push(current.join("\n"));
                 current.clear();
             }
             current.push(line);
             continue;
         }
-        if in_failures {
-            // A new top-level section (the next test binary, the summary)
-            // ends the current failure block.
-            if line.starts_with("     Running ") || line.starts_with("test result:") {
-                blocks.push(current.join("\n"));
+        if !current.is_empty() {
+            // The panic continues with the assertion and the values. A
+            // blank line ends the block; a `note:` line belongs to it.
+            if trimmed.is_empty() {
+                assertions.push(current.join("\n"));
                 current.clear();
-                in_failures = false;
                 continue;
             }
             current.push(line);
         }
     }
     if !current.is_empty() {
-        blocks.push(current.join("\n"));
+        assertions.push(current.join("\n"));
     }
-    if blocks.is_empty() {
+
+    if failed_names.is_empty() && assertions.is_empty() {
         // No structured failure: the tail is the best available evidence.
         let combined = format!("{stdout}\n{stderr}");
         let trimmed = combined.trim();
@@ -866,12 +912,22 @@ fn test_evidence(stdout: &str, stderr: &str) -> String {
             .unwrap_or(trimmed.len());
         return trimmed[cut..].trim().to_string();
     }
-    let mut out = String::new();
-    for block in blocks {
+
+    for name in &failed_names {
         if !out.is_empty() {
             out.push('\n');
         }
-        out.push_str(&block);
+        out.push_str("FAILED ");
+        out.push_str(name);
+        if out.len() > LIMIT {
+            break;
+        }
+    }
+    for assertion in &assertions {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        out.push_str(assertion);
         if out.len() > LIMIT {
             break;
         }

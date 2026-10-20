@@ -195,10 +195,26 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
             return outcome;
         }
     };
-    let stage = build_stage_command(
-        roots.state_root.as_deref().unwrap_or("/var/lib/cynic"),
-        &artifact.tag,
-    );
+    // The state root comes from the caller or the deployment is refused.
+    //
+    // It used to fall back to a hardcoded "/var/lib/cynic". That literal
+    // is a placement claim in code: the audit engine flagged it
+    // (PATH-004-LITERAL-TRACKED) because a fallback that names an
+    // absolute path is a second source of truth about where the fleet
+    // keeps its state. Every other step of this orchestrator already
+    // REFUSES a missing state root ("the symlink layout needs a state
+    // root"); this one guessed, so a caller that forgot to resolve the
+    // roots would deploy to a path it never declared.
+    let state_root = match roots.state_root.as_deref() {
+        Some(state_root) => state_root,
+        None => {
+            outcome.failure = Some(GateFailure::Unreachable(
+                "the deployment needs a state root".to_string(),
+            ));
+            return outcome;
+        }
+    };
+    let stage = build_stage_command(state_root, &artifact.tag);
     let stage_outcome = executor.run(machine, &stage);
     if !stage_outcome.success() {
         outcome.failure = Some(GateFailure::Unreachable(format!(
