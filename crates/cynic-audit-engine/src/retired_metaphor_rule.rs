@@ -205,6 +205,7 @@ pub fn observe(index: &WorkspaceSourceIndex) -> BTreeMap<String, (usize, String,
         if file.relative_path.ends_with("retired_metaphor_rule.rs")
             || file.relative_path.ends_with("vocabulary.rs")
             || file.relative_path.ends_with("retired-metaphor-ledger.json")
+            || file.relative_path.ends_with("examples/nam_ledger.rs")
         {
             continue;
         }
