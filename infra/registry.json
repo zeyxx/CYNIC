@@ -626,7 +626,7 @@
       "build_lifecycle": {
         "schema": "cynic.build_runner.resource_policy.v1",
         "minimum_available_bytes": 4294967296,
-        "canonical_target_relative_path": "build-targets/bootstrap",
+        "canonical_target_relative_path": "build-targets/fgate",
         "canonical_cache_reclaim": {
           "schema": "cynic.build_runner.cache_reclaim_policy.v1",
           "trigger": "available_bytes_below_minimum",
@@ -639,12 +639,8 @@
         },
         "noncanonical_cache_candidates": [
           {
-            "base": "temporary_directory",
-            "relative_path": "cynic-cargo-targets"
-          },
-          {
             "base": "state_root",
-            "relative_path": "source/repositories/CYNIC/target"
+            "relative_path": "shared-target"
           }
         ],
         "bootstrap_containment": {
@@ -659,6 +655,18 @@
             "durable_workload_delivery_read_back",
             "machine_enrollment_without_operator_transport",
             "canonical_build_completion_read_back"
+          ]
+        },
+        "ephemeral_retention": {
+          "schema": "cynic.build_runner.ephemeral_retention.v1",
+          "max_age_ms": 43200000,
+          "pressure_grace_ms": 7200000,
+          "scopes": [
+            {
+              "base": "state_root",
+              "relative_path": "checkouts",
+              "kind": "evidence_checkout"
+            }
           ]
         }
       },
