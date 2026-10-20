@@ -670,7 +670,7 @@ mod tests {
                     "applies_to": "every published path, without exception",
                     "must_preserve_compilation": true,
                     "substitutions": [
-                        { "match": "[a-z0-9-]+\\.synapse\\.cynic(:[0-9]+)?", "replace": "<node>.example.invalid" }
+                        { "match": "[a-z0-9-]+\\.(synapse|service)\\.cynic(:[0-9]+)?", "replace": "<node>.example.invalid" }
                     ]
                 }
             }
@@ -779,7 +779,7 @@ mod tests {
                 applies_to: "every published path".to_string(),
                 must_preserve_compilation: true,
                 substitutions: vec![PublicationSubstitution {
-                    match_pattern: "[a-z0-9-]+\\.synapse\\.cynic(:[0-9]+)?".to_string(),
+                    match_pattern: "[a-z0-9-]+\\.(synapse|service)\\.cynic(:[0-9]+)?".to_string(),
                     replace: "<node>.example.invalid".to_string(),
                 }],
             }],
@@ -848,7 +848,7 @@ mod tests {
                 applies_to: "every published path".to_string(),
                 must_preserve_compilation: true,
                 substitutions: vec![PublicationSubstitution {
-                    match_pattern: "[a-z0-9-]+\\.synapse\\.cynic(:[0-9]+)?".to_string(),
+                    match_pattern: "[a-z0-9-]+\\.(synapse|service)\\.cynic(:[0-9]+)?".to_string(),
                     replace: "<node>.example.invalid".to_string(),
                 }],
             }],
@@ -861,10 +861,10 @@ mod tests {
         let files = vec![
             (
                 "crates/a.rs".to_string(),
-                "ssh://forgejo@forgejo.synapse.cynic:22/x".to_string(),
+                "ssh://forgejo@forgejo.service.cynic:22/x".to_string(),
             ),
             ("crates/b.rs".to_string(), "no literals".to_string()),
-            ("docs/x.md".to_string(), "forgejo.synapse.cynic".to_string()),
+            ("docs/x.md".to_string(), "forgejo.service.cynic".to_string()),
         ];
         let plan = plan_publication(&contract, &tracked, &files);
         assert!(plan.is_admitted());
@@ -873,7 +873,7 @@ mod tests {
         assert_eq!(rendered[0].0, "crates/a.rs");
         assert_eq!(rendered[1].0, "crates/b.rs");
         assert!(rendered[0].1.contains("<node>.example.invalid"));
-        assert!(!rendered[0].1.contains("synapse.cynic"));
+        assert!(!rendered[0].1.contains("service.cynic"));
         assert_eq!(rendered[1].1, "no literals");
     }
 

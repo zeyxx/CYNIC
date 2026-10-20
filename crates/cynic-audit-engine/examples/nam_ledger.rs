@@ -80,10 +80,11 @@ fn main() {
     document.push_str(&vocabulary_lines.join(",\n"));
     document.push_str("\n  },\n");
     document.push_str("  \"exempt_infrastructure_identifiers\": {\n");
-    document.push_str(
-        "    \"synapse\": \"the service network plane (*.synapse.cynic); renaming it \
-         would break live DNS\",\n",
-    );
+    // The service plane was exempt here while it was still the live plane
+    // name. The plane is canonically `service` now, so the exemption would
+    // describe a name that no longer exists and would hide a retired term
+    // from the baseline. `cortex` remains: it is the operator workstation
+    // hostname.
     document.push_str(
         "    \"cortex\": \"the operator workstation hostname (cynic-host-cortex); \
          renaming it would break host addressing\"\n",

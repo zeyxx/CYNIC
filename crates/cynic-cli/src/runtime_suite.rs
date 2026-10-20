@@ -98,7 +98,8 @@ fn registry_summary(registry: &Value) -> RuntimeRegistrySummary {
         roles,
         service_count,
         dns_zone: registry
-            .pointer("/network_policy/planes/synapse/dns_zone")
+            .pointer("/network_policy/planes/service/dns_zone")
+            .or_else(|| registry.pointer("/network_policy/planes/synapse/dns_zone"))
             .and_then(Value::as_str)
             .map(str::to_string),
         provider_cidr: registry

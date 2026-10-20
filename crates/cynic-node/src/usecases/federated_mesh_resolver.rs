@@ -360,8 +360,8 @@ struct RegistryPlanes {
     /// Legacy registry key for the service plane. Read so a runtime registry
     /// that still declares the old spelling keeps resolving; the registry in
     /// this repo declares the canonical `service` key only.
-    #[serde(default)]
-    synapse: Option<RegistryPlane>,
+    #[serde(default, rename = "synapse")]
+    legacy_synapse: Option<RegistryPlane>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -377,7 +377,7 @@ impl RegistryFile {
             .planes
             .service
             .as_ref()
-            .or(self.network_policy.planes.synapse.as_ref())
+            .or(self.network_policy.planes.legacy_synapse.as_ref())
             .and_then(|plane| plane.cidr.as_deref())
             .map(str::trim)
             .filter(|cidr| !cidr.is_empty())
@@ -404,8 +404,8 @@ struct RegistryNodeNetwork {
     /// Legacy registry key for the service plane. Read so a runtime registry
     /// that still declares the old spelling keeps resolving; the registry in
     /// this repo declares the canonical `service` key only.
-    #[serde(default)]
-    synapse: Option<String>,
+    #[serde(default, rename = "synapse")]
+    legacy_synapse: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -420,7 +420,7 @@ impl RegistryNode {
         self.network
             .service
             .as_deref()
-            .or(self.network.synapse.as_deref())
+            .or(self.network.legacy_synapse.as_deref())
             .map(str::trim)
             .filter(|address| !address.is_empty())
             .map(str::to_string)

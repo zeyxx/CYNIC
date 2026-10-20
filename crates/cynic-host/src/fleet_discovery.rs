@@ -154,13 +154,13 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
                     management_ip: management,
                     services,
                 });
-            } else if let Some(synapse) = service_ip {
+            } else if let Some(service) = service_ip {
                 let (role, services) = find_node_details(&value, &name);
                 nodes.push(DeclaredNode {
                     id: name.clone(),
                     role,
-                    service_ip: Some(synapse.clone()),
-                    management_ip: synapse,
+                    service_ip: Some(service.clone()),
+                    management_ip: service,
                     services,
                 });
             }

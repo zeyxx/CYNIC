@@ -10,7 +10,6 @@ pub const DYNAMIC_FIREWALL_POLICY_SCHEMA: &str = "cynic.network.firewall_policy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NetworkPlaneScope {
     LoopbackOnly,
-    SynapseOnly,
     ServiceOnly,
     WireguardOnly,
     AdminOnly,
@@ -96,8 +95,8 @@ impl DynamicFirewallPolicy {
                         self.planes.admin_cidr, b.protocol, b.port, b.service_name
                     ));
                 }
-                NetworkPlaneScope::SynapseOnly | NetworkPlaneScope::DirectManagementOnly => {
-                    // Covered by service and admin scopes respectively
+                NetworkPlaneScope::DirectManagementOnly => {
+                    // Covered by the admin scope
                 }
                 NetworkPlaneScope::ClusterMesh => {
                     rules.push(format!(
@@ -538,12 +537,12 @@ mod tests {
     #[test]
     fn unknown_service_plane_fails_closed() {
         let reg = firewall_test_registry(
-            serde_json::json!({ "name": "ghost", "port": 9999, "network_plane": "service" }),
+            serde_json::json!({ "name": "ghost", "port": 9999, "network_plane": "quantum" }),
         );
         let error = derive_firewall_policy_from_registry(&reg, "probe-node", 1000)
             .expect_err("unknown plane must fail");
         assert!(
-            error.contains("unknown_service_plane:probe-node/ghost:synapse"),
+            error.contains("unknown_service_plane:probe-node/ghost:quantum"),
             "{error}"
         );
     }

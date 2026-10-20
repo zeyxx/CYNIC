@@ -208,8 +208,17 @@ fn the_vocabulary_is_closed() {
 /// can drift out of sync with it.
 #[test]
 fn the_infrastructure_identifiers_are_not_retired() {
-    assert!(!cynic_protocol::vocabulary::is_retired_term("synapse"));
+    // `cortex` is the operator workstation hostname: not a metaphor.
     assert!(!cynic_protocol::vocabulary::is_retired_term("cortex"));
-    assert!(!cynic_protocol::vocabulary::is_retired_term("synapses"));
     assert!(!cynic_protocol::vocabulary::is_retired_term("cortices"));
+}
+
+/// The service plane was named after an organ once. The plane is
+/// canonically `service` now, so the term is retired like the other
+/// biological metaphors: it is in the vocabulary, and the baseline counts
+/// what is left of it.
+#[test]
+fn the_retired_service_plane_term_is_retired() {
+    assert!(cynic_protocol::vocabulary::is_retired_term("synapse"));
+    assert!(cynic_protocol::vocabulary::is_retired_term("synapses"));
 }

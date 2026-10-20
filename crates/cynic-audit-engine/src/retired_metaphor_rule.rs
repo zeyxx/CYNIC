@@ -33,16 +33,16 @@
 //!
 //! ## What is NOT detected
 //!
-//! Two words look biological but are infrastructure identifiers. Renaming
-//! them would break live DNS and host addressing, so they are exempt by
-//! construction, not by suppression:
+//! One word looks biological but is an infrastructure identifier. Renaming
+//! it would break host addressing, so it is exempt by construction, not by
+//! suppression:
 //!
-//! - `service` — the service network plane (`*.service.cynic`,
-//!   `network_policy.planes.service`). Its canonical name is `service`;
-//!   `service` is the legacy registry key handled by
-//!   `cynic_network::plane_vocabulary`.
 //! - `cortex` — the operator workstation hostname (`cynic-host-cortex`).
 //!
+//! The service plane was exempt here once, under its old name: renaming it
+//! "would break live DNS". The plane is canonically `service` now, and the
+//! registry declares the canonical key, so the exemption described a name
+//! that no longer exists and hid a retired term from the baseline.
 //! Ordinary English words that happen to be anatomical are also exempt:
 //! `symptom` (a failure symptom), `diagnosis`, `triage`, `absorb`,
 //! `skeleton` (a CLI skeleton). Only the terms the vocabulary actually lists
@@ -77,11 +77,10 @@ impl AuditRule for RetiredMetaphorRule {
             name: "retired_biological_metaphor".to_string(),
             description: "Domain concepts must be named with technical terms, not biological \
                  metaphors. A component is a 'component', an axiom scorer is an \
-                 'evaluator', the running system is a 'deployment'. 'synapse' (the \
-                 service network plane) and 'cortex' (the operator workstation) are \
-                 infrastructure identifiers, not metaphors, and are exempt. Declared \
-                 occurrences live in infra/retired-metaphor-ledger.json and the baseline \
-                 may only shrink."
+                 'evaluator', the running system is a 'deployment'. 'cortex' (the operator \
+                 workstation) is an infrastructure identifier, not a metaphor, and is exempt. \
+                 Declared occurrences live in infra/retired-metaphor-ledger.json and the \
+                 baseline may only shrink."
                 .to_string(),
             category: AuditCategory::Boundary,
             severity: AuditSeverity::Debt,
@@ -450,15 +449,22 @@ mod tests {
         );
     }
 
-    /// The infrastructure identifiers must never be findings: `service` is
-    /// the live service network plane and `cortex` is the operator
-    /// workstation hostname. A rule that flagged them would send the next
-    /// agent to rename live DNS.
+    /// The infrastructure identifiers must never be findings: `cortex` is
+    /// the operator workstation hostname. A rule that flagged it would send
+    /// the next agent to rename host addressing.
     #[test]
     fn infrastructure_identifiers_are_not_findings() {
-        assert!(terms_in("let plane = \"synapse\";").is_empty());
         assert!(terms_in("const BUILDER: &str = \"cynic-host-cortex\";").is_empty());
-        assert!(terms_in("network_policy.planes.synapse.dns_zone").is_empty());
+    }
+
+    /// The retired service-plane term IS a finding now. The plane it named
+    /// is canonically `service`, so a line that still says `synapse` is
+    /// carrying the retired metaphor and must be reported.
+    #[test]
+    fn the_retired_service_plane_term_is_a_finding() {
+        assert!(terms_in("let plane = \"synapse\";").contains(&"synapse".to_string()));
+        assert!(terms_in("network_policy.planes.synapse.dns_zone")
+            .contains(&"synapse".to_string()));
     }
 
     /// Ordinary English words that are also anatomical are not the retired

@@ -25,7 +25,10 @@ struct NetworkPolicy {
 #[derive(Debug, Deserialize)]
 struct Reservation {
     name: String,
-    synapse: Option<String>,
+    /// Legacy registry key for the service plane, read under its old
+    /// spelling so a runtime registry that still declares it keeps resolving.
+    #[serde(default, rename = "synapse")]
+    legacy_synapse: Option<String>,
     dns: Option<Vec<String>>,
 }
 
@@ -40,7 +43,10 @@ struct NodeEntry {
 
 #[derive(Debug, Deserialize)]
 struct NetworkEntry {
-    synapse: Option<String>,
+    /// Legacy registry key for the service plane, read under its old
+    /// spelling so a runtime registry that still declares it keeps resolving.
+    #[serde(default, rename = "synapse")]
+    legacy_synapse: Option<String>,
     management: Option<String>,
     dns: Option<Vec<String>>,
 }
@@ -108,7 +114,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
         if let Some(reservations) = &policy.reservations {
             for r in reservations {
                 let name = &r.name;
-                if let (Some(ip), Some(dns)) = (&r.synapse, &r.dns) {
+                if let (Some(ip), Some(dns)) = (&r.legacy_synapse, &r.dns) {
                     if let Some(fqdn) = dns.first() {
                         node_fqdn_map.insert(name.clone(), fqdn.clone());
                         node_fqdn_map.insert(ip.clone(), fqdn.clone());
@@ -128,7 +134,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
 
     for entry in &registry.nodes {
         let node_name = entry.name.clone().unwrap_or_else(|| entry.id.clone());
-        let declared_ip = entry.network.as_ref().and_then(|n| n.synapse.clone());
+        let declared_ip = entry.network.as_ref().and_then(|n| n.legacy_synapse.clone());
 
         // Determine FQDN for this service
         let fqdn = node_fqdn_map.get(&node_name).cloned().or_else(|| {
@@ -149,6 +155,9 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
 
                 // Determine declared endpoint
                 let declared_endpoint = match (&svc.network_plane, &svc.endpoint_host, &fqdn) {
+                    // The plane value is compared against both spellings: a
+                    // runtime registry that still declares the legacy plane
+                    // name must resolve the same way the canonical one does.
                     (Some(plane), _, Some(f)) if plane == "service" || plane == "synapse" => {
                         format!("{f}:{port}")
                     }

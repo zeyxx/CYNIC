@@ -334,7 +334,7 @@ mod tests {
             ("kernel.service.cynic", true),
             ("a.b.service.cynic", false),
             ("service.cynic", false),
-            ("forgejo.synapse.cynic", false),
+            ("forgejo.legacy.invalid", false),
         ] {
             assert_eq!(cert.matches_san(name), expected, "name={name}");
         }

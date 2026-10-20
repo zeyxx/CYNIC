@@ -223,7 +223,7 @@
       "note": "example.invalid is reserved by RFC 2606 and never resolves, so a test aimed at real infrastructure fails loudly instead of silently.",
       "substitutions": [
         {
-          "match": "[a-z0-9-]+\\.synapse\\.cynic(:[0-9]+)?",
+          "match": "[a-z0-9-]+\\.(synapse|service)\\.cynic(:[0-9]+)?",
           "replace": "<node>.example.invalid"
         },
         {

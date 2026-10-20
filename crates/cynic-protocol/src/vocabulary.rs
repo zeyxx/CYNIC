@@ -26,17 +26,23 @@
 //! | `metabolism`| `throughput`   | the rate work is consumed |
 //! | `metabolic` | `throughput`   | the rate work is consumed |
 //! | `genome`    | `baseline`     | the declared reference shape |
+//! | `synapse`   | `service`      | the service network plane |
 //!
 //! ## What this module does NOT rename
 //!
-//! Two words look biological but are infrastructure identifiers, and
-//! renaming them would break live DNS and host addressing:
+//! One word looks biological but is an infrastructure identifier, and
+//! renaming it would break host addressing:
 //!
-//! - `service` — the service network plane (`*.service.cynic`,
-//!   `network_policy.planes.service`). The canonical plane name is
-//!   `service`; `service` is the legacy registry key, handled by
-//!   `cynic_network::plane_vocabulary`.
 //! - `cortex` — the operator workstation hostname (`cynic-host-cortex`).
+//!
+//! The service plane was in this list until it was migrated: it was
+//! exempt because renaming it "would break live DNS", so the exemption
+//! outlived the constraint that justified it. The plane is canonically
+//! `service` (`*.service.cynic`, `network_policy.planes.service`), the
+//! registry declares the canonical key, and the legacy key survives only as
+//! a read alias in `cynic_network::plane_vocabulary` — so the term is
+//! retired like the others, and the read alias keeps the old registries
+//! working without keeping the old word in new code.
 //!
 //! A third case is a NAME that merely CONTAINS a retired term:
 //! `organ-headscale` is a running container, `organ-forge` is a live
@@ -102,6 +108,11 @@ pub const RETIRED_METAPHORS: &[VocabularyMapping] = &[
         retired: "genome",
         canonical: "baseline",
         meaning: "the declared reference shape of a tree or a source set",
+    },
+    VocabularyMapping {
+        retired: "synapse",
+        canonical: "service",
+        meaning: "the service network plane that carries the fleet endpoints",
     },
 ];
 
@@ -258,7 +269,9 @@ mod tests {
         assert!(!is_retired_term("dogma"));
         assert!(!is_retired_term("organise"));
         assert!(!is_retired_term("catalog"));
-        assert!(!is_retired_term("synapse"));
+        // `synapse` is retired: the plane it named is canonically `service`.
+        assert!(is_retired_term("synapse"));
+        // `cortex` is an infrastructure identifier, not a metaphor.
         assert!(!is_retired_term("cortex"));
     }
 

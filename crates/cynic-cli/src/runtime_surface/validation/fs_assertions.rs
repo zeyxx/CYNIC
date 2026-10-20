@@ -66,12 +66,13 @@ pub(super) fn registry_dns_zone(registry_path: &str) -> Result<String, String> {
     let registry: Value = serde_json::from_str(&raw)
         .map_err(|error| format!("failed to parse registry {registry_path}: {error}"))?;
     registry
-        .pointer("/network_policy/planes/synapse/dns_zone")
+        .pointer("/network_policy/planes/service/dns_zone")
+        .or_else(|| registry.pointer("/network_policy/planes/synapse/dns_zone"))
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .ok_or_else(|| {
-            format!("registry {registry_path} missing network_policy.planes.synapse.dns_zone")
+            format!("registry {registry_path} missing network_policy.planes.service.dns_zone")
         })
 }
 

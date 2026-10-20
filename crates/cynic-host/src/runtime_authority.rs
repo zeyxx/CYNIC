@@ -86,7 +86,7 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
         // is suitable only when an explicit lab layout injects it.
         host_exec_bundle_dir: staging_root.join("host-exec"),
         network_actuator_bundle_dir: staging_root.join("network-actuator"),
-        dns_bundle_dir: staging_root.join("synapse-dns"),
+        dns_bundle_dir: staging_root.join("service-dns"),
         provider_fallback_bundle_dir: staging_root.join("provider-fallback-hosts"),
         principal,
     }

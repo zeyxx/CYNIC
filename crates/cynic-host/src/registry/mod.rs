@@ -1052,14 +1052,14 @@ pub mod resolve {
                 "declared",
                 &registry_with_nodes(&[node_with_repository(
                     "cynic",
-                    Some("ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git"),
+                    Some("ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git"),
                 )]),
             );
             let uri = resolve_source_transport_uri(Some(&path), "cynic")
                 .expect("declared transport must resolve");
             assert_eq!(
                 uri,
-                "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git"
+                "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git"
             );
         }
 
