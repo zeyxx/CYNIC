@@ -2,11 +2,23 @@ use futures_util::Sink;
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
 use http::Request;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, info, warn};
 
 use crate::websocket::{NodeMessage, WebSocketClient, WsReader, WsWriter};
+
+/// Request path of the kernel WS URL ("ws://host:port/events/ws" -> "/events/ws").
+/// The kernel verifies the workload signature over this path.
+pub(super) fn handshake_path(kernel_url: &str) -> String {
+    if let Some(scheme_end) = kernel_url.find("://") {
+        let rest = &kernel_url[scheme_end + 3..];
+        if let Some(path_start) = rest.find('/') {
+            return rest[path_start..].to_string();
+        }
+    }
+    "/events/ws".to_string()
+}
 
 impl WebSocketClient {
     pub async fn run(&self) -> Result<(), String> {
@@ -77,11 +89,25 @@ impl WebSocketClient {
     }
 
     fn build_request(&self) -> Result<Request<()>, String> {
-        Request::builder()
+        let mut builder = Request::builder()
             .uri(&self.kernel_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("X-Node-Public-Key", &self.node_public_key)
-            .header("X-Node-Identity", &self.node_identity)
+            .header("X-Node-Identity", &self.node_identity);
+        if let Some(signer) = &self.signer {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| "system clock precedes unix epoch".to_string())?
+                .as_secs()
+                .to_string();
+            let path = handshake_path(&self.kernel_url);
+            let signature = signer.sign_request(&timestamp, "GET", &path, &[])?;
+            builder = builder
+                .header("X-Cynic-Public-Key", signature.public_key_hex)
+                .header("X-Cynic-Signature", signature.signature_hex)
+                .header("X-Cynic-Timestamp", signature.timestamp_secs);
+        }
+        builder
             .body(())
             .map_err(|error| format!("Failed to build WebSocket request: {error}"))
     }

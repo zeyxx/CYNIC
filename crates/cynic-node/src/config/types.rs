@@ -293,6 +293,8 @@ pub(crate) struct FederationConfig {
     pub(crate) node_public_key: Option<String>,
     pub(crate) queue_dir: Option<PathBuf>,
     pub(crate) kernel_ws_url: Option<String>,
+    pub(crate) signing_key_path: Option<PathBuf>,
+    pub(crate) signing_key_env: Option<String>,
 }
 
 impl Default for HealthConfig {

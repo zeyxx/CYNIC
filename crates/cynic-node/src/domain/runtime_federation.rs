@@ -12,6 +12,8 @@ pub struct RuntimeFederationConfig {
     pub node_public_key: String,
     pub node_identity: String,
     pub queue_dir: PathBuf,
+    /// Absolute path of the workload Ed25519 signing key (None = unsigned handshake).
+    pub signing_key_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]

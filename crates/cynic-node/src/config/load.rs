@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use super::{
     Config, FederationConfig, NodeControlConfig, NodeControlRuntimeConfig, WatchdogConfig,
 };
@@ -314,6 +316,7 @@ pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig
                 .unwrap_or_else(|| DEFAULT_NODE_PUBLIC_KEY.to_string())
         }),
         node_identity: cfg.dog.name.clone(),
+        signing_key_path: federation_signing_key_path(federation),
         queue_dir: federation
             .and_then(|config| config.queue_dir.clone())
             .unwrap_or_else(|| {
@@ -335,6 +338,16 @@ fn federation_api_key(config: Option<&FederationConfig>) -> Option<String> {
         .api_key_env
         .as_ref()
         .and_then(|env_name| cynic_secrets::env_var(env_name, env_name))
+}
+
+fn federation_signing_key_path(config: Option<&FederationConfig>) -> Option<PathBuf> {
+    if let Some(path) = config.and_then(|config| config.signing_key_path.clone()) {
+        return Some(path);
+    }
+    let env_name = config
+        .and_then(|config| config.signing_key_env.clone())
+        .unwrap_or_else(|| "CYNIC_NODE_SIGNING_KEY_FILE".to_string());
+    std::env::var(env_name).ok().map(PathBuf::from)
 }
 
 fn federation_node_public_key(config: Option<&FederationConfig>) -> Option<String> {
