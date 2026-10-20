@@ -185,7 +185,7 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
     assert_eq!(grant.source_commit, source_commit);
     assert_eq!(
         grant.allowed_actions,
-        vec!["make:check", "cargo:check", "cargo:run", "cargo:test"]
+        vec!["cargo:check", "cargo:run", "cargo:test"]
     );
     assert_eq!(grant.workload_record_digest, durable.record_digest);
     assert!(
@@ -194,7 +194,7 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
             &durable,
             "builder-1",
             &source_commit,
-            "make:check",
+            "cargo:check",
             now_unix_s + 1,
         )
         .is_ok()
@@ -249,7 +249,7 @@ fn cancellation_or_fence_change_revokes_a_derived_build_grant() {
             &durable,
             "builder-1",
             &source_commit,
-            "make:check",
+            "cargo:check",
             now_unix_s + 1,
         )
         .is_err()
@@ -271,7 +271,7 @@ fn delivery() -> AgentWorkloadDelivery {
             authority_ref: "infra/repo-remotes.json:forgejo".into(),
             snapshot: None,
         },
-        action: "make:check".to_string(),
+        action: "cargo:check".to_string(),
         desired_role: "build_runner".to_string(),
         mutation_authorized: true,
         proof_requirements: vec!["canonical_gate_report".to_string()],

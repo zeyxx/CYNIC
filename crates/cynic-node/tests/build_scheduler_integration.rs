@@ -17,16 +17,32 @@ use cynic_workload::{
 
 #[test]
 fn workload_action_maps_to_canonical_build_recipe() {
-    let argv = vec!["make".to_string(), "check".to_string()];
+    let argv = vec!["cargo".to_string(), "check".to_string()];
     let action_str = canonical_build_action_from_argv(&argv).expect("canonical action");
-    assert_eq!(action_str, "make:check");
+    assert_eq!(action_str, "cargo:check");
 
     let recipe = build_recipe(action_str).expect("recipe");
-    assert_eq!(recipe.action, "make:check");
+    assert_eq!(recipe.action, "cargo:check");
     assert_eq!(recipe.target_profile, "debug");
     assert_eq!(recipe.rust_min_stack, 536_870_912);
     assert!(!recipe.cargo_incremental);
     assert!(validate_build_recipe(&recipe).is_ok());
+}
+
+#[test]
+fn retired_make_spellings_resolve_to_no_action() {
+    // The `make:*` verbs are retired: they name Makefile targets that do not
+    // exist, so no argv they admit can execute. The canonical action list
+    // admits only `cargo:*` and `audit:*`, so a retired spelling must
+    // resolve to no action rather than to a name the policy refuses
+    // downstream.
+    for argv in [
+        vec!["make".to_string(), "check".to_string()],
+        vec!["make".to_string(), "build".to_string()],
+        vec!["make".to_string(), "build-release".to_string()],
+    ] {
+        assert_eq!(canonical_build_action_from_argv(&argv), None);
+    }
 }
 
 #[test]
