@@ -31,6 +31,9 @@ pub struct RunRecord {
     pub updated_at: String,
     #[serde(default)]
     pub run_started_at: String,
+    /// Workflow execution number: the jobs of one gate execution share it.
+    #[serde(default)]
+    pub run_number: i64,
 }
 
 /// Parse an RFC3339 timestamp into seconds since the epoch.
@@ -117,6 +120,7 @@ pub fn observations_from_runs(
                 label: label.to_string(),
                 status: run.status.clone(),
                 head_sha: run.head_sha.clone(),
+                execution_id: run.run_number.to_string(),
                 job_name: run.name.clone(),
                 queue_seconds: None,
                 run_seconds: wall,
@@ -163,12 +167,16 @@ mod tests {
             created_at: "2026-10-20T10:00:00Z".to_string(),
             updated_at: "2026-10-20T10:02:30Z".to_string(),
             run_started_at: "2026-10-20T10:00:00Z".to_string(),
+            run_number: 1048,
         }];
         let observations = observations_from_runs(&runs, "cynic/build", &|_| "builder".to_string());
         assert_eq!(observations.len(), 1);
         assert_eq!(observations[0].wall_seconds, Some(150));
         assert_eq!(observations[0].runner, "builder");
         assert_eq!(observations[0].label, "cynic/build");
+        assert_eq!(observations[0].execution_id, "1048");
+        assert_eq!(observations[0].head_sha, "abc");
+        assert_eq!(observations[0].job_name, "Gate 3 Core Types");
     }
 
     #[test]
@@ -184,6 +192,7 @@ mod tests {
             created_at: String::new(),
             updated_at: String::new(),
             run_started_at: String::new(),
+            run_number: 1049,
         }];
         let observations = observations_from_runs(&runs, "cynic/build", &|_| "builder".to_string());
         assert_eq!(observations[0].wall_seconds, None);

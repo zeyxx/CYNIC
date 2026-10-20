@@ -24,6 +24,12 @@ pub struct JobObservation {
     /// Commit the job executed.
     #[serde(default)]
     pub head_sha: String,
+    /// Execution identifier: the workflow execution the job belongs to.
+    ///
+    /// Forgejo exposes one run per job; the jobs of a single gate execution
+    /// share this id. It is the unit of concurrency, not the commit.
+    #[serde(default)]
+    pub execution_id: String,
     /// Job name inside the workflow (e.g. `Gate 3 Core Types`).
     #[serde(default)]
     pub job_name: String,
@@ -95,6 +101,8 @@ pub struct LabelCost {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct ExecutionGroup {
+    /// Execution the group belongs to (jobs sharing it ran concurrently).
+    pub execution_id: String,
     /// Commit the group executed.
     pub head_sha: String,
     pub label: String,
@@ -247,11 +255,20 @@ fn failure_rate(jobs: usize, failed: usize) -> f64 {
     }
 }
 
-/// Group the observations by (commit, label): one group per gate execution.
+/// Group the observations by execution id: one group per gate execution.
+///
+/// The execution id is the unit of concurrency: the jobs of a single gate
+/// execution share it. Grouping by commit instead would merge every
+/// re-execution of the same commit into one group and hide the real
+/// parallelism.
 fn execution_groups(observations: &[JobObservation]) -> Vec<ExecutionGroup> {
-    let mut keys: Vec<(String, String)> = Vec::new();
+    let mut keys: Vec<(String, String, String)> = Vec::new();
     for observation in observations {
-        let key = (observation.head_sha.clone(), observation.label.clone());
+        let key = (
+            observation.execution_id.clone(),
+            observation.head_sha.clone(),
+            observation.label.clone(),
+        );
         if !keys.contains(&key) {
             keys.push(key);
         }
@@ -259,10 +276,10 @@ fn execution_groups(observations: &[JobObservation]) -> Vec<ExecutionGroup> {
     keys.sort();
 
     let mut groups: Vec<ExecutionGroup> = Vec::new();
-    for (head_sha, label) in keys {
+    for (execution_id, head_sha, label) in keys {
         let subset: Vec<&JobObservation> = observations
             .iter()
-            .filter(|o| o.head_sha == head_sha && o.label == label)
+            .filter(|o| o.execution_id == execution_id && o.label == label)
             .collect();
         if subset.is_empty() {
             continue;
@@ -301,6 +318,7 @@ fn execution_groups(observations: &[JobObservation]) -> Vec<ExecutionGroup> {
             .filter(|span| *span > 0)
             .map(|span| total_wall_seconds as f64 / span as f64);
         groups.push(ExecutionGroup {
+            execution_id,
             head_sha,
             label,
             jobs: subset.len(),
@@ -489,6 +507,7 @@ mod tests {
             label: "cynic/build".to_string(),
             status: status.to_string(),
             head_sha: "sha1".to_string(),
+            execution_id: "exec1".to_string(),
             job_name: "Gate 3 Core Types".to_string(),
             queue_seconds: Some(queue),
             run_seconds: Some(wall.saturating_sub(queue)),
@@ -506,12 +525,25 @@ mod tests {
         start: i64,
         wall: u64,
     ) -> JobObservation {
+        job_at_exec(runner, status, name, sha, "exec1", start, wall)
+    }
+
+    fn job_at_exec(
+        runner: &str,
+        status: &str,
+        name: &str,
+        sha: &str,
+        execution: &str,
+        start: i64,
+        wall: u64,
+    ) -> JobObservation {
         JobObservation {
             run_id: 1,
             runner: runner.to_string(),
             label: "cynic/build".to_string(),
             status: status.to_string(),
             head_sha: sha.to_string(),
+            execution_id: execution.to_string(),
             job_name: name.to_string(),
             queue_seconds: Some(0),
             run_seconds: Some(wall),
@@ -663,5 +695,60 @@ mod tests {
         ]);
         assert_eq!(report.inefficiencies.groups, 2);
         assert_eq!(report.inefficiencies.redundant_jobs, 0);
+    }
+
+    #[test]
+    fn the_same_commit_rerun_is_a_distinct_group() {
+        // Two executions of the same commit are two groups, not one merged
+        // group: the second execution must not look like a redundant job.
+        let report = measure_pool(&[
+            job_at_exec(
+                "builder",
+                "success",
+                "Gate 3 Core Types",
+                "sha1",
+                "exec1",
+                0,
+                100,
+            ),
+            job_at_exec(
+                "builder",
+                "success",
+                "Gate 3 Core Types",
+                "sha1",
+                "exec2",
+                0,
+                100,
+            ),
+        ]);
+        assert_eq!(report.inefficiencies.groups, 2);
+        assert_eq!(report.inefficiencies.redundant_jobs, 0);
+    }
+
+    #[test]
+    fn a_job_repeated_inside_one_execution_is_redundant() {
+        let report = measure_pool(&[
+            job_at_exec(
+                "builder",
+                "success",
+                "Gate 3 Core Types",
+                "sha1",
+                "exec1",
+                0,
+                100,
+            ),
+            job_at_exec(
+                "builder",
+                "success",
+                "Gate 3 Core Types",
+                "sha1",
+                "exec1",
+                200,
+                100,
+            ),
+        ]);
+        assert_eq!(report.inefficiencies.groups, 1);
+        assert_eq!(report.inefficiencies.redundant_jobs, 1);
+        assert_eq!(report.inefficiencies.redundant_wall_seconds, 100);
     }
 }
