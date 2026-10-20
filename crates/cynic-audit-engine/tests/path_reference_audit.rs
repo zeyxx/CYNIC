@@ -377,11 +377,45 @@ const KNOWN: &[&str] = &[
     // token_path, falling back to the conventional secrets path. Same
     // explicit-first shape as every default above.
     "crates/cynic-vcs/src/forgejo_port.rs",
+    // The membrane bundle renders the sudoers file for the single `cynic`
+    // binary. The executor IS the release binary the basket already
+    // deploys at /usr/local/bin/cynic — a named constant pointing at a
+    // registry-declared root (system_binaries). Rendering a file that
+    // names the binary it authorises necessarily names the binary.
+    "crates/cynic-host/src/bridge/bundle.rs",
+    // The machine-side capability catalog default: the repo copy first,
+    // then /etc/cynic/catalog.json on the host. A presence-ordered lookup
+    // over two registry-declared locations, same shape as the registry
+    // scan and the secret presence check.
+    "crates/cynic-host/src/privilege/capability_catalog.rs",
     // The Default trait itself: ForgejoTokenSpec::default carries the
     // conventional target_path. A Default impl is Rust's declared fallback
     // surface — same decision as the default_* functions, spelled the way
     // the language spells defaults.
     "crates/cynic-vcs/src/forgejo_token.rs",
+    // The helper the host policy points sudoers at: the installed CLI
+    // binary. Same convention as the membrane bundle above — the policy
+    // names the binary it authorises, and the binary lives at the
+    // registry-declared system_binaries root.
+    "crates/cynic-host/src/host_exec_policy.rs",
+    // The retention scope default: checkouts live under the runtime state
+    // root (/var/lib/cynic/checkouts), a sub-path of the declared
+    // runtime_state layer. A scope naming its own root is the scope.
+    "crates/cynic-protocol/src/retention.rs",
+    // The out-of-tree data root: the external project registry declares
+    // evidence captures under data_system/vault/captures, which lives at
+    // /home/user/Bureau/data_system — a SIBLING of the repository, not a
+    // subdirectory of it. The declaration is relative, so the rule
+    // resolves it against the repo root and finds nothing. The directory
+    // exists and holds the captures; the path is simply outside the tree.
+    //
+    // The durable fix is to declare the data root as a layer in
+    // infra/directory-tree.json, which is what runtime_space() reads to
+    // exempt out-of-tree paths. Until that amendment lands, this entry
+    // records the divergence explicitly. An absolute path in the registry
+    // would instead hardcode a host layout, which the registry rule
+    // forbids.
+    "data_system/vault/captures",
 ];
 
 /// The detectors, each against a tree this test builds, proving the code fires.
