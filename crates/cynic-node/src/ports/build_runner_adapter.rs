@@ -1404,7 +1404,7 @@ test result: FAILED. 1 passed; 2 failed\n";
         // stderr. Both streams are scanned, so the reason is found
         // wherever it is.
         let stdout = "error: test failed, to rerun pass `-p cynic-build --test workload_build_integration`\n";
-        let stderr = "thread 'accepted_delivery_requires_content_addressed_durable_read_back' panicked at crates/cynic-build/tests/workload_build_integration.rs:288:10:\ncalled `Result::unwrap()` on an `Err` value: [\\"build_agent_request_action_not_allowed\\"]\n";
+        let stderr = "thread 'accepted_delivery_requires_content_addressed_durable_read_back' panicked at crates/cynic-build/tests/workload_build_integration.rs:288:10:\ncalled `Result::unwrap()` on an `Err` value: [\"build_agent_request_action_not_allowed\"]\n";
         let evidence = test_evidence(stdout, stderr);
         assert!(
             evidence.contains("build_agent_request_action_not_allowed"),
