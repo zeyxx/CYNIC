@@ -137,7 +137,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    use cynic_protocol::retention::PressureSignal;
+    use cynic_protocol::retention::{PressureSignal, default_build_artefact_policy};
 
     fn item(id: &str, age_secs: u64, orphan: bool) -> RetentionItem {
         RetentionItem {
@@ -157,6 +157,46 @@ mod tests {
             owner_uid: Some(999),
             owner_gid: Some(990),
         }
+    }
+
+    /// An item that a live system unit executes from.
+    fn served_item(id: &str, age_secs: u64) -> RetentionItem {
+        let mut item = item(id, age_secs, true);
+        item.is_live_service_path = Some(true);
+        item
+    }
+
+    #[test]
+    fn a_path_a_live_service_executes_from_is_never_reclaimed() {
+        // The builder's soak daemon ran from inside the Cargo cache the
+        // policy was free to reclaim. Reclaiming it would delete the
+        // binary of a running service.
+        let served = served_item("served", 999_999);
+        let plan = plan_build_artefacts(
+            &observation(vec![served], false),
+            &default_build_artefact_policy(),
+        );
+        assert!(
+            plan.items.is_empty(),
+            "a live service path must not be reclaimed: {:?}",
+            plan.items
+        );
+    }
+
+    #[test]
+    fn disk_pressure_does_not_override_the_live_service_fence() {
+        // Under pressure the freshest artefacts become reclaimable — but a
+        // path a daemon executes from stays protected.
+        let served = served_item("served", 10);
+        let plan = plan_build_artefacts(
+            &observation(vec![served], true),
+            &default_build_artefact_policy(),
+        );
+        assert!(
+            plan.items.is_empty(),
+            "pressure must not reclaim a live service path: {:?}",
+            plan.items
+        );
     }
 
     fn observation(items: Vec<RetentionItem>, pressured: bool) -> RetentionObservation {
