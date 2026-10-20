@@ -198,21 +198,33 @@ pub(crate) async fn graceful_stop(
 
 // ── spawn_with_retries ────────────────────────────────────────────────────────
 
-/// Try to spawn the backend up to `max` times with 1-second delays between
-/// attempts. Returns the live child or the last error.
+/// Try to spawn the backend under a declared restart policy.
+///
+/// Each failed spawn asks the canonical `decide_restart` (spawn-time uptime
+/// is zero: no stable run yet) and sleeps the decided delay. `GiveUp` ends
+/// the loop with the last error. Returns the live child on first success.
 pub(crate) async fn spawn_with_retries(
     command: &[impl AsRef<OsStr>],
     working_dir: Option<&str>,
     env: &HashMap<String, String>,
-    max: u32,
+    policy: &cynic_protocol::supervision::RestartPolicy,
 ) -> io::Result<Box<dyn ChildWrapper>> {
+    use cynic_protocol::supervision::{RestartDecision, decide_restart};
     let mut last_err = io::Error::other("no attempts made");
-    for _ in 0..max {
+    let mut attempt: u32 = 0;
+    loop {
         match spawn_backend(command, working_dir, env) {
             Ok(child) => return Ok(child),
             Err(e) => {
                 last_err = e;
-                sleep(Duration::from_secs(1)).await;
+                match decide_restart(policy, attempt, 0, true) {
+                    RestartDecision::Restart { delay_secs } => {
+                        attempt = attempt.saturating_add(1);
+                        sleep(Duration::from_secs(delay_secs)).await;
+                    }
+                    RestartDecision::GiveUp { .. } => break,
+                    RestartDecision::NoRestart => break,
+                }
             }
         }
     }
@@ -357,8 +369,16 @@ mod tests {
 
     #[tokio::test]
     async fn spawn_with_retries_bad_binary() {
+        use cynic_protocol::supervision::RestartPolicy;
         let env: HashMap<String, String> = HashMap::new();
-        let result = spawn_with_retries(&["/nonexistent/binary"], None, &env, 3).await;
+        // Zero-delay policy: proves GiveUp without sleeping the suite.
+        let policy = RestartPolicy {
+            max_attempts: 2,
+            initial_delay_secs: 0,
+            max_delay_secs: 0,
+            min_uptime_secs: u64::MAX,
+        };
+        let result = spawn_with_retries(&["/nonexistent/binary"], None, &env, &policy).await;
         assert!(result.is_err(), "bad binary should fail after retries");
     }
 }

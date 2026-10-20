@@ -228,11 +228,17 @@ async fn deregister(client: &Client, cfg: &Config, dog_id: &str) {
 
 async fn spawn_backend(cfg: &Config) -> std::io::Result<Box<dyn ChildWrapper>> {
     tracing::info!("spawning backend: {:?}", cfg.process.command);
+    let policy = cynic_protocol::supervision::RestartPolicy {
+        max_attempts: cfg.restart.max_attempts,
+        initial_delay_secs: cfg.restart.initial_delay_secs,
+        max_delay_secs: cfg.restart.max_delay_secs,
+        min_uptime_secs: cfg.restart.min_uptime_secs,
+    };
     supervise::spawn_with_retries(
         &cfg.process.command,
         cfg.process.working_dir.as_deref(),
         &cfg.process.env,
-        3,
+        &policy,
     )
     .await
 }
