@@ -137,19 +137,26 @@ pub struct SshBuildRunner {
     /// hash (profile/flags/rustc in key), so hits are byte-identical across
     /// SHAs — proof value unchanged.
     pub sccache_dir: Option<String>,
+    /// The build cache directory on the runner, resolved from the
+    /// registry's canonical target.
+    ///
+    /// WHY A FIELD AND NOT A CONSTANT. The path used to be compiled in
+    /// (`state_dir().join("shared-target")`) while the registry declared
+    /// another one. The tooling that reclaims the cache reads the
+    /// registry, so a compiled-in path put the real cache outside the
+    /// policy that governs it: the reclaim looked for a canonical target
+    /// that did not exist and refused to act.
+    ///
+    /// `None` means the caller resolves it from the registry at build
+    /// time. `Some` is an explicit override, resolved against the state
+    /// root.
+    pub target_dir: Option<String>,
     pub runner: Box<dyn CommandRunner>,
 }
 
 /// Default checkout base on runner nodes.
 pub fn default_checkout_base() -> PathBuf {
     CynicPaths::state_dir().join("checkouts")
-}
-/// Shared compilation cache across per-SHA checkouts. Third-party
-/// dependencies (same lockfile, same toolchain) compile once; only the
-/// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
-/// isolated; concurrent builds serialize on the target-dir lock.
-pub fn default_shared_target_dir() -> PathBuf {
-    CynicPaths::state_dir().join("shared-target")
 }
 /// Default shared sccache dir on runner nodes (created on first use).
 pub fn default_sccache_dir() -> PathBuf {
@@ -277,6 +284,38 @@ impl SshBuildRunner {
         let out = self.runner.run(&refs);
         let count: u32 = out.stdout.trim().parse().ok()?;
         Some(count)
+    }
+
+    /// The build cache directory on the runner.
+    ///
+    /// An explicit override wins. Otherwise the path is the registry's
+    /// declared canonical target, resolved against the state root.
+    ///
+    /// A registry that cannot answer is NOT a fallback to a compiled-in
+    /// path: it is a refusal. The whole point of resolving the path from
+    /// the registry is that the runner and the reclaim policy name the
+    /// SAME directory. A fallback would restore the divergence silently,
+    /// and the divergence is invisible until the disk fills.
+    fn resolve_target_dir(&self) -> Result<PathBuf, BuildError> {
+        if let Some(explicit) = self.target_dir.as_deref() {
+            let explicit = explicit.trim();
+            if !explicit.is_empty() {
+                return Ok(PathBuf::from(explicit));
+            }
+        }
+        match cynic_host::registry::resolve_canonical_target_relative_path(None) {
+            Ok(relative) => Ok(CynicPaths::state_dir().join(relative)),
+            Err(reason) => {
+                // The build cannot proceed against an undeclared cache:
+                // it would write to a directory the policy does not
+                // govern, and reclaim would never see it.
+                Err(BuildError::ConfigurationRefused(format!(
+                    "build cache path unresolvable from the registry: {reason}. \
+                     Declare build_lifecycle.canonical_target_relative_path for the \
+                     build_runner node, or pass an explicit target dir."
+                )))
+            }
+        }
     }
 
     /// The stack this build reserves, read from the toolchain registry.
@@ -523,6 +562,11 @@ impl BuildRunnerPort for SshBuildRunner {
         // reserves 8 GiB (it touches cynic-node), but a scoped build of
         // small crates reserves only what they need.
         let min_stack = self.resolve_min_stack(action);
+        // The build cache path comes from the registry, not from a
+        // literal compiled into the runner. The reclaim tooling reads the
+        // registry to know what to reclaim, so a compiled-in path put the
+        // real cache outside the policy that governs it.
+        let target_dir = self.resolve_target_dir()?;
         let mut argv: Vec<String> = vec![
             "ssh".to_string(),
             target,
@@ -530,10 +574,7 @@ impl BuildRunnerPort for SshBuildRunner {
             format!("RUST_MIN_STACK={min_stack}"),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!(
-                "CARGO_TARGET_DIR={}",
-                default_shared_target_dir().display()
-            ),
+            format!("CARGO_TARGET_DIR={}", target_dir.display()),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
             // The sccache SERVER is unique to the whole machine: agents that

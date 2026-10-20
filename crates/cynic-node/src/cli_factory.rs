@@ -77,6 +77,11 @@ pub fn ssh_build_runner(
         } else {
             Some(sccache_dir)
         },
+        // The build cache path is resolved from the registry at build
+        // time, so the runner and the reclaim policy always name the
+        // same directory. `None` means "ask the registry"; an explicit
+        // path is the operator's override.
+        target_dir: None,
         runner: Box::new(LocalCommandRunner),
     }
 }
