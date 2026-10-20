@@ -11,12 +11,15 @@ env:
   CARGO_TERM_COLOR: always
   CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
   RUSTFLAGS: "-C debuginfo=0"
+  POOL_LABEL: cynic/build
 
 jobs:
-  verify:
-    name: Layer 0-4 Verification Gate
+  # Every suite is its own job so the pool can spread them across the
+  # sovereign runners. A single monolithic job would pin the whole gate to
+  # one runner and serialize the workspace compilation.
+  pool_eligibility:
+    name: Gate 0 Pool Eligibility
     runs-on: [cynic/build]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,164 +34,231 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
           rustc --version
           cargo --version
 
+      - name: Build the sovereign CLI
+        run: cargo build --release -p cynic-cli
+
       - name: Verify pool eligibility for this label
-        id: pool_eligibility
-        env:
-          POOL_LABEL: cynic/build
         run: |
-          set -u
-          # Brick 1/2/3, checked where they can be checked honestly:
-          #   - the label this job runs on must be granted by the registry to a
-          #     base-enrolled node (declared pool membership);
-          #   - the host that executes the job must provide the tools that
-          #     label requires (proven toolchain).
-          # The runner does not know its own registry identity, so it never
-          # guesses one: it verifies the label and the local toolchain.
-          python3 - <<'PY'
-          import json, os, shutil, sys
+          set -eu
+          # The CYNIC binary is the authority: it reads the registry, resolves
+          # the label to the base-enrolled grantors, and probes the local
+          # toolchain. No reimplementation of that logic in the workflow.
+          "$CARGO_TARGET_DIR/release/cynic" build pool eligibility \
+            --label "$POOL_LABEL" \
+            --registry infra/registry.json \
+            --observed-labels "$POOL_LABEL"
 
-          label = os.environ.get("POOL_LABEL", "cynic/build").strip()
-          with open("infra/registry.json", encoding="utf-8") as fh:
-              doc = json.load(fh)
-
-          nodes = doc.get("nodes", [])
-          granted = []
-          for node in nodes:
-              pool = node.get("pool") or {}
-              if label not in (pool.get("labels") or []):
-                  continue
-              granted.append(node)
-
-          if not granted:
-              print(f"no registry node grants the pool label {label}", file=sys.stderr)
-              sys.exit(1)
-
-          enrolled = []
-          for node in granted:
-              stamp = node.get("enrollment") or {}
-              status = node.get("status", "")
-              if stamp and status != "stub":
-                  enrolled.append(node)
-
-          if not enrolled:
-              states = ", ".join(
-                  f"{n.get('id')}({n.get('status')})" for n in granted
-              )
-              print(
-                  f"no base-enrolled node grants {label}: {states}",
-                  file=sys.stderr,
-              )
-              sys.exit(1)
-
-          # Union of the tools the enrolled grantors require for this label.
-          required = {}
-          for node in enrolled:
-              for tool in (node.get("pool") or {}).get("required_tools") or []:
-                  name = tool.get("name")
-                  if name and tool.get("required", True):
-                      required[name] = tool.get("min_version")
-
-          missing = []
-          for name, minimum in sorted(required.items()):
-              if shutil.which(name) is None:
-                  missing.append(name)
-                  continue
-              if minimum:
-                  banner = ""
-                  try:
-                      import subprocess
-
-                      banner = subprocess.run(
-                          [name, "--version"],
-                          capture_output=True,
-                          text=True,
-                          timeout=20,
-                      ).stdout.splitlines()[0]
-                  except Exception:
-                      banner = ""
-                  token = None
-                  for part in banner.split():
-                      candidate = part.strip("v").rstrip(".,")
-                      if candidate and all(
-                          piece.isdigit() for piece in candidate.split(".") if piece
-                      ) and "." in candidate:
-                          token = candidate
-                          break
-                  if token is None:
-                      missing.append(f"{name}(version unknown, need {minimum})")
-                  else:
-                      have = tuple(int(p) for p in token.split(".") if p.isdigit())
-                      want = tuple(int(p) for p in minimum.split(".") if p.isdigit())
-                      if have < want:
-                          missing.append(f"{name}({token} < {minimum})")
-
-          if missing:
-              print(
-                  f"this host cannot serve {label}: missing {', '.join(missing)}",
-                  file=sys.stderr,
-              )
-              sys.exit(1)
-
-          ids = ", ".join(str(n.get("id")) for n in enrolled)
-          print(f"pool label {label} granted by enrolled node(s): {ids}")
-          print(f"toolchain verified on this host: {', '.join(sorted(required))}")
-          PY
+  validate_json:
+    name: Gate 1 Contract Validation
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate Foundation & Infra JSON Contracts
-        id: validate_json
         run: |
-          python3 - <<'PY'
-          import json
-          files = [
-            "contracts/foundation.json",
-            "infra/runtime-authority.json",
-            "infra/registry.json",
-            "infra/agent-exposure.json",
-            "infra/ecosystem-pins.json",
-          ]
-          for f in files:
-              with open(f, encoding="utf-8") as fh:
-                  json.load(fh)
-              print(f"OK {f}")
-          PY
+          set -eu
+          for file in \
+            contracts/foundation.json \
+            infra/runtime-authority.json \
+            infra/registry.json \
+            infra/agent-exposure.json \
+            infra/ecosystem-pins.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$file"
+            echo "OK $file"
+          done
+
+  check_compile:
+    name: Gate 2 Workspace Compilation
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Rust toolchain (bare runner)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
 
       - name: Check Workspace Compilation
-        id: check_compile
         run: cargo check --workspace
 
+  test_core_types:
+    name: Gate 3 Core Types
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Rust toolchain (bare runner)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
+
       - name: Run Core Types Test Suite
-        id: test_core_types
-        continue-on-error: true
         run: cargo test -p cynic-types
 
+  test_knowledge:
+    name: Gate 3 Knowledge
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Rust toolchain (bare runner)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
+
       - name: Run Knowledge Test Suite
-        id: test_knowledge
-        continue-on-error: true
         run: cargo test -p cynic-knowledge
 
+  test_inference:
+    name: Gate 3 Inference
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Rust toolchain (bare runner)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
+
       - name: Run Inference Test Suite
-        id: test_inference
-        continue-on-error: true
         run: cargo test -p cynic-inference
 
+  test_canonical_paths:
+    name: Gate 3 Canonical Paths
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Rust toolchain (bare runner)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Persistent, shared build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). A job starts warm instead
+          # of recompiling the workspace from scratch: measured on
+          # builder-119, 256s cold vs 96s warm.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
+          echo "target dir: $target_dir"
+
       - name: Run Canonical Paths Coherence Test
-        id: test_canonical_paths
-        continue-on-error: true
         run: cargo test -p cynic-cli --test canonical_paths_coherence
 
+  verdict:
+    name: Layer 0-4 Verification Gate
+    needs:
+      - pool_eligibility
+      - validate_json
+      - check_compile
+      - test_core_types
+      - test_knowledge
+      - test_inference
+      - test_canonical_paths
+    runs-on: [cynic/build]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Aggregate Test Suite Verdict
-        if: always()
         env:
-          POOL_ELIGIBILITY_OUTCOME: ${{ steps.pool_eligibility.outcome }}
-          JSON_VALIDATION_OUTCOME: ${{ steps.validate_json.outcome }}
-          COMPILE_OUTCOME: ${{ steps.check_compile.outcome }}
-          CORE_TYPES_OUTCOME: ${{ steps.test_core_types.outcome }}
-          KNOWLEDGE_OUTCOME: ${{ steps.test_knowledge.outcome }}
-          INFERENCE_OUTCOME: ${{ steps.test_inference.outcome }}
-          CANONICAL_PATHS_OUTCOME: ${{ steps.test_canonical_paths.outcome }}
+          POOL_ELIGIBILITY_OUTCOME: ${{ needs.pool_eligibility.result }}
+          JSON_VALIDATION_OUTCOME: ${{ needs.validate_json.result }}
+          COMPILE_OUTCOME: ${{ needs.check_compile.result }}
+          CORE_TYPES_OUTCOME: ${{ needs.test_core_types.result }}
+          KNOWLEDGE_OUTCOME: ${{ needs.test_knowledge.result }}
+          INFERENCE_OUTCOME: ${{ needs.test_inference.result }}
+          CANONICAL_PATHS_OUTCOME: ${{ needs.test_canonical_paths.result }}
         run: |
           set -u
 
@@ -201,6 +271,8 @@ jobs:
             if [ "${outcome}" != "success" ]; then
               hard_gate_failed=1
               printf '  %-18s %s (hard gate)\n' "${gate}" "${outcome}"
+            else
+              printf '  %-18s %s\n' "${gate}" "${outcome}"
             fi
           done
 
@@ -254,14 +326,10 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Gate Receipt
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: gate-receipt-${{ github.run_id }}
-          path: gate-receipt.json
-          retention-days: 90
+      # The gate receipt is written into the workspace: it is the durable
+      # evidence. Artifact upload is skipped on purpose: Forgejo 11.0.1 does
+      # not support upload-artifact@v4, and a red step that nobody reads is
+      # noise, not proof.
 
       - name: Echo Gate Receipt (fallback)
         if: always()

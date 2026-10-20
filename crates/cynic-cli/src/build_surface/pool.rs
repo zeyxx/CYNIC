@@ -7,7 +7,7 @@
 use clap::Subcommand;
 use cynic_host::adapters::local_toolchain_probe::LocalToolchainProbe;
 use cynic_host::domain::pool_eligibility::{
-    evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility,
+    evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility, ToolKind,
     ToolRequirement,
 };
 use cynic_lifecycle::LocalArgvRunner;
@@ -22,6 +22,10 @@ pub(crate) enum BuildPoolCommand {
         /// Node id in the registry (defaults to the local node).
         #[arg(long)]
         node: Option<String>,
+        /// Pool label the host is serving (e.g. `cynic/build`). The registry
+        /// resolves it to the enrolled nodes granting that label.
+        #[arg(long)]
+        label: Option<String>,
         /// Labels the runner advertises, as observed.
         #[arg(long, value_delimiter = ',', default_value = "")]
         observed_labels: Vec<String>,
@@ -74,6 +78,50 @@ struct PoolRegistryTool {
     min_version: Option<String>,
     #[serde(default)]
     required: Option<bool>,
+    /// `binary` (default) or `pkg_config`.
+    #[serde(default)]
+    kind: Option<String>,
+}
+
+/// Resolve the registry nodes granting a pool label, base-enrolled only.
+///
+/// A runner knows the label it serves, not its own registry id: the registry
+/// is the authority for pool membership, so the label is resolved here.
+pub fn read_nodes_granting_label(registry_path: &str, label: &str) -> Result<Vec<String>, String> {
+    let raw = fs::read_to_string(registry_path)
+        .map_err(|error| format!("failed to read registry {registry_path}: {error}"))?;
+    let registry: PoolRegistry = serde_json::from_str(&raw)
+        .map_err(|error| format!("failed to parse registry {registry_path}: {error}"))?;
+    let mut granted = Vec::new();
+    for node in &registry.nodes {
+        let pool = match &node.pool {
+            Some(pool) => pool,
+            None => continue,
+        };
+        if !pool.labels.iter().any(|declared| declared == label) {
+            continue;
+        }
+        let enrolled = node
+            .enrollment
+            .as_ref()
+            .map(|e| e.enrolled_by.is_some())
+            .unwrap_or(false);
+        if !enrolled || node.status.as_deref() == Some("stub") {
+            continue;
+        }
+        let id = node
+            .id
+            .clone()
+            .or_else(|| node.name.clone())
+            .unwrap_or_else(|| "unknown".to_string());
+        granted.push(id);
+    }
+    if granted.is_empty() {
+        return Err(format!(
+            "no base-enrolled node grants the pool label {label}"
+        ));
+    }
+    Ok(granted)
 }
 
 /// Best-effort local node id, used when the operator omits `--node`.
@@ -111,6 +159,10 @@ pub fn read_pool_declaration(
                 name: tool.name.clone(),
                 min_version: tool.min_version.clone(),
                 required: tool.required.unwrap_or(true),
+                kind: match tool.kind.as_deref() {
+                    Some("pkg_config") => ToolKind::PkgConfig,
+                    _ => ToolKind::Binary,
+                },
             })
             .collect(),
     })
@@ -140,6 +192,50 @@ pub fn read_enrollment_evidence(
     })
 }
 
+/// Evaluate the host against a pool label.
+///
+/// The registry grants the label to the base-enrolled nodes that declare it;
+/// the host must provide the union of the tools those nodes require. This is
+/// what a runner can prove about itself: it serves a label, and the registry
+/// says who may serve it.
+pub fn evaluate_label(
+    registry_path: &str,
+    label: &str,
+    observed_labels: &[String],
+) -> Result<PoolEligibility, String> {
+    let granted = read_nodes_granting_label(registry_path, label)?;
+    let mut required: Vec<ToolRequirement> = Vec::new();
+    for node_id in &granted {
+        let declaration = read_pool_declaration(registry_path, node_id)?;
+        for tool in declaration.required_tools {
+            if !required.iter().any(|existing| existing.name == tool.name) {
+                required.push(tool);
+            }
+        }
+    }
+    let tool_kinds: Vec<(String, ToolKind)> = required
+        .iter()
+        .map(|tool| (tool.name.clone(), tool.kind))
+        .collect();
+    let probe = LocalToolchainProbe::new(LocalArgvRunner);
+    let observations = probe.probe_tools(&tool_kinds);
+    Ok(evaluate_pool_eligibility(
+        label,
+        &PoolDeclaration {
+            labels: vec![label.to_string()],
+            required_tools: required,
+        },
+        &EnrollmentEvidence {
+            enrolled: true,
+            status: "observed".to_string(),
+            enrolled_by: None,
+            enrolled_at: None,
+        },
+        observed_labels,
+        &observations,
+    ))
+}
+
 /// Probe the local host for the declared tools and evaluate eligibility.
 pub fn evaluate_local_node(
     registry_path: &str,
@@ -147,14 +243,14 @@ pub fn evaluate_local_node(
     observed_labels: &[String],
 ) -> Result<PoolEligibility, String> {
     let declaration = read_pool_declaration(registry_path, node_id)?;
-    let tool_names: Vec<String> = declaration
+    let tool_kinds: Vec<(String, ToolKind)> = declaration
         .required_tools
         .iter()
-        .map(|tool| tool.name.clone())
+        .map(|tool| (tool.name.clone(), tool.kind))
         .collect();
     let enrollment = read_enrollment_evidence(registry_path, node_id)?;
     let probe = LocalToolchainProbe::new(LocalArgvRunner);
-    let observations = probe.probe_tools(&tool_names);
+    let observations = probe.probe_tools(&tool_kinds);
     Ok(evaluate_pool_eligibility(
         node_id,
         &declaration,

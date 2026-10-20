@@ -19,7 +19,7 @@ pub(crate) use pool::BuildPoolCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
-use pool::{evaluate_local_node, local_node_id, render_eligibility};
+use pool::{evaluate_label, evaluate_local_node, local_node_id, render_eligibility};
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
     list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
@@ -477,12 +477,21 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         BuildCommand::Pool { command } => match command {
             BuildPoolCommand::Eligibility {
                 node,
+                label,
                 observed_labels,
                 registry,
                 json,
             } => {
-                let node_id = node.unwrap_or_else(|| local_node_id());
-                match evaluate_local_node(&registry, &node_id, &observed_labels) {
+                // A runner knows the label it serves, not its registry id.
+                let outcome = match (&label, &node) {
+                    (Some(label), _) => evaluate_label(&registry, label, &observed_labels),
+                    (None, Some(node)) => evaluate_local_node(&registry, node, &observed_labels),
+                    (None, None) => {
+                        let node_id = local_node_id();
+                        evaluate_local_node(&registry, &node_id, &observed_labels)
+                    }
+                };
+                match outcome {
                     Ok(report) => {
                         if json {
                             println!(
