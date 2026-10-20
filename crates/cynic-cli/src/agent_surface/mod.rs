@@ -371,7 +371,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::Session { command } => execute_agent_session(command),
+        AgentCommand::Session { command } => execute_agent_session(&command),
         AgentCommand::Intent { command } => execute_intent(command),
         AgentCommand::Host { command } => crate::agent_host_surface::execute_agent_host(command),
     }
