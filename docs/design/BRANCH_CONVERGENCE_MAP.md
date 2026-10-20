@@ -150,103 +150,113 @@ second block, and let the aggregate's real new content stand. That is a
 mechanical merge conflict resolution on 8 files, followed by a gate run —
 not a rewrite of 203 commits.
 
-### The repair, executed
+### The cause, named
 
-The procedure was run end to end on the builder and its result is measured,
-not projected:
+The corruption is not a merge accident. Every work-carrying branch contains a
+commit whose message names the broken operation:
 
-1. Merge the aggregate into `main` — 19 conflict hunks across 8 files.
-2. Resolve every conflict in favour of `main` (`git checkout --ours`). The
-   conflicts are stale LOC counters and a superseded gate step; `main` is
-   right in all 19.
-3. For the 36 files carrying the duplicate-declaration signature, restore
-   `main`'s version. The aggregate added a broken copy of content `main` had
-   already resolved.
-4. Restore the aggregate's genuinely new content: the supervision slice
-   (`cynic-protocol/src/supervision.rs`, `cynic-node/src/supervise.rs`,
-   `runtime_supervision/`, the whole `cynic-supervisor` crate), the CLI
-   surface (`cli_args.rs`, `root_dispatch.rs`, `supervise_surface.rs`), the
-   `fresh_data_*` adapters, and the `live_service_paths` declaration that
-   `main` already had and the aggregate's older `mod.rs` did not.
-5. Merge the two `mod.rs` files rather than choosing one: `main` has
-   `live_service_paths`, the aggregate has `fresh_data_*`, and both are
-   needed.
+```
+aedd778b Merge origin/main into agent/hermes/debt-tests2 (union resolution)
+3ebe999f Merge origin/main into agent/hermes/supervision-convergence (union resolution)
+fd2bd73d Merge origin/main into agent/hermes/single-binary-topology-writer (union resolution)
+d020c87f Merge origin/main into agent/hermes/scheduler-truths-t5 (union resolution)
+ebd93f79 Merge origin/main into agent/hermes/rag-dense-margin (union resolution)
+5c29cb0b Merge origin/main into agent/hermes/convergence-debt-tests2 (union resolution)
+911fab07 Merge origin/main into agent/hermes/inference-vertical-chat-logprobs (union resolution)
+ba819707 Merge origin/main into agent/hermes/shannon-wiring-main-fix (union resolution)
+```
 
-Measured result:
+A *union resolution* concatenates two trees instead of merging them. The
+result is a file that carries both versions: a doubled `pub use` block, a
+nested duplicate `match` arm, a struct-literal field specified twice. The
+aggregate was built by union-merging branches that already carried union
+resolutions, so the damage is **inherited, not introduced by the aggregate**.
+
+Measured on the aggregate's own pristine tree, before any merge:
+
+```
+13 structurally broken .rs files
+  crates/cynic-inference/src/adapters/embedding/http.rs
+  crates/cynic-inference/src/adapters/embedding/sync_bridge.rs
+  crates/cynic-inference/src/domain/token_entropy.rs
+  crates/cynic-host/src/adapters/local_queue.rs
+  crates/cynic-host/src/adapters/local_build_artefact.rs
+  crates/cynic-host/src/adapters/remote_queue.rs
+  crates/cynic-host/src/adapters/remote_build_artefact.rs
+  crates/cynic-host/src/fleet_build_artefact_observer.rs
+  crates/cynic-host/src/runtime_layout.rs
+  crates/cynic-node/src/usecases/network_sync_uc.rs
+  crates/cynic-cli/src/build_surface/archive.rs
+  crates/cynic-cli/src/build_surface/runner.rs
+  crates/cynic-cli/src/runtime_surface/build_artefact.rs
+```
+
+### The convergence that was executed
+
+The aggregate cannot be repaired file by file: the same symbol appears twice
+with **different bodies**, so "which side wins" has no answer. The repair was
+therefore abandoned in favour of replaying the real commits.
+
+`git cherry-pick` of the real commits never introduces a union resolution —
+those are merges, so `--no-merges` skips them by construction — and makes
+`main` win every conflict by definition.
+
+The 25 work-carrying branches, classified by `git cherry`:
+
+| Branch | real commits | union resolutions |
+|---|---|---|
+| `supervision-convergence` | 28 | 1 |
+| `fleet-chat-inference-2` | 51 | 0 |
+| `single-binary-topology-writer` | 51 | 1 |
+| `rag-dense-margin` | 37 | 1 |
+| `scheduler-truths-t5` | 10 | 1 |
+| `debt-tests2` | 9 | 1 |
+| `build-placement` | 7 | 0 |
+| `convergence-debt-tests2` | 5 | 1 |
+| `agent-messaging-spec` | 4 | 0 |
+| 16 others | 1–2 each | 6 total |
+| 3 branches | 0 | 0 (empty) |
+
+The supervision series was applied in its authored order — S1 vocabulary, S2
+effects crate, S6 observe surface, S7 derivation, parent steps 1/2/5,
+adversarial-review fixes, watch consumer series — because each commit
+depends on the previous one's types.
+
+Measured result, merged as PR #212 (`ce0e269d`):
 
 ```
 cargo check --workspace --lib   ->   Finished
-86 files changed, 11479 insertions(+), 259 deletions(-)
-  30 files `main` already had (modified)
-  55 files `main` never had (added)
+brace/paren balance of crates/  ->   BROKEN_FILES=0
+121 files changed, 8561 insertions(+), 2960 deletions(-)
+38 files new
 ```
 
-The `supervise` verb is present after the repair:
-`cli_args.rs:282` declares `Command::Supervise`, `root_dispatch.rs:124`
-dispatches it, and `crates/cynic-supervisor/` holds `parent.rs`, `spawn.rs`,
-`stop.rs`, `watch.rs`.
+Read-back from `main` after the merge, 9/9 confirmed:
+
+| Content | Location |
+|---|---|
+| `supervise` verb | `crates/cynic-cli/src/root_dispatch.rs` -> `supervise_surface::dispatch` |
+| supervise surface | `crates/cynic-cli/src/supervise_surface.rs` (12 000+ bytes, `dispatch` + 5 tests) |
+| supervisor crate | `crates/cynic-supervisor/src/{lib,parent,spawn,stop,watch}.rs` |
+| supervision vocabulary | `crates/cynic-protocol/src/supervision.rs` |
+| supervisor contract | `contracts/supervisor-contract.json` |
+| soak unit | `infra/os/systemd/cynic-supervise-soak-node.service` |
+| live-service fence (PR #208) | `crates/cynic-host/src/adapters/local_build_artefact.rs` — 5 occurrences, intact |
 
 ### The rule that made it work
 
-**`main` wins on every file it has already resolved; the aggregate wins on
-every file it alone created.** Neither side wins on principle — the decision
-is per file, and it is decided by whether `main` has the file at all.
+**A union resolution is not a merge, and no amount of conflict resolution
+recovers it.** The signal is in the commit message: `git log --all --grep=
+'union' -i`. Once the corrupt commit is known, the clean ancestor is one
+`git log -S '<distinctive-symbol>'` away, and the replay can exclude the
+damage by construction instead of repairing it after the fact.
 
-Two counter-examples that a blanket rule would have got wrong:
-
-- Restoring `main`'s `cynic-protocol/src/supervision.rs` over the
-  aggregate's version **erased the supervision vocabulary** — 11 unresolved
-  imports. The aggregate's version had to win, because it is the only one
-  carrying that content.
-- Restoring `main`'s `cynic-host/src/adapters/mod.rs` dropped
-  `live_service_paths`, the module the live-service fence (killchain 9)
-  depends on. The two `mod.rs` had to be merged.
-
-The aggregate also declares modules that were never written —
-`pub mod null;` and `pub mod openai_compat;` in
-`cynic-inference/src/adapters/inference/mod.rs`, with no matching files in
-either branch. Those declarations are not content and must not survive.
-
-### What the aggregate is genuinely worth
-
-Measured as files `main` does not have at all: **55**. Not 185.
-
-| Content | Files |
-|---|---|
-| `crates/cynic-supervisor` — a whole crate: `parent.rs`, `spawn.rs`, `stop.rs`, `watch.rs` | 6 |
-| `contracts/supervisor-contract.json` — `cynic.supervisor_contract.v1`, normative | 1 |
-| `docs/design/supervision-convergence-map.md`, `supervision-watch-pattern.md`, `supervised-parent-scope.md`, `sovereign-supervisor.md` | 4 |
-| `docs/specs/agent-messaging.md`, `deploy-surface-measured.md` | 2 |
-| `infra/os/systemd/cynic-supervise-*.service`, `infra/deploy-locations.json`, `infra/gc-surfaces.json`, `infra/model-metadata.json` | 8+ |
-| `crates/cynic-build`, `crates/cynic-eval`, `crates/cynic-release`, `crates/cynic-audit-engine` — new crates | ~30 |
-
-The supervision slice is the reason to recover the aggregate: it holds the
-`supervise` verb the soak bench needs, the contract that makes supervision a
-first-class authority, and the two design documents the soak units cite. That
-slice is worth recovering. The other 130 files are mostly `main`'s content in
-an older arrangement.
-
-**This is the fourth failure mode**, and it is the reason the branch was never
-proposed: an aggregate branch is not a merge candidate until it compiles.
-Two hundred and three commits of content, none of it reachable.
-
-### What the aggregate is actually worth
-
-It is not noise. `single-binary-topology-writer` contributes 51 commits of
-real content, `rag-dense-margin` 37, `supervision-convergence` 28,
-`fleet-chat-inference-2` 51, `scheduler-truths-t5` 10, `debt-tests2` 9 — and
-the `supervise` verb that the soak daemon needs is in there, which is why the
-bench has to be revived rather than abandoned.
-
-But it also carries a merge of `fleet-chat-inference-2`, so that branch is
-*partly* inside it, not wholly a separate candidate. And 44 of its 259
-commits are merge commits, which is why its history is hard to read.
-
-The strategy this changes: **the aggregate cannot be merged as a unit.** It
-has to be repaired first — the 107 duplicate definitions resolved against
-`main`, not against its own history — and then the repair is a branch of its
-own with its own gate run. The content it carries is worth recovering; the
-branch as an object is not mergeable.
+The earlier attempt — resolve the aggregate file by file, `main` winning per
+file — was the right instinct applied to the wrong object. It got to
+`cargo check --workspace --lib -> Finished` and still could not be trusted:
+the file-by-file rule has no answer when the two sides disagree on a
+symbol's body, so each repair was a guess and each guess revealed the next
+symptom.
 
 ## Convergence order
 
