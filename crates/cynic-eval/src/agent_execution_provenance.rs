@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use cynic_protocol::evidence::valid_sha256_digest;
+use cynic_traces::session::NormalizedSession;
 
 pub const AGENT_EXECUTION_RECEIPT_SCHEMA: &str = "cynic.agent_execution_receipt.v1";
 
@@ -129,6 +130,53 @@ fn required(violations: &mut Vec<String>, field: &str, value: Option<&str>) {
     }
 }
 
+/// The trace shape of one execution receipt, joined to its normalized session.
+///
+/// A receipt observes an execution boundary; a normalized session observes
+/// what the agent actually did. Neither alone answers "was this session
+/// healthy?". This projection joins them on the session identifier and
+/// reports only what was observed: an absent trace is an explicit unknown,
+/// never a zero.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentExecutionTraceProjection {
+    pub schema: String,
+    pub session_id: String,
+    pub harness: String,
+    pub turns: usize,
+    pub tools: usize,
+    pub reasoning: usize,
+    pub human: usize,
+    pub corrections: usize,
+}
+
+pub const AGENT_EXECUTION_TRACE_PROJECTION_SCHEMA: &str = "cynic.agent_execution_trace_projection.v1";
+
+/// Project a receipt onto the normalized trace of its session.
+///
+/// Returns `None` when no normalized session matches the receipt's
+/// `session_id`. A missing trace is an unknown, not an empty session: the
+/// caller decides what to do with an absent projection, this function never
+/// fabricates one.
+pub fn project_execution_trace(
+    receipt: &AgentExecutionReceipt,
+    sessions: &[NormalizedSession],
+) -> Option<AgentExecutionTraceProjection> {
+    let session = sessions
+        .iter()
+        .find(|session| session.session_uid == receipt.session_id)?;
+    let stats = session.stats();
+    Some(AgentExecutionTraceProjection {
+        schema: AGENT_EXECUTION_TRACE_PROJECTION_SCHEMA.to_string(),
+        session_id: receipt.session_id.clone(),
+        harness: session.harness.clone(),
+        turns: stats.turns,
+        tools: stats.tools,
+        reasoning: stats.reasoning,
+        human: stats.human,
+        corrections: stats.corrections,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,5 +231,41 @@ mod tests {
             ..source_read_back()
         };
         assert!(validate_agent_execution_receipt(&receipt).is_empty());
+    }
+
+    fn normalized_session(session_uid: &str) -> NormalizedSession {
+        NormalizedSession {
+            session_uid: session_uid.to_string(),
+            harness: "hermes".to_string(),
+            source_ref: "capture.db".to_string(),
+            turns: Vec::new(),
+            tools: Vec::new(),
+            reasoning: Vec::new(),
+            edges: Vec::new(),
+            states: Vec::new(),
+            human: Vec::new(),
+            native_meta: std::collections::HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn a_receipt_projects_onto_its_own_normalized_session() {
+        let receipt = source_read_back();
+        let sessions = vec![
+            normalized_session("session-other"),
+            normalized_session("session-1"),
+        ];
+        let projection = project_execution_trace(&receipt, &sessions)
+            .expect("the session matching the receipt must project");
+        assert_eq!(projection.schema, AGENT_EXECUTION_TRACE_PROJECTION_SCHEMA);
+        assert_eq!(projection.session_id, "session-1");
+        assert_eq!(projection.harness, "hermes");
+    }
+
+    #[test]
+    fn an_absent_trace_is_an_unknown_never_a_zeroed_session() {
+        let receipt = source_read_back();
+        assert!(project_execution_trace(&receipt, &[]).is_none());
+        assert!(project_execution_trace(&receipt, &[normalized_session("session-other")]).is_none());
     }
 }

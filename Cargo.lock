@@ -813,6 +813,7 @@ dependencies = [
  "cynic-knowledge",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-traces",
  "cynic-types",
  "cynic-workload",
  "futures-util",

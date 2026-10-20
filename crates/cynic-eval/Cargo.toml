@@ -12,6 +12,7 @@ cynic-knowledge = { path = "../cynic-knowledge" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-types = { path = "../cynic-types" }
+cynic-traces = { path = "../cynic-traces" }
 cynic-workload = { path = "../cynic-workload" }
 futures-util.workspace = true
 reqwest.workspace = true
