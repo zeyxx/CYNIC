@@ -499,18 +499,37 @@ fn each_declared_path_detector_fires_on_a_tree_that_owes_one() {
 }
 
 /// The live workspace carries no divergence beyond the ones named above.
+///
+/// Every undeclared divergence is reported at once, not just the first one.
+/// The test asserted inside the loop, so it stopped at the first divergence
+/// and the reader could not tell a single stale entry from a dozen: each
+/// fix revealed exactly one more, and the work could not be sized. The
+/// rule is unchanged; only the reporting is.
 #[test]
 fn the_live_workspace_carries_no_undeclared_path_divergence() {
     let report = report();
-    for violation in &report.violations {
-        assert!(
-            KNOWN.iter().any(|needle| violation.message.contains(needle)),
-            "a path divergence the gate has never seen: `{}` names `{}`.\n\
-             Either repair it, or record it in KNOWN as a deliberate decision.",
-            violation.code,
-            violation.message
-        );
-    }
+    let undeclared: Vec<String> = report
+        .violations
+        .iter()
+        .filter(|violation| {
+            !KNOWN
+                .iter()
+                .any(|needle| violation.message.contains(needle))
+        })
+        .map(|violation| format!("`{}` names `{}`", violation.code, violation.message))
+        .collect();
+
+    assert!(
+        undeclared.is_empty(),
+        "{} path divergence(s) the gate has never seen:\n{}\n\
+         Either repair them, or record them in KNOWN as deliberate decisions.",
+        undeclared.len(),
+        undeclared
+            .iter()
+            .map(|entry| format!("  - {entry}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 }
 
 #[test]
