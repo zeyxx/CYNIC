@@ -183,24 +183,41 @@ impl EmbeddingBackend {
     }
 
     pub fn from_env() -> Result<Self, BackendInitError> {
-        // Explicit URL wins. Otherwise resolve the cluster from the
-        // workspace registry (infra/registry.json, `bench_endpoint` on each
-        // embedding-server service; excluded services carry none and stay
-        // out by construction). Last resort is the historical single default.
-        let base_url = std::env::var("CYNIC_EMBED_URL")
-            .ok()
-            .filter(|u| !u.is_empty())
-            .or_else(|| Self::endpoints_from_registry())
-            .unwrap_or_else(|| {
-                let rest =
-                    std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| DEFAULT_REST_ADDR.into());
-                let host = rest.split(':').next().unwrap_or("127.0.0.1");
-                let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
-                format!("http://{host}:{port}/v1")
-            });
+        let base_url = Self::resolve_base_url(
+            std::env::var("CYNIC_EMBED_URL").ok(),
+            std::env::var("CYNIC_REST_ADDR").ok(),
+            std::env::var("CYNIC_EMBED_PORT").ok(),
+        );
         let api_key = cynic_secrets::env_var("sovereign-api-key", "SOVEREIGN_API_KEY");
         let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
         Self::new(&base_url, api_key, &model)
+    }
+
+    /// Resolve the backend base URL from the environment VALUES.
+    ///
+    /// Pure by construction: the environment is read by the caller and
+    /// passed in, so the resolution rules are testable without mutating
+    /// the process environment. Mutating it requires `unsafe` in Rust
+    /// 2024, and this crate forbids `unsafe`.
+    ///
+    /// Explicit URL wins. Otherwise resolve the cluster from the
+    /// workspace registry (infra/registry.json, `bench_endpoint` on each
+    /// embedding-server service; excluded services carry none and stay
+    /// out by construction). Last resort is the historical single default.
+    fn resolve_base_url(
+        explicit: Option<String>,
+        rest_addr: Option<String>,
+        embed_port: Option<String>,
+    ) -> String {
+        explicit
+            .filter(|u| !u.is_empty())
+            .or_else(|| Self::endpoints_from_registry())
+            .unwrap_or_else(|| {
+                let rest = rest_addr.unwrap_or_else(|| DEFAULT_REST_ADDR.into());
+                let host = rest.split(':').next().unwrap_or("127.0.0.1");
+                let port = embed_port.unwrap_or_else(|| "8081".into());
+                format!("http://{host}:{port}/v1")
+            })
     }
 }
 
@@ -600,13 +617,41 @@ mod tests {
 
     #[test]
     fn from_env_defaults() {
-        // Explicit URL wins over the workspace registry; pin it so this
-        // unit test never depends on the checkout it runs in.
-        unsafe { std::env::set_var("CYNIC_EMBED_URL", "http://127.0.0.1:8081/v1") };
-        let backend = EmbeddingBackend::from_env().unwrap();
-        unsafe { std::env::remove_var("CYNIC_EMBED_URL") };
+        // The resolution rules are exercised through the pure resolver, so
+        // the test never mutates the process environment. Mutating it
+        // needs `unsafe` in Rust 2024, and this crate forbids `unsafe`.
+        let base_url = EmbeddingBackend::resolve_base_url(
+            Some("http://127.0.0.1:8081/v1".to_string()),
+            None,
+            None,
+        );
+        let backend = EmbeddingBackend::new(&base_url, None, "test-model").unwrap();
         assert!(backend.base_url().contains("8081"));
         assert_eq!(backend.base_urls().len(), 1);
+    }
+
+    #[test]
+    fn explicit_url_wins_over_the_registry() {
+        let explicit = "http://127.0.0.1:9999/v1".to_string();
+        let base_url = EmbeddingBackend::resolve_base_url(
+            Some(explicit.clone()),
+            Some("10.0.0.1:7000".to_string()),
+            Some("1234".to_string()),
+        );
+        assert_eq!(base_url, explicit);
+    }
+
+    #[test]
+    fn an_empty_explicit_url_is_ignored() {
+        // An empty CYNIC_EMBED_URL must not win: the resolution falls
+        // through to the registry or the historical default.
+        let base_url = EmbeddingBackend::resolve_base_url(
+            Some(String::new()),
+            Some("10.0.0.1:7000".into()),
+            None,
+        );
+        assert!(!base_url.is_empty());
+        assert!(!base_url.starts_with("http://:"));
     }
 
     #[test]
