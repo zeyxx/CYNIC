@@ -658,15 +658,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-evidence"
-version = "0.8.0"
-dependencies = [
- "cynic-protocol",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "cynic-audit-engine"
 version = "0.8.0"
 dependencies = [
@@ -717,7 +708,6 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
- "cynic-evidence",
  "cynic-audit-engine",
  "cynic-build",
  "cynic-consensus",
@@ -727,6 +717,7 @@ dependencies = [
  "cynic-domain-ops",
  "cynic-domain-porkbun",
  "cynic-eval",
+ "cynic-evidence",
  "cynic-fleet",
  "cynic-forensics",
  "cynic-host",
@@ -860,6 +851,15 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror 2.0.21",
  "tokio",
+]
+
+[[package]]
+name = "cynic-evidence"
+version = "0.8.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1169,7 +1169,6 @@ dependencies = [
  "sysinfo 0.37.2",
  "tempfile",
  "thiserror 2.0.21",
- "tokio",
  "toml",
  "tracing",
  "walkdir",
