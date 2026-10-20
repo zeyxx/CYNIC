@@ -126,11 +126,10 @@ const PURITY_PREFIX: &str = "cynic-domain-";
 /// description, a metaphor-free name or an honest prefix must leave it, and a
 /// test that cannot be tightened is a test that will be deleted with its author.
 const BASELINE: &[&str] = &[
-    // 1. no stated responsibility (20 crates have no `description`)
+    // 1. no stated responsibility (19 crates have no `description`)
     "NO-RESPONSIBILITY: cynic-cli",
     "NO-RESPONSIBILITY: cynic-discovery",
     "NO-RESPONSIBILITY: cynic-discovery-host",
-    "NO-RESPONSIBILITY: cynic-domain-askesis",
     "NO-RESPONSIBILITY: cynic-domain-cloudflare",
     "NO-RESPONSIBILITY: cynic-domain-porkbun",
     "NO-RESPONSIBILITY: cynic-forensics",
@@ -149,8 +148,7 @@ const BASELINE: &[&str] = &[
     // 3. the purity prefix lies about two crates that ship an HTTP client
     "PURITY-PREFIX-WITH-INFRA: cynic-domain-cloudflare",
     "PURITY-PREFIX-WITH-INFRA: cynic-domain-porkbun",
-    // 4. metaphor names a crate
-    "METAPHOR-NAME: cynic-domain-askesis",
+    // 4. metaphor names a crate (none remaining)
 ];
 
 fn violations() -> Vec<String> {
