@@ -20,6 +20,12 @@ pub const FLEET_BUILD_ARTEFACT_SCHEMA: &str = "cynic.fleet_build_artefact.v1";
 /// All call sites must use this constructor — no inline `48 * 3600`.
 pub const BUILD_ARTEFACT_MAX_AGE_SECS: u64 = 48 * 3600;
 
+/// Number of freshest build artefacts kept even under disk pressure.
+///
+/// The builder runs one job at a time, so one checkout is enough to keep a
+/// build in flight. Keeping more would defeat the pressure relief.
+pub const BUILD_ARTEFACT_PRESERVE_COUNT: usize = 1;
+
 /// Canonical build-artefact retention policy. Single construction site;
 /// the planner (`plan_build_artefacts`) reads `max_age` from here.
 pub fn default_build_artefact_policy() -> RetentionPolicy {
@@ -27,7 +33,7 @@ pub fn default_build_artefact_policy() -> RetentionPolicy {
         kind: RetentionKind::BuildArtefact,
         max_age: Some(Duration::from_secs(BUILD_ARTEFACT_MAX_AGE_SECS)),
         pressure_trigger: None,
-        preserve_count: 0,
+        preserve_count: BUILD_ARTEFACT_PRESERVE_COUNT,
         preserve_profiles: vec![],
         grace_period: None,
         scopes: vec![RetentionScope {
@@ -187,7 +193,6 @@ pub trait RetentionExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn retention_trio_traits_exist_and_are_grepable() {
