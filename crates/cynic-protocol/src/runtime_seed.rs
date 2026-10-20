@@ -103,14 +103,25 @@ impl RuntimeSeedRequest {
                 transport: RuntimeArtifactTransportKind::Https,
                 locator: format!("https://artifacts.service.cynic/releases/{release_id}.tar"),
             },
-            basket_path: format!("/var/lib/cynic/incoming/{release_id}.tar"),
+            basket_path: format!(
+                "{}/{release_id}.tar",
+                cynic_types::paths::CynicPaths::state_dir().join("incoming").display()
+            ),
             detached_signature_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
                 locator: format!("https://artifacts.service.cynic/releases/{release_id}.tar.sig"),
             },
-            detached_signature_path: format!("/var/lib/cynic/incoming/{release_id}.tar.sig"),
-            allowed_signers_path: "/etc/cynic/runtime-seed-allowed-signers".to_string(),
-            registry_path: "/etc/cynic/registry.json".to_string(),
+            detached_signature_path: format!(
+                "{}/{release_id}.tar.sig",
+                cynic_types::paths::CynicPaths::state_dir().join("incoming").display()
+            ),
+            allowed_signers_path: cynic_types::paths::CynicPaths::system_config_dir()
+                .join("runtime-seed-allowed-signers")
+                .display()
+                .to_string(),
+            registry_path: cynic_types::paths::CynicPaths::registry_path()
+                .display()
+                .to_string(),
             signer_identity: "cynic-runtime-release".to_string(),
             signature_namespace: "cynic-runtime-seed".to_string(),
             required_seed_contract_revision: RUNTIME_SEED_CONTRACT_REVISION,

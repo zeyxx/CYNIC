@@ -359,9 +359,7 @@ fn effective_resolved_dropin_path(context: &RuntimeContext) -> PathBuf {
 }
 
 fn effective_privilege_executor_path() -> PathBuf {
-    env::var("CYNIC_BIN")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/usr/local/bin/cynic"))
+    cynic_types::paths::CynicPaths::binary_path()
 }
 
 fn effective_privilege_sudoers_path(context: &RuntimeContext) -> PathBuf {

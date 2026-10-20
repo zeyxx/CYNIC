@@ -123,7 +123,7 @@ pub(super) fn default_stop_timeout_secs() -> u64 {
 }
 
 pub(super) fn default_sccache_cache_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from("/var/lib/cynic/sccache-cache")
+    cynic_types::paths::CynicPaths::state_dir().join("sccache-cache")
 }
 
 pub(super) fn default_sccache_binary() -> String {

@@ -249,12 +249,20 @@ echo "cynic framework bootstrap verified: $EVIDENCE_DIR"
 }
 
 pub(crate) fn bootstrap_security_maintenance_script() -> String {
+    let binary_default = cynic_types::paths::CynicPaths::binary_path()
+        .display()
+        .to_string();
+    let sudoers_default = cynic_types::paths::CynicPaths::system_config_dir()
+        .join("sudoers.d")
+        .join("cynic")
+        .display()
+        .to_string();
     r#"#!/bin/sh
 set -eu
 
 RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
-CYNIC_BIN="${CYNIC_BIN:-/usr/local/bin/cynic}"
-SUDOERS_TARGET="${CYNIC_PRIVILEGE_SUDOERS:-/etc/sudoers.d/cynic}"
+CYNIC_BIN="${CYNIC_BIN:-__CYNIC_BINARY_DEFAULT__}"
+SUDOERS_TARGET="${CYNIC_PRIVILEGE_SUDOERS:-__CYNIC_SUDOERS_DEFAULT__}"
 
 test -x "$CYNIC_BIN"
 test -f "$SUDOERS_TARGET"
@@ -283,7 +291,10 @@ if sudo -u "$RUNTIME_USER" sudo -n systemctl status cynic-node.service >/dev/nul
 fi
 
 echo "cynic framework bootstrap security maintenance passed"
-"#.to_string()
+"#
+    .replace("__CYNIC_BINARY_DEFAULT__", &binary_default)
+    .replace("__CYNIC_SUDOERS_DEFAULT__", &sudoers_default)
+    .to_string()
 }
 
 #[cfg(test)]

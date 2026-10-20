@@ -13,6 +13,9 @@ use crate::ports::{
 };
 
 fn spec() -> PrivilegeBridgeInstallSpec {
+    let executor = cynic_types::paths::CynicPaths::binary_path()
+        .display()
+        .to_string();
     PrivilegeBridgeInstallSpec {
         target: "node-a".to_string(),
         bundle_complete: true,
@@ -20,13 +23,13 @@ fn spec() -> PrivilegeBridgeInstallSpec {
         authority_user: "root".to_string(),
         authority_group: "root".to_string(),
         provider: "sudoers".to_string(),
-        executor: "/usr/local/bin/cynic".to_string(),
+        executor: executor.clone(),
         membrane_source: "/bundle/privilege.sudoers".to_string(),
         membrane_target: "/etc/sudoers.d/cynic".to_string(),
         membrane_mode: 0o440,
         expected_membrane: "bounded membrane".to_string(),
         proof_invocation: vec![
-            "/usr/local/bin/cynic".to_string(),
+            executor,
             "privilege".to_string(),
             "exec".to_string(),
             "principal-prepare".to_string(),

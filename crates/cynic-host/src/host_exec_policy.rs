@@ -305,7 +305,9 @@ fn default_policy_version() -> String {
 }
 
 fn default_helper_path() -> String {
-    "/usr/local/bin/cynic".to_string()
+    cynic_types::paths::CynicPaths::binary_path()
+        .display()
+        .to_string()
 }
 
 fn default_sudoers_subject() -> String {

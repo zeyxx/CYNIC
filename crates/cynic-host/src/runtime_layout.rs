@@ -277,7 +277,9 @@ impl HostRuntimeLayout {
     /// flows through `sudo -n <executor> privilege exec <capability>`.
     /// Same convention as the generated bootstrap scripts (`CYNIC_BIN`).
     pub fn privilege_executor_path(&self) -> String {
-        env_path("CYNIC_BIN", "/usr/local/bin/cynic")
+        cynic_types::paths::CynicPaths::binary_path()
+            .display()
+            .to_string()
     }
 
     pub fn hardware_baseline_path(&self) -> PathBuf {
