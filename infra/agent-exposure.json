@@ -1,7 +1,7 @@
 {
   "schema": "cynic.agent_exposure.v1.minimal",
   "status": "normative",
-  "purpose": "Faithful agent-visible projection of the CYNIC runtime surface. This file lists the desired active cynic runtime tools and classifies them by domain/tier; runtime read-back decides whether the installed artifact is compatible. cynic dev surface-audit validates that contract.",
+  "purpose": "Faithful agent-visible projection of the CYNIC runtime surface. This file lists the desired active cynic runtime tools and classifies them by domain/tier; runtime read-back decides whether the installed artifact is compatible. Every command under policy.fallback_commands is a real read-only CLI surface verified executable with --json.",
   "policy": {
     "secrets": "Do not store real endpoints, API keys, cookies, wallet secrets, or personal account data in this file.",
     "mutation_default": "local_operator_only",
@@ -10,12 +10,11 @@
     "fallback": "read_only_local_cli",
     "fallback_scope": "read_only_observation_only by default; human_scoped_source_mutation_only is admissible only through cynic.coordination.human_scoped_fallback_admission.v1 after runtime unavailability, incompatibility, or instability is observed. Runtime, credential, network, fleet, release, merge, push, and automatic commit mutation remain blocked.",
     "fallback_commands": [
-      "cynic dev surface-audit --json",
-      "cynic dev framework --json",
-      "cynic runtime agents --json",
-      "cynic runtime hermes-run --json --run-id <id>",
-      "cynic dev policy-formality-audit --json",
-      "cynic dev schema-registry-audit --json"
+      "cynic audit secret --json",
+      "cynic audit crate --json",
+      "cynic node observe --json --registry <registry>",
+      "cynic network audit --json",
+      "cynic runtime harness progress --json --current-kind <kind> --target-kind <kind>"
     ],
     "project_root": "Inject runtime paths through operator deployment context; never commit machine-local absolute paths.",
     "honesty": "This projection is source-of-truth for the desired cynic runtime surface; an installed artifact must prove compatibility and freshness before it is treated as active. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
