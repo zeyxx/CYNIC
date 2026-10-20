@@ -4,11 +4,11 @@
 //! Converts channel settlements into ResourceTransaction entries.
 
 use crate::types::ChannelSettlementProof;
+use cynic_finance::ResourceUnit;
 use cynic_finance::ports::MeterError;
 use cynic_finance::types::{
     ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
 };
-use cynic_finance::ResourceUnit;
 
 /// Channel settlement ledger — records channel settlements as ResourceTransaction.
 ///
@@ -152,10 +152,30 @@ mod tests {
         let mut ledger = ChannelSettlementLedger::new("ch1");
         let proof = sample_proof();
 
+        // The second argument is a TIMESTAMP, not an amount. The balance
+        // is the channel state carried by the proof, so recording a second
+        // settlement replaces the state, it does not add to it.
         ledger.record_settlement(&proof, 1000).unwrap();
         ledger.record_settlement(&proof, 2000).unwrap();
 
         assert_eq!(ledger.len(), 4);
+        assert_eq!(ledger.balance(), &ResourceUnit::TokenCyd(1000));
+    }
+
+    #[test]
+    fn a_later_settlement_replaces_the_balance_with_the_new_proof_state() {
+        let mut ledger = ChannelSettlementLedger::new("ch1");
+        let proof = sample_proof();
+        let mut later = proof.clone();
+        later.final_sequence = 6;
+        later.initiator_balance = 1500;
+        later.worker_balance = 500;
+
+        ledger.record_settlement(&proof, 1000).unwrap();
+        assert_eq!(ledger.balance(), &ResourceUnit::TokenCyd(1000));
+
+        ledger.record_settlement(&later, 2000).unwrap();
         assert_eq!(ledger.balance(), &ResourceUnit::TokenCyd(2000));
+        assert_eq!(ledger.len(), 4);
     }
 }
