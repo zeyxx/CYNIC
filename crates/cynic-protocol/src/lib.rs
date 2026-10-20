@@ -125,6 +125,7 @@ pub mod transport_security;
 pub mod vcs;
 pub mod window_journal;
 pub mod workload_identity;
+pub mod workload_signature;
 
 pub mod exports;
 pub mod retention;
