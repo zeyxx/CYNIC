@@ -108,7 +108,15 @@ impl DnsResolutionPort for RegistryDnsResolver {
             return Some(fqdn);
         }
 
-        // 2. Fallback: construct FQDN from node name + zone
+        // 2. Fallback: construct the FQDN from the node name and the zone,
+        //    but only for a node the registry declares. A name that is not
+        //    in the registry is not a machine, so it has no FQDN: the
+        //    contract says an absent node resolves to None, and building
+        //    "<name>.<zone>" for it would return a name that resolves
+        //    nowhere while looking like an answer.
+        if self.find_node(node_name).is_none() {
+            return None;
+        }
         let zone = self.service_dns_zone();
         if zone.is_empty() {
             None
@@ -232,6 +240,28 @@ mod tests {
     fn resolve_fqdn_unknown_node_returns_none() {
         let resolver = RegistryDnsResolver::new(test_registry());
         assert_eq!(resolver.resolve_fqdn("unknown"), None);
+    }
+
+    /// A declared node with no DNS reservation still resolves: the zone is
+    /// known, so the name is derivable. The fallback applies to the nodes
+    /// the registry declares, never to an arbitrary name.
+    #[test]
+    fn a_declared_node_without_a_reservation_resolves_from_the_zone() {
+        let mut registry = test_registry();
+        registry["nodes"]
+            .as_array_mut()
+            .expect("nodes")
+            .push(serde_json::json!({
+                "id": "builder",
+                "name": "builder",
+                "role": "build_runner"
+            }));
+        let resolver = RegistryDnsResolver::new(registry);
+        assert_eq!(
+            resolver.resolve_fqdn("builder"),
+            Some("builder.service.cynic".to_string())
+        );
+        assert_eq!(resolver.resolve_fqdn("not-a-node"), None);
     }
 
     #[test]
