@@ -56,6 +56,15 @@ pub enum RetentionKind {
     Worktree,
     KnowledgeCache,
     ModelArtifact,
+    /// Ephemeral agent scratch: /tmp/cynic-*, hermes scratch dirs.
+    /// Measured 63G + 25G on operator 2026-10-19. TTL-gated, no claim.
+    TmpScratch,
+    /// Regenerable agent caches: huggingface, solana, uv, playwright.
+    /// Measured 20G on operator 2026-10-19. Prune via tool, never blind rm.
+    AgentCache,
+    /// Log bundles mined into evidence before eviction.
+    /// Measured /var/log 4G + journal 2G on operator 2026-10-19.
+    LogBundle,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
