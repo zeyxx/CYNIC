@@ -37,7 +37,7 @@ pub fn append_proof(log_path: &str, proof_json: &str) -> Result<(), String> {
     serde_json::from_str::<serde_json::Value>(trimmed)
         .map_err(|error| format!("refusing to append invalid proof JSON: {error}"))?;
     if let Some(parent) = std::path::Path::new(log_path).parent() {
-        if !parent.as_str().is_empty() {
+        if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).map_err(|error| {
                 format!("cannot create proof log dir {}: {error}", parent.display())
             })?;
