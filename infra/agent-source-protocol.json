@@ -6,16 +6,16 @@
     "sovereign_candidate": {
       "id": "forgejo",
       "role": "sovereign_candidate",
-      "canonical_host": "forgejo.synapse.cynic",
-      "canonical_url": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+      "canonical_host": "forgejo.service.cynic",
+      "canonical_url": "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git",
       "fallback_ip": "10.10.10.119",
       "fallback_note": "10.10.10.119 is the BUILDER (LXC) that only mirrors the SSOT, not the Forgejo SSOT itself. Resolve the sovereign remote by observed URL against canonical_host, never by local remote name.",
       "ssh_host_key_fingerprint": "SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88",
       "status_observed": "reachable_dns_10_10_10_101",
       "notes": [
-        "Forgejo SSOT lives on a separate Proxmox VM (10.10.10.101, FQDN forgejo.synapse.cynic).",
-        "The builder (10.10.10.119, cynic-builder.synapse.cynic) builds from the SSOT; it is not the source of truth.",
-        "Resolve forgejo.synapse.cynic dynamically via Synapse DNS/WireGuard; never hardcode the IP as transport identity.",
+        "Forgejo SSOT lives on a separate Proxmox VM (10.10.10.101, FQDN forgejo.service.cynic).",
+        "The builder (10.10.10.119, cynic-builder.service.cynic) builds from the SSOT; it is not the source of truth.",
+        "Resolve forgejo.service.cynic dynamically via the service DNS zone or WireGuard; never hardcode the IP as transport identity.",
         "Reconcile order: cortex -> forgejo(SSOT) -> github(relay mirror)."
       ]
     },

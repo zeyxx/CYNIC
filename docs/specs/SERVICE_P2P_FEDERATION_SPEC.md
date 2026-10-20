@@ -1,4 +1,4 @@
-# Spécification d'Ingénierie Système : Fédération Réseau P2P Synapse & Synchronisation Merkle
+# Spécification d'Ingénierie Système : Fédération Réseau P2P Service & Synchronisation Merkle
 
 **Status :** Normatif & Contractuel (Layer 2 Network Mesh Protocol — voir `contracts/foundation.json`).
 

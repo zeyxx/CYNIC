@@ -1644,9 +1644,9 @@
       "updated_at": "2026-10-16T05:27:17+02:00"
     },
     {
-      "article_id": "docs-specs-synapse-p2p-federation-spec",
-      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : F\u00e9d\u00e9ration R\u00e9seau P2P Synapse & Synchronisation Merkle",
-      "path": "docs/specs/SYNAPSE_P2P_FEDERATION_SPEC.md",
+      "article_id": "docs-specs-service-p2p-federation-spec",
+      "title": "Sp\u00e9cification d'Ing\u00e9nierie Syst\u00e8me : F\u00e9d\u00e9ration R\u00e9seau P2P Service & Synchronisation Merkle",
+      "path": "docs/specs/SERVICE_P2P_FEDERATION_SPEC.md",
       "kind": "doc",
       "provenance": "b216fae0b127e86bdd74e6342f1bcc808ac57299",
       "status": "published",

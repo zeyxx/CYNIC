@@ -3,7 +3,7 @@
   "status": "normative",
   "purpose": "Policy for automatic relay of validated commits and releases from Forgejo (SSOT) to GitHub (public projection).",
   "topology": {
-    "sovereign_source": "Forgejo (ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git)",
+    "sovereign_source": "Forgejo (ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git)",
     "public_projection": "GitHub (https://github.com/zeyxx/CYNIC.git)",
     "relationship": "relay mirror, not authority",
     "reference": "infra/repo-remotes.json"

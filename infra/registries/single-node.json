@@ -3,9 +3,9 @@
   "schema": "cynic.registry.v1.single_node",
   "purpose": "Single-machine runtime registry for local bootstrap and operator iteration.",
   "network_policy": {
-    "canonical_service_plane": "synapse",
+    "canonical_service_plane": "service",
     "planes": {
-      "synapse": {
+      "service": {
         "cidr": "127.0.0.0/8",
         "dns_zone": "localhost",
         "canonical": true
@@ -19,7 +19,7 @@
         ]
       }
     ],
-    "synapse_note": "loopback-only single node: no admin and no guest segment exist here"
+    "service_note": "loopback-only single node: no admin and no guest segment exist here"
   },
   "nodes": [
     {
@@ -34,7 +34,7 @@
       "status": "candidate",
       "deploy_target": true,
       "network": {
-        "synapse": "127.0.0.1"
+        "service": "127.0.0.1"
       },
       "services": [
         {

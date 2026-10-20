@@ -45,7 +45,7 @@
           "allowed-signers": "Allowed signers for release verification.",
           "runtime-allowed-signers": "Allowed signers for runtime seed verification.",
           "runtime-seed-allowed-signers": "Allowed signers for runtime seed verification.",
-          "dns/": "DNS configuration: dnsmasq.conf, synapse.hosts.",
+          "dns/": "DNS configuration: dnsmasq.conf, service.hosts.",
           "backends.toml": "Backend configuration.",
           "hardware-baseline.json": "Hardware baseline reference.",
           "node-control-plan.json": "Node control plan.",
