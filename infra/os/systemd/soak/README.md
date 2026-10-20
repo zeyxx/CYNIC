@@ -73,3 +73,45 @@ expected exit, not a failure.
     install -m 0644 infra/os/systemd/soak/cynic-supervise-watch-soak-node.service /etc/systemd/system/
     systemctl daemon-reload
     systemctl enable --now cynic-supervise-soak-node.service cynic-supervise-watch-soak-node.service
+
+## Installation scope, and the two lines that must be absent
+
+These units are installed in the **systemd user scope** — this account's own
+manager, kept alive by `Linger`. The agent's service account cannot write
+`/etc/systemd/system` (root-owned) and polkit refuses a system-scope
+restart, so the user manager is the scope that actually runs here.
+
+Two directives follow from that scope, and both were measured rather than
+assumed:
+
+- **no `User=`/`Group=` line.** The user manager already runs as this
+  account. With the line present the service exits `216/GROUP` in about
+  3 ms, before the binary is ever exec'd. Without it: `0/active`.
+- **`WantedBy=default.target`, not `multi-user.target`.** The user manager
+  has no `multi-user.target`, so the activation symlink would point at
+  nothing.
+
+The scope also decides which binary runs. The installed unit
+`/etc/systemd/system/cynic-supervise-soak-node.service` predates the
+convergence and still points at `/var/lib/cynic/shared-target/debug/cynic` —
+a build that predates the `supervise` verb and fails with
+`error: unrecognized subcommand 'supervise'`. That is what the four
+restarts in the old `NRestarts=4` were. The user-scope units point at
+`/var/lib/cynic/bin/cynic`, and the running process resolves to
+`/var/lib/cynic/releases/v0.9.0/cynic` — outside the Cargo tree, so a build
+can no longer replace the file a live unit executes.
+
+### Read-back of the running pair
+
+| Observation | Value |
+|---|---|
+| parent `ActiveState` | `active`, `NRestarts=0` |
+| parent `/proc/<pid>/exe` | `/var/lib/cynic/releases/v0.9.0/cynic` |
+| `node.status.json` | `cynic.supervisor_parent_status.v1`, `state: active`, `restart_count: 0`, `residual_unknowns: []` |
+| `watch.jsonl` | `cynic.supervisor_watch_ledger.v1`, `fresh` / `heartbeat_within_bound` |
+| `supervise-node.lock` | held by the live parent pid |
+
+One parent may hold the lock for a given `--state-dir`: a second parent on
+the same state directory exits `1` rather than evicting the first. That is
+the intended single-writer contract, and it is why a failed start looks
+like a plain exit `1`.
