@@ -131,6 +131,16 @@ impl WorkloadRequestSigner {
         Ok(SigningKey::from_bytes(&secret))
     }
 
+    /// The Ed25519 public key this signer signs with, hex.
+    ///
+    /// The kernel resolves the signer from the public key presented in the
+    /// handshake, so the node must present THIS key — a divergent value
+    /// makes every signed request fail authentication even though the
+    /// signature itself is valid.
+    pub fn public_key_hex(&self) -> Result<String, String> {
+        Ok(hex::encode(self.load()?.verifying_key().as_bytes()))
+    }
+
     /// Sign one request. Timestamp must be unix seconds as decimal string.
     ///
     /// When a post-quantum signer is attached, the SAME payload bytes are

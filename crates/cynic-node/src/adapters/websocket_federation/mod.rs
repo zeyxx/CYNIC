@@ -64,6 +64,21 @@ impl WebSocketFederationAdapter {
         });
         // The post-quantum half is opt-in: without a key the handshake stays
         // classical, and a kernel that has not migrated keeps working.
+        // The public key presented in the handshake MUST be the one the
+        // signer signs with: the kernel resolves the signer from that
+        // header, so a divergent value (a stale env var, the
+        // "workload-identity-unavailable" placeholder) authenticates
+        // nothing even when the signature is valid.
+        let node_public_key = match &signer {
+            Some(signer) => match signer.public_key_hex() {
+                Ok(public_key) => public_key,
+                Err(error) => {
+                    tracing::warn!("cannot read the signing key public key: {error}");
+                    config.node_public_key.clone()
+                }
+            },
+            None => config.node_public_key.clone(),
+        };
         let signer = signer.map(|signer| {
             let pqc_path = config.pqc_signing_key_path.clone();
             match pqc_path {
