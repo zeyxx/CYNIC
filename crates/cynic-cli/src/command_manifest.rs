@@ -203,7 +203,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic agent claim --agent-id <id> --target <path> [--claim-type <file|crate>] [--ttl-seconds <n>] [--budget-actions <n>] [--budget-wall-seconds <n>] [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
-                    "cynic agent session context [--registry <path>] [--json]",
+                    "cynic agent session-context [--registry <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -211,15 +211,12 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
                     "cynic node activate --node-id <id> [--yes] [--json]",
-                    "cynic node identity init --key-path <path> [--json]",
-                    "cynic node identity node --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
-                    "cynic node csr create --node-id <id> --role <role> [--key-path <path>] [--json]",
-                    "cynic node cert inspect [--cert-path <path>] [--json]",
-                    "cynic node cert verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
-                    "cynic node cert issue --csr-path <csr.json> --authority-key-path <key> --authority-id <name> [--ttl-seconds <n>] --out <cert.json> --yes [--json]",
-                    "cynic node fleet report [--registry <path>] [--log <path>] [--out <fleet.html>] [--json]",
-                    "cynic node fleet live [--registry <path>] [--log <path>]",
-                    "cynic node host audit [--json] [--max-commits <n>]",
+                    "cynic node identity-init --key-path <path> [--json]",
+                    "cynic node node-identity --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
+                    "cynic node csr-create --node-id <id> --role <role> [--key-path <path>] [--json]",
+                    "cynic node cert-inspect [--cert-path <path>] [--json]",
+                    "cynic node cert-verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
+                    "cynic node host-audit [--json] [--max-commits <n>]",
                     "cynic node host cpu [--json]",
                     "cynic node host memory [--json]",
                     "cynic node host disk status [--json]",
@@ -341,6 +338,23 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "know",
                 commands: vec![
                     "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "idea",
+                commands: vec![
+                    "cynic idea list [--json] [--domain <domain>] [--status <status>] [--freshness <freshness>] [--ledger <path>]",
+                    "cynic idea add --title <title> [--description <text>] [--domain <domain>] [--status <status>] [--freshness <freshness>] [--idea-id <id>] [--json] [--ledger <path>]",
+                    "cynic idea status --idea-id <idea-id> [--status <status>] [--freshness <freshness>] [--json] [--ledger <path>]",
+                    "cynic idea consume --idea-id <idea-id> --consumer <consumer> [--json] [--ledger <path>]",
+                ],
+            },
+            CommandDomain {
+                name: "wiki",
+                commands: vec![
+                    "cynic wiki list [--kind <kind>] [--status <status>] [--registry <path>] [--json]",
+                    "cynic wiki search <query> [--limit <n>] [--json]",
+                    "cynic wiki show <article-id> [--registry <path>] [--json]",
                 ],
             },
             CommandDomain {
