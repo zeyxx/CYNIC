@@ -8,7 +8,7 @@ use cynic_finance::ports::MeterError;
 use cynic_finance::types::{
     ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
 };
-use cynic_finance::ResourceUnit;
+use cynic_finance::{increment_unit, ResourceUnit};
 
 /// Channel settlement ledger — records channel settlements as ResourceTransaction.
 ///
@@ -40,8 +40,6 @@ impl ChannelSettlementLedger {
         proof: &ChannelSettlementProof,
         timestamp: u64,
     ) -> Result<(String, String), MeterError> {
-        let total = proof.initiator_balance + proof.worker_balance;
-
         // Debit from initiator (remaining balance returned)
         let debit_tx = ResourceTransaction::new(
             format!("{}/debit/{}", proof.channel_id, proof.final_sequence),
@@ -70,8 +68,15 @@ impl ChannelSettlementLedger {
         self.ledger.entries.push(debit_tx);
         self.ledger.entries.push(credit_tx);
 
-        // Update balance
-        self.ledger.balance = ResourceUnit::TokenCyd(total);
+        // The balance accumulates the settlement total. It used to be
+        // *assigned* that total, which meant it reported the last
+        // settlement rather than the sum of every settlement — and the
+        // `ResourceLedger` doc says the balance is derived from the
+        // entries, never stored independently.
+        self.ledger.balance = increment_unit(
+            &self.ledger.balance,
+            (proof.initiator_balance + proof.worker_balance) as f64,
+        );
 
         Ok((debit_id, credit_id))
     }
