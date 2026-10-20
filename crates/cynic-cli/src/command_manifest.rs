@@ -207,6 +207,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "idea",
+                commands: vec![
+                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
+                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "node",
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
