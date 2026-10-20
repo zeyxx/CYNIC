@@ -18,10 +18,25 @@ jobs:
     runs-on: [cynic/build]
 
     steps:
+      # Sovereign checkout: no external action fetch. `actions/checkout@v4`
+      # pulls from data.forgejo.org, which costs minutes of WAN latency on the
+      # sovereign runners and breaks the job budget. A plain git clone from the
+      # local Forgejo is enough for a gate that only reads the tree.
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        env:
+          CYNIC_FORGEJO_URL: http://10.10.10.101:3000
+          CYNIC_FORGEJO_REPO: jeanterre13/CYNIC
+        run: |
+          set -eu
+          repo_dir="${CYNIC_WORKSPACE:-$PWD}"
+          cd "$repo_dir"
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${CYNIC_FORGEJO_URL}/${CYNIC_FORGEJO_REPO}.git"
+          fi
+          git fetch -q --depth 1 origin "$GITHUB_SHA" || git fetch -q origin
+          git checkout -q --force FETCH_HEAD
+          git log -1 --oneline
 
       - name: Ensure Rust toolchain (bare runner)
         run: |
@@ -126,12 +141,22 @@ jobs:
                   try:
                       import subprocess
 
-                      banner = subprocess.run(
+                      probe = subprocess.run(
                           [name, "--version"],
                           capture_output=True,
                           text=True,
                           timeout=20,
-                      ).stdout.splitlines()[0]
+                      )
+                      # Some tools (node) print their banner on stderr.
+                      streams = [probe.stdout, probe.stderr]
+                      banner = ""
+                      for stream in streams:
+                          lines = [
+                              line for line in stream.splitlines() if line.strip()
+                          ]
+                          if lines:
+                              banner = lines[0]
+                              break
                   except Exception:
                       banner = ""
                   token = None
@@ -279,14 +304,10 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Gate Receipt
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: gate-receipt-${{ github.run_id }}
-          path: gate-receipt.json
-          retention-days: 90
+      # The gate receipt is written into the workspace: it is the durable
+      # evidence. Artifact upload is skipped on purpose: Forgejo 11.0.1 does
+      # not support upload-artifact@v4, and a red step that nobody reads is
+      # noise, not proof.
 
       - name: Echo Gate Receipt (fallback)
         if: always()
