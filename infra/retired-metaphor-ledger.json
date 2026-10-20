@@ -19,14 +19,14 @@
   },
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "files": 159,
-    "occurrences": 1129,
+    "files": 158,
+    "occurrences": 1125,
     "by_term": {
-      "dog": 1131,
+      "dog": 1127,
       "dogs": 414,
-      "organ": 407,
-      "organic": 567,
-      "organism": 343,
+      "organ": 403,
+      "organic": 563,
+      "organism": 339,
       "organs": 171
     }
   },
@@ -37,7 +37,6 @@
     {"path": "contracts/framework.json", "count": 5, "evidence": "contracts/framework.json:7", "terms": "organism, organs"},
     {"path": "contracts/infrastructure-discovery.json", "count": 8, "evidence": "contracts/infrastructure-discovery.json:28", "terms": "organ"},
     {"path": "contracts/observability-facts.json", "count": 2, "evidence": "contracts/observability-facts.json:68", "terms": "organ"},
-    {"path": "crates/cynic-audit-engine/examples/nam_ledger.rs", "count": 4, "evidence": "crates/cynic-audit-engine/examples/nam_ledger.rs:64", "terms": "organ, dog, organism, organic"},
     {"path": "crates/cynic-cli/src/agent_surface/mod.rs", "count": 1, "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:37", "terms": "organism"},
     {"path": "crates/cynic-cli/src/branch_audit.rs", "count": 1, "evidence": "crates/cynic-cli/src/branch_audit.rs:2", "terms": "organism"},
     {"path": "crates/cynic-cli/src/deps_surface_specs.rs", "count": 1, "evidence": "crates/cynic-cli/src/deps_surface_specs.rs:29", "terms": "organism"},
