@@ -28,15 +28,15 @@
   },
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "files": 135,
-    "occurrences": 875,
+    "files": 134,
+    "occurrences": 874,
     "by_term": {
       "dog": 1121,
       "dogs": 416,
       "metabolic": 25,
       "metabolism": 135,
       "organ": 299,
-      "organic": 119,
+      "organic": 118,
       "organism": 325,
       "organs": 166
     }
@@ -77,7 +77,6 @@
     {"path": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs", "count": 2, "evidence": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:4", "terms": "organic"},
     {"path": "crates/cynic-host/src/os_health/mod.rs", "count": 1, "evidence": "crates/cynic-host/src/os_health/mod.rs:4", "terms": "dogs"},
     {"path": "crates/cynic-host/src/runtime_harness.rs", "count": 1, "evidence": "crates/cynic-host/src/runtime_harness.rs:126", "terms": "organism"},
-    {"path": "crates/cynic-host/src/runtime_metrics.rs", "count": 1, "evidence": "crates/cynic-host/src/runtime_metrics.rs:88", "terms": "organic"},
     {"path": "crates/cynic-inference/src/application/model_catalog.rs", "count": 7, "evidence": "crates/cynic-inference/src/application/model_catalog.rs:32", "terms": "dog"},
     {"path": "crates/cynic-inference/src/application/node_runtime_ops.rs", "count": 25, "evidence": "crates/cynic-inference/src/application/node_runtime_ops.rs:4", "terms": "Dog, dog"},
     {"path": "crates/cynic-inference/src/domain/model_store.rs", "count": 1, "evidence": "crates/cynic-inference/src/domain/model_store.rs:3", "terms": "organism"},
