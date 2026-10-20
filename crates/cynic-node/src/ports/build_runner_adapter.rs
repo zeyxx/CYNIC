@@ -910,7 +910,14 @@ fn test_evidence(stdout: &str, stderr: &str) -> String {
         let cut = (cut..trimmed.len())
             .find(|i| trimmed.is_char_boundary(*i))
             .unwrap_or(trimmed.len());
-        return trimmed[cut..].trim().to_string();
+        let tail = trimmed[cut..].trim().to_string();
+        if tail.is_empty() {
+            // Nothing readable anywhere. The evidence still has to say
+            // something: an empty reason reaches the operator as
+            // "remote build failed: " with nothing after it.
+            return "the test run produced no readable output".to_string();
+        }
+        return tail;
     }
 
     for name in &failed_names {
@@ -931,6 +938,13 @@ fn test_evidence(stdout: &str, stderr: &str) -> String {
         if out.len() > LIMIT {
             break;
         }
+    }
+    if out.is_empty() {
+        // The run produced nothing readable. The evidence must still say
+        // something: an empty string would reach the operator as
+        // "remote build failed: " with nothing after it, which is a
+        // mystery rather than a verdict.
+        out.push_str("the test run produced no readable output");
     }
     out
 }
