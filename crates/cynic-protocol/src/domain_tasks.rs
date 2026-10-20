@@ -18,7 +18,7 @@ pub enum TaskDomain {
     Infra,
     /// Code analysis, compilation gates, architecture boundaries, refactoring.
     CodeAudit,
-    /// Epistemic judgments, evaluator jury evaluation, Askesis causal memory.
+    /// Epistemic judgments, evaluator jury evaluation, evidence causal memory.
     Cortex,
     /// Solana settlement, verification proofs, human governance.
     Governance,

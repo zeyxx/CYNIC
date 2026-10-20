@@ -13,7 +13,7 @@
 //! - `cynic-storage` binary WAL frames
 //! - `cynic-consensus` peer WAL entries
 //! - `cynic-protocol` evidence journal
-//! - `cynic-askesis` append-only log
+//! - `cynic-evidence` append-only log
 //! - `cynic-lifecycle` kernel release proof
 //!
 //! **Intentional clean break (T13)**: all chains now use SHA-256 with

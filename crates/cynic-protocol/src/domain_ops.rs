@@ -375,7 +375,7 @@ pub struct ZoneMigrationResult {
     pub zone_id: String,
     pub records_migrated: usize,
     pub records_skipped: Vec<SkippedRecord>,
-    /// Reference to the append-only backup stored in cynic-askesis.
+    /// Reference to the append-only backup stored in cynic-evidence.
     pub backup_ref: Option<String>,
     pub idempotency_key: String,
 }

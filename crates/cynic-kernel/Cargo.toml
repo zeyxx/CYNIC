@@ -19,7 +19,7 @@ default = []
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-askesis = { path = "../cynic-askesis" }
+cynic-evidence = { path = "../cynic-evidence" }
 cynic-storage = { path = "../cynic-storage" }
 # cynic-forensics removed: phantom dependency (no source imports)
 # cynic-inference removed: backend config extracted to cynic-inference

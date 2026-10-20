@@ -43,9 +43,9 @@
       "required_proof": "one request crossing source, build, deployment, and runtime planes with linked lower-layer read-back evidence"
     },
     {
-      "id": "askesis_companion",
+      "id": "evidence_companion",
       "classification": "upper_layer",
-      "current_owner": "cynic-askesis",
+      "current_owner": "cynic-evidence",
       "runtime_status": "absent",
       "translated_primitives": [
         "content-addressed context assembly",
@@ -62,7 +62,7 @@
     {
       "id": "accessible_personal_ml",
       "classification": "upper_layer",
-      "current_owner": "cynic-inference + cynic-askesis",
+      "current_owner": "cynic-inference + cynic-evidence",
       "runtime_status": "absent",
       "translated_primitives": [
         "task-oriented ML ports independent of provider APIs",
@@ -199,7 +199,7 @@
     {
       "id": "contestable_judgment",
       "classification": "core",
-      "current_owner": ["cynic-protocol", "cynic-kernel", "cynic-askesis"],
+      "current_owner": ["cynic-protocol", "cynic-kernel", "cynic-evidence"],
       "runtime_status": "absent",
       "translated_primitives": ["evidence envelopes", "proof bundles", "unknown states"],
       "forbidden_substitutions": ["kernel interpretation presented as primary truth", "single validator result presented as unchallengeable fact"],
@@ -226,7 +226,7 @@
     {
       "id": "replayable_memory",
       "classification": "core",
-      "current_owner": ["cynic-kernel", "cynic-askesis"],
+      "current_owner": ["cynic-kernel", "cynic-evidence"],
       "runtime_status": "partial",
       "translated_primitives": ["content-addressed evidence", "runtime proof history", "persistence records"],
       "forbidden_substitutions": ["chat history presented as organism memory", "append-only accumulation without retention or replay policy"],

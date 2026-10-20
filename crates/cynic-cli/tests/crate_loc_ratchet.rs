@@ -77,7 +77,7 @@ const GOD_OBJECTS: &[(&str, usize)] = &[
 ///
 /// EMPTY as of 2026-09-30. It recorded eight crates when the orphan purges began
 /// (cynic-kernel 34_328, cynic-mcp 12_812, cynic-cli 10_708, cynic-host 8_202,
-/// cynic-node 3_995, cynic-inference 2_988, cynic-askesis 2_070,
+/// cynic-node 3_995, cynic-inference 2_988, cynic-evidence 2_070,
 /// cynic-protocol 1_481). The purges deleted the orphans those figures counted,
 /// and the list was never lowered with them. Measured now: only two crates carry
 /// any gap at all — cynic-node 402 and cynic-protocol 155 — and both are under

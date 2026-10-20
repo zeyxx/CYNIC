@@ -1,8 +1,8 @@
 //! Wisdom domain contract types — pure data shapes for domain signal enrichment.
 //!
-//! Canonical domain owner: `cynic-askesis` (SoC foundation §481).
+//! Canonical domain owner: `cynic-evidence` (SoC foundation §481).
 //! These types live in `cynic-protocol` because they are pure serde contracts
-//! consumed by both `cynic-kernel` (runtime) and `cynic-askesis` (domain logic).
+//! consumed by both `cynic-kernel` (runtime) and `cynic-evidence` (domain logic).
 
 use serde::{Deserialize, Serialize};
 

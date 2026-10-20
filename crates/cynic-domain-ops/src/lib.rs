@@ -21,7 +21,7 @@ pub mod port;
 pub mod runner;
 
 pub mod contracts;
-pub mod askesis;
+pub mod evidence;
 #[cfg(test)]
 pub mod adapters;
 

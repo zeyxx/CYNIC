@@ -3,7 +3,7 @@
 //! Provider HTTP adapters live in separate crates:
 //! - `cynic-domain-porkbun` — RegistrarPort impl
 //! - `cynic-domain-cloudflare` — CloudflareDnsPort + EdgeProbePort impl
-//! - `cynic-domain-askesis` — BackupArchiver
+//! - `cynic-evidence` — BackupArchiver
 //!
 //! This memory adapter provides deterministic, zero-I/O implementations
 //! of all four ports for unit-testing the runner's orchestration logic.

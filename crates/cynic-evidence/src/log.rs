@@ -1,26 +1,26 @@
-//! Askesis log — append-only chain of content-addressed entries.
+//! Evidence log — append-only chain of content-addressed entries.
 
 use serde::{Deserialize, Serialize};
 
-use crate::entry::{AskesisEntry, AskesisKind, GENESIS_HASH};
+use crate::entry::{EvidenceEntry, EvidenceKind, GENESIS_HASH};
 
-pub const ASKESIS_SCHEMA: &str = "cynic.askesis.v1";
+pub const EVIDENCE_SCHEMA: &str = "cynic.evidence.v1";
 
-/// Askesis log — append-only chain of entries.
+/// Evidence log — append-only chain of entries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AskesisLog {
+pub struct EvidenceLog {
     /// Schema version
     pub schema: String,
     /// Log identity (which log is this)
     pub log_id: String,
     /// All entries in order
-    pub entries: Vec<AskesisEntry>,
+    pub entries: Vec<EvidenceEntry>,
 }
 
-impl AskesisLog {
+impl EvidenceLog {
     pub fn new(log_id: impl Into<String>) -> Self {
         Self {
-            schema: ASKESIS_SCHEMA.to_string(),
+            schema: EVIDENCE_SCHEMA.to_string(),
             log_id: log_id.into(),
             entries: Vec::new(),
         }
@@ -29,11 +29,11 @@ impl AskesisLog {
     /// Append an entry with auto-chaining.
     pub fn append(
         &mut self,
-        kind: AskesisKind,
+        kind: EvidenceKind,
         observed_at_unix_s: u64,
         subject: impl Into<String>,
         evidence: serde_json::Value,
-    ) -> &AskesisEntry {
+    ) -> &EvidenceEntry {
         let sequence = self.entries.len() as u64 + 1;
         let prev_hash = self
             .entries
@@ -41,7 +41,7 @@ impl AskesisLog {
             .map(|e| e.entry_hash.clone())
             .unwrap_or_else(|| GENESIS_HASH.to_string());
 
-        let entry = AskesisEntry::new(
+        let entry = EvidenceEntry::new(
             kind,
             observed_at_unix_s,
             sequence,

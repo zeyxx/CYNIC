@@ -160,9 +160,9 @@ pub fn framework_spec() -> FrameworkSpec {
                 ],
             },
             FrameworkAmbitionTranslation {
-                id: "askesis_companion",
+                id: "evidence_companion",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: vec!["cynic-askesis"],
+                current_owner: vec!["cynic-evidence"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "content-addressed context assembly",
@@ -181,7 +181,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "accessible_personal_ml",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: vec!["cynic-inference", "cynic-askesis"],
+                current_owner: vec!["cynic-inference", "cynic-evidence"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "task-oriented ML ports independent of provider APIs",
@@ -360,7 +360,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "contestable_judgment",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-protocol", "cynic-kernel", "cynic-askesis"],
+                current_owner: vec!["cynic-protocol", "cynic-kernel", "cynic-evidence"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "evidence envelopes",
@@ -413,7 +413,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "replayable_memory",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-kernel", "cynic-askesis"],
+                current_owner: vec!["cynic-kernel", "cynic-evidence"],
                 runtime_status: FrameworkAmbitionStatus::Partial,
                 translated_primitives: vec![
                     "content-addressed evidence",
@@ -975,7 +975,7 @@ mod tests {
         for required in [
             "sovereign_runtime",
             "sovereign_membrane",
-            "askesis_companion",
+            "evidence_companion",
             "accessible_personal_ml",
             "sovereign_inference",
             "talaria_code_evolution",

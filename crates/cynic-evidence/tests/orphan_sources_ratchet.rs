@@ -3,7 +3,7 @@
 // for the unused half, which means this ratchet would not execute at all.
 #![allow(dead_code)]
 
-//! Orphan-source ratchet for `cynic-askesis`.
+//! Orphan-source ratchet for `cynic-evidence`.
 //!
 //! Shares one detector with every other crate (`tests/support/orphan_sources.rs`)
 //! so the reachability rules are defined once. See that file for why `mod`,
@@ -23,5 +23,5 @@ const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
-    orphan_sources::assert_orphan_sources_match("cynic-askesis", QUARANTINED);
+    orphan_sources::assert_orphan_sources_match("cynic-evidence", QUARANTINED);
 }

@@ -4,7 +4,7 @@
     "cynic-zeroclaw-solana declares [[bin]] zeroclaw-solana-demo at src/bin/demo.rs, an autodiscovered target; it is a binary, not an unjustified library."
   ],
   "crates": {
-    "cynic-askesis": {
+    "cynic-evidence": {
       "consumers": [
         "cynic-cli",
         "cynic-domain-ops",
@@ -69,7 +69,7 @@
     "cynic-cli": {
       "consumers": [],
       "depends_on": [
-        "cynic-askesis",
+        "cynic-evidence",
         "cynic-audit-engine",
         "cynic-build",
         "cynic-consensus",
@@ -183,7 +183,7 @@
         "cynic-domain-porkbun"
       ],
       "depends_on": [
-        "cynic-askesis",
+        "cynic-evidence",
         "cynic-protocol",
         "cynic-secrets"
       ],
@@ -394,7 +394,7 @@
         "cynic-cli"
       ],
       "depends_on": [
-        "cynic-askesis",
+        "cynic-evidence",
         "cynic-node-protocol",
         "cynic-protocol",
         "cynic-secrets",
@@ -588,7 +588,7 @@
     },
     "cynic-protocol": {
       "consumers": [
-        "cynic-askesis",
+        "cynic-evidence",
         "cynic-audit-engine",
         "cynic-build",
         "cynic-channel",
@@ -874,7 +874,7 @@
     "cynic-types",
     "cynic-knowledge",
     "cynic-protocol",
-    "cynic-askesis",
+    "cynic-evidence",
     "cynic-audit-engine",
     "cynic-discovery",
     "cynic-finance",
@@ -1093,7 +1093,7 @@
       "cynic-sandbox"
     ],
     "L2": [
-      "cynic-askesis",
+      "cynic-evidence",
       "cynic-build",
       "cynic-channel",
       "cynic-consensus",

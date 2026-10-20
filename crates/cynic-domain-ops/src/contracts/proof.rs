@@ -2,7 +2,7 @@
 //!
 //! Builds `DomainOperationProof` envelopes from domain operation results,
 //! with deterministic idempotency keys and machine-readable JSON output
-//! suitable for archiving in `cynic-askesis`.
+//! suitable for archiving in `cynic-evidence`.
 
 use cynic_protocol::domain_ops::{
     DOMAIN_OPS_PROOF_SCHEMA, DomainOperation, DomainOperationProof, ProofStatus,

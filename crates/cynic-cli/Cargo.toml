@@ -49,7 +49,7 @@ cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }
 cynic-pkg = { path = "../cynic-pkg" }
 cynic-eval = { path = "../cynic-eval" }
-cynic-askesis = { path = "../cynic-askesis" }
+cynic-evidence = { path = "../cynic-evidence" }
 cynic-domain-ops = { path = "../cynic-domain-ops" }
 cynic-domain-porkbun = { path = "../cynic-domain-porkbun" }
 cynic-domain-cloudflare = { path = "../cynic-domain-cloudflare" }

@@ -51,7 +51,7 @@
       "test_loc": 0,
       "direct_dependents": 0,
       "public_items": 3,
-      "disposition": "fuse into cynic-askesis",
+      "disposition": "fuse into cynic-evidence",
       "rationale": "One function archive_zone_backup. Name violates R3 (-domain banned prefix). Zero shared public names with parent."
     },
     {
@@ -119,7 +119,7 @@
     }
   ],
   "control": {
-    "crate": "cynic-askesis",
+    "crate": "cynic-evidence",
     "src_loc": 2373,
     "direct_dependents": 3,
     "public_items": 56,

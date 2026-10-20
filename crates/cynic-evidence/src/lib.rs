@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
-//! Cynic Askesis — append-only proof and history log.
+//! Cynic Evidence — append-only proof and history log.
 //!
 //! Domain pure: no I/O, no chrono, no FS. Types, hashes, verification.
-//! Adapters live in other crates (`cynic-askesis-fs`, kernel, ...).
+//! Adapters live in other crates (kernel, ...).
 //!
 //! Invariants:
 //! - Every entry has a content-addressed hash (SHA-256 of canonical JSON).
@@ -14,9 +14,9 @@ pub mod entry;
 pub mod log;
 pub mod writer;
 
-pub use entry::{ASKESIS_ENTRY_SCHEMA, AskesisEntry, AskesisKind, GENESIS_HASH};
-pub use log::{ASKESIS_SCHEMA, AskesisLog};
-pub use writer::AskesisWriter;
+pub use entry::{EVIDENCE_ENTRY_SCHEMA, EvidenceEntry, EvidenceKind, GENESIS_HASH};
+pub use log::{EVIDENCE_SCHEMA, EvidenceLog};
+pub use writer::EvidenceWriter;
 
 #[cfg(test)]
 mod tests {
@@ -24,8 +24,8 @@ mod tests {
 
     #[test]
     fn genesis_entry_hashes_correctly() {
-        let entry = AskesisEntry::new(
-            AskesisKind::CourtAudit,
+        let entry = EvidenceEntry::new(
+            EvidenceKind::CourtAudit,
             1700000000,
             1,
             GENESIS_HASH,
@@ -38,15 +38,15 @@ mod tests {
 
     #[test]
     fn log_chains_entries() {
-        let mut log = AskesisLog::new("test-log");
+        let mut log = EvidenceLog::new("test-log");
         log.append(
-            AskesisKind::CourtAudit,
+            EvidenceKind::CourtAudit,
             1700000000,
             "court-cycle-1",
             serde_json::json!({"violations": 0}),
         );
         log.append(
-            AskesisKind::Forensics,
+            EvidenceKind::Forensics,
             1700000100,
             "boot-abc123",
             serde_json::json!({"rcu_stalls": 1}),
@@ -59,9 +59,9 @@ mod tests {
 
     #[test]
     fn log_detects_tampering() {
-        let mut log = AskesisLog::new("test");
+        let mut log = EvidenceLog::new("test");
         log.append(
-            AskesisKind::CourtAudit,
+            EvidenceKind::CourtAudit,
             1700000000,
             "cycle-1",
             serde_json::json!({"ok": true}),
@@ -73,24 +73,24 @@ mod tests {
     }
 
     #[test]
-    fn askesis_kind_roundtrip() {
+    fn evidence_kind_roundtrip() {
         for kind in [
-            AskesisKind::CourtAudit,
-            AskesisKind::Forensics,
-            AskesisKind::ReleaseProof,
-            AskesisKind::AgentEvidence,
-            AskesisKind::Custom,
+            EvidenceKind::CourtAudit,
+            EvidenceKind::Forensics,
+            EvidenceKind::ReleaseProof,
+            EvidenceKind::AgentEvidence,
+            EvidenceKind::Custom,
         ] {
             let s = kind.as_str();
-            let parsed: AskesisKind = serde_json::from_str(&format!("\"{s}\"")).unwrap();
+            let parsed: EvidenceKind = serde_json::from_str(&format!("\"{s}\"")).unwrap();
             assert_eq!(kind, parsed);
         }
     }
 
     #[test]
     fn entry_hash_uses_sha256_prefix() {
-        let entry = AskesisEntry::new(
-            AskesisKind::CourtAudit,
+        let entry = EvidenceEntry::new(
+            EvidenceKind::CourtAudit,
             1700000000,
             1,
             GENESIS_HASH,
@@ -110,8 +110,8 @@ mod tests {
         // Pin the intentional clean break: an entry sealed with the old
         // SHA-256 algorithm and old genesis (64-zero prev_hash) must NOT
         // verify under the unified SHA-256 hash chain.
-        let mut entry = AskesisEntry::new(
-            AskesisKind::CourtAudit,
+        let mut entry = EvidenceEntry::new(
+            EvidenceKind::CourtAudit,
             1700000000,
             1,
             GENESIS_HASH,

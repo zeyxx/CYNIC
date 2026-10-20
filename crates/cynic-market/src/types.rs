@@ -28,8 +28,8 @@ pub enum ActorKind {
     Oracle,
     /// Pure system (hash, fs, build).
     System,
-    /// Human behavior model (cynic-askesis).
-    Askesis,
+    /// Human behavior model (cynic-evidence).
+    Evidence,
     /// Human operator (sovereign, veto power).
     Human,
 }

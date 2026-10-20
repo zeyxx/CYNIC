@@ -658,7 +658,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-askesis"
+name = "cynic-evidence"
 version = "0.8.0"
 dependencies = [
  "cynic-protocol",
@@ -717,7 +717,7 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
- "cynic-askesis",
+ "cynic-evidence",
  "cynic-audit-engine",
  "cynic-build",
  "cynic-consensus",
@@ -819,7 +819,7 @@ dependencies = [
 name = "cynic-domain-ops"
 version = "0.8.0"
 dependencies = [
- "cynic-askesis",
+ "cynic-evidence",
  "cynic-protocol",
  "cynic-secrets",
  "hex",
@@ -1035,7 +1035,7 @@ dependencies = [
  "blake3",
  "bytes",
  "chrono",
- "cynic-askesis",
+ "cynic-evidence",
  "cynic-node-protocol",
  "cynic-protocol",
  "cynic-secrets",

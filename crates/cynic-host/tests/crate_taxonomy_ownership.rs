@@ -126,8 +126,7 @@ const PURITY_PREFIX: &str = "cynic-domain-";
 /// description, a metaphor-free name or an honest prefix must leave it, and a
 /// test that cannot be tightened is a test that will be deleted with its author.
 const BASELINE: &[&str] = &[
-    // 1. no stated responsibility (21 crates have no `description`)
-    "NO-RESPONSIBILITY: cynic-askesis",
+    // 1. no stated responsibility (20 crates have no `description`)
     "NO-RESPONSIBILITY: cynic-cli",
     "NO-RESPONSIBILITY: cynic-discovery",
     "NO-RESPONSIBILITY: cynic-discovery-host",
@@ -151,7 +150,6 @@ const BASELINE: &[&str] = &[
     "PURITY-PREFIX-WITH-INFRA: cynic-domain-cloudflare",
     "PURITY-PREFIX-WITH-INFRA: cynic-domain-porkbun",
     // 4. metaphor names a crate
-    "METAPHOR-NAME: cynic-askesis",
     "METAPHOR-NAME: cynic-domain-askesis",
 ];
 

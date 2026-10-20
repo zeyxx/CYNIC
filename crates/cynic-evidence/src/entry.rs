@@ -1,4 +1,4 @@
-//! Askesis entry types and content-addressing hashing.
+//! Evidence entry types and content-addressing hashing.
 //!
 //! Uses the unified digest law from `cynic_protocol::digest` (SHA-256).
 
@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use cynic_protocol::digest::digest_bytes;
 
-pub const ASKESIS_ENTRY_SCHEMA: &str = "cynic.askesis_entry.v1";
+pub const EVIDENCE_ENTRY_SCHEMA: &str = "cynic.evidence_entry.v1";
 pub const GENESIS_HASH: &str = "genesis";
 
-/// Askesis entry kind — what category of proof this entry records.
+/// Evidence entry kind — what category of proof this entry records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AskesisKind {
+pub enum EvidenceKind {
     /// Constitutional court audit report
     CourtAudit,
     /// Forensics SOC observation
@@ -25,7 +25,7 @@ pub enum AskesisKind {
     Custom,
 }
 
-impl AskesisKind {
+impl EvidenceKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::CourtAudit => "court_audit",
@@ -37,7 +37,7 @@ impl AskesisKind {
     }
 }
 
-impl std::fmt::Display for AskesisKind {
+impl std::fmt::Display for EvidenceKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
@@ -45,11 +45,11 @@ impl std::fmt::Display for AskesisKind {
 
 /// One immutable, content-addressed, hash-chained entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AskesisEntry {
+pub struct EvidenceEntry {
     /// Schema version
     pub schema: String,
     /// Entry kind
-    pub kind: AskesisKind,
+    pub kind: EvidenceKind,
     /// Logical timestamp (unix seconds, observed)
     pub observed_at_unix_s: u64,
     /// Entry sequence (1-indexed, monotonic)
@@ -64,9 +64,9 @@ pub struct AskesisEntry {
     pub evidence: serde_json::Value,
 }
 
-impl AskesisEntry {
+impl EvidenceEntry {
     pub fn new(
-        kind: AskesisKind,
+        kind: EvidenceKind,
         observed_at_unix_s: u64,
         sequence: u64,
         prev_hash: impl Into<String>,
@@ -74,7 +74,7 @@ impl AskesisEntry {
         evidence: serde_json::Value,
     ) -> Self {
         let mut entry = Self {
-            schema: ASKESIS_ENTRY_SCHEMA.to_string(),
+            schema: EVIDENCE_ENTRY_SCHEMA.to_string(),
             kind,
             observed_at_unix_s,
             sequence,
@@ -109,5 +109,3 @@ impl AskesisEntry {
         self.entry_hash == self.compute_hash()
     }
 }
-
-

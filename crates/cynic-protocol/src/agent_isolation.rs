@@ -16,7 +16,7 @@ pub enum SandboxStrategy {
     /// For ephemeral local agents (CLI, OMP, Claude Code, Codex).
     BwrapEphemeral,
     /// LXC unprivileged container (Proxmox VE).
-    /// For long-running cluster workers (builds, Askesis).
+    /// For long-running cluster workers (builds, evidence).
     LxcUnprivileged,
 }
 
