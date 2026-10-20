@@ -317,6 +317,7 @@ pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig
         }),
         node_identity: cfg.dog.name.clone(),
         signing_key_path: federation_signing_key_path(federation),
+        pqc_signing_key_path: federation_pqc_signing_key_path(federation),
         queue_dir: federation
             .and_then(|config| config.queue_dir.clone())
             .unwrap_or_else(|| {
@@ -348,6 +349,20 @@ fn federation_signing_key_path(config: Option<&FederationConfig>) -> Option<Path
         .and_then(|config| config.signing_key_env.clone())
         .unwrap_or_else(|| "CYNIC_NODE_SIGNING_KEY_FILE".to_string());
     std::env::var(env_name).ok().map(PathBuf::from)
+}
+
+/// Path of the ML-DSA-44 workload signing key, if the node has one.
+///
+/// The post-quantum half of the hybrid handshake is opt-in: without this
+/// key the node signs classically only, exactly as before the migration.
+fn federation_pqc_signing_key_path(config: Option<&FederationConfig>) -> Option<PathBuf> {
+    config
+        .and_then(|config| config.pqc_signing_key_path.clone())
+        .or_else(|| {
+            std::env::var("CYNIC_NODE_PQC_SIGNING_KEY_FILE")
+                .ok()
+                .map(PathBuf::from)
+        })
 }
 
 fn federation_node_public_key(config: Option<&FederationConfig>) -> Option<String> {

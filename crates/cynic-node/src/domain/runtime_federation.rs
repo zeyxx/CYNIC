@@ -14,6 +14,9 @@ pub struct RuntimeFederationConfig {
     pub queue_dir: PathBuf,
     /// Absolute path of the workload Ed25519 signing key (None = unsigned handshake).
     pub signing_key_path: Option<PathBuf>,
+    /// Absolute path of the ML-DSA-44 workload signing key (None = classical
+    /// signature only, no post-quantum half).
+    pub pqc_signing_key_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
