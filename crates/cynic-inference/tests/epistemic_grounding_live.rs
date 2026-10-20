@@ -15,7 +15,6 @@ use cynic_eval::bench::retrieval_gain::{
 };
 use cynic_inference::adapters::embedding::http::EmbeddingBackend;
 use cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge;
-use cynic_knowledge::ChunkEmbedder;
 use cynic_knowledge::domain::continuous_fusion::{NormalizationStrategy, fuse_continuous_convex};
 use cynic_knowledge::domain::epistemic_grounding::{
     EpistemicAssemblyConfig, EpistemicCoverageVerdict, UNCOVERED_REJECTION_TOKEN,
