@@ -143,6 +143,9 @@ host-owned process-execution helper; supervision uses the typed
 
 ## Execution order (recommended)
 
-G8 (foreign, unblocks full proofs) → G2+G7 (one timing-policy slice, S5b) → G4+G9 (observe surface + parse, S6) → G3+G10 (mapping + derivation, S4-real) → G5 (classify) → G1+G6 (custody + roles, needs parent).
+G8 (foreign, unblocks full proofs) → soak 30 days → standalone/detach
+removals (one `go` per step) → host e2e drills on the 24/7 machine.
 
+Landed 2026-10-15: G2+G7 (S5b), G4+G9 (S6 + parent step 5 `stop`),
+G3+G10 (S7), G5 (KEEP), G1-inference + G6 (parent steps 1–4).
 Each arrow is an operator `go`. No slice starts without one.
