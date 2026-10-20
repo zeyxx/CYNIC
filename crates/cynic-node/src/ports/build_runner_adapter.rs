@@ -216,10 +216,14 @@ impl SshBuildRunner {
     /// The count is read through the runner, so it is the HOST's state, not
     /// a guess. A host that cannot be asked (no `ps`, no permission) is
     /// treated as busy: a private cache is slower but never hangs.
-    fn resolve_cache_mode(&self, shared_dir: &str) -> cynic_build::build::cache_isolation::CacheMode {
+    fn resolve_cache_mode(
+        &self,
+        shared_dir: &str,
+        sha: &str,
+    ) -> cynic_build::build::cache_isolation::CacheMode {
         use cynic_build::build::cache_isolation::decide_cache_mode;
         const BUSY_CLIENT_THRESHOLD: u32 = 2;
-        let agent_id = self.agent_id();
+        let agent_id = self.agent_id(sha);
         match self.count_waiting_sccache_clients() {
             Some(waiting) if waiting <= BUSY_CLIENT_THRESHOLD => {
                 decide_cache_mode(&agent_id, shared_dir, false)
@@ -231,13 +235,21 @@ impl SshBuildRunner {
 
     /// The identity of this agent on the host, for a private cache path.
     ///
-    /// The identity is the checkout it works in, so two agents on two
-    /// branches get two caches, and the same agent on two runs keeps its
-    /// cache across the run.
-    fn agent_id(&self) -> String {
-        let checkout = self.checkout_base.trim_end_matches('/');
-        let last = checkout.rsplit('/').next().unwrap_or("default");
-        let sanitized: String = last
+    /// The identity is the CHECKOUT this build works in, not the checkout
+    /// base: the base is the same for every agent on the host
+    /// (`.../checkouts`), so deriving the identity from it would give
+    /// every agent the same private cache and isolate nobody. The checkout
+    /// carries the commit (`cynic-<sha12>`), and two agents on two
+    /// branches have two checkouts.
+    ///
+    /// The SHA is not a perfect identity — two agents can work on the
+    /// same commit — but it is the identity the build actually has, and
+    /// the failure it prevents (two agents sharing one server) is worse
+    /// than the failure it leaves (two agents on one commit sharing one
+    /// private cache, which is only a cache miss).
+    fn agent_id(&self, sha: &str) -> String {
+        let short = &sha[..12.min(sha.len())];
+        let sanitized: String = short
             .chars()
             .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
             .collect();
@@ -533,7 +545,7 @@ impl BuildRunnerPort for SshBuildRunner {
             // So the isolation is per agent when the host is busy, and
             // shared when it is quiet. The decision is the host's, not the
             // build's.
-            let cache_mode = self.resolve_cache_mode(dir);
+            let cache_mode = self.resolve_cache_mode(dir, sha);
             argv.extend(
                 cynic_build::build::cache_isolation::cache_env(
                     &cache_mode,
