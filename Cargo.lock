@@ -1379,14 +1379,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-types"
-version = "0.8.0"
-dependencies = [
- "blake3",
- "ed25519-dalek",
- "hex",
- "serde",
- "serde_json",
 name = "cynic-traces"
 version = "0.8.0"
 dependencies = [
