@@ -2,7 +2,8 @@
 //!
 //! Tranche 4 owns the canonical store (SQLite, transactional), the
 //! application use-cases, and the full-load conservation proof that
-//! replaces `apps/cynic-data/verify_conservation.py` (retired).
+//! replaced the retired `verify_conservation.py` (the Rust proof now lives
+//! in `crates/cynic-traces/tests/conservation_proof.rs`).
 //!
 //! ## Frontière Python / Rust (état T4)
 //!
