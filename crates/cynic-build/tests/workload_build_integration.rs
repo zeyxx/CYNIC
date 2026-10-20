@@ -42,7 +42,7 @@ fn evidence(kind: &str) -> AgentEvidenceRef {
 
 fn test_envelope() -> AgentWorkloadEnvelope {
     let action = AgentBoundedAction {
-        argv: vec!["make".to_string(), "check".to_string()],
+        argv: vec!["cargo".to_string(), "check".to_string()],
         working_directory: Some("checkout".to_string()),
         input_digest: Some(format!("sha256:{}", "b".repeat(64))),
         mutates: true,

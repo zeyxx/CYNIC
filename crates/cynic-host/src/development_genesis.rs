@@ -222,7 +222,7 @@ mod tests {
             builder_image: format!("docker.io/library/rust@sha256:{}", "c".repeat(64)),
             expires_at_unix_s: 200,
             allowed_actions: vec![
-                DevelopmentGenesisAction::MakeCheck,
+                DevelopmentGenesisAction::CargoCheck,
                 DevelopmentGenesisAction::BuildCli,
                 DevelopmentGenesisAction::BuildMcp,
             ],
@@ -284,7 +284,7 @@ mod tests {
         assert_eq!(
             receipt.executed_argv,
             vec![
-                vec!["make", "check"],
+                vec!["cargo", "check"],
                 vec!["cargo", "build", "--release", "-p", "cynic-cli"],
                 vec!["cargo", "build", "--release", "-p", "cynic-mcp"],
             ]
