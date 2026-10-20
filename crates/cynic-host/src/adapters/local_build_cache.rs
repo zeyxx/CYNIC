@@ -107,7 +107,6 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
         Ok(format!("removed_reproducible_cache:{}", profile.display()))
     }
 
-
     /// Remove the non-canonical build caches the registry declares.
     ///
     /// Each path was built by `load_build_cache_desired_state` from the registry
@@ -126,14 +125,11 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
         let state_root = Path::new(&desired.state_root);
         let temporary_root = Path::new(&desired.temporary_root);
         let mut removed = Vec::new();
-        let mut skipped = Vec::new();
 
         for raw in &desired.noncanonical_cache_paths {
             let path = Path::new(raw);
             if !path.is_absolute() {
-                return Err(format!(
-                    "build_cache_noncanonical_path_not_absolute:{raw}"
-                ));
+                return Err(format!("build_cache_noncanonical_path_not_absolute:{raw}"));
             }
             // The path must live under one of the two roots the loader used.
             // Either root is accepted because the loader accepted either; the
@@ -147,15 +143,15 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
                 ));
             }
             if path == state_root || path == temporary_root {
-                return Err(format!(
-                    "build_cache_noncanonical_path_is_a_root:{raw}"
-                ));
+                return Err(format!("build_cache_noncanonical_path_is_a_root:{raw}"));
             }
 
             let mut unknowns = Vec::new();
+            let mut skipped_absent: Vec<String> = Vec::new();
+            let mut skipped_live_service: Vec<String> = Vec::new();
             match fs::symlink_metadata(path) {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    skipped.push(raw.clone());
+                    skipped_absent.push(raw.clone());
                     continue;
                 }
                 Err(error) => {
@@ -165,9 +161,7 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
                 }
                 Ok(metadata) => {
                     if metadata.file_type().is_symlink() {
-                        return Err(format!(
-                            "build_cache_noncanonical_path_is_symlink:{raw}"
-                        ));
+                        return Err(format!("build_cache_noncanonical_path_is_symlink:{raw}"));
                     }
                     if !metadata.is_dir() {
                         return Err(format!(
@@ -179,19 +173,35 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
 
             // Every ancestor between the root and the path must be a real
             // directory, so a symlinked intermediate cannot redirect the removal.
-            let boundary = if under_state { state_root } else { temporary_root };
+            let boundary = if under_state {
+                state_root
+            } else {
+                temporary_root
+            };
             if directory_chain_state(boundary, path, &mut unknowns)
                 != BuildCachePathState::SafeDirectory
             {
-                return Err(format!(
-                    "build_cache_noncanonical_path_rejected:{raw}"
-                ));
+                return Err(format!("build_cache_noncanonical_path_rejected:{raw}"));
             }
             if !unknowns.is_empty() {
                 return Err(format!(
                     "build_cache_noncanonical_path_unknown:{raw}:{}",
                     unknowns.join(",")
                 ));
+            }
+
+            // A live unit executes from this path. Removing it would delete
+            // the binary of a running service — the builder's soak daemon
+            // runs from inside the Cargo cache this policy reclaims.
+            //
+            // The check reads the unit files, so it is not a hand-maintained
+            // list that can drift from what the units actually do.
+            if crate::adapters::live_service_paths::is_live_service_path(
+                path,
+                &crate::adapters::live_service_paths::observe_unit_executables(),
+            ) {
+                skipped_live_service.push(raw.clone());
+                continue;
             }
 
             fs::remove_dir_all(path)
@@ -203,9 +213,7 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
                     removed.push(raw.clone());
                 }
                 Ok(_) => {
-                    return Err(format!(
-                        "build_cache_noncanonical_read_back_failed:{raw}"
-                    ));
+                    return Err(format!("build_cache_noncanonical_read_back_failed:{raw}"));
                 }
                 Err(error) => {
                     return Err(format!(
@@ -216,16 +224,21 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
         }
 
         Ok(format!(
-            "removed_noncanonical_caches:{}:skipped_absent:{}",
+            "removed_noncanonical_caches:{}:skipped_absent:{}:skipped_live_service:{}",
             if removed.is_empty() {
                 "none".to_string()
             } else {
                 removed.join("|")
             },
-            if skipped.is_empty() {
+            if skipped_absent.is_empty() {
                 "none".to_string()
             } else {
-                skipped.join("|")
+                skipped_absent.join("|")
+            },
+            if skipped_live_service.is_empty() {
+                "none".to_string()
+            } else {
+                skipped_live_service.join("|")
             }
         ))
     }
@@ -251,16 +264,13 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
 
         for raw in paths {
             let path = Path::new(raw);
-            let scope = scope_for_ephemeral(desired, state_root, temporary_root, path)
-                .ok_or_else(|| {
-                    format!("build_cache_ephemeral_path_outside_declared_scopes:{raw}")
-                })?;
+            let scope = scope_for_ephemeral(desired, state_root, temporary_root, path).ok_or_else(
+                || format!("build_cache_ephemeral_path_outside_declared_scopes:{raw}"),
+            )?;
             let name = path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .ok_or_else(|| {
-                    format!("build_cache_ephemeral_path_name_not_utf8:{raw}")
-                })?;
+                .ok_or_else(|| format!("build_cache_ephemeral_path_name_not_utf8:{raw}"))?;
             if !name_matches(scope.kind, name) {
                 return Err(format!("build_cache_ephemeral_path_name_rejected:{raw}"));
             }
@@ -272,9 +282,7 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
                 ) {
                     Some(true) => {}
                     Some(false) => {
-                        return Err(format!(
-                            "build_cache_ephemeral_workspace_live:{raw}"
-                        ));
+                        return Err(format!("build_cache_ephemeral_workspace_live:{raw}"));
                     }
                     None => {
                         return Err(format!(
@@ -297,20 +305,16 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
                 }
                 Ok(metadata) => {
                     if metadata.file_type().is_symlink() {
-                        return Err(format!(
-                            "build_cache_ephemeral_path_is_symlink:{raw}"
-                        ));
+                        return Err(format!("build_cache_ephemeral_path_is_symlink:{raw}"));
                     }
                     if !metadata.is_dir() {
-                        return Err(format!(
-                            "build_cache_ephemeral_path_not_a_directory:{raw}"
-                        ));
+                        return Err(format!("build_cache_ephemeral_path_not_a_directory:{raw}"));
                     }
                 }
             }
-            let parent = path.parent().ok_or_else(|| {
-                format!("build_cache_ephemeral_path_has_no_parent:{raw}")
-            })?;
+            let parent = path
+                .parent()
+                .ok_or_else(|| format!("build_cache_ephemeral_path_has_no_parent:{raw}"))?;
             if directory_chain_state(parent, path, &mut unknowns)
                 != BuildCachePathState::SafeDirectory
             {
@@ -331,9 +335,7 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
                     removed.push(raw.clone());
                 }
                 Ok(_) => {
-                    return Err(format!(
-                        "build_cache_ephemeral_read_back_failed:{raw}"
-                    ));
+                    return Err(format!("build_cache_ephemeral_read_back_failed:{raw}"));
                 }
                 Err(error) => {
                     return Err(format!(
@@ -497,11 +499,12 @@ fn observe_unlinked_checkouts(
         .iter()
         .filter(|entry| entry.kind == EphemeralKind::EvidenceCheckout)
         .filter(|entry| {
-            let Some(name) = Path::new(&entry.path).file_name().and_then(|n| n.to_str())
-            else {
+            let Some(name) = Path::new(&entry.path).file_name().and_then(|n| n.to_str()) else {
                 return false;
             };
-            !store_paths.iter().any(|store| has_workload_record(store, name))
+            !store_paths
+                .iter()
+                .any(|store| has_workload_record(store, name))
         })
         .map(|entry| entry.path.clone())
         .collect();
@@ -514,10 +517,7 @@ fn observe_unlinked_checkouts(
 /// entry, unparseable name) resolves to `false` — the checkout is then
 /// reported as unlinked.
 fn has_workload_record(store: &Path, workload_id: &str) -> bool {
-    if workload_id.is_empty()
-        || workload_id.contains('/')
-        || workload_id.contains('\0')
-    {
+    if workload_id.is_empty() || workload_id.contains('/') || workload_id.contains('\0') {
         return false;
     }
     let record_dir = store.join(workload_id);
@@ -559,10 +559,7 @@ fn read_workload_terminal(
     workload_id: &str,
 ) -> Option<bool> {
     let store_relative = store_relative?;
-    if workload_id.is_empty()
-        || workload_id.contains('/')
-        || workload_id.contains('\0')
-    {
+    if workload_id.is_empty() || workload_id.contains('/') || workload_id.contains('\0') {
         return None;
     }
     let record_dir = state_root.join(store_relative).join(workload_id);
@@ -586,11 +583,7 @@ fn read_workload_terminal(
     let (_, path) = latest?;
     let bytes = fs::read(&path).ok()?;
     let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
-    match value
-        .get("record")?
-        .get("state")?
-        .as_str()?
-    {
+    match value.get("record")?.get("state")?.as_str()? {
         "completed" | "blocked" | "failed" | "degraded" | "recovered_unattributed" => Some(true),
         "dispatched" | "claimed" | "cancel_requested" => Some(false),
         _ => None,
@@ -779,11 +772,7 @@ mod tests {
             minimum_available_bytes: 1,
             reclaim_profile: "debug".to_string(),
             preserved_profiles: vec!["release".to_string()],
-            noncanonical_cache_paths: vec![outside
-                .path()
-                .join("not-mine")
-                .display()
-                .to_string()],
+            noncanonical_cache_paths: vec![outside.path().join("not-mine").display().to_string()],
             ephemeral_scopes: Vec::new(),
             retention_max_age_ms: None,
             retention_pressure_grace_ms: None,
@@ -1038,8 +1027,7 @@ mod tests {
         let live = ws.join("build-aaaaaaaaaaaaaaaa");
         fs::create_dir_all(&live).unwrap();
         write_record(root.path(), "build-aaaaaaaaaaaaaaaa", "claimed");
-        let desired =
-            retention_desired(root.path(), vec![checkout_scope(), workspace_scope()]);
+        let desired = retention_desired(root.path(), vec![checkout_scope(), workspace_scope()]);
 
         let evidence = LocalBuildCacheAdapter
             .reclaim_ephemeral_paths(&desired, &[dead.display().to_string()])
@@ -1080,18 +1068,24 @@ mod tests {
             "got: {:?}",
             observation.unlinked_checkouts
         );
-        assert!(observation
-            .unlinked_checkouts
-            .iter()
-            .any(|p| p.ends_with("cynic-ccccdddd")));
-        assert!(observation
-            .unlinked_checkouts
-            .iter()
-            .any(|p| p.ends_with("cynic-eeeeeeee")));
-        assert!(!observation
-            .unlinked_checkouts
-            .iter()
-            .any(|p| p.ends_with("cynic-aaaabbbb")));
+        assert!(
+            observation
+                .unlinked_checkouts
+                .iter()
+                .any(|p| p.ends_with("cynic-ccccdddd"))
+        );
+        assert!(
+            observation
+                .unlinked_checkouts
+                .iter()
+                .any(|p| p.ends_with("cynic-eeeeeeee"))
+        );
+        assert!(
+            !observation
+                .unlinked_checkouts
+                .iter()
+                .any(|p| p.ends_with("cynic-aaaabbbb"))
+        );
     }
 
     #[test]
