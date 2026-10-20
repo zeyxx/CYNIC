@@ -55,7 +55,10 @@ pub fn observe_unit_executables() -> Vec<UnitExecutable> {
                 continue;
             };
             for executable in exec_start_paths(&content) {
-                found.push(UnitExecutable { unit, executable });
+                found.push(UnitExecutable {
+                    unit: unit.clone(),
+                    executable,
+                });
             }
         }
     }
