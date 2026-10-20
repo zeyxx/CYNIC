@@ -14,7 +14,15 @@ Type=simple
 User=cynic
 Group=cynic
 WorkingDirectory=/var/lib/cynic
-ExecStart=/var/lib/cynic/shared-target/debug/cynic supervise watch --role node --status-file /var/lib/cynic/supervise-soak/node.status.json --ledger-file /var/lib/cynic/supervise-soak/watch.jsonl --poll-interval-secs 5 --stale-after-ms 10000 --confirm-interval-secs 3600
+# The binary lives outside the Cargo tree on purpose: a build in the
+# shared target directory replaces the file a running unit executes,
+# which is a service-under-a-reclaimable-path failure.
+#
+# /var/lib/cynic/bin/cynic is the operator entry point that symlinks to
+# current/ (infra/directory-tree.json, runtime_install.layer): the
+# release is versioned under releases/ and the switch is a symlink, so
+# a unit restart picks up a new release instead of a rebuilt cache file.
+ExecStart=/var/lib/cynic/bin/cynic supervise watch --role node --status-file /var/lib/cynic/supervise-soak/node.status.json --ledger-file /var/lib/cynic/supervise-soak/watch.jsonl --poll-interval-secs 5 --stale-after-ms 10000 --confirm-interval-secs 3600
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=15

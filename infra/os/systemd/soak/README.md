@@ -51,6 +51,22 @@ The durable fix is to install the soak binary outside the Cargo tree
 rebuilt and reinstalled, the units keep pointing at the cache and the fence
 keeps the cache alive.
 
+## The verbs, proven
+
+The `supervise` verb and the three arms the units use were exercised against
+the installed release binary, with an isolated state directory, before the
+units were pointed at it:
+
+| Command | Result |
+|---|---|
+| `supervise run --role node --state-dir <d> --status-file <d>/node.status.json -- sleep infinity` | parent published `cynic.supervisor_parent_status.v1`, `state: active`, `restart_count: 0`, `residual_unknowns: []` |
+| `supervise observe --role node --status-file <d>/node.status.json` | `cynic.supervisor_observation.v1` with `state: active` |
+| `supervise watch --role node --status-file <d>/node.status.json --ledger-file <d>/watch.jsonl` | `cynic.supervisor_watch_ledger.v1` lines: `fresh` / `stale` / `fresh` with `heartbeat_age_ms` and `heartbeat_counter` |
+
+`observe` takes `--status-file` only; `--state-dir` belongs to `run`. The
+watcher is a long-running consumer by design, so a timeout on it is the
+expected exit, not a failure.
+
 ## Install
 
     install -m 0644 infra/os/systemd/soak/cynic-supervise-soak-node.service /etc/systemd/system/
