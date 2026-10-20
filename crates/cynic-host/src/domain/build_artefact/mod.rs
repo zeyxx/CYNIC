@@ -179,15 +179,19 @@ mod tests {
     }
 
     #[test]
-    fn under_pressure_the_freshest_checkouts_are_reclaimable() {
+    fn under_pressure_the_stale_checkouts_are_reclaimable() {
         let obs = observation(
             vec![item("fresh", 3600, false), item("older", 7200, false)],
             true,
         );
         let plan = plan_build_artefacts(&obs, &policy());
-        assert_eq!(plan.items.len(), 2, "both fresh checkouts are reclaimable");
+        assert_eq!(
+            plan.items.len(),
+            1,
+            "the freshest is preserved, the older one is reclaimed"
+        );
         assert!(plan.items[0].reason.starts_with("disk-pressure"));
-        assert_eq!(plan.total_reclaimable_bytes, 2000);
+        assert_eq!(plan.total_reclaimable_bytes, 1000);
     }
 
     #[test]
@@ -207,7 +211,11 @@ mod tests {
             .map(|i| i.path.rsplit('/').next().unwrap())
             .collect();
         assert_eq!(order[0], "oldest", "the oldest is evicted first");
-        assert_eq!(order[2], "freshest", "the freshest is evicted last");
+        assert_eq!(order[1], "middle", "then the middle one");
+        assert!(
+            !order.contains(&"freshest"),
+            "the freshest is preserved, not evicted"
+        );
     }
 
     #[test]
@@ -243,14 +251,17 @@ mod tests {
 
     #[test]
     fn the_pressure_path_reuses_the_typed_rm_argv() {
-        let obs = observation(vec![item("fresh", 3600, false)], true);
+        let obs = observation(
+            vec![item("fresh", 3600, false), item("older", 7200, false)],
+            true,
+        );
         let plan = plan_build_artefacts(&obs, &policy());
         assert_eq!(
             plan.items[0].argv,
             vec![
                 "rm".to_string(),
                 "-rf".to_string(),
-                "/var/lib/cynic/checkouts/fresh".to_string()
+                "/var/lib/cynic/checkouts/older".to_string()
             ]
         );
     }
