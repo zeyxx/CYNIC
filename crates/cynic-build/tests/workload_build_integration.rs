@@ -42,7 +42,7 @@ fn evidence(kind: &str) -> AgentEvidenceRef {
 
 fn test_envelope() -> AgentWorkloadEnvelope {
     let action = AgentBoundedAction {
-        argv: vec!["make".to_string(), "check".to_string()],
+        argv: vec!["cargo".to_string(), "check".to_string()],
         working_directory: Some("checkout".to_string()),
         input_digest: Some(format!("sha256:{}", "b".repeat(64))),
         mutates: true,
@@ -183,10 +183,11 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
         .expect("derive workload grant");
 
     assert_eq!(grant.source_commit, source_commit);
-    assert_eq!(
-        grant.allowed_actions,
-        vec!["make:check", "cargo:check", "cargo:run", "cargo:test"]
-    );
+    // The grant carries exactly the scope the canonical policy derives from
+    // the requested action: `cargo:check` is self-admitting since
+    // `f20981c8` moved every gate to the native spellings. The grant
+    // validator re-derives the same list and refuses any drift.
+    assert_eq!(grant.allowed_actions, vec!["cargo:check"]);
     assert_eq!(grant.workload_record_digest, durable.record_digest);
     assert!(
         validate_build_workload_grant(
@@ -194,7 +195,7 @@ fn build_grant_is_derived_from_the_live_durable_workload() {
             &durable,
             "builder-1",
             &source_commit,
-            "make:check",
+            "cargo:check",
             now_unix_s + 1,
         )
         .is_ok()
@@ -249,7 +250,7 @@ fn cancellation_or_fence_change_revokes_a_derived_build_grant() {
             &durable,
             "builder-1",
             &source_commit,
-            "make:check",
+            "cargo:check",
             now_unix_s + 1,
         )
         .is_err()
@@ -271,7 +272,7 @@ fn delivery() -> AgentWorkloadDelivery {
             authority_ref: "infra/repo-remotes.json:forgejo".into(),
             snapshot: None,
         },
-        action: "make:check".to_string(),
+        action: "cargo:check".to_string(),
         desired_role: "build_runner".to_string(),
         mutation_authorized: true,
         proof_requirements: vec!["canonical_gate_report".to_string()],

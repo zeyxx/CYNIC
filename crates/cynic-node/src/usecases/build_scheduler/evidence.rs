@@ -215,7 +215,7 @@ mod tests {
             &[cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             &workspace,
             &execution,
-            &["make".to_string(), "check".to_string()],
+            &["cargo".to_string(), "check".to_string()],
             1,
             &["grant:file".to_string()],
             &store,

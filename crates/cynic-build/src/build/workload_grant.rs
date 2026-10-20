@@ -285,9 +285,17 @@ pub fn validate_build_workload_grant(
 
 pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str> {
     match argv {
-        [program, target] if program == "make" && target == "check" => Some("make:check"),
+        // The retired `make:*` spellings are refused, not renamed. The
+        // canonical action list (`cynic_protocol::argv_allow::
+        // canonical_build_actions`) admits only `cargo:*` and `audit:*`,
+        // because the Makefile targets these verbs named do not exist, so
+        // no argv they admit can execute. Mapping `make check` to
+        // `make:check` produced an action the policy refuses downstream:
+        // the request was composed with a name that could never be
+        // admitted. A retired spelling resolves to no action at all.
+        //
         // Native audit argv resolves to the canonical name, not the alias:
-        // the action says what runs, `make:check` survives only as input.
+        // the action says what runs.
         [program, run, _q, _p, _cli, _dd, audit, crate_]
             if program == "cargo" && run == "run" && audit == "audit" && crate_ == "crate" =>
         {
@@ -303,10 +311,6 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
         }
         [program, tool, _all, _check] if program == "cargo" && tool == "fmt" => {
             Some("cargo:fmt-check")
-        }
-        [program, target] if program == "make" && target == "build" => Some("make:build"),
-        [program, target] if program == "make" && target == "build-release" => {
-            Some("make:build-release")
         }
         [program, target, ..] if program == "cargo" && target == "check" => Some("cargo:check"),
         [program, target] if program == "cargo" && target == "build" => Some("cargo:build"),
@@ -352,8 +356,8 @@ mod action_tests {
     #[test]
     fn canonical_action_is_derived_once_from_exact_argv() {
         assert_eq!(
-            canonical_build_action_from_argv(&["make".to_string(), "check".to_string()]),
-            Some("make:check")
+            canonical_build_action_from_argv(&["cargo".to_string(), "check".to_string()]),
+            Some("cargo:check")
         );
         assert_eq!(
             canonical_build_action_from_argv(&[
@@ -363,9 +367,17 @@ mod action_tests {
             ]),
             None
         );
+        // The `make:*` spellings are retired. They name Makefile targets
+        // that do not exist, and the canonical action list admits only
+        // `cargo:*` and `audit:*`, so a retired spelling resolves to no
+        // action rather than to a name the policy refuses downstream.
+        assert_eq!(
+            canonical_build_action_from_argv(&["make".to_string(), "check".to_string()]),
+            None
+        );
         assert_eq!(
             canonical_build_action_from_argv(&["make".to_string(), "build-release".to_string()]),
-            Some("make:build-release")
+            None
         );
     }
 
