@@ -11,8 +11,11 @@ StartLimitBurst=5
 # change plus an hourly fresh confirmation. Stale past 2x the 5s producer
 # cadence cap. Independent unit so a dead parent is still recorded.
 Type=simple
-User=cynic
-Group=cynic
+# User=/Group= are deliberately absent. These units are installed in the
+# systemd user scope (this account's own manager, enabled by Linger),
+# which already runs as this account. A User=/Group= line there is
+# invalid: the service exits 216 (EXIT_GROUP) before it ever starts.
+# Measured: 216/GROUP with the line, 0/active without it.
 WorkingDirectory=/var/lib/cynic
 # The binary lives outside the Cargo tree on purpose: a build in the
 # shared target directory replaces the file a running unit executes,
@@ -32,4 +35,4 @@ LimitNOFILE=16384
 MemoryMax=128M
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
