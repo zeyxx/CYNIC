@@ -1350,11 +1350,11 @@ assertion failed: c is broken\n\
 test result: FAILED. 1 passed; 2 failed\n";
         let evidence = test_evidence(stdout, "");
         assert!(
-            evidence.contains("b stdout"),
+            evidence.contains("FAILED b"),
             "the first failure survives: {evidence}"
         );
         assert!(
-            evidence.contains("c stdout"),
+            evidence.contains("FAILED c"),
             "the second failure survives too: {evidence}"
         );
         assert!(
@@ -1362,6 +1362,54 @@ test result: FAILED. 1 passed; 2 failed\n";
             "the assertion text survives: {evidence}"
         );
         assert!(evidence.len() <= 8192, "bounded: {}", evidence.len());
+    }
+
+    #[test]
+    fn test_evidence_reads_the_panic_where_libtest_prints_it() {
+        // The REAL shape of a failing test, measured on the builder: the
+        // test names AND the panic are on stdout, and stderr only carries
+        // the cargo-level summary. A parser that expects the panic on
+        // stderr finds nothing, and the proof degenerates into a list of
+        // "Running tests/..." lines with no reason attached.
+        let stdout = "running 7 tests\n\
+        test each_declared_path_detector_fires_on_a_tree_that_owes_one ... ok\n\
+        test the_live_workspace_carries_no_undeclared_path_divergence ... FAILED\n\
+        \n\
+        failures:\n\
+        \n\
+        ---- the_live_workspace_carries_no_undeclared_path_divergence stdout ----\n\
+        \n\
+        thread 'the_live_workspace_carries_no_undeclared_path_divergence' (770636) panicked at crates/cynic-audit-engine/tests/path_reference_audit.rs:506:9:\n\
+        a path divergence the gate has never seen\n\
+        note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\
+        \n\
+        test result: FAILED. 6 passed; 1 failed\n";
+        let stderr = "error: test failed, to rerun pass `-p cynic-audit-engine --test path_reference_audit`\n";
+        let evidence = test_evidence(stdout, stderr);
+        assert!(
+            evidence.contains(
+                "the_live_workspace_carries_no_undeclared_path_divergence"
+            ),
+            "the failing test is named: {evidence}"
+        );
+        assert!(
+            evidence.contains("a path divergence the gate has never seen"),
+            "the assertion text survives: {evidence}"
+        );
+    }
+
+    #[test]
+    fn test_evidence_keeps_a_failure_whose_reason_is_only_on_stderr() {
+        // The inverse shape: cargo-level failures print the reason on
+        // stderr. Both streams are scanned, so the reason is found
+        // wherever it is.
+        let stdout = "error: test failed, to rerun pass `-p cynic-build --test workload_build_integration`\n";
+        let stderr = "thread 'accepted_delivery_requires_content_addressed_durable_read_back' panicked at crates/cynic-build/tests/workload_build_integration.rs:288:10:\ncalled `Result::unwrap()` on an `Err` value: [\\"build_agent_request_action_not_allowed\\"]\n";
+        let evidence = test_evidence(stdout, stderr);
+        assert!(
+            evidence.contains("build_agent_request_action_not_allowed"),
+            "the reason survives: {evidence}"
+        );
     }
 
     #[test]
