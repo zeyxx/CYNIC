@@ -1,0 +1,28 @@
+[Unit]
+Description=CYNIC soak parent — node role placeholder, 30-day durability run
+After=network-online.target
+Wants=network-online.target
+# Soak only: separate state dir, no ownership of any production role.
+# Crash-looping parent must stop trying, never churn boot or the host.
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+# Soak baseline started 2026-10-16 (docs/design/supervision-convergence-map.md).
+# Placeholder role label: this soaks the parent, not a real node. Child is a
+# sacrificial `sleep infinity`; metric is parent crash rate vs child crash rate.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic
+ExecStart=/var/lib/cynic/shared-target/debug/cynic supervise run --role node --state-dir /var/lib/cynic/supervise-soak --status-file /var/lib/cynic/supervise-soak/node.status.json -- sleep infinity
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=16384
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target
