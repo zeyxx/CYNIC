@@ -7,7 +7,7 @@
 
 use crate::ports::build_runner::{
     BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
-    LayerProof, LayerStatus, NetworkMode, RunnerHealth,
+    LayerProof, LayerStatus, NetworkMode, PipelineStatus, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
 use cynic_protocol::build_disk_capacity::{
@@ -740,10 +740,20 @@ mod tests {
             .trigger(&check_trigger(&commit))
             .expect("the gate refuses with a verdict, not an error");
 
-        assert!(
-            matches!(proof.verdict, BuildVerdict::Blocked { .. }),
+        assert_eq!(
+            proof.status,
+            PipelineStatus::Blocked,
             "a full disk must block, not converge: {:?}",
-            proof.verdict
+            proof.verdict_reason
+        );
+        assert!(
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("runner disk below minimum"),
+            "the reason must name the disk: {:?}",
+            proof.verdict_reason
         );
         let logged = handle.argv_log();
         let cloned = logged
@@ -767,10 +777,20 @@ mod tests {
             .trigger(&check_trigger(&commit))
             .expect("the gate refuses with a verdict, not an error");
 
-        assert!(
-            matches!(proof.verdict, BuildVerdict::Blocked { .. }),
+        assert_eq!(
+            proof.status,
+            PipelineStatus::Blocked,
             "an unknown disk must block: {:?}",
-            proof.verdict
+            proof.verdict_reason
+        );
+        assert!(
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("unobserved"),
+            "the reason must name the unknown: {:?}",
+            proof.verdict_reason
         );
         let logged = handle.argv_log();
         assert!(
