@@ -354,6 +354,23 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "idea",
+                commands: vec![
+                    "cynic idea list [--json] [--domain <domain>] [--status <status>] [--freshness <freshness>] [--ledger <path>]",
+                    "cynic idea add --title <title> [--description <text>] [--domain <domain>] [--status <status>] [--freshness <freshness>] [--idea-id <id>] [--json] [--ledger <path>]",
+                    "cynic idea status --idea-id <idea-id> [--status <status>] [--freshness <freshness>] [--json] [--ledger <path>]",
+                    "cynic idea consume --idea-id <idea-id> --consumer <consumer> [--json] [--ledger <path>]",
+                ],
+            },
+            CommandDomain {
+                name: "wiki",
+                commands: vec![
+                    "cynic wiki list [--kind <kind>] [--status <status>] [--registry <path>] [--json]",
+                    "cynic wiki search <query> [--limit <n>] [--json]",
+                    "cynic wiki show <article-id> [--registry <path>] [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "coordination",
                 commands: vec![
                     "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
