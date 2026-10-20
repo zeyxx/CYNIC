@@ -81,8 +81,9 @@ pub fn plan_build_artefacts(obs: &RetentionObservation, policy: &RetentionPolicy
                         .unwrap_or(false)
             })
             .collect();
-        // Oldest first: the largest age is the most disposable.
-        fresh.sort_by(|a, b| b.age.cmp(&a.age));
+        // Freshest first, so that skipping `preserve_count` keeps the newest
+        // and evicts the oldest.
+        fresh.sort_by(|a, b| a.age.cmp(&b.age));
         let keep = policy.preserve_count.min(fresh.len());
         for item in fresh.into_iter().skip(keep) {
             if items.iter().any(|i| i.path == item.path) {
@@ -216,6 +217,7 @@ mod tests {
             !order.contains(&"freshest"),
             "the freshest is preserved, not evicted"
         );
+        assert_eq!(plan.items.len(), 2);
     }
 
     #[test]
