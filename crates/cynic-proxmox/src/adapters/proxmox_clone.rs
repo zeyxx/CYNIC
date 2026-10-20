@@ -79,15 +79,28 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
     /// (clean); any other failure aborts. Output lines feed
     /// `template_hygiene_blockers` (proxmox_control). No I/O here.
     pub const HYGIENE_SCAN_ROOTS: &'static [&'static str] = &[
-        "/etc/cynic/secrets",
         "/root/.ssh",
         "/home/cynic/.ssh",
         "/root/.bash_history",
         "/root/.zsh_history",
     ];
 
+    /// The machine secrets directory, resolved from the canonical path module.
+    pub fn hygiene_scan_roots() -> Vec<String> {
+        let mut roots: Vec<String> = Self::HYGIENE_SCAN_ROOTS
+            .iter()
+            .map(|r| (*r).to_string())
+            .collect();
+        roots.push(
+            cynic_types::paths::CynicPaths::secrets_dir()
+                .display()
+                .to_string(),
+        );
+        roots
+    }
+
     pub fn plan_template_hygiene_scan(&self, _builder_vmid: u32) -> Vec<Vec<String>> {
-        Self::HYGIENE_SCAN_ROOTS
+        Self::hygiene_scan_roots()
             .iter()
             .map(|root| {
                 vec![
@@ -350,11 +363,11 @@ mod tests {
     #[test]
     fn scan_tolerates_missing_roots_but_reports_found_paths() {
         let mut outputs = HashMap::new();
-        for root in ProxmoxSshCloneAdapter::<MapArgvRunner>::HYGIENE_SCAN_ROOTS {
+        for root in ProxmoxSshCloneAdapter::<MapArgvRunner>::hygiene_scan_roots() {
             let key = format!(
                 "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@guest find {root} -print"
             );
-            let (stdout, stderr, exit_code) = if *root == "/root/.bash_history" {
+            let (stdout, stderr, exit_code) = if root == "/root/.bash_history" {
                 ("/root/.bash_history\n".to_string(), String::new(), Some(0))
             } else {
                 (

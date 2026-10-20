@@ -230,26 +230,29 @@ pub fn write_framework_bootstrap_bundle_for_role(
         output_dir,
         &mut files,
     )?;
+    let executor = cynic_types::paths::CynicPaths::binary_path()
+        .display()
+        .to_string();
     write_file(
         output_dir.join("security-policy.json"),
         serde_json::to_string_pretty(&json!({
             "schema": "cynic.framework_bootstrap.security_policy.v1",
             "runtime_user": "cynic",
             "runtime_group": "cynic",
-            "executor": "/usr/local/bin/cynic",
+            "executor": executor,
             "sudoers_target": "/etc/sudoers.d/cynic",
             "allowed_invocations": [
-                ["/usr/local/bin/cynic", "privilege", "exec", "bridge-install"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "pve-helper-install"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "principal-prepare"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "runtime-seed-reconcile"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "service-reconcile"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "network-actuate"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "network-baseline-apply"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "storage-identity-enroll"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "storage-schema-migrate"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "hardware-baseline-enroll"],
-                ["/usr/local/bin/cynic", "privilege", "exec", "ssh-trust-admit"]
+                [executor, "privilege", "exec", "bridge-install"],
+                [executor, "privilege", "exec", "pve-helper-install"],
+                [executor, "privilege", "exec", "principal-prepare"],
+                [executor, "privilege", "exec", "runtime-seed-reconcile"],
+                [executor, "privilege", "exec", "service-reconcile"],
+                [executor, "privilege", "exec", "network-actuate"],
+                [executor, "privilege", "exec", "network-baseline-apply"],
+                [executor, "privilege", "exec", "storage-identity-enroll"],
+                [executor, "privilege", "exec", "storage-schema-migrate"],
+                [executor, "privilege", "exec", "hardware-baseline-enroll"],
+                [executor, "privilege", "exec", "ssh-trust-admit"]
             ],
             "denied_classes": ["shell", "raw_systemctl", "raw_package_manager", "unbounded_helper", "libexec_helper"],
             "membrane_manifest": membrane_manifest

@@ -26,7 +26,10 @@ pub fn write_privilege_membrane_bundle(
     use cynic_protocol::privilege::CapabilityCatalog;
 
     const SUBJECT: &str = "cynic";
-    const BINARY: &str = "/usr/local/bin/cynic";
+    let binary = cynic_types::paths::CynicPaths::binary_path()
+        .display()
+        .to_string();
+    let binary: &str = &binary;
 
     let output_dir = output_dir.as_ref();
     fs::create_dir_all(output_dir).map_err(|error| format!("membrane bundle dir: {error}"))?;
@@ -44,7 +47,7 @@ pub fn write_privilege_membrane_bundle(
             "empty_membrane: the catalog declares no capability, refusing to stage".to_string(),
         );
     }
-    let content = catalog.sudoers_file(SUBJECT, BINARY);
+    let content = catalog.sudoers_file(SUBJECT, binary);
     let sudoers_target = output_dir.join("privilege.sudoers");
     prepare_bundle_target(&sudoers_target).map_err(|error| format!("membrane stage: {error}"))?;
     fs::write(&sudoers_target, &content).map_err(|error| format!("membrane write: {error}"))?;
@@ -66,7 +69,7 @@ pub fn write_privilege_membrane_bundle(
     let manifest = PrivilegeMembraneBundleManifest {
         schema: "cynic.privilege_bundle.v1",
         mutates: false,
-        binary: BINARY.to_string(),
+        binary: binary.to_string(),
         subject: SUBJECT.to_string(),
         sudoers_target: "/etc/sudoers.d/cynic".to_string(),
         capability_ids,
