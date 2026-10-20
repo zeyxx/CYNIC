@@ -294,6 +294,152 @@ pub fn unit_status_state(status: &str) -> SupervisorState {
     }
 }
 
+/// Wire schema for consumer ledger entries (`cynic supervise watch` appends
+/// these, one JSON object per line).
+pub const WATCH_LEDGER_ENTRY_SCHEMA: &str = "cynic.supervisor_watch_ledger.v1";
+
+/// What the consumer read from the status file. The caller owns file I/O;
+/// this enum carries only the outcome so `decide_watch` stays pure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WatchInput<'a> {
+    /// A parsed envelope.
+    Envelope(&'a ParentStatusEnvelope),
+    /// No file at the status path.
+    Missing,
+    /// A file that does not parse; carries why, not the bytes.
+    Corrupt(String),
+}
+
+/// Consumer decision. The consumer observes and records only: `Stale` never
+/// implies the child is dead (a silent parent says nothing about its child),
+/// and `Unknown` never becomes `Failed` without a terminal envelope.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WatchDecision {
+    Fresh,
+    Stale,
+    Unknown,
+    TerminalExpected,
+    TerminalFailed,
+}
+
+impl WatchDecision {
+    /// Ledger-stable decision name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Fresh => "fresh",
+            Self::Stale => "stale",
+            Self::Unknown => "unknown",
+            Self::TerminalExpected => "terminal_expected",
+            Self::TerminalFailed => "terminal_failed",
+        }
+    }
+}
+
+/// One consumer verdict: the decision plus the reason that produced it.
+/// Reasons are reader-facing strings; the decision is the machine contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WatchVerdict {
+    pub decision: WatchDecision,
+    pub reason: String,
+}
+
+/// Pure consumer choice. Terminal envelopes win over age (a `stopped` file
+/// that keeps aging is still an expected end, not a missed beat); anything
+/// else is fresh within `stale_after_ms`, stale past it. Missing and corrupt
+/// inputs are `Unknown` with the reason preserved, never coerced.
+pub fn decide_watch(
+    now_unix_ms: u128,
+    input: WatchInput<'_>,
+    stale_after_ms: u128,
+) -> WatchVerdict {
+    match input {
+        WatchInput::Missing => WatchVerdict {
+            decision: WatchDecision::Unknown,
+            reason: "status_file_missing".to_string(),
+        },
+        WatchInput::Corrupt(reason) => WatchVerdict {
+            decision: WatchDecision::Unknown,
+            reason,
+        },
+        WatchInput::Envelope(envelope) => match envelope.observation.state {
+            SupervisorState::Stopped => WatchVerdict {
+                decision: WatchDecision::TerminalExpected,
+                reason: "parent_reported_stopped".to_string(),
+            },
+            SupervisorState::Failed => WatchVerdict {
+                decision: WatchDecision::TerminalFailed,
+                reason: "parent_reported_failed".to_string(),
+            },
+            _ => {
+                let age_ms = now_unix_ms.saturating_sub(envelope.observation.observed_at_unix_ms);
+                if age_ms <= stale_after_ms {
+                    WatchVerdict {
+                        decision: WatchDecision::Fresh,
+                        reason: "heartbeat_within_bound".to_string(),
+                    }
+                } else {
+                    WatchVerdict {
+                        decision: WatchDecision::Stale,
+                        reason: "heartbeat_age_exceeded_bound".to_string(),
+                    }
+                }
+            }
+        },
+    }
+}
+
+/// One ledger line: the verdict plus the envelope facts that support it.
+/// `heartbeat_age_ms`, `heartbeat_counter`, `observed_state`, and
+/// `restart_count` are `None` exactly when no envelope was read.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WatchLedgerEntry {
+    pub schema: String,
+    pub role_id: String,
+    pub decided_at_unix_ms: u128,
+    pub decision: WatchDecision,
+    pub reason: String,
+    pub heartbeat_age_ms: Option<u128>,
+    pub heartbeat_counter: Option<u64>,
+    pub observed_state: Option<SupervisorState>,
+    pub restart_count: Option<u32>,
+    pub residual_unknowns: Vec<String>,
+}
+
+impl WatchLedgerEntry {
+    /// Build the entry from a verdict; the caller supplies the envelope
+    /// facts (or `None` when the verdict came from `Missing`/`Corrupt`).
+    pub fn new(
+        role_id: &str,
+        decided_at_unix_ms: u128,
+        verdict: &WatchVerdict,
+        envelope: Option<&ParentStatusEnvelope>,
+        now_unix_ms: u128,
+    ) -> Self {
+        let (heartbeat_age_ms, heartbeat_counter, observed_state, restart_count) = match envelope {
+            Some(env) => (
+                Some(now_unix_ms.saturating_sub(env.observation.observed_at_unix_ms)),
+                Some(env.heartbeat_counter),
+                Some(env.observation.state),
+                Some(env.observation.restart_count),
+            ),
+            None => (None, None, None, None),
+        };
+        Self {
+            schema: WATCH_LEDGER_ENTRY_SCHEMA.to_string(),
+            role_id: role_id.to_string(),
+            decided_at_unix_ms,
+            decision: verdict.decision.clone(),
+            reason: verdict.reason.clone(),
+            heartbeat_age_ms,
+            heartbeat_counter,
+            observed_state,
+            restart_count,
+            residual_unknowns: Vec::new(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -454,5 +600,72 @@ mod tests {
         for raw in ["activating", "inactive", "failed", "", "Active"] {
             assert_eq!(unit_status_state(raw), S::Unknown, "input: {raw}");
         }
+    }
+
+    fn watch_envelope(state: SupervisorState, observed_at_unix_ms: u128) -> ParentStatusEnvelope {
+        ParentStatusEnvelope {
+            schema: PARENT_STATUS_FILE_SCHEMA.to_string(),
+            heartbeat_counter: 7,
+            observation: SupervisorObservation {
+                schema: SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                role_id: "node".to_string(),
+                state,
+                restart_count: 1,
+                last_exit_reason: None,
+                observed_at_unix_ms,
+                residual_unknowns: Vec::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn decide_watch_covers_all_branches() {
+        use SupervisorState as S;
+        use WatchDecision as D;
+        // Fresh within the bound, stale past it.
+        let env = watch_envelope(S::Active, 1_000);
+        let v = decide_watch(1_000 + 9_999, WatchInput::Envelope(&env), 10_000);
+        assert_eq!(v.decision, D::Fresh);
+        let v = decide_watch(1_000 + 10_001, WatchInput::Envelope(&env), 10_000);
+        assert_eq!(v.decision, D::Stale);
+        // Terminal wins over age: an old stopped file is an expected end.
+        let env = watch_envelope(S::Stopped, 1_000);
+        let v = decide_watch(1_000 + 999_999, WatchInput::Envelope(&env), 10_000);
+        assert_eq!(v.decision, D::TerminalExpected);
+        let env = watch_envelope(S::Failed, 1_000);
+        let v = decide_watch(1_000, WatchInput::Envelope(&env), 10_000);
+        assert_eq!(v.decision, D::TerminalFailed);
+        // Missing and corrupt never coerce.
+        let v = decide_watch(5_000, WatchInput::Missing, 10_000);
+        assert_eq!(v.decision, D::Unknown);
+        assert_eq!(v.reason, "status_file_missing");
+        let v = decide_watch(5_000, WatchInput::Corrupt("not_json".to_string()), 10_000);
+        assert_eq!(v.decision, D::Unknown);
+        assert_eq!(v.reason, "not_json");
+    }
+
+    #[test]
+    fn watch_ledger_entry_binds_envelope_facts() {
+        use SupervisorState as S;
+        use WatchDecision as D;
+        let env = watch_envelope(S::Active, 1_000);
+        let verdict = decide_watch(1_500, WatchInput::Envelope(&env), 10_000);
+        assert_eq!(verdict.decision, D::Fresh);
+        let entry = WatchLedgerEntry::new("node", 1_500, &verdict, Some(&env), 1_500);
+        assert_eq!(entry.schema, WATCH_LEDGER_ENTRY_SCHEMA);
+        assert_eq!(entry.heartbeat_age_ms, Some(500));
+        assert_eq!(entry.heartbeat_counter, Some(7));
+        assert_eq!(entry.observed_state, Some(S::Active));
+        assert_eq!(entry.restart_count, Some(1));
+        // No envelope, no facts — never a zero-filled pretence.
+        let verdict = decide_watch(1_500, WatchInput::Missing, 10_000);
+        let entry = WatchLedgerEntry::new("node", 1_500, &verdict, None, 1_500);
+        assert_eq!(entry.heartbeat_age_ms, None);
+        assert_eq!(entry.heartbeat_counter, None);
+        assert_eq!(entry.observed_state, None);
+        assert_eq!(entry.restart_count, None);
+        // Byte-stable decision names for the ledger.
+        assert_eq!(D::Fresh.as_str(), "fresh");
+        assert_eq!(D::TerminalExpected.as_str(), "terminal_expected");
     }
 }
