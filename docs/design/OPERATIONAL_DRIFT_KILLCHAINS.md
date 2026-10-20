@@ -296,12 +296,26 @@ build. The build system and systemd must agree on one directory per role:
 `infra/directory-tree.json` already declares it (`bin/` → `current/`), and
 the unit does not use it.
 
-The blocker to the move is now identified and it is not the fence: the
-`supervise` verb does not exist in the CLI of this repository at all
-(`grep -rn "supervise" crates/cynic-cli/src/` finds only unrelated
-supervision fields), so the installed `cynic` cannot serve the soak whether
-it is installed at `/usr/local/bin` or in the cache. The bench cannot run
-until the verb it exercises is in the tree.
+**Status: blocker lifted, correction in flight.** The blocker was not the
+fence: the `supervise` verb did not exist in this repository at all, so the
+installed `cynic` could not serve the soak wherever it lived. It exists now.
+The verb and the crate it exercises were carried in by the branch convergence
+(PR #212, merged as `ce0e269d`):
+
+| Piece | Location |
+|---|---|
+| the verb | `crates/cynic-cli/src/cli_args.rs` -> `Command::Supervise` |
+| the dispatch | `crates/cynic-cli/src/root_dispatch.rs` -> `supervise_surface::dispatch` |
+| the surface | `crates/cynic-cli/src/supervise_surface.rs` (run / watch / observe / stop) |
+| the effects crate | `crates/cynic-supervisor/src/{lib,parent,spawn,stop,watch}.rs` |
+| the vocabulary | `crates/cynic-protocol/src/supervision.rs` |
+| the contract | `contracts/supervisor-contract.json` |
+
+The correction itself — the soak units executing `/usr/local/bin/cynic`
+instead of the Cargo cache path — is PR #215. The convention was already in
+the tree: `cynic-supervise-node.service`, added by the same convergence,
+executes the installed binary. The soak was the last unit still pointing
+into a build directory.
 
 ---
 
