@@ -29,11 +29,31 @@ Client side, proven on the builder at `e265e751`:
 
 Not yet done: the kernel-side verifier and the live interop matrix.
 
+Client-side handshake defects found by probing the LIVE kernel and
+fixed at `1f0ec785`:
+
+- the client sent only `X-Node-Public-Key`, so the REST middleware
+  rejected every signed handshake with 401;
+- `X-Node-Public-Key` carried the CONFIGURED public key, not the one
+  that signed — the signing key is now the single source of truth for
+  both header names;
+- `handshake_path` kept the query string while the kernel signs the URI
+  path only.
+
+The signed payload was already byte-identical to the kernel's
+(`timestamp + "GET" + "|" + "/events/ws" + "|"`).
+
 ## 1. Observed state (facts)
 
 - The deployed kernel (build 26.08.11, sha c26e4d73) serves `GET
   /events/ws` and requires workload-signature headers. Unsigned
   handshakes get 401 (`Missing workload signature timestamp`).
+- **The kernel IS RUNNING** as `cynic-kernel.service` on cortex, active
+  for 4 days, listening on `127.0.0.1:3030` ONLY. The `api/` sources
+  were purged from the tree on 2026-09-22 (`c3685f10`), but the running
+  binary predates that purge: **the tree has no server, the host still
+  has one**. Probing the public IP `10.10.10.100:3030` fails and is a
+  false negative — the bind address is loopback.
 - Server contract (source at c26e4d73,
   `crates/cynic-kernel/src/api/websocket/mod.rs:270-340`):
   headers `X-Node-Public-Key`, `X-Node-Identity`, `X-Cynic-Timestamp`,
@@ -42,11 +62,39 @@ Not yet done: the kernel-side verifier and the live interop matrix.
   hex, 300 s replay window, 30 s future drift); then
   `role_keys.resolve_signer` binds the key to a workload principal and
   requires organ or internal role.
+- **The kernel authenticates the WS request TWICE, under two header
+  names.** The REST middleware reads `X-Cynic-Public-Key` and answers
+  401 before the WS handler runs; the WS handler reads
+  `X-Node-Public-Key` and answers 400. Both must carry the same key.
+  Verified live: 401 -> 401 -> 401 -> 400 -> 403.
 - The current tree has NO server: `cynic-kernel` is a minimal
   orchestrator stub. The node client now signs Ed25519 (shared
   `workload_request_signer`, algorithm field present, Ed25519-only).
 - Scheme precedent: `HttpNodeControlAdapter` uses the identical wire
   format for REST. One scheme, two adapters.
+
+### Live handshake ladder (probe against the running kernel)
+
+| Step | Headers | Status | Meaning |
+|------|---------|--------|---------|
+| 1 | none | 401 | Missing Bearer token or Signature headers |
+| 2 | `X-Node-Public-Key` + sig | 401 | REST middleware wants `X-Cynic-Public-Key` |
+| 3 | `X-Cynic-Public-Key` + sig over `GET\|/events/ws\|` | 401 | signature wrong: the timestamp must be prefixed |
+| 4 | `X-Cynic-Public-Key` + sig over `ts+GET\|/events/ws\|` | 400 | Missing `X-Node-Public-Key` (WS handler) |
+| 5 | BOTH public-key headers + same sig | 403 | **signature ACCEPTED**; only the role is refused |
+
+Step 5 is the proof: the Ed25519 signature was accepted by the live
+kernel. The 403 is an authorization decision (`WebSocket federation
+requires organ or internal role`), not an authentication failure.
+
+The enrolled principal is `cynic-builder`, role `cortex`
+(`/etc/systemd/system/cynic-kernel.service.d/node-identity.conf`,
+`CYNIC_SIGNING_PRINCIPALS_JSON`). Its private key is
+`/var/lib/cynic/identity/node-signing.key` on the builder — the
+derived public key matches the enrolled one exactly.
+
+`require_agent(node_identity)` additionally demands that the asserted
+`X-Node-Identity` equals the enrolled subject.
 
 ## 2. Target
 
