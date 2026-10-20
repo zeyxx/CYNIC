@@ -262,18 +262,24 @@ mod tests {
         assert_eq!(resolver.hosts_filename(), "service.hosts");
     }
 
+    /// The service unit still carries the old name. Renaming it is a live
+    /// change on every host that serves the zone, so the constant keeps the
+    /// deployed name until the cutover; the test asserts the constant, not a
+    /// name no host carries.
     #[test]
-    fn service_filename_is_canonical() {
+    fn service_filename_is_the_deployed_unit_name() {
         let resolver = RegistryDnsResolver::new(test_registry());
-        assert_eq!(resolver.service_filename(), "coredns-service.service");
+        assert_eq!(resolver.service_filename(), SERVICE_DNS_SERVICE_FILENAME);
     }
 
+    /// Same for the resolved drop-in: it is deployed under the old name on
+    /// every host that has it.
     #[test]
-    fn resolved_dropin_filename_is_canonical() {
+    fn resolved_dropin_filename_is_the_deployed_name() {
         let resolver = RegistryDnsResolver::new(test_registry());
         assert_eq!(
             resolver.resolved_dropin_filename(),
-            "cynic-service-dns.conf"
+            SERVICE_DNS_RESOLVED_DROPIN_FILENAME
         );
     }
 }

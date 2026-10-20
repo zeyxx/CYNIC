@@ -834,7 +834,29 @@ mod tests {
         };
         let registry: serde_json::Value = serde_json::from_str(&raw).expect("registry parses");
         let members = parse_declared_registry_members(&registry);
-        assert_eq!(members.len(), 8);
+
+        // Every declared node must be parsed: the count is the registry's
+        // own, read from the file, not a number copied into the test that
+        // goes stale the day a node is added.
+        let declared = registry["nodes"].as_array().map(Vec::len).unwrap_or(0);
+        assert_eq!(
+            members.len(),
+            declared,
+            "every node the registry declares must parse into a member"
+        );
+
+        // A node name identifies a machine. The same name twice in the
+        // registry is a duplicated declaration, and it would make the fleet
+        // membership ambiguous: the address of "cynic-compute-01" would
+        // depend on which of the two entries a reader saw first.
+        let mut names: Vec<&str> = members.iter().map(|m| m.name.as_str()).collect();
+        names.sort_unstable();
+        let mut duplicates = names.windows(2).filter(|w| w[0] == w[1]);
+        assert!(
+            duplicates.next().is_none(),
+            "the registry declares the same node name twice: {names:?}"
+        );
+
         assert!(
             members
                 .iter()
