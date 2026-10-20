@@ -71,6 +71,162 @@ pub fn service_supervisor_status(
     (status, active_count, degraded_count, unknown_count)
 }
 
+/// Canonical supervisor lifecycle states from `contracts/supervisor-contract.json`.
+/// Unknown is explicit data, never fabricated as active.
+pub const SUPERVISOR_OBSERVATION_SCHEMA: &str = "cynic.supervisor_observation.v1";
+/// Backoff defaults from the contract `lifecycle.restart.backoff` section.
+pub const SUPERVISOR_BACKOFF_INITIAL_SECS: u64 = 5;
+pub const SUPERVISOR_BACKOFF_MAX_SECS: u64 = 60;
+pub const SUPERVISOR_MIN_UPTIME_SECS: u64 = 10;
+/// Stop grace from the contract `lifecycle.signals.stop` section.
+pub const SUPERVISOR_STOP_GRACE_SECS: u64 = 15;
+
+/// Generic supervisor lifecycle state. Node-specific outcomes (such as
+/// `ExitReason` in `cynic-node`) map onto these states at the adapter edge;
+/// they are not moved here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SupervisorState {
+    Planned,
+    Starting,
+    Active,
+    Draining,
+    Stopped,
+    Failed,
+    Unknown,
+}
+
+impl SupervisorState {
+    /// Contract state name, byte-stable for observations and records.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::Starting => "starting",
+            Self::Active => "active",
+            Self::Draining => "draining",
+            Self::Stopped => "stopped",
+            Self::Failed => "failed",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+impl Default for SupervisorState {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+/// Canonical restart policy. Delay values default from the contract; the
+/// attempt bound stays caller-supplied because the contract declares no
+/// `max_attempts` (node config carries its own bound, which diverges and is
+/// migrated in a later slice, not here).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RestartPolicy {
+    pub max_attempts: u32,
+    pub initial_delay_secs: u64,
+    pub max_delay_secs: u64,
+    pub min_uptime_secs: u64,
+}
+
+impl RestartPolicy {
+    /// Contract delays with a caller-supplied attempt bound.
+    pub fn from_contract(max_attempts: u32) -> Self {
+        Self {
+            max_attempts,
+            initial_delay_secs: SUPERVISOR_BACKOFF_INITIAL_SECS,
+            max_delay_secs: SUPERVISOR_BACKOFF_MAX_SECS,
+            min_uptime_secs: SUPERVISOR_MIN_UPTIME_SECS,
+        }
+    }
+}
+
+/// Pure backoff counter. Time enters only as `u64` seconds supplied by the
+/// caller; this type never reads a clock, sleeps, or spawns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BackoffState {
+    pub attempt: u32,
+}
+
+impl BackoffState {
+    /// Increment the attempt counter and return the next delay in seconds,
+    /// capped at `policy.max_delay_secs`.
+    ///
+    /// Delay formula mirrors the node supervisor: `initial * 2^(attempt-1)`
+    /// after increment, with the shift clamped to avoid overflow.
+    pub fn next_delay_secs(&mut self, policy: &RestartPolicy) -> u64 {
+        self.attempt = self.attempt.saturating_add(1);
+        delay_for_attempt(policy, self.attempt)
+    }
+
+    /// Unconditionally reset the attempt counter.
+    pub fn reset(&mut self) {
+        self.attempt = 0;
+    }
+
+    /// Reset only when the process lived at least `min_uptime_secs`.
+    pub fn reset_if_stable(&mut self, uptime_secs: u64, min_uptime_secs: u64) {
+        if uptime_secs >= min_uptime_secs {
+            self.attempt = 0;
+        }
+    }
+
+    /// Returns `true` when `attempt >= policy.max_attempts`.
+    pub fn exhausted(&self, policy: &RestartPolicy) -> bool {
+        self.attempt >= policy.max_attempts
+    }
+}
+
+/// Pure delay for a 1-based attempt number, without mutating any state.
+pub fn delay_for_attempt(policy: &RestartPolicy, attempt: u32) -> u64 {
+    if attempt == 0 {
+        return policy.initial_delay_secs.min(policy.max_delay_secs);
+    }
+    let shift = (attempt - 1).min(30);
+    let multiplier = 1u64.checked_shl(shift).unwrap_or(u64::MAX);
+    policy
+        .initial_delay_secs
+        .saturating_mul(multiplier)
+        .min(policy.max_delay_secs)
+}
+
+/// Generic restart decision. The caller owns clocks, sleeps, and spawns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestartDecision {
+    /// Restart after `delay_secs`.
+    Restart { delay_secs: u64 },
+    /// Do not restart; the failure bound is reached.
+    GiveUp { reason: &'static str },
+    /// Do not restart; there was no failure.
+    NoRestart,
+}
+
+/// Pure restart choice: no failure never restarts, stable uptime resets the
+/// counter before the bound check, an exhausted bound gives up.
+pub fn decide_restart(
+    policy: &RestartPolicy,
+    attempt: u32,
+    uptime_secs: u64,
+    failed: bool,
+) -> RestartDecision {
+    if !failed {
+        return RestartDecision::NoRestart;
+    }
+    let effective_attempt = if uptime_secs >= policy.min_uptime_secs {
+        0
+    } else {
+        attempt
+    };
+    if effective_attempt >= policy.max_attempts {
+        return RestartDecision::GiveUp {
+            reason: "max_restart_attempts_reached",
+        };
+    }
+    RestartDecision::Restart {
+        delay_secs: delay_for_attempt(policy, effective_attempt.saturating_add(1)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +265,79 @@ mod tests {
         assert_eq!(active, 0);
         assert_eq!(degraded, 0);
         assert_eq!(unknown, 1);
+    }
+
+    #[test]
+    fn contract_backoff_defaults_match_declared_policy() {
+        assert_eq!(SUPERVISOR_BACKOFF_INITIAL_SECS, 5);
+        assert_eq!(SUPERVISOR_BACKOFF_MAX_SECS, 60);
+        assert_eq!(SUPERVISOR_MIN_UPTIME_SECS, 10);
+        assert_eq!(SUPERVISOR_STOP_GRACE_SECS, 15);
+        let policy = RestartPolicy::from_contract(5);
+        assert_eq!(policy.initial_delay_secs, 5);
+        assert_eq!(policy.max_delay_secs, 60);
+        assert_eq!(policy.min_uptime_secs, 10);
+    }
+
+    #[test]
+    fn backoff_delay_progression_caps_at_max() {
+        let policy = RestartPolicy::from_contract(10);
+        let mut state = BackoffState::default();
+        assert_eq!(state.next_delay_secs(&policy), 5);
+        assert_eq!(state.next_delay_secs(&policy), 10);
+        assert_eq!(state.next_delay_secs(&policy), 20);
+        assert_eq!(state.next_delay_secs(&policy), 40);
+        assert_eq!(state.next_delay_secs(&policy), 60);
+        assert_eq!(state.next_delay_secs(&policy), 60);
+    }
+
+    #[test]
+    fn backoff_reset_if_stable_respects_boundary() {
+        let mut state = BackoffState { attempt: 3 };
+        state.reset_if_stable(9, 10);
+        assert_eq!(state.attempt, 3);
+        state.reset_if_stable(10, 10);
+        assert_eq!(state.attempt, 0);
+    }
+
+    #[test]
+    fn decide_restart_covers_branches() {
+        let policy = RestartPolicy::from_contract(2);
+        assert_eq!(
+            decide_restart(&policy, 0, 0, false),
+            RestartDecision::NoRestart
+        );
+        assert_eq!(
+            decide_restart(&policy, 0, 0, true),
+            RestartDecision::Restart { delay_secs: 5 }
+        );
+        assert_eq!(
+            decide_restart(&policy, 2, 0, true),
+            RestartDecision::GiveUp {
+                reason: "max_restart_attempts_reached"
+            }
+        );
+        // Stable uptime resets the counter before the bound check.
+        assert_eq!(
+            decide_restart(&policy, 2, 10, true),
+            RestartDecision::Restart { delay_secs: 5 }
+        );
+    }
+
+    #[test]
+    fn supervisor_state_names_match_contract() {
+        let cases = [
+            (SupervisorState::Planned, "planned"),
+            (SupervisorState::Starting, "starting"),
+            (SupervisorState::Active, "active"),
+            (SupervisorState::Draining, "draining"),
+            (SupervisorState::Stopped, "stopped"),
+            (SupervisorState::Failed, "failed"),
+            (SupervisorState::Unknown, "unknown"),
+        ];
+        for (state, name) in cases {
+            assert_eq!(state.as_str(), name);
+        }
+        assert_eq!(SupervisorState::default(), SupervisorState::Unknown);
     }
 }
