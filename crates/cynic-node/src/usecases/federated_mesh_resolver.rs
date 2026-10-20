@@ -412,10 +412,6 @@ struct RegistryNodeNetwork {
 struct RegistryNodeService {
     #[serde(default)]
     port: Option<u16>,
-    /// Declared plane of this service. A service on another plane is not a
-    /// service-plane probe target.
-    #[serde(default)]
-    network_plane: Option<String>,
 }
 
 impl RegistryNode {
@@ -487,7 +483,7 @@ mod tests {
             registry(
                 r#"{"id":"local-kernel","role":"kernel_primary",
                     "network":{"service":"10.10.10.100"},
-                    "services":[{"name":"cynic-kernel","port":3030,"network_plane":"admin"}]}"#,
+                    "services":[{"name":"cynic-kernel","port":3030}]}"#,
             ),
         )
         .expect("write registry");
@@ -508,7 +504,7 @@ mod tests {
     /// service plane is `10.10.10.0/24`. Admitting it would produce a peer
     /// that always fails its probe for a reason the registry never declared.
     #[test]
-    fn a_node_without_a_service_plane_binding_is_not_admitted() {
+    fn a_node_outside_the_service_plane_cidr_is_not_admitted() {
         let dir = std::env::temp_dir().join("cynic-mesh-resolver-plane");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
@@ -517,7 +513,7 @@ mod tests {
             registry(
                 r#"{"id":"cynic-compute-01","role":"embedding_runner",
                     "network":{"lan":"192.168.0.25","service":"192.168.0.25"},
-                    "services":[{"name":"embedding-server","port":8080,"network_plane":"lan"}]}"#,
+                    "services":[{"name":"embedding-server","port":8080}]}"#,
             ),
         )
         .expect("write registry");
@@ -544,7 +540,7 @@ mod tests {
             registry(
                 r#"{"id":"cynic-builder","role":"build_runner",
                     "network":{"synapse":"10.10.10.119"},
-                    "services":[{"name":"cynic-node","port":9090,"network_plane":"service"}]}"#,
+                    "services":[{"name":"cynic-node","port":9090}]}"#,
             ),
         )
         .expect("write registry");
