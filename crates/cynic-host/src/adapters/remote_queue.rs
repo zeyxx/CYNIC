@@ -174,6 +174,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
                 argv: vec![],
                 is_orphan: Some(co.is_orphan),
                 is_root_owned: Some(co.is_root_owned),
+                is_live_service_path: None,
                 remote_exists: co.remote_exists,
                 sha: Some(co.sha.clone()),
                 branch: Some(co.branch.clone()),

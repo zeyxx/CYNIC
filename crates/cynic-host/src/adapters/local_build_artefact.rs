@@ -12,10 +12,9 @@ use chrono::{DateTime, Utc};
 
 use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
 use crate::domain::build_artefact::{
-    plan_build_artefacts, RetentionError, RetentionExecutor, RetentionItem,
-    RetentionItemExecution, RetentionObserver, RetentionObservation, RetentionPlan,
-    RetentionPlanner, RetentionPolicy, RetentionResult, RETENTION_OBSERVATION_SCHEMA,
-    RETENTION_RESULT_SCHEMA,
+    RETENTION_OBSERVATION_SCHEMA, RETENTION_RESULT_SCHEMA, RetentionError, RetentionExecutor,
+    RetentionItem, RetentionItemExecution, RetentionObservation, RetentionObserver, RetentionPlan,
+    RetentionPlanner, RetentionPolicy, RetentionResult, plan_build_artefacts,
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
@@ -53,6 +52,9 @@ impl LocalBuildArtefactAdapter {
         let filesystems = observe_filesystems();
         let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
+        // Paths a live unit executes from. A daemon running out of a
+        // reclaimable tree would be killed by the purge it triggered.
+        let unit_executables = crate::adapters::live_service_paths::observe_unit_executables();
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
         let total_checkout_human = bytes_to_human(total_checkout_bytes);
         // target/ size is rolled into checkouts for now - separate once builder exposes it
@@ -84,6 +86,12 @@ impl LocalBuildArtefactAdapter {
                 argv: vec![],
                 is_orphan: Some(co.is_orphan),
                 is_root_owned: Some(co.is_root_owned),
+                is_live_service_path: Some(
+                    crate::adapters::live_service_paths::is_live_service_path(
+                        std::path::Path::new(&co.path),
+                        &unit_executables,
+                    ),
+                ),
                 remote_exists: co.remote_exists,
                 sha: Some(co.sha.clone()),
                 branch: Some(co.branch.clone()),
@@ -399,6 +407,7 @@ mod tests {
                     argv: vec![],
                     is_orphan: Some(true),
                     is_root_owned: Some(false),
+                    is_live_service_path: None,
                     remote_exists: Some(false),
                     sha: Some("abc123".to_string()),
                     branch: Some("old-orphan".to_string()),
@@ -415,6 +424,7 @@ mod tests {
                     argv: vec![],
                     is_orphan: Some(false),
                     is_root_owned: Some(false),
+                    is_live_service_path: None,
                     remote_exists: Some(true),
                     sha: Some("live123".to_string()),
                     branch: Some("live".to_string()),
@@ -448,6 +458,7 @@ mod tests {
                 argv: vec![],
                 is_orphan: Some(orphan),
                 is_root_owned: Some(root),
+                is_live_service_path: None,
                 remote_exists: Some(!orphan),
                 sha: Some(id.to_string()),
                 branch: Some(id.to_string()),
@@ -474,8 +485,7 @@ mod tests {
         );
         assert_eq!(plan.items.len(), 3);
         assert_eq!(
-            plan.items[0].reason,
-            "orphan(no remote)+age 55h",
+            plan.items[0].reason, "orphan(no remote)+age 55h",
             "orphan+old reason string"
         );
         assert_eq!(
@@ -487,11 +497,7 @@ mod tests {
         for it in &plan.items {
             assert_eq!(
                 it.argv,
-                vec![
-                    "rm".to_string(),
-                    "-rf".to_string(),
-                    it.path.clone()
-                ],
+                vec!["rm".to_string(), "-rf".to_string(), it.path.clone()],
                 "argv rm -rf path"
             );
         }

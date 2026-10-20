@@ -100,6 +100,14 @@ pub struct RetentionItem {
     // Domain-specific context (used by planner)
     pub is_orphan: Option<bool>,
     pub is_root_owned: Option<bool>,
+    /// True when a live system unit executes a binary from this path.
+    ///
+    /// A daemon running out of a reclaimable tree is a trap: the retention
+    /// policy would delete the binary of a running service. The builder's
+    /// soak daemon executed `/var/lib/cynic/shared-target/debug/cynic`,
+    /// inside the Cargo cache the policy was free to reclaim.
+    #[serde(default)]
+    pub is_live_service_path: Option<bool>,
     pub remote_exists: Option<bool>,
     pub sha: Option<String>,
     pub branch: Option<String>,

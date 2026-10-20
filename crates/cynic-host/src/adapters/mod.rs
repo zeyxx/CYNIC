@@ -13,6 +13,7 @@ pub mod fleet_queue_observer;
 pub mod fs_window_journal;
 pub mod http_freebox_probe_adapter;
 pub mod local_branch_graph;
+pub mod live_service_paths;
 pub mod local_build_artefact;
 pub mod local_build_cache;
 pub mod local_build_discovery;

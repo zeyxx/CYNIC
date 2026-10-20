@@ -26,6 +26,12 @@ pub fn plan_build_artefacts(obs: &RetentionObservation, policy: &RetentionPolicy
     let mut total = 0u64;
     let pressured = obs.pressure.as_ref().is_some_and(|p| p.is_pressured);
     for item in &obs.items {
+        // A live service executes from this path. Reclaiming it would delete
+        // the binary of a running daemon — the builder's soak daemon runs
+        // from inside the Cargo cache the policy is meant to reclaim.
+        if item.is_live_service_path == Some(true) {
+            continue;
+        }
         let mut reasons = Vec::new();
         if item.is_orphan == Some(true) {
             reasons.push("orphan(no remote)".to_string());
@@ -75,6 +81,7 @@ pub fn plan_build_artefacts(obs: &RetentionObservation, policy: &RetentionPolicy
             .iter()
             .filter(|item| {
                 item.is_orphan != Some(true)
+                    && item.is_live_service_path != Some(true)
                     && !item
                         .age
                         .and_then(|a| policy.max_age.map(|max| a > max))
@@ -141,6 +148,7 @@ mod tests {
             argv: vec![],
             is_orphan: Some(orphan),
             is_root_owned: Some(false),
+            is_live_service_path: None,
             remote_exists: Some(!orphan),
             sha: Some(id.to_string()),
             branch: Some(id.to_string()),

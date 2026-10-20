@@ -188,6 +188,36 @@ section. A candidate list that names nothing is a false sense of coverage.
 
 ---
 
+## Killchain 9 — a production daemon runs a binary out of the build cache
+
+**Condition.** The soak daemon
+(`/etc/systemd/system/cynic-supervise-soak-node.service`) executes
+`/var/lib/cynic/shared-target/debug/cynic supervise run ...`. The binary it
+runs lives inside a Cargo target directory.
+
+**Evidence.**
+
+- The unit's `ExecStart` points at `shared-target/debug/cynic`.
+- The process is live: PID 2901553, started 2026-10-16, 6654 minutes of CPU.
+- `infra/directory-tree.json` declares the canonical home of the binaries as
+  `bin/` with symlinks into `current/` — a target dir is not a binary home.
+
+**Why it matters.** The retention policy that reclaims build caches and the
+daemon that runs from one are the same tree. Any purge of `shared-target`
+kills a running system service, and the policy does not know it: the
+`protected` list in `contracts/builder-retention.json` names
+`/var/lib/cynic/source` and `/var/lib/cynic/sccache`, not the directory a
+daemon is executing from.
+
+**Correction.** A daemon never executes from a reclaimable cache. Its binary
+belongs under the declared binary root (`bin/` → `current/`), and the
+retention policy must refuse to reclaim any directory that a live unit
+executes from. The general rule is stronger than this one daemon: the
+retention decision reads the unit files, not a hand-maintained protected
+list.
+
+---
+
 ## Hygiene defects found in the same pass
 
 | Defect | Evidence | Correction |
