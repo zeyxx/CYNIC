@@ -181,7 +181,7 @@ pub enum ConstitutionalBoundary {
     FractalAgentRecursion,
     SovereignErrorCodes,
     NoManualBlockerBypass,
-    OrganicOpportunitiesInformPriority,
+    CandidateOpportunitiesInformPriority,
     McpIsProjectionNotBootstrap,
     ExplicitOverImplicit,
     StrictDagAndSingleResponsibility,
@@ -198,7 +198,7 @@ impl ConstitutionalBoundary {
         Self::FractalAgentRecursion,
         Self::SovereignErrorCodes,
         Self::NoManualBlockerBypass,
-        Self::OrganicOpportunitiesInformPriority,
+        Self::CandidateOpportunitiesInformPriority,
         Self::McpIsProjectionNotBootstrap,
         Self::ExplicitOverImplicit,
         Self::StrictDagAndSingleResponsibility,
@@ -218,7 +218,7 @@ impl ConstitutionalBoundary {
                 "Host and node capabilities must be represented as portable ports before concrete adapters."
             }
             Self::RuntimeProofOverProse => {
-                "A claim about organism liveness is valid only when it can be checked through build output, service state, health/read-back, or persisted runtime evidence."
+                "A claim about deployment liveness is valid only when it can be checked through build output, service state, health/read-back, or persisted runtime evidence."
             }
             Self::NoContractForest => {
                 "Do not create broad contract trees. Add a new contract only when a stable boundary cannot be expressed in Rust types, tests, registry, or foundation.json."
@@ -232,8 +232,8 @@ impl ConstitutionalBoundary {
             Self::NoManualBlockerBypass => {
                 "A blocker is resolved only by the typed reconciliation or authority-escalation path that owns it. Ad-hoc shell fixes are rejected."
             }
-            Self::OrganicOpportunitiesInformPriority => {
-                "Operator priority is continuously informed by fresh, attributable organic opportunities. An opportunity is a read-only proposal, never a task or mutation authority."
+            Self::CandidateOpportunitiesInformPriority => {
+                "Operator priority is continuously informed by fresh, attributable candidate opportunities. An opportunity is a read-only proposal, never a task or mutation authority."
             }
             Self::McpIsProjectionNotBootstrap => {
                 "MCP is a replaceable projection of stable contracts. A missing MCP artifact cannot block local read-only observation."

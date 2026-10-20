@@ -69,7 +69,7 @@ pub fn outcome_spec() -> OutcomeSpec {
             Outcome {
                 id: "local_single_node_life",
                 layer: "single_node_runtime",
-                objective: "Run the organism on one machine as a truthful minimal runtime without requiring fleet distribution.",
+                objective: "Run the deployment on one machine as a truthful minimal runtime without requiring fleet distribution.",
                 success_kpis: vec![
                     kpi(
                         "e2e_command_exists",
@@ -198,7 +198,7 @@ pub fn outcome_spec() -> OutcomeSpec {
             Outcome {
                 id: "production_runtime_stability",
                 layer: "production_operations",
-                objective: "Measure whether deployed organism services stay alive, stable, responsive, and aligned with registry intent over time.",
+                objective: "Measure whether deployed services stay alive, stable, responsive, and aligned with registry intent over time.",
                 success_kpis: vec![
                     kpi(
                         "service_uptime_slo",

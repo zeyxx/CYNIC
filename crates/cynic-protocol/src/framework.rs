@@ -111,7 +111,7 @@ pub fn framework_spec() -> FrameworkSpec {
         identity: FrameworkIdentity {
             name: "CYNIC",
             purpose: "Build a sovereign, agentic, OS-like runtime framework from portable low-level primitives.",
-            short_definition: "CYNIC is a Rust-first organism runtime: registries declare desired state, host/node/kernel crates observe real state, protocol crates score evidence, and adapters expose bounded commands to humans and agents.",
+            short_definition: "CYNIC is a Rust-first deployment runtime: registries declare desired state, host/node/kernel crates observe real state, protocol crates score evidence, and adapters expose bounded commands to humans and agents.",
         },
         operating_model: vec![
             FrameworkPrinciple {
@@ -330,7 +330,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 ],
                 forbidden_substitutions: vec![
                     "operator-home execution presented as installed authority",
-                    "provider control plane presented as organism authority",
+                    "provider control plane presented as deployment authority",
                 ],
                 required_proof: vec![
                     "fresh-node standalone bootstrap",
@@ -396,7 +396,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 ],
             },
             FrameworkAmbitionTranslation {
-                id: "resource_metabolism",
+                id: "resource_throughput",
                 classification: FrameworkAmbitionClass::Core,
                 current_owner: vec!["cynic-protocol", "cynic-host", "cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Blocked,
@@ -421,7 +421,7 @@ pub fn framework_spec() -> FrameworkSpec {
                     "persistence records",
                 ],
                 forbidden_substitutions: vec![
-                    "chat history presented as organism memory",
+                    "chat history presented as deployment memory",
                     "append-only accumulation without retention or replay policy",
                 ],
                 required_proof: vec![
@@ -798,7 +798,7 @@ pub fn framework_spec() -> FrameworkSpec {
         target_use_cases: vec![
             FrameworkUseCase {
                 id: "single_machine_bootstrap",
-                description: "Run the organism on one machine for development and proof iteration.",
+                description: "Run the deployment on one machine for development and proof iteration.",
                 required_primitives: vec!["registry", "proof_bundle", "planner", "adapter"],
             },
             FrameworkUseCase {
@@ -861,7 +861,7 @@ pub fn framework_spec() -> FrameworkSpec {
         ],
         non_goals: vec![
             "be a UX portal first",
-            "recreate deleted Python organs as durable authorities",
+            "recreate deleted Python components as durable authorities",
             "require Kubernetes before single-node execution works",
             "treat LLM session memory as canonical state",
             "centralize all responsibilities in one orchestrator crate",
@@ -986,7 +986,7 @@ mod tests {
             "closed_evolution",
             "contestable_judgment",
             "multi_source_truth",
-            "resource_metabolism",
+            "resource_throughput",
             "replayable_memory",
             "node_recursion",
             "fleet_coordination",

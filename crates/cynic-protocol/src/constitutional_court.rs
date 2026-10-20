@@ -298,7 +298,7 @@ pub struct CourtAuditReport {
     /// Surfaces that could not be verified
     pub unknowns: Vec<(SurfaceType, String)>,
 
-    /// Overall organism coherence score (geometric mean of Q-scores)
+    /// Overall deployment coherence score (geometric mean of Q-scores)
     pub coherence_score: f64,
 }
 

@@ -9,7 +9,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 /// Schema accepted for retention.
-pub const METABOLIC_INVOICE_SCHEMA: &str = "cynic.workload.metabolic_invoice.v1";
+pub const THROUGHPUT_INVOICE_SCHEMA: &str = "cynic.workload.metabolic_invoice.v1";
 
 /// Resolve the default invoice log path from the operator home.
 pub fn default_invoice_log_path() -> Result<String, String> {
@@ -30,9 +30,9 @@ pub fn append_invoice(log_path: &str, invoice_json: &str) -> Result<(), String> 
     }
     let value: serde_json::Value = serde_json::from_str(trimmed)
         .map_err(|error| format!("refusing to append invalid invoice JSON: {error}"))?;
-    if value.get("schema").and_then(|v| v.as_str()) != Some(METABOLIC_INVOICE_SCHEMA) {
+    if value.get("schema").and_then(|v| v.as_str()) != Some(THROUGHPUT_INVOICE_SCHEMA) {
         return Err(format!(
-            "refusing to append non-invoice document (schema must be {METABOLIC_INVOICE_SCHEMA})"
+            "refusing to append non-invoice document (schema must be {THROUGHPUT_INVOICE_SCHEMA})"
         ));
     }
     if let Some(parent) = std::path::Path::new(log_path).parent() {

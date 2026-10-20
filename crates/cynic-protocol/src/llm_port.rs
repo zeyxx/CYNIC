@@ -98,14 +98,14 @@ pub struct LlmCostEstimate {
 
 /// Port for agents that operate CYNIC via CLI binaries.
 ///
-/// This is the "operator agent" pattern: the agent observes the organism
+/// This is the "operator agent" pattern: the agent observes the deployment
 /// state via CLI, asks the LLM what to do, executes the chosen command,
 /// and produces a proof.
 pub trait OperatorAgentPort: Send + Sync {
     /// Name of this operator agent.
     fn agent_name(&self) -> &'static str;
 
-    /// Observe the current state of the organism.
+    /// Observe the current state of the deployment.
     fn observe(&self) -> OperatorObservation;
 
     /// Ask the LLM what action to propose given the observation.
@@ -122,7 +122,7 @@ pub trait OperatorAgentPort: Send + Sync {
     fn can_handle(&self, observation: &OperatorObservation) -> bool;
 }
 
-/// Observation of the organism state.
+/// Observation of the deployment state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorObservation {
     pub schema: String,

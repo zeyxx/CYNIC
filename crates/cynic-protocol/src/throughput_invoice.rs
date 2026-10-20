@@ -1,4 +1,4 @@
-//! Metabolic invoice — the treasurer's bill for one source commit.
+//! Throughput invoice — the treasurer's bill for one source commit.
 //!
 //! Pure types only: what a build cost (observed wall time per pipeline
 //! proof) and what remains unknown (proofs predating `duration_ms`,
@@ -9,11 +9,30 @@ use serde::{Deserialize, Serialize};
 
 use crate::energy_ledger::EnergyDimensions;
 
-pub const METABOLIC_INVOICE_SCHEMA: &str = "cynic.workload.metabolic_invoice.v1";
+/// The persisted schema identifier of the invoice envelope.
+///
+/// The VALUE keeps its legacy spelling on purpose: it is written into a
+/// live SQLite table and a JSONL invoice log, and it is declared as the
+/// envelope requirement in `infra/agent-roles.json`. Renaming the value
+/// would orphan every stored invoice, so only the Rust constant name
+/// changes. The legacy name is what the data carries.
+pub const THROUGHPUT_INVOICE_SCHEMA: &str = "cynic.workload.metabolic_invoice.v1";
+
+/// True when a document's schema is an accepted spelling of this
+/// envelope.
+///
+/// The compatibility surface lives here rather than in each reader: a
+/// document is valid when its schema is the current value, and the
+/// current value IS the legacy one, so the two coincide today. The
+/// helper exists so that a future value rename has exactly one place
+/// to widen, instead of one per reader.
+pub fn accepts_throughput_invoice_schema(schema: &str) -> bool {
+    schema == THROUGHPUT_INVOICE_SCHEMA
+}
 
 /// One invoiced pipeline layer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MetabolicInvoiceLine {
+pub struct ThroughputInvoiceLine {
     pub layer: String,
     pub action: String,
     pub status: String,
@@ -26,26 +45,26 @@ pub struct MetabolicInvoiceLine {
 
 /// Aggregated cost account for one source commit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MetabolicInvoice {
+pub struct ThroughputInvoice {
     pub schema: String,
     pub source_commit: String,
     pub proofs_observed: usize,
     pub proofs_invoiced: usize,
     pub total: EnergyDimensions,
-    pub lines: Vec<MetabolicInvoiceLine>,
+    pub lines: Vec<ThroughputInvoiceLine>,
     pub residual_unknowns: Vec<String>,
 }
 
-impl MetabolicInvoice {
+impl ThroughputInvoice {
     /// Structural validation: schema plus a non-empty commit reference.
     /// Returns blocking codes, empty when valid.
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut blockers = Vec::new();
-        if self.schema != METABOLIC_INVOICE_SCHEMA {
-            blockers.push("metabolic_invoice_schema_invalid".to_string());
+        if self.schema != THROUGHPUT_INVOICE_SCHEMA {
+            blockers.push("throughput_invoice_schema_invalid".to_string());
         }
         if self.source_commit.trim().is_empty() {
-            blockers.push("metabolic_invoice_commit_empty".to_string());
+            blockers.push("throughput_invoice_commit_empty".to_string());
         }
         if blockers.is_empty() {
             Ok(())
@@ -61,8 +80,8 @@ mod tests {
 
     #[test]
     fn empty_commit_is_rejected() {
-        let invoice = MetabolicInvoice {
-            schema: METABOLIC_INVOICE_SCHEMA.to_string(),
+        let invoice = ThroughputInvoice {
+            schema: THROUGHPUT_INVOICE_SCHEMA.to_string(),
             source_commit: String::new(),
             proofs_observed: 0,
             proofs_invoiced: 0,

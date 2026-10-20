@@ -430,7 +430,7 @@ mod tests {
             submission.schema,
             cynic_protocol::HostProofSubmission::SCHEMA
         );
-        assert_eq!(submission.source_organ, "cynic-host");
+        assert_eq!(submission.source_component, "cynic-host");
         assert_eq!(submission.event_type, "runtime_network_preflight");
         assert_eq!(submission.payload["status"], "ready");
     }

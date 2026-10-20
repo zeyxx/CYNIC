@@ -105,11 +105,11 @@ pub enum HealthSignalPayload {
         consecutive_restarts: u32,
         window_seconds: u64,
     },
-    OrganSilence {
-        organ_id: String,
+    ComponentSilence {
+        component_id: String,
         silent_duration_seconds: u64,
     },
-    MetabolismAnomaly {
+    ThroughputAnomaly {
         metric: String,
         observed_value: f64,
         threshold_value: f64,

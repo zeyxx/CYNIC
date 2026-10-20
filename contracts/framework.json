@@ -215,7 +215,7 @@
       "required_proof": ["typed source authority and claim binding", "source-specific verification and freshness"]
     },
     {
-      "id": "resource_metabolism",
+      "id": "resource_throughput",
       "classification": "core",
       "current_owner": ["cynic-protocol", "cynic-host", "cynic-node"],
       "runtime_status": "blocked",

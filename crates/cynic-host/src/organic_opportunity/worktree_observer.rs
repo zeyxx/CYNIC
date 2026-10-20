@@ -5,16 +5,16 @@
 
 use std::path::PathBuf;
 
-use cynic_protocol::organic_opportunity::{
-    EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
-    OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
+use cynic_protocol::candidate_opportunity::{
+    EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
+    OpportunitySourceKind, CandidateOpportunity, SmallestNextStep,
 };
 use cynic_vcs::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryPathBasis,
 };
 
-use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
+use super::port::{CandidateOpportunityObserver, SourceObservationStatus};
 use crate::adapters::vcs_runner::LocalVcsRunner;
 use cynic_vcs::{VcsRunner, parse_porcelain};
 
@@ -58,7 +58,7 @@ impl<R: VcsRunner> SourceWorktreeObserver<R> {
     pub fn analyze_entries(
         entries: &[SourceWorktreeInventoryEntry],
         _now_unix_s: u64,
-    ) -> Vec<OrganicOpportunity> {
+    ) -> Vec<CandidateOpportunity> {
         let mut opportunities = Vec::new();
 
         for entry in entries {
@@ -71,8 +71,8 @@ impl<R: VcsRunner> SourceWorktreeObserver<R> {
                             .relative_path
                             .as_deref()
                             .unwrap_or_else(|| branch.as_str());
-                        let opp = OrganicOpportunity {
-                            schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+                        let opp = CandidateOpportunity {
+                            schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
                             opportunity_id: format!(
                                 "opp:unfinished_worktree:{}",
                                 &entry.evidence_digest[..16.min(entry.evidence_digest.len())]
@@ -111,8 +111,8 @@ impl<R: VcsRunner> SourceWorktreeObserver<R> {
             if entry.state == SourceWorktreeInventoryEntryState::OutsideDeclaredLayout
                 || entry.state == SourceWorktreeInventoryEntryState::Malformed
             {
-                let opp = OrganicOpportunity {
-                    schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+                let opp = CandidateOpportunity {
+                    schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
                     opportunity_id: format!(
                         "opp:worktree_anomaly:{}",
                         &entry.evidence_digest[..16.min(entry.evidence_digest.len())]
@@ -144,7 +144,7 @@ impl<R: VcsRunner> SourceWorktreeObserver<R> {
     }
 }
 
-impl<R: VcsRunner> OrganicOpportunityObserver for SourceWorktreeObserver<R> {
+impl<R: VcsRunner> CandidateOpportunityObserver for SourceWorktreeObserver<R> {
     fn observer_name(&self) -> &'static str {
         "source_worktree_observer"
     }
@@ -153,7 +153,7 @@ impl<R: VcsRunner> OrganicOpportunityObserver for SourceWorktreeObserver<R> {
         OpportunitySourceKind::SourceWorktree
     }
 
-    fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
+    fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>> {
         let output = self
             .runner
             .run(&["git", "worktree", "list", "--porcelain", "-z"]);

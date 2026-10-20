@@ -271,9 +271,9 @@ impl BookEntry for cynic_protocol::agent_coordination::Claim {
 }
 
 // 4. Metabolism & Invoices
-impl BookEntry for cynic_protocol::metabolic_invoice::MetabolicInvoice {
+impl BookEntry for cynic_protocol::throughput_invoice::ThroughputInvoice {
     fn schema_uri() -> &'static str {
-        cynic_protocol::metabolic_invoice::METABOLIC_INVOICE_SCHEMA
+        cynic_protocol::throughput_invoice::THROUGHPUT_INVOICE_SCHEMA
     }
     fn entry_id(&self) -> &str {
         &self.source_commit
@@ -306,7 +306,7 @@ pub struct CynicLedger<W: WalJournalPort> {
     pub nodes: TypedBook<cynic_consensus::peer::NodeAccount, W>,
     pub mandates: TypedBook<cynic_consensus::peer::MandateAccount, W>,
     pub claims: TypedBook<cynic_protocol::agent_coordination::Claim, W>,
-    pub invoices: TypedBook<cynic_protocol::metabolic_invoice::MetabolicInvoice, W>,
+    pub invoices: TypedBook<cynic_protocol::throughput_invoice::ThroughputInvoice, W>,
     pub proofs: TypedBook<cynic_protocol::runtime::RuntimeProof, W>,
     pub envelopes: TypedBook<crate::types::OpaqueEnvelope, W>,
 }

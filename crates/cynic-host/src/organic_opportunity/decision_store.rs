@@ -5,8 +5,8 @@
 
 use std::path::PathBuf;
 
-use cynic_protocol::organic_opportunity::{
-    OpportunityDecisionRecord, OrganicOpportunity, apply_decision_record,
+use cynic_protocol::candidate_opportunity::{
+    OpportunityDecisionRecord, CandidateOpportunity, apply_decision_record,
 };
 
 /// Local filesystem store for operator decisions.
@@ -77,7 +77,7 @@ impl OpportunityDecisionStore {
     }
 
     /// Apply all recorded decisions onto a slice of opportunities.
-    pub fn apply_to_opportunities(&self, opportunities: &mut [OrganicOpportunity]) {
+    pub fn apply_to_opportunities(&self, opportunities: &mut [CandidateOpportunity]) {
         let decisions = self.load_decisions();
         for opp in opportunities.iter_mut() {
             for decision in &decisions {
@@ -102,14 +102,14 @@ fn sanitize_id(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::organic_opportunity::{
-        EnergyEstimate, OPPORTUNITY_DECISION_SCHEMA, ORGANIC_OPPORTUNITY_SCHEMA,
+    use cynic_protocol::candidate_opportunity::{
+        EnergyEstimate, OPPORTUNITY_DECISION_SCHEMA, CANDIDATE_OPPORTUNITY_SCHEMA,
         OperatorDisposition, OpportunityClass, SmallestNextStep,
     };
 
-    fn sample_opp(id: &str) -> OrganicOpportunity {
-        OrganicOpportunity {
-            schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+    fn sample_opp(id: &str) -> CandidateOpportunity {
+        CandidateOpportunity {
+            schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
             opportunity_id: id.to_string(),
             scope: format!("scope/{}", id),
             sources: vec![],

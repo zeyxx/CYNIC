@@ -138,11 +138,11 @@
       "envelope_required": "cynic.surface_veracity_report.v1",
       "runtime_zero_touch": true
     },
-    "metabolic_auditor": {
-      "authority_class": "MetabolicAccountingAuthority",
+    "throughput_auditor": {
+      "authority_class": "ThroughputAccountingAuthority",
       "secret_source_class": "None",
       "required_human_secret": false,
-      "description": "Trésorier du Substrat : mesure le coût réel de chaque action agentique (wall-time ms, tokens prompt/gen, CPU jiffies, VRAM, RAM, octets réseau). Produit la facture métabolique.",
+      "description": "Trésorier du Substrat : mesure le coût réel de chaque action agentique (wall-time ms, tokens prompt/gen, CPU jiffies, VRAM, RAM, octets réseau). Produit la facture de débit.",
       "can_mutate": ["journal_metabolic_invoice"],
       "can_observe": ["proc_pressure", "token_usage", "builder_wall_time", "network_io"],
       "can_pause": ["budget_exhausted_workload"],

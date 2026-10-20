@@ -13,19 +13,19 @@ pub mod worktree_observer;
 
 pub use audit_observer::{AuditObserverConfig, AuditValidationObserver, DebtFindingEntry};
 pub use autoresearch_observer::{AutoresearchObserver, AutoresearchObserverConfig};
-use cynic_protocol::organic_opportunity::{
-    ORGANIC_OPPORTUNITY_REPORT_SCHEMA, OpportunitySourceKind, OrganicOpportunity,
-    OrganicOpportunityReport, ValueFrame, rank_in_value_frame,
+use cynic_protocol::candidate_opportunity::{
+    CANDIDATE_OPPORTUNITY_REPORT_SCHEMA, OpportunitySourceKind, CandidateOpportunity,
+    CandidateOpportunityReport, ValueFrame, rank_in_value_frame,
 };
 pub use decision_store::OpportunityDecisionStore;
 pub use rate_classify_observer::{RateTrendObserver, RateTrendObserverConfig};
-pub use port::{OrganicOpportunityObserver, SourceObservationStatus};
+pub use port::{CandidateOpportunityObserver, SourceObservationStatus};
 pub use session_observer::{SessionObserverConfig, SessionPatternObserver};
 pub use worktree_observer::{SourceWorktreeObserver, WorktreeObserverConfig};
 
 /// Aggregator coordinating multiple opportunity observers into a unified ranked report.
 pub struct OrganicCompassCollector {
-    observers: Vec<Box<dyn OrganicOpportunityObserver>>,
+    observers: Vec<Box<dyn CandidateOpportunityObserver>>,
 }
 
 impl Default for OrganicCompassCollector {
@@ -41,14 +41,14 @@ impl OrganicCompassCollector {
         }
     }
 
-    pub fn with_observer(mut self, observer: Box<dyn OrganicOpportunityObserver>) -> Self {
+    pub fn with_observer(mut self, observer: Box<dyn CandidateOpportunityObserver>) -> Self {
         self.observers.push(observer);
         self
     }
 
-    /// Run all registered observers and produce a ranked `OrganicOpportunityReport`.
-    pub fn collect_report(&self, frame: &ValueFrame, now_unix_s: u64) -> OrganicOpportunityReport {
-        let mut all_opportunities: Vec<OrganicOpportunity> = Vec::new();
+    /// Run all registered observers and produce a ranked `CandidateOpportunityReport`.
+    pub fn collect_report(&self, frame: &ValueFrame, now_unix_s: u64) -> CandidateOpportunityReport {
+        let mut all_opportunities: Vec<CandidateOpportunity> = Vec::new();
         let mut unavailable_sources: Vec<OpportunitySourceKind> = Vec::new();
 
         for observer in &self.observers {
@@ -67,8 +67,8 @@ impl OrganicCompassCollector {
 
         let ranked = rank_in_value_frame(frame, &all_opportunities);
 
-        OrganicOpportunityReport {
-            schema: ORGANIC_OPPORTUNITY_REPORT_SCHEMA.to_string(),
+        CandidateOpportunityReport {
+            schema: CANDIDATE_OPPORTUNITY_REPORT_SCHEMA.to_string(),
             frame: frame.clone(),
             opportunities: ranked,
             unavailable_sources,
@@ -82,17 +82,17 @@ pub fn collect_default_organic_opportunities(
     workspace_root: &std::path::Path,
     frame: Option<ValueFrame>,
     now_unix_s: u64,
-) -> OrganicOpportunityReport {
+) -> CandidateOpportunityReport {
     let default_frame = frame.unwrap_or_else(|| ValueFrame {
-        schema: cynic_protocol::organic_opportunity::ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+        schema: cynic_protocol::candidate_opportunity::CANDIDATE_VALUE_FRAME_SCHEMA.to_string(),
         frame_id: "default_organic_frame".to_string(),
         description: "Standard organic opportunity ranking prioritizing safety, unlock fan-out, and fresh evidence".to_string(),
         tie_break: vec![
-            cynic_protocol::organic_opportunity::ValueDimension::SafetyBlock,
-            cynic_protocol::organic_opportunity::ValueDimension::UnlockFanOut,
-            cynic_protocol::organic_opportunity::ValueDimension::Freshness,
-            cynic_protocol::organic_opportunity::ValueDimension::ConfidenceHigh,
-            cynic_protocol::organic_opportunity::ValueDimension::EnergyLow,
+            cynic_protocol::candidate_opportunity::ValueDimension::SafetyBlock,
+            cynic_protocol::candidate_opportunity::ValueDimension::UnlockFanOut,
+            cynic_protocol::candidate_opportunity::ValueDimension::Freshness,
+            cynic_protocol::candidate_opportunity::ValueDimension::ConfidenceHigh,
+            cynic_protocol::candidate_opportunity::ValueDimension::EnergyLow,
         ],
     });
 
@@ -143,18 +143,18 @@ pub fn collect_default_organic_opportunities(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::organic_opportunity::{
-        EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, ORGANIC_VALUE_FRAME_SCHEMA, OpportunityClass,
+    use cynic_protocol::candidate_opportunity::{
+        EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, CANDIDATE_VALUE_FRAME_SCHEMA, OpportunityClass,
         OpportunitySource, SmallestNextStep, ValueDimension,
     };
 
     struct MockObserver {
         name: &'static str,
         kind: OpportunitySourceKind,
-        status: SourceObservationStatus<Vec<OrganicOpportunity>>,
+        status: SourceObservationStatus<Vec<CandidateOpportunity>>,
     }
 
-    impl OrganicOpportunityObserver for MockObserver {
+    impl CandidateOpportunityObserver for MockObserver {
         fn observer_name(&self) -> &'static str {
             self.name
         }
@@ -163,14 +163,14 @@ mod tests {
             self.kind.clone()
         }
 
-        fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
+        fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>> {
             self.status.clone()
         }
     }
 
-    fn sample_opp(id: &str, scope: &str, confidence: f64) -> OrganicOpportunity {
-        OrganicOpportunity {
-            schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+    fn sample_opp(id: &str, scope: &str, confidence: f64) -> CandidateOpportunity {
+        CandidateOpportunity {
+            schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
             opportunity_id: id.to_string(),
             scope: scope.to_string(),
             sources: vec![OpportunitySource {
@@ -217,7 +217,7 @@ mod tests {
         };
 
         let frame = ValueFrame {
-            schema: ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+            schema: CANDIDATE_VALUE_FRAME_SCHEMA.to_string(),
             frame_id: "frame-conf".to_string(),
             description: "high confidence first".to_string(),
             tie_break: vec![ValueDimension::ConfidenceHigh],
@@ -230,7 +230,7 @@ mod tests {
 
         let report = collector.collect_report(&frame, 1724000000);
 
-        assert_eq!(report.schema, ORGANIC_OPPORTUNITY_REPORT_SCHEMA);
+        assert_eq!(report.schema, CANDIDATE_OPPORTUNITY_REPORT_SCHEMA);
         assert_eq!(report.opportunities.len(), 2);
         assert_eq!(report.opportunities[0].opportunity_id, "opp-high");
         assert_eq!(report.opportunities[1].opportunity_id, "opp-low");
