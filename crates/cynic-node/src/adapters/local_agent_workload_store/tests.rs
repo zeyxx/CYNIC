@@ -13,7 +13,7 @@ use super::*;
 
 fn record(workload_id: &str, idempotency_key: &str) -> AgentWorkloadRecord {
     let action = AgentBoundedAction {
-        argv: vec!["make".into(), "check".into()],
+        argv: vec!["cargo".into(), "check".into()],
         working_directory: Some("checkout".into()),
         input_digest: Some(format!("sha256:{}", "b".repeat(64))),
         mutates: true,

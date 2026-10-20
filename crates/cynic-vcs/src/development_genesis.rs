@@ -16,7 +16,11 @@ pub const DEVELOPMENT_GENESIS_ALLOWED_CAPABILITIES: &[&str] = &["build_artifact"
 /// their canonical argv without accepting caller-supplied command strings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DevelopmentGenesisAction {
-    MakeCheck,
+    /// The workspace check. The `make:*` spellings are retired — they name
+    /// Makefile targets that do not exist, so no argv they admit can
+    /// execute. The canonical action list admits only `cargo:*` and
+    /// `audit:*`, so the check is `cargo check`.
+    CargoCheck,
     BuildCli,
     BuildMcp,
     Arbitrary { argv: Vec<String> },
@@ -212,7 +216,7 @@ pub fn plan_development_genesis_build(
 fn is_allowed_action(action: &DevelopmentGenesisAction) -> bool {
     matches!(
         action,
-        DevelopmentGenesisAction::MakeCheck
+        DevelopmentGenesisAction::CargoCheck
             | DevelopmentGenesisAction::BuildCli
             | DevelopmentGenesisAction::BuildMcp
     )
@@ -228,8 +232,8 @@ pub fn development_genesis_canonical_argv(
             actions
                 .iter()
                 .map(|action| match action {
-                    DevelopmentGenesisAction::MakeCheck => {
-                        Some(vec!["make".to_string(), "check".to_string()])
+                    DevelopmentGenesisAction::CargoCheck => {
+                        Some(vec!["cargo".to_string(), "check".to_string()])
                     }
                     DevelopmentGenesisAction::BuildCli => Some(vec![
                         "cargo".to_string(),
@@ -294,7 +298,7 @@ mod tests {
             builder_image: "docker.io/library/rust@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_string(),
             expires_at_unix_s: 200,
             allowed_actions: vec![
-                DevelopmentGenesisAction::MakeCheck,
+                DevelopmentGenesisAction::CargoCheck,
                 DevelopmentGenesisAction::BuildCli,
                 DevelopmentGenesisAction::BuildMcp,
             ],
@@ -394,12 +398,12 @@ mod tests {
     fn admitted_actions_have_one_canonical_argv_projection() {
         assert_eq!(
             development_genesis_canonical_argv(&[
-                DevelopmentGenesisAction::MakeCheck,
+                DevelopmentGenesisAction::CargoCheck,
                 DevelopmentGenesisAction::BuildCli,
                 DevelopmentGenesisAction::BuildMcp,
             ]),
             Some(vec![
-                vec!["make".to_string(), "check".to_string()],
+                vec!["cargo".to_string(), "check".to_string()],
                 vec![
                     "cargo".to_string(),
                     "build".to_string(),

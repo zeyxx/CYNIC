@@ -845,7 +845,7 @@ mod tests {
                 crate_name: "cynic-kernel".to_string(),
             },
             action: MutationAction {
-                argv: vec!["make".to_string(), "check".to_string()],
+                argv: vec!["cargo".to_string(), "check".to_string()],
                 working_directory: None,
                 mutates: true,
                 requires_privilege: false,
@@ -948,7 +948,7 @@ mod tests {
             claim_id: "claim_001".to_string(),
             target_scope,
             action: MutationAction {
-                argv: vec!["make".to_string(), "check".to_string()],
+                argv: vec!["cargo".to_string(), "check".to_string()],
                 working_directory: None,
                 mutates: true,
                 requires_privilege: false,
