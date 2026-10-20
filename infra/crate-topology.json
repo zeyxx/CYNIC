@@ -109,7 +109,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45703
+      "loc": 45701
     },
     "cynic-consensus": {
       "consumers": [
@@ -262,7 +262,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 90761
+      "loc": 90779
     },
     "cynic-inference": {
       "consumers": [
@@ -574,7 +574,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 39700
+      "loc": 39725
     },
     "cynic-proxmox": {
       "consumers": [
@@ -592,7 +592,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 4566
+      "loc": 4579
     },
     "cynic-release": {
       "consumers": [
@@ -1061,7 +1061,7 @@
     "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 388617,
+    "loc_total": 388671,
     "pending_disposition": 3,
     "runtime_edges": 175,
     "unjustified": 0,
