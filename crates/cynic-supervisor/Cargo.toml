@@ -12,8 +12,6 @@ cynic-protocol = { path = "../cynic-protocol" }
 tokio.workspace = true
 process-wrap = { version = "9.1", features = ["tokio1"] }
 libc.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

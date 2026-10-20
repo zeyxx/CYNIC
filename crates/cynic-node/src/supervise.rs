@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use process_wrap::tokio::{ChildWrapper, CommandWrap};
+use process_wrap::tokio::ChildWrapper;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
@@ -120,80 +120,28 @@ impl Backoff {
 
 /// Spawn the inference backend process.
 ///
-/// Uses `process-wrap` for cross-platform orphan safety:
-/// - Unix: `ProcessGroup::leader()` + `KillOnDrop`
-/// - Windows: `JobObject` + `KillOnDrop`
-///
-/// Stdio is inherited (NOT piped) to avoid pipe-buffer deadlock.
-/// Returns `Err` if `command` is empty.
+/// Delegates to the shared `cynic-supervisor` effects crate so node and
+/// future roles share one group-aware spawn. See that crate for the
+/// `process-wrap` containment details.
 pub(crate) fn spawn_backend(
     command: &[impl AsRef<OsStr>],
     working_dir: Option<&str>,
     env: &HashMap<String, String>,
 ) -> io::Result<Box<dyn ChildWrapper>> {
-    let (program, args) = command
-        .split_first()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "command must be non-empty"))?;
-
-    let mut cmd = CommandWrap::with_new(program, |c| {
-        c.args(args)
-            .stdin(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit());
-        if let Some(dir) = working_dir {
-            c.current_dir(dir);
-        }
-        for (k, v) in env {
-            c.env(k, v);
-        }
-    });
-
-    #[cfg(unix)]
-    {
-        use process_wrap::tokio::{KillOnDrop, ProcessGroup};
-        cmd.wrap(ProcessGroup::leader()).wrap(KillOnDrop);
-    }
-    #[cfg(windows)]
-    {
-        use process_wrap::tokio::{JobObject, KillOnDrop};
-        cmd.wrap(JobObject).wrap(KillOnDrop);
-    }
-
-    cmd.spawn()
+    cynic_supervisor::spawn_backend(command, working_dir, env)
 }
 
 // ── graceful_stop ─────────────────────────────────────────────────────────────
 
 /// Gracefully stop a child process.
 ///
-/// Sends SIGTERM (Unix) or initiates a kill (Windows), then waits up to
-/// `timeout_secs`. If the process has not exited by then, sends SIGKILL and
-/// waits unconditionally.
+/// Delegates to the shared `cynic-supervisor` stop ladder (SIGTERM on the
+/// process group, bounded wait, then SIGKILL).
 pub(crate) async fn graceful_stop(
     child: &mut Box<dyn ChildWrapper>,
     timeout_secs: u64,
 ) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-        // SIGTERM the process group (ProcessGroup wrapper propagates to group).
-        // Ignore send errors — process may already be dead.
-        let _ = child.signal(libc::SIGTERM);
-    }
-    #[cfg(not(unix))]
-    {
-        // Windows: initiate kill, then give it a moment to flush.
-        let _ = child.start_kill();
-    }
-
-    let timeout = Duration::from_secs(timeout_secs);
-    match tokio::time::timeout(timeout, child.wait()).await {
-        Ok(result) => result.map(|_| ()),
-        Err(_elapsed) => {
-            // Timed out — force kill.
-            let _ = child.start_kill();
-            child.wait().await.map(|_| ())
-        }
-    }
+    cynic_supervisor::graceful_stop(child, timeout_secs).await
 }
 
 // ── spawn_with_retries ────────────────────────────────────────────────────────
