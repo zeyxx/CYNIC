@@ -85,6 +85,25 @@ Current declarations (2026-10-19):
 | `cynic-compute-01` | `cynic/compute-01` | git, python3 (no cargo/rustc/node yet) |
 | `cynic-host-cortex` | `cynic/cortex-overflow` | git, cargo, rustc (RAM-gated) |
 
+## 4.1 Capacity probe — proof before promotion
+
+A node does not join a shared pool label because it *claims* the toolchain:
+it proves it, with a workflow that runs on that node.
+
+`.forgejo/workflows/probe-compute.yml` runs on the node's own label
+(`cynic/compute-01`), reports the host capacity (cores, RAM, disk), prints the
+toolchain versions, and compiles a real crate (`cargo test -p cynic-types`).
+Only a green probe justifies promoting the node in the registry and
+re-registering its runner with the shared labels.
+
+Proof trail for `cynic-compute-01` (2026-10-19): probe run #27 green —
+`cargo 1.95.0`, `cc (Debian 14.2.0-19)`, `node v22.23.3`, 12+8+0 tests passed,
+416 G free on `/`. The registry promotion and the runner re-registration
+(labels `cynic/build,cynic/linux,cynic/compute-01`) followed that green run.
+
+The probe is a per-node workflow, not a pool one: it targets the specific
+node label, so it can never be picked up by the shared pool.
+
 ## 5. Enforcement
 
 - A scheduler must consult the eligibility verdict before dispatching. The
