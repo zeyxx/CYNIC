@@ -26,7 +26,6 @@ which = "7.0"
 walkdir = "2.5"
 regex = "1"
 tracing.workspace = true
-tokio.workspace = true
 bytes.workspace = true
 blake3.workspace = true
 hex.workspace = true
