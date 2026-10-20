@@ -159,6 +159,45 @@ Full list: `cynic --help`, or `cynic commands`.
 
 ---
 
+## Releasing
+
+A release is a sovereign act: gates first, then a tag on Forgejo, then a
+verified public projection on GitHub. Nothing here runs on a laptop.
+
+```bash
+# 1. The gate. Four mandatory checks plus a builder proof for the exact
+#    commit. A version that does not advance past the published tag is
+#    refused — a release never overwrites a tag.
+cynic source release --json
+
+# 2. The proof, on the builder. The build SSOT is the builder, not the
+#    operator's machine.
+cynic build proof --commit <sha40> --phase test --json
+
+# 3. Build and deploy, atomically, to <state>/releases/<version>/
+make release.deploy
+
+# 4. The public projection plan. Read-only: it says what would be
+#    published and what is excluded.
+cynic source publish --json
+```
+
+`contracts/release-gates.json` names the four mandatory gates — `cargo
+check`, `tests`, `secret lint`, `architecture boundary` — and requires all
+of them to pass before a tag is created. `contracts/release-versioning.json`
+governs the version, the checksum format and the `distribution.yaml`
+manifest. `contracts/relay-policy.json` names the runner and the read_back:
+the GitHub ref is compared with the Forgejo ref after the push, and the
+comparison is the proof.
+
+The binary set is declared once, in `infra/release-binaries.json`, and read
+by the deploy executor, the Makefile and the release workflow.
+
+The release workflow itself lives in `.forgejo/workflows/release.yml` and
+runs on the sovereign runner (`cynic/build`).
+
+---
+
 ## Authority & Governance
 
 When declarations disagree, authority resolves strictly in this order:
