@@ -65,8 +65,9 @@ fn the_canonical_target_resolves_from_the_registry() {
         .pointer("/build_lifecycle/canonical_target_relative_path")
         .and_then(serde_json::Value::as_str)
         .expect("the build runner declares its canonical target");
+    let registry_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/registry.json");
     let resolved =
-        cynic_host::registry::canonical_target::canonical_target_relative_path(&registry_value())
+        cynic_host::domain::disk::build_runner::canonical_target_relative_path(&registry_path)
             .expect("the registry resolves the canonical target");
     assert_eq!(
         resolved, declared,

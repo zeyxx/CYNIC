@@ -3,7 +3,7 @@ mod port;
 mod reconcile;
 mod types;
 
-pub use policy::{load_build_cache_desired_state, reconcile_build_cache};
+pub use policy::{canonical_target_relative_path, load_build_cache_desired_state, reconcile_build_cache};
 pub use port::{BuildCacheMutationPort, BuildCacheObservationPort};
 pub use reconcile::reconcile_build_cache_resources;
 pub use types::{

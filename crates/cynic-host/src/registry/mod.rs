@@ -5,7 +5,6 @@
 //! - `validate`: Pure validation functions
 //! - `persist`: I/O operations with atomic write + read-back proof
 
-pub mod canonical_target;
 pub mod persist;
 pub mod scan;
 pub mod types;
@@ -330,8 +329,7 @@ pub mod resolve {
         registry_path: Option<&str>,
     ) -> Result<String, String> {
         let path = resolve_registry_path(registry_path)?;
-        let registry = load_registry(&path)?;
-        canonical_target::canonical_target_relative_path(&registry)
+        crate::domain::disk::build_runner::canonical_target_relative_path(&path)
     }
 
     /// Resolve a runner by node id, name, or alias (e.g. a compat builder
