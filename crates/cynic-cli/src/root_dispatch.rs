@@ -60,6 +60,9 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
             }
         },
         Command::Audit { command } => crate::audit_surface::execute_audit(&command),
+        Command::Collaborator { command } => {
+            crate::collaborator_surface::execute_collaborator(&command)
+        }
         Command::Chat {
             prompt,
             resume,
@@ -90,8 +93,10 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Doctor { json } => execute_operator_doctor(json),
         Command::Errors { json } => execute_operator_errors(json),
         Command::Court { command } => crate::constitutional_court_surface::execute_court(command),
+        Command::Idea { command } => crate::idea_surface::execute_idea(command),
         Command::Task { command } => crate::task_surface::execute_task(command),
         Command::Federation { command } => crate::federation_surface::execute_federation(command),
+        Command::Coordination { command } => crate::coordination_surface::execute_coordination(command),
         Command::Build { command } => execute_build(command)
             .map(|_| ExitCode::SUCCESS)
             .unwrap_or_else(|e| {
@@ -105,6 +110,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Judge { command } => crate::mask::execute_judge(command),
         Command::Mask { command } => crate::mask::execute_mask(command),
         Command::Know { command } => crate::knowledge_surface::execute_know_command(command).await,
+        Command::Wiki { command } => crate::wiki_surface::execute_wiki_command(command),
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Forensics { command } => crate::forensics_surface::execute_forensics(command),
         Command::Discovery { command } => crate::discovery_surface::execute_discovery(command),

@@ -289,10 +289,7 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
         // Native audit argv resolves to the canonical name, not the alias:
         // the action says what runs, `make:check` survives only as input.
         [program, run, _q, _p, _cli, _dd, audit, crate_]
-            if program == "cargo"
-                && run == "run"
-                && audit == "audit"
-                && crate_ == "crate" =>
+            if program == "cargo" && run == "run" && audit == "audit" && crate_ == "crate" =>
         {
             Some("audit:crate")
         }
@@ -301,14 +298,10 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
         {
             Some("audit:all")
         }
-        [program, tool, _ws, _targets]
-            if program == "cargo" && tool == "clippy" =>
-        {
+        [program, tool, _ws, _targets] if program == "cargo" && tool == "clippy" => {
             Some("cargo:clippy")
         }
-        [program, tool, _all, _check]
-            if program == "cargo" && tool == "fmt" =>
-        {
+        [program, tool, _all, _check] if program == "cargo" && tool == "fmt" => {
             Some("cargo:fmt-check")
         }
         [program, target] if program == "make" && target == "build" => Some("make:build"),
@@ -401,8 +394,8 @@ mod action_tests {
     /// without a matching reverse reader fails here, not in production.
     #[test]
     fn every_translatable_argv_roundtrips_through_its_action() {
-        let actions = cynic_protocol::command_registry::registry_composed_actions()
-            .expect("registry parses");
+        let actions =
+            cynic_protocol::command_registry::registry_composed_actions().expect("registry parses");
         assert!(
             !actions.is_empty(),
             "registry must compose at least one action"

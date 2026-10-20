@@ -1,7 +1,7 @@
 //! Discovery CLI surface — proactive capability declaration for LLM agents.
 //!
-//! Exposes the `cynic-discovery` + `cynic-discovery-host` domain types and
-//! bridge operations via `cynic discovery <sub>`.
+//! Exposes the `cynic-discovery` domain types and bridge operations via
+//! `cynic discovery <sub>`.
 //!
 //! Subcommands:
 //!   capabilities — GET /capabilities from local kernel (proactive declaration)
@@ -163,7 +163,7 @@ fn execute_events(endpoint: &str, _node: Option<&str>) -> ExitCode {
 fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
     match kind {
         "local" => {
-            let adapter = cynic_discovery_host::LocalBuildDiscoveryAdapter;
+            let adapter = cynic_discovery::LocalBuildDiscoveryAdapter;
             match adapter.observe() {
                 Ok(report) => {
                     if json {
@@ -188,7 +188,7 @@ fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
             };
             let runner = std::sync::Arc::new(cynic_lifecycle::LocalArgvRunner);
             let adapter =
-                match cynic_discovery_host::RemoteBuildDiscoveryAdapter::new(runner, ssh_target) {
+                match cynic_discovery::RemoteBuildDiscoveryAdapter::new(runner, ssh_target) {
                     Ok(a) => a,
                     Err(e) => {
                         eprintln!("invalid ssh target: {e}");

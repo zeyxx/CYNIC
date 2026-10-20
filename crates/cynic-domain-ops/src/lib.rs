@@ -16,14 +16,13 @@
 //!
 //! Authority: foundation.json §32 (provider_agnostic_domain), §37 (portable_host_contract).
 
+pub mod adapters;
 pub mod domain;
 pub mod port;
 pub mod runner;
 
 pub mod contracts;
 pub mod askesis;
-#[cfg(test)]
-pub mod adapters;
 
 pub use crate::domain::{
     classify_record, generate_idempotency_key, policy_for_record_type, reconcile_zone,
@@ -31,6 +30,12 @@ pub use crate::domain::{
 };
 pub use crate::port::{CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider};
 pub use crate::runner::run_domain_ops;
+
+pub use crate::adapters::cloudflare::CloudflareClient;
+pub use crate::adapters::cloudflare::error::CloudflareError;
+pub use crate::adapters::porkbun::PorkbunRegistrar;
+pub use crate::adapters::porkbun::error::PorkbunError;
+pub use crate::adapters::porkbun::secret::EnvSecretProvider;
 
 // Re-export secret management types from cynic-secrets (horizontal layer).
 pub use cynic_secrets::{SecretEntry, SecretProviderPort, SecretStatus, SecretStorePort};

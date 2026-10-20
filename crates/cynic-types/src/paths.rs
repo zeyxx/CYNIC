@@ -32,6 +32,25 @@ impl CynicPaths {
     /// Canonical install directory for runtime binaries.
     pub const DEFAULT_BINARY_DIR: &'static str = "/usr/local/bin";
 
+    /// Path prefixes that must be redacted from any text leaving the host.
+    ///
+    /// These are SENSITIVE DATA, not destinations: a caller redacts them
+    /// out of a log, a proof card or a public summary. Naming them here
+    /// keeps one list instead of one literal per call site, and keeps the
+    /// literal out of the call sites so the path gate reads a table rather
+    /// than several competing claims.
+    ///
+    /// The first two entries are operator homes, the next two are the
+    /// canonical CYNIC roots declared in `infra/directory-tree.json`, and
+    /// the last is the superuser home.
+    pub const REDACTION_PREFIXES: &'static [&'static str] = &[
+        "/home/user",
+        "/home/cynic",
+        Self::DEFAULT_STATE_ROOT,
+        "/root",
+        Self::DEFAULT_SYSTEM_ROOT,
+    ];
+
     /// Résout la racine de configuration système.
     /// Ordre d'autorité :
     /// 1. Variable d'environnement `CYNIC_CONFIG_DIR` (dérivation explicite en test/dev).

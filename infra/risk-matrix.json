@@ -1,0 +1,237 @@
+{
+  "schema": "cynic.risk_matrix.v1",
+  "status": "seed",
+  "purpose": "Dynamic risk matrix for CYNIC-governed external projects. Scores each project across five risk factors (language, secrets, network, build, trust tier) using a weighted sum. Recompute composite_risk_score whenever any factor level changes. JSON only; no code.",
+  "updated_at": "2026-10-18",
+  "risk_factors": [
+    {
+      "factor_id": "language",
+      "description": "Inherent risk of the project's primary language stack (memory safety, type safety, supply-chain surface).",
+      "weight": 0.15,
+      "levels": [
+        { "level": "memory_safe", "score": 1, "criteria": "Memory-safe language with strong tooling and minimal unsafe surface (e.g. Rust).", "examples": ["rust"] },
+        { "level": "memory_safe_simple", "score": 2, "criteria": "Memory-safe, simple language with small stdlib surface (e.g. Go).", "examples": ["go"] },
+        { "level": "managed_runtime", "score": 3, "criteria": "Managed/runtime language with moderate supply-chain surface (e.g. TypeScript/Node, C#).", "examples": ["typescript", "node", "csharp"] },
+        { "level": "dynamic_interpreted", "score": 4, "criteria": "Dynamic interpreted language with large runtime surface (e.g. Python, Ruby, Shell).", "examples": ["python", "ruby", "shell"] },
+        { "level": "unpinned_unknown", "score": 5, "criteria": "Unknown or unpinned language with no observed manifest or toolchain.", "examples": ["unknown"] }
+      ]
+    },
+    {
+      "factor_id": "secrets",
+      "description": "Exposure and sensitivity of secrets/credentials/key material the project handles or requires.",
+      "weight": 0.25,
+      "levels": [
+        { "level": "none", "score": 1, "criteria": "No secrets; public-only data and no credentials.", "examples": ["hexyl"] },
+        { "level": "scoped_tokens", "score": 2, "criteria": "Revocable scoped tokens or references only; no raw secret values in CYNIC.", "examples": ["aegisscan", "trenchscanner"] },
+        { "level": "static_api_keys", "score": 3, "criteria": "Static API keys or service credentials present in the project.", "examples": [] },
+        { "level": "stored_credentials", "score": 4, "criteria": "Stored user credentials or database secrets.", "examples": [] },
+        { "level": "key_material", "score": 5, "criteria": "Private key material, fee-payer signers, treasury keys, or on-chain signing authority.", "examples": ["gasdf", "kora"] }
+      ]
+    },
+    {
+      "factor_id": "network",
+      "description": "Network exposure and reachability of the project (offline to on-chain money movement).",
+      "weight": 0.25,
+      "levels": [
+        { "level": "offline", "score": 1, "criteria": "No network access; local CLI or library only.", "examples": ["hexyl", "aegis-core"] },
+        { "level": "localhost_only", "score": 2, "criteria": "Localhost-only HTTP/MCP/IPC; no remote reachability.", "examples": ["aegisscan", "ai-bus"] },
+        { "level": "private_network", "score": 3, "criteria": "Private network or VPC surfaces; REST endpoints behind auth.", "examples": ["trenchscanner", "cultscreener"] },
+        { "level": "public_internet", "score": 4, "criteria": "Public internet-facing service or API.", "examples": ["kora"] },
+        { "level": "onchain_money_movement", "score": 5, "criteria": "On-chain transaction submission, sponsored relay, or value transfer.", "examples": ["gasdf"] }
+      ]
+    },
+    {
+      "factor_id": "build",
+      "description": "Observed build/test reliability on the builder (10.10.10.119).",
+      "weight": 0.15,
+      "levels": [
+        { "level": "verified_green", "score": 1, "criteria": "Build and tests pass on builder with read-back proof.", "examples": ["hexyl"] },
+        { "level": "green_flaky", "score": 2, "criteria": "Build green; minor environment-dependent or timing-sensitive test failures.", "examples": ["aegisscan", "ai-bus"] },
+        { "level": "partial_platform", "score": 3, "criteria": "Partial build (platform-specific constraints) or env-dependent test failures.", "examples": ["aegis-core", "kora"] },
+        { "level": "inferred_unrun", "score": 4, "criteria": "Commands inferred from manifest; not yet run/verified on builder.", "examples": ["gasdf", "trenchscanner", "cultscreener"] },
+        { "level": "broken_quarantined", "score": 5, "criteria": "Build broken or project quarantined/deprecated.", "examples": ["holdex"] }
+      ]
+    },
+    {
+      "factor_id": "trust_tier",
+      "description": "Trust tier of the project and its collaborators (observed, promoted, or quarantined).",
+      "weight": 0.2,
+      "levels": [
+        { "level": "core", "score": 1, "criteria": "Operator-owned, core trust (constituent).", "examples": [] },
+        { "level": "trusted", "score": 2, "criteria": "Upstream or operator project with demonstrated reliability/adoption.", "examples": ["hexyl", "gasdf", "kora"] },
+        { "level": "observed", "score": 3, "criteria": "Default for new collaborators/projects; read-only until promoted with proof.", "examples": ["aegisscan", "aegis-core", "ai-bus", "trenchscanner", "cultscreener"] },
+        { "level": "untrusted", "score": 4, "criteria": "New or unverified actor with no proof record.", "examples": [] },
+        { "level": "quarantined", "score": 5, "criteria": "Deprecated or quarantined project.", "examples": ["holdex"] }
+      ]
+    }
+  ],
+  "scoring": {
+    "method": "weighted_sum",
+    "scale": { "min": 1, "max": 5 },
+    "formula": "composite_risk_score = sum(factor_weight * factor_score) over the five risk factors; weights sum to 1.0.",
+    "weights_sum": 1.0,
+    "dynamic": true,
+    "recompute_on": ["language", "secrets", "network", "build", "trust_tier"],
+    "risk_bands": [
+      { "band": "low", "min_score": 1.0, "max_score": 2.0, "action": "observe; standard review cadence." },
+      { "band": "medium", "min_score": 2.01, "max_score": 3.0, "action": "review before any port wiring or mutation." },
+      { "band": "high", "min_score": 3.01, "max_score": 4.0, "action": "require read-back proof and operator approval before use." },
+      { "band": "critical", "min_score": 4.01, "max_score": 5.0, "action": "quarantine or restrict to read-only observation." }
+    ]
+  },
+  "projects": [
+    {
+      "project_id": "aegisscan",
+      "project_type": "pentest_engine",
+      "trust_tier": "observed",
+      "factors": {
+        "language": { "level": "memory_safe_simple", "score": 2, "rationale": "Go codebase; memory-safe with simple runtime." },
+        "secrets": { "level": "scoped_tokens", "score": 2, "rationale": "Local-first engine; scoped admission policy, no raw secrets in CYNIC." },
+        "network": { "level": "localhost_only", "score": 2, "rationale": "Local API over localhost; IA is optional front layer." },
+        "build": { "level": "green_flaky", "score": 2, "rationale": "go build ./... PASS; one timing-sensitive test failure." },
+        "trust_tier": { "level": "observed", "score": 3, "rationale": "Collaborator robinho100 at observed trust." }
+      },
+      "composite_risk_score": 2.2,
+      "risk_band": "medium",
+      "mitigations": ["Stabilize flaky grandchild-kill test before declaring verified."],
+      "notes": "Modular local-first pentest engine."
+    },
+    {
+      "project_id": "aegis-core",
+      "project_type": "sanitized_security_core",
+      "trust_tier": "observed",
+      "factors": {
+        "language": { "level": "managed_runtime", "score": 3, "rationale": "Go + C# mixed stack." },
+        "secrets": { "level": "none", "score": 1, "rationale": "Sanitized source; refusal by construction (STOP 64, B1/B7); no private config." },
+        "network": { "level": "offline", "score": 1, "rationale": "No network/deployment; read-only observation only." },
+        "build": { "level": "partial_platform", "score": 3, "rationale": "internal/... builds on Linux; desktop-backend Windows-only; env-dependent test failures." },
+        "trust_tier": { "level": "observed", "score": 3, "rationale": "Collaborator robinho100 at observed trust." }
+      },
+      "composite_risk_score": 2.0,
+      "risk_band": "low",
+      "mitigations": ["Preserve refusal-by-construction; never deploy or arm."],
+      "notes": "Sanitized collaboration source."
+    },
+    {
+      "project_id": "ai-bus",
+      "project_type": "ai_orchestration_bus",
+      "trust_tier": "observed",
+      "factors": {
+        "language": { "level": "managed_runtime", "score": 3, "rationale": "TypeScript/Node MCP bus." },
+        "secrets": { "level": "scoped_tokens", "score": 2, "rationale": "Subscription auth of CLIs; no API keys; read-only workspace access." },
+        "network": { "level": "localhost_only", "score": 2, "rationale": "localhost MCP only; linear turn chain." },
+        "build": { "level": "green_flaky", "score": 2, "rationale": "npm ci + build PASS; 2 env-dependent git test failures." },
+        "trust_tier": { "level": "observed", "score": 3, "rationale": "Collaborator robinho100 at observed trust." }
+      },
+      "composite_risk_score": 2.35,
+      "risk_band": "medium",
+      "mitigations": ["Resolve git remote config in test environment before verified."],
+      "notes": "Local Windows app; Claude Code CLI <-> Codex CLI."
+    },
+    {
+      "project_id": "hexyl",
+      "project_type": "cli_hex_viewer",
+      "trust_tier": "trusted",
+      "factors": {
+        "language": { "level": "memory_safe", "score": 1, "rationale": "Pure Rust CLI; no runtime dependencies beyond libc." },
+        "secrets": { "level": "none", "score": 1, "rationale": "No secrets or credentials." },
+        "network": { "level": "offline", "score": 1, "rationale": "Local CLI; no network." },
+        "build": { "level": "verified_green", "score": 1, "rationale": "cargo build and cargo test PASS (56 tests)." },
+        "trust_tier": { "level": "trusted", "score": 2, "rationale": "Upstream sharkdp; widely used OSS." }
+      },
+      "composite_risk_score": 1.2,
+      "risk_band": "low",
+      "mitigations": [],
+      "notes": "Reference low-risk external project."
+    },
+    {
+      "project_id": "gasdf",
+      "project_type": "gasless_relay",
+      "trust_tier": "trusted",
+      "factors": {
+        "language": { "level": "managed_runtime", "score": 3, "rationale": "Node/TypeScript relay gateway." },
+        "secrets": { "level": "key_material", "score": 5, "rationale": "Fee-payer signer and treasury keys; relay-gateway handles signing." },
+        "network": { "level": "onchain_money_movement", "score": 5, "rationale": "Live relay with on-chain submit and sponsored transactions." },
+        "build": { "level": "inferred_unrun", "score": 4, "rationale": "Build/test not run on builder; commands inferred from package.json." },
+        "trust_tier": { "level": "trusted", "score": 2, "rationale": "Operator-owned (zeyxx); relay-107 verified." }
+      },
+      "composite_risk_score": 3.95,
+      "risk_band": "high",
+      "mitigations": ["Run observed build/test on builder; protect fee-payer keys in secret store; read-only audit until verified."],
+      "notes": "Operator-owned gasless relay (Kora-backed, x402)."
+    },
+    {
+      "project_id": "trenchscanner",
+      "project_type": "token_scanner",
+      "trust_tier": "observed",
+      "factors": {
+        "language": { "level": "managed_runtime", "score": 3, "rationale": "TypeScript/Node dashboard and API." },
+        "secrets": { "level": "scoped_tokens", "score": 2, "rationale": "Consumes TrenchScanner API; no key material in CYNIC." },
+        "network": { "level": "private_network", "score": 3, "rationale": "REST surfaces for curated alerts and outcomes." },
+        "build": { "level": "inferred_unrun", "score": 4, "rationale": "Observed only; build/test not run on builder." },
+        "trust_tier": { "level": "observed", "score": 3, "rationale": "Upstream sollama58; PR-based contribution." }
+      },
+      "composite_risk_score": 2.9,
+      "risk_band": "medium",
+      "mitigations": ["Observe build/test on builder before port wiring."],
+      "notes": "Paper-week A/B signals and grading reference."
+    },
+    {
+      "project_id": "cultscreener",
+      "project_type": "cult_dashboard",
+      "trust_tier": "observed",
+      "factors": {
+        "language": { "level": "managed_runtime", "score": 3, "rationale": "TypeScript/Node dashboard." },
+        "secrets": { "level": "scoped_tokens", "score": 2, "rationale": "Consumes TrenchScanner API; no key material." },
+        "network": { "level": "private_network", "score": 3, "rationale": "REST surfaces for /trenches tab." },
+        "build": { "level": "inferred_unrun", "score": 4, "rationale": "Observed only; build/test not run on builder." },
+        "trust_tier": { "level": "observed", "score": 3, "rationale": "Upstream sollama58; PR-based contribution." }
+      },
+      "composite_risk_score": 2.9,
+      "risk_band": "medium",
+      "mitigations": ["Observe build/test on builder before port wiring."],
+      "notes": "Distribution surface reference."
+    },
+    {
+      "project_id": "holdex",
+      "project_type": "deprecated_distribution_surface",
+      "trust_tier": "quarantined",
+      "factors": {
+        "language": { "level": "managed_runtime", "score": 3, "rationale": "TypeScript/Node (deprecated)." },
+        "secrets": { "level": "scoped_tokens", "score": 2, "rationale": "No key material in CYNIC scope." },
+        "network": { "level": "private_network", "score": 3, "rationale": "REST surfaces (deprecated)." },
+        "build": { "level": "broken_quarantined", "score": 5, "rationale": "Deprecated and quarantined in CYNIC scope." },
+        "trust_tier": { "level": "quarantined", "score": 5, "rationale": "HolDex deprecated by operator 2026-10-15." }
+      },
+      "composite_risk_score": 3.45,
+      "risk_band": "high",
+      "mitigations": ["Keep quarantined; no port wiring or mutation."],
+      "notes": "Deprecated in CYNIC scope."
+    },
+    {
+      "project_id": "kora",
+      "project_type": "sponsored_transaction_signer",
+      "trust_tier": "trusted",
+      "factors": {
+        "language": { "level": "memory_safe", "score": 1, "rationale": "Rust binary (solana-foundation/kora v2.0.5)." },
+        "secrets": { "level": "key_material", "score": 5, "rationale": "Fee-payer signer keys and policy; signing authority." },
+        "network": { "level": "public_internet", "score": 4, "rationale": "JSON-RPC service on builder; on-chain interaction." },
+        "build": { "level": "partial_platform", "score": 3, "rationale": "Binary present and operated; CYNIC build observation pending." },
+        "trust_tier": { "level": "trusted", "score": 2, "rationale": "Upstream solana-foundation; operator adopting." }
+      },
+      "composite_risk_score": 3.25,
+      "risk_band": "high",
+      "mitigations": ["Operate-only; no fork/PR; protect signer keys; read-back proof before changes."],
+      "notes": "Gasless sponsored relay signer (operate-only)."
+    }
+  ],
+  "rules": [
+    "Composite score is a weighted sum of the five risk factors; weights sum to 1.0.",
+    "Recompute composite_risk_score and risk_band whenever any factor level changes (dynamic).",
+    "Higher score means higher risk. 1 = lowest, 5 = highest.",
+    "Risk band thresholds: low <=2.0, medium 2.01-3.0, high 3.01-4.0, critical >=4.01.",
+    "No mutation or port wiring for projects in high/critical band without read-back proof and operator approval.",
+    "Quarantined projects (holdex) remain read-only observation only.",
+    "Secrets never enter CYNIC repo or prompts; CYNIC holds references only."
+  ]
+}

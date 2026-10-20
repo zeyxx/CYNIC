@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.risk_matrix.v1",
+  "version": "1.0.0",
+  "status": "draft",
+  "purpose": "Schema for infra/risk-matrix.json: dynamic risk scoring of CYNIC-governed external projects across the risk factors language, secrets, network, build, and trust tier.",
+  "required": [
+    "schema",
+    "status",
+    "purpose",
+    "risk_factors",
+    "scoring",
+    "projects"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "cynic.risk_matrix.v1",
+      "description": "Schema identifier for the risk matrix document."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["seed", "draft", "normative"],
+      "description": "Lifecycle status of the risk matrix."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Human-readable purpose of the document."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO date of last update."
+    },
+    "risk_factors": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["factor_id", "description", "weight", "levels"],
+        "properties": {
+          "factor_id": {
+            "type": "string",
+            "enum": ["language", "secrets", "network", "build", "trust_tier"],
+            "description": "Stable risk factor identifier."
+          },
+          "description": {
+            "type": "string",
+            "description": "What this risk factor measures."
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Weight of this factor in the composite score. All weights sum to 1.0."
+          },
+          "levels": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+              "type": "object",
+              "required": ["level", "score", "criteria"],
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "description": "Level label."
+                },
+                "score": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5,
+                  "description": "Risk score for this level (1 = lowest, 5 = highest)."
+                },
+                "criteria": {
+                  "type": "string",
+                  "description": "Observable criteria for assigning this level."
+                },
+                "examples": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Example projects or stacks at this level."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "required": ["method", "scale", "weights_sum", "risk_bands"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["weighted_sum", "weighted_average"],
+          "description": "Scoring method. composite = sum(weight_i * score_i)."
+        },
+        "scale": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer" },
+            "max": { "type": "integer" }
+          },
+          "description": "Score scale bounds."
+        },
+        "formula": {
+          "type": "string",
+          "description": "Human-readable formula."
+        },
+        "weights_sum": {
+          "type": "number",
+          "description": "Sum of all factor weights (must be 1.0)."
+        },
+        "dynamic": {
+          "type": "boolean",
+          "description": "Whether composite scores are recomputed when factor levels change."
+        },
+        "recompute_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Factor ids that trigger recomputation."
+        },
+        "risk_bands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["band", "min_score", "max_score"],
+            "properties": {
+              "band": {
+                "type": "string",
+                "enum": ["low", "medium", "high", "critical"],
+                "description": "Risk band label."
+              },
+              "min_score": {
+                "type": "number",
+                "description": "Inclusive lower bound."
+              },
+              "max_score": {
+                "type": "number",
+                "description": "Inclusive upper bound."
+              },
+              "action": {
+                "type": "string",
+                "description": "Required action for this band."
+              }
+            }
+          }
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "type": "object",
+        "required": ["project_id", "project_type", "composite_risk_score", "risk_band", "factors"],
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "description": "Stable project slug."
+          },
+          "project_type": {
+            "type": "string",
+            "description": "Short description of project type."
+          },
+          "trust_tier": {
+            "type": "string",
+            "enum": ["core", "trusted", "observed", "untrusted", "quarantined"],
+            "description": "Project trust tier."
+          },
+          "factors": {
+            "type": "object",
+            "required": ["language", "secrets", "network", "build", "trust_tier"],
+            "additionalProperties": {
+              "type": "object",
+              "required": ["level", "score"],
+              "properties": {
+                "level": { "type": "string" },
+                "score": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "rationale": { "type": "string" }
+              }
+            },
+            "description": "Per-factor level and score for this project."
+          },
+          "composite_risk_score": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Weighted composite risk score."
+          },
+          "risk_band": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Derived risk band."
+          },
+          "mitigations": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Mitigations or follow-ups."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Free-form notes."
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Governing rules for this matrix."
+    }
+  },
+  "rules": [
+    "Composite score is recomputed dynamically from factor levels and weights.",
+    "Weights across the five risk factors must sum to 1.0.",
+    "A project's factor scores must be integers 1-5.",
+    "High/critical projects require read-back proof and operator approval before port wiring or mutation.",
+    "Quarantined projects remain read-only observation only."
+  ]
+}

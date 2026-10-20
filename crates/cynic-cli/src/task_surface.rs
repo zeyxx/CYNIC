@@ -1,342 +1,235 @@
-//! Domain Task Queue CLI Surface (`cynic task`).
+//! Task ledger projection surface: `cynic task list/add/status`.
 //!
-//! Exposes push, claim, list, complete, and fail operations for domain-partitioned agent workloads.
+//! Projects `infra/task-ledger.json` (kairotic + operational opportunities).
+//! Pure logic lives in [`crate::task_ledger`]; this module owns I/O and clap.
 
-#![allow(dead_code)]
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_inference::{DomainTaskQueue, DomainTaskQueueError};
-use cynic_protocol::{
-    DOMAIN_TASK_LIST_SCHEMA, DomainTask, DomainTaskStatus, TaskDomain, TaskPriority,
+
+use crate::emit_json;
+use crate::rust_source;
+use crate::task_ledger::{
+    TASK_LEDGER_SCHEMA, TaskEntry, TaskLedger, add_task, filter_tasks, generate_task_id,
+    update_status,
 };
 
 #[derive(Subcommand)]
 pub(crate) enum TaskCommand {
-    /// Push a new structured task to a domain queue.
-    Push {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        domain: String,
-        #[arg(long)]
-        title: String,
-        #[arg(long, default_value = "agent")]
-        priority: String,
-        #[arg(long, default_value = "{}")]
-        payload: String,
-        #[arg(long, default_value = "cli_operator")]
-        agent: String,
-        #[arg(long)]
-        queue_path: Option<PathBuf>,
-    },
-    /// List tasks in the domain queue with optional filters.
+    /// List tasks in the ledger (with optional filters).
     List {
         #[arg(long)]
         json: bool,
         #[arg(long)]
-        domain: Option<String>,
+        kind: Option<String>,
         #[arg(long)]
         status: Option<String>,
         #[arg(long)]
-        queue_path: Option<PathBuf>,
+        priority: Option<String>,
+        /// Path to task ledger (default: infra/task-ledger.json).
+        #[arg(long)]
+        ledger: Option<PathBuf>,
     },
-    /// Claim the highest-priority pending task in a domain.
-    Claim {
+    /// Add a new task to the ledger.
+    Add {
         #[arg(long)]
         json: bool,
         #[arg(long)]
-        domain: String,
+        title: String,
+        #[arg(long, default_value = "medium")]
+        priority: String,
+        #[arg(long, default_value = "operational")]
+        kind: String,
+        #[arg(long, default_value = "open")]
+        status: String,
         #[arg(long)]
-        agent: String,
+        link: Option<String>,
         #[arg(long)]
-        queue_path: Option<PathBuf>,
+        task_id: Option<String>,
+        /// Path to task ledger (default: infra/task-ledger.json).
+        #[arg(long)]
+        ledger: Option<PathBuf>,
     },
-    /// Complete a task with result evidence payload.
-    Complete {
+    /// Update a task's status.
+    Status {
         #[arg(long)]
         json: bool,
+        /// Task id to update.
         #[arg(long)]
         task_id: String,
+        /// New status.
         #[arg(long)]
-        agent: String,
-        #[arg(long, default_value = "{}")]
-        evidence: String,
+        status: String,
+        /// Path to task ledger (default: infra/task-ledger.json).
         #[arg(long)]
-        queue_path: Option<PathBuf>,
-    },
-    /// Mark a task as failed with an explanation.
-    Fail {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        task_id: String,
-        #[arg(long)]
-        reason: String,
-        #[arg(long)]
-        queue_path: Option<PathBuf>,
+        ledger: Option<PathBuf>,
     },
 }
 
 pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
     match command {
-        TaskCommand::Push {
-            json,
-            domain,
-            title,
-            priority,
-            payload,
-            agent,
-            queue_path,
-        } => {
-            if !json {
-                eprintln!("cynic task push requires --json");
-                return ExitCode::FAILURE;
-            }
-
-            let task_domain = match parse_domain(&domain) {
-                Some(d) => d,
-                None => {
-                    eprintln!(
-                        "Invalid domain '{domain}' — options: inference, infra, code_audit, cortex, governance, nightshift"
-                    );
-                    return ExitCode::FAILURE;
-                }
-            };
-
-            let task_priority = parse_priority(&priority);
-            let payload_val: serde_json::Value =
-                serde_json::from_str(&payload).unwrap_or(serde_json::json!({}));
-
-            let queue = match open_queue(queue_path) {
-                Ok(q) => q,
-                Err(e) => return emit_error(&e),
-            };
-
-            let result = rt.block_on(async {
-                queue
-                    .push_task(task_domain, task_priority, title, payload_val, agent)
-                    .await
-            });
-
-            match result {
-                Ok(task) => emit_success(&task),
-                Err(e) => emit_error(&e),
-            }
-        }
         TaskCommand::List {
             json,
-            domain,
+            kind,
             status,
-            queue_path,
+            priority,
+            ledger,
         } => {
-            if !json {
-                eprintln!("cynic task list requires --json");
-                return ExitCode::FAILURE;
-            }
-
-            let domain_filter = domain.as_deref().and_then(parse_domain);
-            let status_filter = status.as_deref().and_then(parse_status);
-
-            let queue = match open_queue(queue_path) {
-                Ok(q) => q,
-                Err(e) => return emit_error(&e),
+            let path = resolve_ledger_path(ledger.as_deref());
+            let ledger_doc = match read_ledger(&path) {
+                Ok(l) => l,
+                Err(e) => return fail_msg(&e),
             };
-
-            let tasks = rt.block_on(async { queue.list_tasks(domain_filter, status_filter).await });
-
-            let output = serde_json::json!({
-                "schema": DOMAIN_TASK_LIST_SCHEMA,
-                "total_tasks": tasks.len(),
-                "tasks": tasks,
-            });
-
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&output).unwrap_or_default()
+            let filtered = filter_tasks(
+                &ledger_doc,
+                kind.as_deref(),
+                status.as_deref(),
+                priority.as_deref(),
             );
+            let entries: Vec<TaskEntry> = filtered.into_iter().cloned().collect();
+            if json {
+                let output = serde_json::json!({
+                    "schema": TASK_LEDGER_SCHEMA,
+                    "total_tasks": entries.len(),
+                    "tasks": entries,
+                    "ledger": path.display().to_string(),
+                });
+                return emit_json(&output, false);
+            }
+            if entries.is_empty() {
+                println!("no tasks");
+                return ExitCode::SUCCESS;
+            }
+            for t in &entries {
+                let link = t.link.clone().unwrap_or_default();
+                println!(
+                    "{} [{}] {} ({}) kind={} status={} link={}",
+                    t.task_id, t.priority, t.title, t.kind, t.kind, t.status, link
+                );
+            }
             ExitCode::SUCCESS
         }
-        TaskCommand::Claim {
+        TaskCommand::Add {
             json,
-            domain,
-            agent,
-            queue_path,
+            title,
+            priority,
+            kind,
+            status,
+            link,
+            task_id,
+            ledger,
         } => {
-            if !json {
-                eprintln!("cynic task claim requires --json");
-                return ExitCode::FAILURE;
-            }
-
-            let task_domain = match parse_domain(&domain) {
-                Some(d) => d,
-                None => {
-                    eprintln!("Invalid domain '{domain}'");
-                    return ExitCode::FAILURE;
-                }
+            let path = resolve_ledger_path(ledger.as_deref());
+            let mut ledger_doc = read_ledger(&path).unwrap_or_else(|_| TaskLedger::new_empty());
+            let now = now_rfc3339();
+            let id = task_id.unwrap_or_else(|| generate_task_id(&ledger_doc.tasks, now_unix_s()));
+            let entry = TaskEntry {
+                task_id: id.clone(),
+                title: title.clone(),
+                priority: priority.clone(),
+                status: status.clone(),
+                kind: kind.clone(),
+                link: link.clone(),
+                created_at: now.clone(),
+                updated_at: now.clone(),
             };
-
-            let queue = match open_queue(queue_path) {
-                Ok(q) => q,
-                Err(e) => return emit_error(&e),
-            };
-
-            let result = rt.block_on(async { queue.claim_task(task_domain, agent).await });
-
-            match result {
-                Ok(Some(task)) => emit_success(&task),
-                Ok(None) => {
-                    let output = serde_json::json!({
-                        "status": "empty",
-                        "domain": domain,
-                        "message": "No pending tasks found for domain"
-                    });
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&output).unwrap_or_default()
-                    );
-                    ExitCode::SUCCESS
-                }
-                Err(e) => emit_error(&e),
+            if let Err(e) = add_task(&mut ledger_doc, entry.clone()) {
+                return fail_msg(&e.to_string());
             }
+            if let Err(e) = write_ledger(&path, &ledger_doc) {
+                return fail_msg(&e);
+            }
+            if json {
+                return emit_json(&entry, false);
+            }
+            println!("added task {}", id);
+            ExitCode::SUCCESS
         }
-        TaskCommand::Complete {
+        TaskCommand::Status {
             json,
             task_id,
-            agent,
-            evidence,
-            queue_path,
+            status,
+            ledger,
         } => {
-            if !json {
-                eprintln!("cynic task complete requires --json");
-                return ExitCode::FAILURE;
-            }
-
-            let evidence_val: serde_json::Value =
-                serde_json::from_str(&evidence).unwrap_or(serde_json::json!({}));
-
-            let queue = match open_queue(queue_path) {
-                Ok(q) => q,
-                Err(e) => return emit_error(&e),
+            let path = resolve_ledger_path(ledger.as_deref());
+            let mut ledger_doc = match read_ledger(&path) {
+                Ok(l) => l,
+                Err(e) => return fail_msg(&e),
             };
-
-            let result =
-                rt.block_on(async { queue.complete_task(&task_id, &agent, evidence_val).await });
-
-            match result {
-                Ok(task) => emit_success(&task),
-                Err(e) => emit_error(&e),
-            }
-        }
-        TaskCommand::Fail {
-            json,
-            task_id,
-            reason,
-            queue_path,
-        } => {
-            if !json {
-                eprintln!("cynic task fail requires --json");
-                return ExitCode::FAILURE;
-            }
-
-            let queue = match open_queue(queue_path) {
-                Ok(q) => q,
-                Err(e) => return emit_error(&e),
+            let now = now_rfc3339();
+            let updated = match update_status(&mut ledger_doc, &task_id, &status, &now) {
+                Ok(t) => t,
+                Err(e) => return fail_msg(&e.to_string()),
             };
-
-            let result = rt.block_on(async { queue.fail_task(&task_id, reason).await });
-
-            match result {
-                Ok(task) => emit_success(&task),
-                Err(e) => emit_error(&e),
+            if let Err(e) = write_ledger(&path, &ledger_doc) {
+                return fail_msg(&e);
             }
+            if json {
+                return emit_json(&updated, false);
+            }
+            println!("updated {} -> {}", task_id, status);
+            ExitCode::SUCCESS
         }
     }
 }
 
-fn open_queue(path: Option<PathBuf>) -> Result<DomainTaskQueue, DomainTaskQueueError> {
-    // Admission gate binding (plan §10 step 3, composition root): when no
-    // explicit queue_path is given (runtime authority mode), the queue gets
-    // a LocalTaskAdmission bound to the node's metabolic policy + window
-    // journal. Explicit paths stay ungated — they are dev/test projections,
-    // not runtime authority.
-    //
-    // Envelope provenance: CYNIC_TASK_ENVELOPE_TOKENS env (node-declared
-    // desired state). Unset = unbounded tokens for now — an explicit,
-    // documented under-constraint until the node registry carries the
-    // envelope; never a fabricated limit.
-    let base = match path {
-        Some(p) => return DomainTaskQueue::open(p),
-        None => DomainTaskQueue::open_default()?,
-    };
-    let token_envelope = std::env::var("CYNIC_TASK_ENVELOPE_TOKENS")
-        .ok()
-        .and_then(|v| v.trim().parse::<u64>().ok());
-    let admission = cynic_host::adapters::local_task_admission::local_task_admission_with_defaults(
-        cynic_protocol::task_pipeline::EnergyBudget {
-            wall_time_ms: u64::MAX,
-            inference_tokens: token_envelope,
-            cpu_ms: None,
-            ram_bytes_s: None,
-        },
-    )
-    .with_journal(cynic_host::adapters::fs_window_journal::FsWindowJournal::open_default());
-    Ok(base.with_admission(std::sync::Arc::new(admission)))
+fn resolve_ledger_path(explicit: Option<&Path>) -> PathBuf {
+    if let Some(p) = explicit {
+        return p.to_path_buf();
+    }
+    if let Ok(env) = std::env::var("CYNIC_TASK_LEDGER") {
+        if !env.trim().is_empty() {
+            return PathBuf::from(env);
+        }
+    }
+    rust_source::workspace_root().join("infra/task-ledger.json")
 }
 
-fn emit_success(task: &DomainTask) -> ExitCode {
-    println!("{}", serde_json::to_string_pretty(task).unwrap_or_default());
-    ExitCode::SUCCESS
+fn read_ledger(path: &Path) -> Result<TaskLedger, String> {
+    if !path.exists() {
+        return Ok(TaskLedger::new_empty());
+    }
+    let raw = fs::read_to_string(path)
+        .map_err(|e| format!("cannot read ledger {}: {e}", path.display()))?;
+    if raw.trim().is_empty() {
+        return Ok(TaskLedger::new_empty());
+    }
+    let mut doc: TaskLedger = serde_json::from_str(&raw)
+        .map_err(|e| format!("invalid ledger {}: {e}", path.display()))?;
+    if doc.schema.is_empty() {
+        doc.schema = TASK_LEDGER_SCHEMA.to_string();
+    }
+    if doc.status.is_empty() {
+        doc.status = "seed".to_string();
+    }
+    Ok(doc)
 }
 
-fn emit_error(err: &DomainTaskQueueError) -> ExitCode {
-    let output = serde_json::json!({
-        "status": "error",
-        "error": err.to_string()
-    });
-    eprintln!(
-        "{}",
-        serde_json::to_string_pretty(&output).unwrap_or_default()
-    );
+fn write_ledger(path: &Path, doc: &TaskLedger) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("cannot create dir {}: {e}", parent.display()))?;
+        }
+    }
+    let payload = serde_json::to_string_pretty(doc).map_err(|e| format!("serialize error: {e}"))?;
+    fs::write(path, payload).map_err(|e| format!("cannot write ledger {}: {e}", path.display()))
+}
+
+fn fail_msg(msg: &str) -> ExitCode {
+    eprintln!("{msg}");
     ExitCode::FAILURE
 }
 
-fn parse_domain(s: &str) -> Option<TaskDomain> {
-    match s.to_lowercase().as_str() {
-        "inference" | "llm" => Some(TaskDomain::Inference),
-        "infra" | "host" => Some(TaskDomain::Infra),
-        "code_audit" | "code" | "audit" => Some(TaskDomain::CodeAudit),
-        "cortex" | "epistemic" => Some(TaskDomain::Cortex),
-        "governance" | "solana" => Some(TaskDomain::Governance),
-        "nightshift" | "background" => Some(TaskDomain::Nightshift),
-        _ => None,
-    }
+fn now_unix_s() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
-fn parse_priority(s: &str) -> TaskPriority {
-    match s.to_lowercase().as_str() {
-        "critical" | "emergency" => TaskPriority::Critical,
-        "user" => TaskPriority::User,
-        "nightshift" => TaskPriority::Nightshift,
-        "background" => TaskPriority::Background,
-        _ => TaskPriority::Agent,
-    }
-}
-
-fn parse_status(s: &str) -> Option<DomainTaskStatus> {
-    match s.to_lowercase().as_str() {
-        "pending" => Some(DomainTaskStatus::Pending),
-        "claimed" => Some(DomainTaskStatus::Claimed),
-        "running" => Some(DomainTaskStatus::Running),
-        "completed" => Some(DomainTaskStatus::Completed),
-        "failed" => Some(DomainTaskStatus::Failed),
-        "cancelled" => Some(DomainTaskStatus::Cancelled),
-        _ => None,
-    }
+fn now_rfc3339() -> String {
+    chrono::Utc::now().to_rfc3339()
 }

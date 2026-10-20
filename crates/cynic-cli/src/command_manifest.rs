@@ -128,6 +128,14 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "collaborator",
+                commands: vec![
+                    "cynic collaborator status [--json] [--registry <path>]",
+                    "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
+                    "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
+                ],
+            },
+            CommandDomain {
                 name: "secret",
                 commands: vec![
                     "cynic secret status [--json]",
@@ -287,11 +295,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "task",
                 commands: vec![
-                    "cynic task push --domain <d> --title <t> --queue-path <path> [--priority <p>] [--payload <json>] [--agent <id>] [--json]",
-                    "cynic task list --domain <d> --status <s> --queue-path <path> [--json]",
-                    "cynic task claim --domain <d> --agent <id> --queue-path <path> [--json]",
-                    "cynic task complete --task-id <id> --agent <id> --queue-path <path> [--evidence <ref>] [--json]",
-                    "cynic task fail --task-id <id> --reason <text> --queue-path <path> [--json]",
+                    "cynic task list [--kind <k>] [--status <s>] [--priority <p>] [--json] [--ledger <path>]",
+                    "cynic task add --title <t> [--priority <p>] [--kind <kairotic|operational>] [--status <s>] [--link <ref>] [--task-id <id>] [--json] [--ledger <path>]",
+                    "cynic task status --task-id <id> --status <s> [--json] [--ledger <path>]",
                 ],
             },
             CommandDomain {
@@ -355,6 +361,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
                     "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
+                    "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
+                    "cynic coordination metrics [--json] [--claims <path>] [--log <path>] [--root <path>]",
                 ],
             },
         ],

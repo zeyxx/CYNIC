@@ -6,7 +6,9 @@
 //! structural invariants that any signed binding MUST satisfy before the host
 //! attempts to consume the one-shot capability.
 
-use cynic_node_protocol::machine_enrollment::{MACHINE_ENROLLMENT_AUTHORITY_CLASS, MachineEnrollment};
+use cynic_node_protocol::machine_enrollment::{
+    MACHINE_ENROLLMENT_AUTHORITY_CLASS, MachineEnrollment,
+};
 use cynic_protocol::one_shot_capability::{OneShotCapability, valid_sha256};
 
 /// A single canonical contract unifying a capability + enrollment + binding.

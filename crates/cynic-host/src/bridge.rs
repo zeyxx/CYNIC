@@ -6,10 +6,9 @@ use crate::install_contract::{
 };
 use crate::process_observation::capture_argv;
 use crate::runtime_layout::current_runtime_layout;
-use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 use std::borrow::Cow;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub mod admitted;
 pub mod bundle;
