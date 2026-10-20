@@ -130,6 +130,15 @@ pub(super) fn default_sccache_binary() -> String {
     "sccache".to_string()
 }
 
+/// Bound the sccache cache at 8 GiB.
+///
+/// The cache is the reason a warm build is 96 s instead of 194 s cold, so it
+/// stays. What must not happen is the unbounded case: 10.4 GiB of cache was
+/// observed on a builder that had already reached 92 % disk.
+pub(super) fn default_sccache_max_size_bytes() -> u64 {
+    8 * 1024 * 1024 * 1024
+}
+
 pub(super) fn default_watchdog_interval_secs() -> u64 {
     30
 }

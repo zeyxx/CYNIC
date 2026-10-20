@@ -28,6 +28,8 @@ pub mod builder_rbac;
 pub mod capability_budget;
 pub mod capability_lease;
 pub mod capability_responsibility;
+pub mod build_disk_capacity;
+pub mod remote_cache_roots;
 pub mod capacity;
 pub mod cleanup;
 pub mod build_latency;

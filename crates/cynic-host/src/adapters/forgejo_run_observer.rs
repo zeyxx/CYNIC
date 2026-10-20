@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn rfc3339_utc_is_parsed() {
-        assert_eq!(parse_rfc3339("2026-10-20T10:07:45Z"), Some(1_791_916_065));
+        assert_eq!(parse_rfc3339("2026-10-20T10:07:45Z"), Some(1_792_490_865));
     }
 
     #[test]
