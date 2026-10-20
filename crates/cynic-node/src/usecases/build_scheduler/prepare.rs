@@ -252,11 +252,12 @@ fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::Pat
 }
 
 /// Prepare the stable workspace path for a build: ensure the parent
-/// directory exists. Unlike the previous `clean_stable_workspace`, this
-/// does NOT remove an existing checkout — the checkout is persisted
-/// across builds so unchanged sources keep their old mtimes and cargo
-/// fingerprints hit the warm shared target (H1b). The actual update
-/// (fetch + reset --hard) happens in `LocalBuildWorkspace::prepare`.
+/// directory exists.
+///
+/// The existing checkout is NOT removed — it is persisted across builds so
+/// unchanged sources keep their old mtimes and the cargo fingerprints hit the
+/// warm shared target (H1b). The actual update (fetch + reset --hard)
+/// happens in `LocalBuildWorkspace::prepare`.
 fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
     let parent = workspace
         .parent()
@@ -271,11 +272,17 @@ fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
 /// Apply the stable-workspace override when the scheduler configures one:
 /// the build workspace becomes `<stable_root>/<profile>` (profile derived
 /// from argv exactly like `shared_target_root`) instead of the
-/// registry-resolved per-workload path, and the previous tree at that path
-/// is cleaned first. Without the setting the registry layout passes
-/// through unchanged. After the override the evidence digest is recomputed
-/// so it describes the actual workspace path that will be used, not the
-/// registry-declared path (C1).
+/// registry-resolved per-workload path. Without the setting the registry
+/// layout passes through unchanged. After the override the evidence digest
+/// is recomputed so it describes the actual workspace path that will be
+/// used, not the registry-declared path (C1).
+///
+/// The tree at that path is NOT cleaned here. It is persisted across builds
+/// so unchanged sources keep their old mtimes and the cargo fingerprints
+/// hit the warm shared target (H1b); the update is a `fetch + reset --hard`
+/// in `LocalBuildWorkspace::prepare`. The path is bounded by the profile
+/// count, not by the build count, so it does not grow with the number of
+/// builds.
 fn apply_stable_workspace(
     mut layout: AgentWorkspaceLayout,
     scheduler: &BuildSchedulerConfig,
