@@ -1,7 +1,33 @@
 # WS Handshake PQC — Frozen Scope Design
 
-Status: design-frozen. No implementation until the server side is
-reimplemented and the interop matrix below is the acceptance gate.
+Status: design frozen; the CLIENT half is implemented and proven on the
+builder. The SERVER half is not: the current tree has no WebSocket
+endpoint, so the interop matrix below remains the acceptance gate for
+the whole feature.
+
+## 0. Implementation state (2026-10-19)
+
+Client side, proven on the builder at `e265e751`:
+
+- `cynic-protocol/src/workload_signature.rs` — the pure wire contract:
+  algorithm enum, header names, payload bytes, replay-window predicate,
+  verification decision.
+- `cynic-node/src/adapters/pqc_workload_signer.rs` — ML-DSA-44 signer,
+  detached verifier, keypair generation. Key file holds the raw
+  serialized key (2560 bytes); the public key is hex on the wire.
+- `cynic-node/src/adapters/workload_request_signer.rs` — the signer
+  carries an optional post-quantum half and signs the SAME payload bytes
+  with both algorithms.
+- `apply_signature_headers()` — one application point for the classical
+  and post-quantum headers, shared by the HTTP node-control adapter and
+  the WebSocket handshake.
+- Config: `federation.pqc_signing_key_path` or
+  `CYNIC_NODE_PQC_SIGNING_KEY_FILE`. The post-quantum half is opt-in:
+  without a key the handshake stays classical and a non-migrated kernel
+  keeps working.
+- Library: `fips204` 0.4.6, `ml-dsa-44` parameter set only.
+
+Not yet done: the kernel-side verifier and the live interop matrix.
 
 ## 1. Observed state (facts)
 
