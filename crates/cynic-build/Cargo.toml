@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
+cynic-types = { path = "../cynic-types" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-network = { path = "../cynic-network" }
 reqwest.workspace = true

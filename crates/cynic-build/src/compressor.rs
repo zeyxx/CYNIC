@@ -58,13 +58,7 @@ fn sanitize_public_text(text: &str) -> String {
         }
     }
     // Standard sensitive system path redactions
-    for prefix in &[
-        "/home/user",
-        "/home/cynic",
-        "/var/lib/cynic",
-        "/root",
-        "/etc/cynic",
-    ] {
+    for prefix in cynic_types::paths::CynicPaths::REDACTION_PREFIXES {
         clean = clean.replace(prefix, "[REDACTED_PATH]");
     }
     clean

@@ -686,6 +686,7 @@ dependencies = [
  "cynic-network",
  "cynic-node-protocol",
  "cynic-protocol",
+ "cynic-types",
  "cynic-workload",
  "hex",
  "libc",
