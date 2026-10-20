@@ -85,7 +85,7 @@ fn host_runtime_metrics_with_now(
         sovereign_git_metric(),
         security_posture_metric(report),
         observability_coverage_metric(report),
-        organic_compass_metric(external_proof),
+        candidate_compass_metric(external_proof),
         storage_topology_metric(external_proof),
     ];
     let total_metric_count = metrics.len();
