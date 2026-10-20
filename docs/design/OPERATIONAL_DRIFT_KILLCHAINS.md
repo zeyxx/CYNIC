@@ -216,6 +216,48 @@ executes from. The general rule is stronger than this one daemon: the
 retention decision reads the unit files, not a hand-maintained protected
 list.
 
+**Status.** The fence is in place and proved by test
+(`crates/cynic-host/src/adapters/local_build_cache.rs`,
+`noncanonical_reclaim_never_removes_a_cache_a_live_unit_executes_from`): the
+reclaim reads the unit files and skips the path, reporting it as
+`skipped_live_service` — distinct from `skipped_absent`, so an operator
+reading the evidence knows which happened. The second half is not done: the
+soak binary still executes from the cache, because the installed
+`/usr/local/bin/cynic` (0.8.0) does not know the `supervise` verb. The binary
+must be rebuilt and reinstalled before the `ExecStart` can move.
+
+---
+
+## Killchain 11 — a running service defined only by the host it runs on
+
+**Condition.** The two soak units existed on builder-119 and nowhere else.
+`/etc/systemd/system/cynic-supervise-soak-node.service` and
+`cynic-supervise-watch-soak-node.service` had no counterpart in the
+repository, and their `ExecStart` comments referenced
+`docs/design/supervision-convergence-map.md` and
+`docs/design/supervision-watch-pattern.md` — two documents that are not in
+the repository either.
+
+**Evidence.**
+
+- `git ls-files | grep -i soak` returns nothing.
+- The units were installed by hand on 2026-10-16; the file timestamps and
+  the state directory both start that day.
+- The two referenced design documents do not exist in `docs/design/`.
+
+**Why it matters.** A unit file on one host is the only record of a running
+process. It cannot be audited against the code, it cannot be reinstalled
+after a rebuild, and its references point at nothing. When the reclaim
+policy reads the unit files to decide what is safe to remove, an unversioned
+unit is an unversioned input to a safety decision.
+
+**Correction.** The units are versioned under
+`infra/os/systemd/soak/`, with a README stating what they are (a durability
+bench, not a production role), why they are not in `installed/` (the bootstrap
+bundle must not install a 30-day crash-rate bench on a production node), and
+how to install them. The comment referencing a missing document is corrected
+to point at the README.
+
 ---
 
 ## Hygiene defects found in the same pass

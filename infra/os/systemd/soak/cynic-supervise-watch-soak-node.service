@@ -1,0 +1,27 @@
+[Unit]
+Description=CYNIC soak watcher — consumer for the soak parent heartbeat
+After=network-online.target cynic-supervise-soak-node.service
+Wants=network-online.target cynic-supervise-soak-node.service
+# Consumer records only, never restarts. See infra/os/systemd/soak/README.md.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+# Polls the soak status file every 5s, appends one JSON line per verdict
+# change plus an hourly fresh confirmation. Stale past 2x the 5s producer
+# cadence cap. Independent unit so a dead parent is still recorded.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic
+ExecStart=/var/lib/cynic/shared-target/debug/cynic supervise watch --role node --status-file /var/lib/cynic/supervise-soak/node.status.json --ledger-file /var/lib/cynic/supervise-soak/watch.jsonl --poll-interval-secs 5 --stale-after-ms 10000 --confirm-interval-secs 3600
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=16384
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target
