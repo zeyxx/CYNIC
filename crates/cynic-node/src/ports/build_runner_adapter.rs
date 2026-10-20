@@ -206,6 +206,67 @@ impl SshBuildRunner {
         format!("{}/cynic-{}", self.checkout_base, &sha[..12.min(sha.len())])
     }
 
+    /// The cache mode for this build, from what the host actually looks like.
+    ///
+    /// The measurement is the count of OTHER sccache clients waiting on the
+    /// shared server: a client that has been waiting for minutes is a
+    /// client the server is not answering, and joining that queue is what
+    /// produces the `WouldBlock` panic.
+    ///
+    /// The count is read through the runner, so it is the HOST's state, not
+    /// a guess. A host that cannot be asked (no `ps`, no permission) is
+    /// treated as busy: a private cache is slower but never hangs.
+    fn resolve_cache_mode(&self, shared_dir: &str) -> cynic_build::build::cache_isolation::CacheMode {
+        use cynic_build::build::cache_isolation::decide_cache_mode;
+        const BUSY_CLIENT_THRESHOLD: u32 = 2;
+        let agent_id = self.agent_id();
+        match self.count_waiting_sccache_clients() {
+            Some(waiting) if waiting <= BUSY_CLIENT_THRESHOLD => {
+                decide_cache_mode(&agent_id, shared_dir, false)
+            }
+            // Busy host, or a host that could not be asked: go private.
+            _ => decide_cache_mode(&agent_id, shared_dir, true),
+        }
+    }
+
+    /// The identity of this agent on the host, for a private cache path.
+    ///
+    /// The identity is the checkout it works in, so two agents on two
+    /// branches get two caches, and the same agent on two runs keeps its
+    /// cache across the run.
+    fn agent_id(&self) -> String {
+        let checkout = self.checkout_base.trim_end_matches('/');
+        let last = checkout.rsplit('/').next().unwrap_or("default");
+        let sanitized: String = last
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        if sanitized.is_empty() {
+            "default".to_string()
+        } else {
+            sanitized
+        }
+    }
+
+    /// How many sccache clients are waiting on the shared server.
+    ///
+    /// `None` when the host cannot be asked. The question is asked of the
+    /// host, over the same transport the build uses.
+    fn count_waiting_sccache_clients(&self) -> Option<u32> {
+        let mut argv: Vec<String> = vec![
+            "ssh".to_string(),
+            self.ssh_target(),
+            "pgrep".to_string(),
+            "-c".to_string(),
+            "-f".to_string(),
+            "sccache.*rustc".to_string(),
+        ];
+        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let out = self.runner.run(&refs);
+        let count: u32 = out.stdout.trim().parse().ok()?;
+        Some(count)
+    }
+
     /// The stack this build reserves, read from the toolchain registry.
     ///
     /// A package scope touches that package; a workspace build touches every
@@ -463,8 +524,24 @@ impl BuildRunnerPort for SshBuildRunner {
             ),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
-            argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));
-            argv.push(format!("SCCACHE_DIR={dir}"));
+            // The sccache SERVER is unique to the whole machine: agents that
+            // set a different SCCACHE_DIR still connect to the same server
+            // process. Under load that server loses threads, its clients
+            // pile up unanswered, and `cargo` reads the silence as a failed
+            // fork — the `WouldBlock` panic.
+            //
+            // So the isolation is per agent when the host is busy, and
+            // shared when it is quiet. The decision is the host's, not the
+            // build's.
+            let cache_mode = self.resolve_cache_mode(dir);
+            argv.extend(
+                cynic_build::build::cache_isolation::cache_env(
+                    &cache_mode,
+                    &default_sccache_bin().display().to_string(),
+                )
+                .into_iter()
+                .map(|(key, value)| format!("{key}={value}")),
+            );
         }
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();

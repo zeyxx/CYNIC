@@ -5,6 +5,7 @@ use cynic_protocol::argv_allow::canonical_build_actions;
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
 pub mod bootstrap_withdrawal;
+pub mod cache_isolation;
 pub mod route_convergence;
 pub mod stack_budget;
 pub use bootstrap_admission::{
