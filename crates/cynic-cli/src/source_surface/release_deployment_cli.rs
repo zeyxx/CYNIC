@@ -45,6 +45,63 @@ pub(crate) fn resolve_target_release_dir(root: &Path, state_root: &Path) -> Path
     ssot
 }
 
+/// Resolve the deployable binary set from the release-binaries registry.
+///
+/// Authority: `infra/release-binaries.json`. The deployed set used to be a
+/// literal list inside this file while the Makefile built a different set —
+/// the Makefile built and installed `cynic`, `cynic-node` and
+/// `cynic-kernel`, and this executor installed only the first two. A
+/// release that declares one set and ships another is a silent divergence.
+///
+/// The registry is required, not optional: a missing or malformed
+/// registry refuses the deploy rather than falling back to a guess, because
+/// the fallback is exactly the divergence this read removes.
+pub(crate) fn resolve_deployable_binaries(root: &Path) -> Result<Vec<String>, String> {
+    let registry_path = root.join("infra/release-binaries.json");
+    let raw = fs::read_to_string(&registry_path)
+        .map_err(|error| format!("read {}: {error}", registry_path.display()))?;
+    let parsed: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|error| format!("parse {}: {error}", registry_path.display()))?;
+    let entries = parsed
+        .get("binaries")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            format!(
+                "{}: no binaries array — the deployable set is undeclared",
+                registry_path.display()
+            )
+        })?;
+    let mut names = Vec::new();
+    for entry in entries {
+        let deployable = entry
+            .get("deploy")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true);
+        if !deployable {
+            continue;
+        }
+        let name = entry
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .ok_or_else(|| {
+                format!(
+                    "{}: a binary entry has no usable name",
+                    registry_path.display()
+                )
+            })?;
+        names.push(name.to_string());
+    }
+    if names.is_empty() {
+        return Err(format!(
+            "{}: the deployable set is empty",
+            registry_path.display()
+        ));
+    }
+    Ok(names)
+}
+
 pub(crate) fn execute_deploy(
     root: &Path,
     state_root: &Path,
@@ -93,12 +150,18 @@ pub(crate) fn execute_deploy(
         "collecting release binaries from {}",
         target_release_dir.display()
     );
-    let binary_names = ["cynic", "cynic-node"];
+    let binary_names = match resolve_deployable_binaries(root) {
+        Ok(names) => names,
+        Err(error) => {
+            eprintln!("blocked: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let mut binaries = Vec::new();
 
-    for name in binary_names {
+    for name in &binary_names {
         binaries.push(DeployBinarySpec {
-            name: name.to_string(),
+            name: name.clone(),
             source_path: target_release_dir.join(name),
         });
     }
@@ -257,4 +320,110 @@ fn is_plain_service_unit(unit: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '@')
         && !unit.contains("..")
         && !unit.contains('/')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_deployable_binaries;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn temp_root(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "cynic-release-bins-{}-{label}",
+            std::process::id()
+        ));
+        fs::create_dir_all(dir.join("infra")).expect("temp infra dir");
+        dir
+    }
+
+    /// The deployed set and the built set must be the same set. The
+    /// Makefile builds and installs `cynic`, `cynic-node` and
+    /// `cynic-kernel`; the deploy executor used to install only the first
+    /// two, so a release declared three binaries and shipped two.
+    #[test]
+    fn the_registry_declares_the_built_binary_set() {
+        let root = temp_root("built-set");
+        fs::write(
+            root.join("infra/release-binaries.json"),
+            r#"{
+              "binaries": [
+                {"name": "cynic", "deploy": true},
+                {"name": "cynic-node", "deploy": true},
+                {"name": "cynic-kernel", "deploy": true}
+              ]
+            }"#,
+        )
+        .expect("write registry");
+
+        let names = resolve_deployable_binaries(&root).expect("resolve binaries");
+        assert_eq!(names, vec!["cynic", "cynic-node", "cynic-kernel"]);
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_non_deployable_entry_is_not_installed() {
+        let root = temp_root("not-deployable");
+        fs::write(
+            root.join("infra/release-binaries.json"),
+            r#"{
+              "binaries": [
+                {"name": "cynic", "deploy": true},
+                {"name": "cynic-docs", "deploy": false}
+              ]
+            }"#,
+        )
+        .expect("write registry");
+
+        let names = resolve_deployable_binaries(&root).expect("resolve binaries");
+        assert_eq!(names, vec!["cynic"]);
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// A missing registry refuses the deploy. The fallback to a literal
+    /// list is the divergence this read removes.
+    #[test]
+    fn a_missing_registry_refuses_rather_than_guesses() {
+        let root = temp_root("missing");
+        let error = resolve_deployable_binaries(&root)
+            .expect_err("a missing registry must refuse");
+        assert!(
+            error.contains("release-binaries.json"),
+            "the refusal must name the missing registry: {error}"
+        );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_malformed_registry_refuses_rather_than_guesses() {
+        let root = temp_root("malformed");
+        fs::write(root.join("infra/release-binaries.json"), "{ not json").expect("write registry");
+        assert!(resolve_deployable_binaries(&root).is_err());
+
+        fs::write(root.join("infra/release-binaries.json"), r#"{"binaries": []}"#)
+            .expect("write registry");
+        assert!(resolve_deployable_binaries(&root).is_err());
+
+        fs::write(
+            root.join("infra/release-binaries.json"),
+            r#"{"binaries": [{"deploy": true}]}"#,
+        )
+        .expect("write registry");
+        assert!(resolve_deployable_binaries(&root).is_err());
+
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// The registry the repository ships is the one the Makefile builds.
+    #[test]
+    fn the_shipped_registry_matches_the_makefile_binary_set() {
+        let root = crate::rust_source::workspace_root();
+        let names = resolve_deployable_binaries(&root).expect("shipped registry resolves");
+        assert!(
+            names.contains(&"cynic-kernel".to_string()),
+            "cynic-kernel is built by the Makefile and must be deployed: {names:?}"
+        );
+        assert!(names.contains(&"cynic".to_string()));
+        assert!(names.contains(&"cynic-node".to_string()));
+    }
 }

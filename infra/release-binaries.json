@@ -1,0 +1,31 @@
+{
+  "schema": "cynic.release_binaries.v1",
+  "status": "normative",
+  "purpose": "SSOT registry of the binaries a release deployment installs. Before this file existed the deployed set was a literal list inside the deploy CLI while the Makefile built a different set: the Makefile built and installed cynic, cynic-node and cynic-kernel, and the deploy executor installed only the first two. A release that declares one set and ships another is a silent divergence. Every site that names a deployable binary reads this file.",
+  "authority_order": [
+    "observed release build output",
+    "this file",
+    "Makefile"
+  ],
+  "updated_at": "2026-10-20",
+  "binaries": [
+    {
+      "name": "cynic",
+      "crate": "cynic-cli",
+      "role": "operator entry point: the CLI every surface is invoked through",
+      "deploy": true
+    },
+    {
+      "name": "cynic-node",
+      "crate": "cynic-node",
+      "role": "the sovereign node daemon",
+      "deploy": true
+    },
+    {
+      "name": "cynic-kernel",
+      "crate": "cynic-kernel",
+      "role": "the kernel binary the lifecycle registry names as the kernel_primary deploy target",
+      "deploy": true
+    }
+  ]
+}
