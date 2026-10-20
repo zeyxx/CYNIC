@@ -1015,9 +1015,15 @@ mod tests {
         assert_eq!(proof.status, PipelineStatus::Converged);
         let log = handle.argv_log();
         assert_eq!(log.len(), 10);
-        assert!(log[1].contains(&"git".to_string()));
-        assert!(log[1].contains(&"clone".to_string()));
-        assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
+        // log[0] is the runner path probe (`cynic runtime paths --json`);
+        // the clone follows it.
+        assert!(
+            log[0].iter().any(|arg| arg == "paths"),
+            "the runner layout is read first: {log:?}"
+        );
+        assert!(log[2].contains(&"git".to_string()));
+        assert!(log[2].contains(&"clone".to_string()));
+        assert!(log[2].contains(&"ssh://example/CYNIC.git".to_string()));
     }
 
     #[test]
