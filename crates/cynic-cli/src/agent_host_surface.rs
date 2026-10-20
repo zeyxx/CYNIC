@@ -127,7 +127,7 @@ pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
                 memory_bytes: memory_mib * 1024 * 1024,
                 disk_bytes: disk_gib * 1024 * 1024 * 1024,
                 storage_pool,
-                network_plane: "synapse".to_string(),
+                network_plane: "service".to_string(),
                 network_bridge: bridge,
                 network_ip: None,
                 allowed_sandbox_strategies: vec![

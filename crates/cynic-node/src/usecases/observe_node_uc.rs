@@ -33,7 +33,7 @@ struct NodeObservationRuntimeInputs {
     namespaces: crate::adapters::host_observation::CommandObservation,
     firewall: crate::adapters::host_observation::CommandObservation,
     provider_fallback_route: crate::adapters::host_observation::CommandObservation,
-    synapse_route: crate::adapters::host_observation::CommandObservation,
+    service_route: crate::adapters::host_observation::CommandObservation,
     wireguard: crate::adapters::host_observation::CommandObservation,
     mesh_runtime: crate::ports::network_interfaces_port::MeshRuntimeObservation,
     dns_checks: Vec<crate::domain::observation_runtime::DnsResolutionObservation>,
@@ -141,7 +141,7 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
         command_json(&self.ip_bin, &["route", "show", cidr])
     }
 
-    fn observe_synapse_route(
+    fn observe_service_route(
         &self,
         cidr: &str,
     ) -> crate::adapters::host_observation::CommandObservation {
@@ -228,7 +228,7 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
 }
 
 fn wireguard_transport_surface(
-    synapse_route_active: bool,
+    service_route_active: bool,
     provider_fallback_active: bool,
     wireguard_active: bool,
     wg_quick_active: bool,
@@ -244,7 +244,7 @@ fn wireguard_transport_surface(
         .lines()
         .any(|line| line.trim_start().starts_with("latest handshake:") && !line.contains("Never"));
     wireguard_transport_observation(
-        synapse_route_active,
+        service_route_active,
         provider_fallback_active,
         wireguard_active,
         wg_quick_active,
@@ -319,7 +319,7 @@ fn build_node_observation_with_port(
     let firewall = port.observe_firewall();
     let provider_fallback_route =
         port.observe_provider_fallback_route(&plan.provider_fallback_cidr);
-    let synapse_route = port.observe_synapse_route(&plan.service_cidr);
+    let service_route = port.observe_service_route(&plan.service_cidr);
     let wireguard = port.observe_wireguard();
     let service_probe_ip = first_usable_ipv4_in_cidr(&plan.service_cidr)
         .unwrap_or_else(|| plan.provider_fallback_gateway.clone().unwrap_or_default());
@@ -353,7 +353,7 @@ fn build_node_observation_with_port(
             namespaces,
             firewall,
             provider_fallback_route,
-            synapse_route,
+            service_route,
             wireguard,
             mesh_runtime,
             dns_checks,
@@ -372,8 +372,8 @@ fn build_node_observation_with_runtime(
     inputs: NodeObservationRuntimeInputs,
 ) -> NodeObservation {
     let provider_fallback_active = command_succeeded_with_stdout(&inputs.provider_fallback_route);
-    let synapse_route_active = inputs.mesh_runtime.route_uses_interface
-        || command_succeeded_with_stdout(&inputs.synapse_route);
+    let service_route_active = inputs.mesh_runtime.route_uses_interface
+        || command_succeeded_with_stdout(&inputs.service_route);
     let wireguard_active =
         inputs.mesh_runtime.wg_show_has_output || command_succeeded_with_stdout(&inputs.wireguard);
     let dns_ok = inputs
@@ -383,7 +383,7 @@ fn build_node_observation_with_runtime(
     let critical_tcp_open = inputs.tcp_results.iter().all(tcp_open);
 
     let wireguard_transport = wireguard_transport_surface(
-        synapse_route_active,
+        service_route_active,
         provider_fallback_active,
         wireguard_active,
         command_reports_active(&inputs.wg_quick_wg0),
@@ -396,10 +396,10 @@ fn build_node_observation_with_runtime(
     );
     let verdict = classify_runtime(NodeRuntimeCapabilities {
         provider_fallback_active,
-        synapse_route_active,
+        service_route_active,
         wireguard_active,
         critical_dns_ok: dns_ok,
-        critical_dns_canonical: dns_projection.checks.resolved_matches_expected_synapse,
+        critical_dns_canonical: dns_projection.checks.resolved_matches_expected_service,
         critical_tcp_open,
     });
     let network_mesh_status = canonical_network_mesh_status_projection(&verdict.status, dns_ok);
@@ -435,7 +435,7 @@ fn build_node_observation_with_runtime(
             namespaces: inputs.namespaces,
             firewall: inputs.firewall,
             provider_fallback_route: inputs.provider_fallback_route,
-            synapse_route: inputs.synapse_route,
+            service_route: inputs.service_route,
             wireguard: inputs.wireguard,
         },
         dns: DnsObservation {
@@ -515,13 +515,13 @@ mod tests {
                         "show",
                         "--active",
                     ],
-                    "synapse:uuid:wireguard:wg0",
+                    "service:uuid:wireguard:wg0",
                 ),
                 policy_routes: command_ok("ip", &["rule"], "0: from all lookup local"),
                 namespaces: command_ok("ip", &["netns", "list"], ""),
                 firewall: command_ok("nft", &["list", "ruleset"], "table inet filter"),
                 provider_fallback_route: command_fail("ip", &["route", "show", "10.10.10.0/24"]),
-                synapse_route: command_ok(
+                service_route: command_ok(
                     "ip",
                     &["route", "show", "10.20.0.0/24"],
                     "10.20.0.0/24 dev wg0",
@@ -573,7 +573,7 @@ mod tests {
         assert_eq!(observation.hostname, "test-node");
         assert_eq!(observation.status, NodeRuntimeStatus::MeshActive);
         assert_eq!(observation.severity, NodeRuntimeSeverity::Clear);
-        assert!(observation.capabilities.synapse_route_active);
+        assert!(observation.capabilities.service_route_active);
         assert!(observation.capabilities.wireguard_active);
         assert!(observation.capabilities.critical_dns_ok);
         assert!(observation.capabilities.critical_tcp_open);

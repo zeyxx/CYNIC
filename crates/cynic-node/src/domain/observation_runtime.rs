@@ -9,7 +9,7 @@ use crate::domain::network_projection::{DnsProjectionObservation, dns_projection
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct DnsResolutionObservation {
     pub(crate) host: String,
-    pub(crate) expected_synapse_ip: Option<String>,
+    pub(crate) expected_service_ip: Option<String>,
     pub(crate) resolved_ip: Option<String>,
     pub(crate) resolution_status: String,
     pub(crate) command: CommandObservation,
@@ -17,21 +17,21 @@ pub(crate) struct DnsResolutionObservation {
 
 pub(crate) fn dns_resolution_observation(
     host: &str,
-    expected_synapse_ip: Option<String>,
+    expected_service_ip: Option<String>,
     command: CommandObservation,
 ) -> DnsResolutionObservation {
     let resolved_ip = resolved_ip_from_command(&command);
-    let resolution_status = match (&expected_synapse_ip, &resolved_ip) {
+    let resolution_status = match (&expected_service_ip, &resolved_ip) {
         (_, None) => "unresolved".to_string(),
         (Some(expected), Some(resolved)) if expected == resolved => {
-            "resolved_expected_synapse_ip".to_string()
+            "resolved_expected_service_ip".to_string()
         }
         (Some(_), Some(_)) => "resolved_noncanonical_ip".to_string(),
-        (None, Some(_)) => "resolved_without_expected_synapse_ip".to_string(),
+        (None, Some(_)) => "resolved_without_expected_service_ip".to_string(),
     };
     DnsResolutionObservation {
         host: host.to_string(),
-        expected_synapse_ip,
+        expected_service_ip,
         resolved_ip,
         resolution_status,
         command,
@@ -46,15 +46,15 @@ pub(crate) fn dns_projection_surface(
     let dns_ok = dns_checks
         .iter()
         .all(|item| item.command.exit_code == Some(0));
-    let resolved_matches_expected_synapse = dns_checks.iter().all(|item| {
+    let resolved_matches_expected_service = dns_checks.iter().all(|item| {
         matches!(
             item.resolution_status.as_str(),
-            "resolved_expected_synapse_ip" | "resolved_without_expected_synapse_ip"
+            "resolved_expected_service_ip" | "resolved_without_expected_service_ip"
         )
     });
     dns_projection_observation(
         dns_ok,
-        resolved_matches_expected_synapse,
+        resolved_matches_expected_service,
         provider_fallback_active,
         command_reports_active(systemd_resolved),
     )

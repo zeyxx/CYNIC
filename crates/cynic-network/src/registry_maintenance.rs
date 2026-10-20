@@ -43,7 +43,7 @@ pub fn reconcile_registry_observations(
                 NodeReachability::Degraded { .. } => "observed_degraded",
                 NodeReachability::Unreachable { .. } => "observed_unreachable",
             },
-            "synapse_ip": node.synapse_ip,
+            "service_ip": node.service_ip,
             "wireguard_ip": node.wireguard_ip,
             "direct_ip": node.direct_ip,
             "last_observed_unix_ms": node.observed_at_unix_ms,
@@ -211,7 +211,7 @@ mod tests {
             DiscoveredNode {
                 node_id: "cynic-builder".to_string(),
                 direct_ip: None,
-                synapse_ip: Some("10.10.10.119".to_string()),
+                service_ip: Some("10.10.10.119".to_string()),
                 wireguard_ip: Some("10.20.0.5".to_string()),
                 reachability: NodeReachability::Reachable {
                     latency_ms: 1,
@@ -238,7 +238,7 @@ mod tests {
             "observed_active"
         );
         assert_eq!(
-            registry["observed"]["nodes"]["cynic-builder"]["synapse_ip"],
+            registry["observed"]["nodes"]["cynic-builder"]["service_ip"],
             "10.10.10.119"
         );
     }
@@ -259,7 +259,7 @@ mod tests {
         let mut target = json!({
             "version": 1,
             "network_policy": {
-                "planes": {"synapse": {"cidr": "10.10.10.0/24"}}
+                "planes": {"service": {"cidr": "10.10.10.0/24"}}
             },
             "nodes": [{"name": "a"}, {"name": "ghost"}],
             "observed": {"nodes": {"a": {"status": "x"}, "ghost": {"status": "y"}}}

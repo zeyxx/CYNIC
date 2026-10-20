@@ -40,7 +40,7 @@ pub(crate) struct NetworkObservation {
     pub(crate) interfaces: CommandObservation,
     pub(crate) routes: CommandObservation,
     pub(crate) provider_fallback_route: CommandObservation,
-    pub(crate) synapse_route: CommandObservation,
+    pub(crate) service_route: CommandObservation,
     pub(crate) wireguard: CommandObservation,
     pub(crate) network_manager_connections: CommandObservation,
     pub(crate) policy_routes: CommandObservation,
@@ -179,7 +179,7 @@ impl NodeObservation {
     ) -> cynic_host::network_actuation::NetworkActuationObservation {
         cynic_host::network_actuation::NetworkActuationObservation {
             provider_fallback_active: self.capabilities.provider_fallback_active,
-            synapse_route_active: self.capabilities.synapse_route_active,
+            service_route_active: self.capabilities.service_route_active,
             wireguard_active: self.capabilities.wireguard_active,
             management_link_active: false,
             target: cynic_host::network_actuation::NetworkActuationTarget {
@@ -233,7 +233,7 @@ impl NodeObservation {
             checks: WireguardTransportChecks {
                 wg_show_has_output: capabilities.wireguard_active,
                 wg_quick_active: capabilities.wireguard_active,
-                synapse_route_present: capabilities.synapse_route_active,
+                service_route_present: capabilities.service_route_active,
                 provider_fallback_still_required: capabilities.provider_fallback_active,
                 interface_present: capabilities.wireguard_active,
                 peer_present: capabilities.wireguard_active,
@@ -247,7 +247,7 @@ impl NodeObservation {
                 critical_hosts_resolve: capabilities.critical_dns_ok,
                 systemd_resolved_active: true,
                 provider_fallback_dependency: capabilities.provider_fallback_active,
-                resolved_matches_expected_synapse: capabilities.critical_dns_canonical,
+                resolved_matches_expected_service: capabilities.critical_dns_canonical,
             },
             drift_classes: if capabilities.provider_fallback_active {
                 vec!["provider_fallback_dependency"]
@@ -270,7 +270,7 @@ impl NodeObservation {
             topology: TopologyObservation {
                 source: "test".to_string(),
                 registry_path: Some("test-registry.json".to_string()),
-                canonical_service_plane: "synapse".to_string(),
+                canonical_service_plane: "service".to_string(),
                 service_cidr: "10.20.0.0/24".to_string(),
                 provider_fallback_cidr: "10.10.10.0/24".to_string(),
                 provider_fallback_gateway,
@@ -299,7 +299,7 @@ impl NodeObservation {
                     &context.ip_bin,
                     &["route", "show", "10.10.10.0/24"],
                 ),
-                synapse_route: command_observation_for_tests(
+                service_route: command_observation_for_tests(
                     &context.ip_bin,
                     &["route", "show", "10.20.0.0/24"],
                 ),
@@ -356,7 +356,7 @@ mod tests {
         let observation = NodeObservation::synthetic_for_tests_with_context(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,

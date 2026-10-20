@@ -95,7 +95,7 @@ mod tests {
         // and the aggregation silently reported 0 declared nodes.
         //
         // Declared nodes are parsed from network_policy.reservations (each needs a
-        // synapse or management address), with roles resolved from nodes[].
+        // service or management address), with roles resolved from nodes[].
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
@@ -106,9 +106,9 @@ mod tests {
             r#"{
               "network_policy": {
                 "reservations": [
-                  {"name":"node-a","synapse":"10.10.10.10"},
-                  {"name":"node-b","synapse":"10.10.10.11"},
-                  {"name":"node-c","synapse":"10.10.10.12"}
+                  {"name":"node-a","service":"10.10.10.10"},
+                  {"name":"node-b","service":"10.10.10.11"},
+                  {"name":"node-c","service":"10.10.10.12"}
                 ]
               },
               "nodes": [
@@ -153,7 +153,7 @@ mod tests {
             r#"{
               "network_policy": {
                 "reservations": [
-                  {"name":"node-a","synapse":"10.10.10.10"}
+                  {"name":"node-a","service":"10.10.10.10"}
                 ]
               },
               "nodes": [
@@ -192,7 +192,7 @@ mod tests {
             r#"{
               "network_policy": {
                 "reservations": [
-                  {"name":"node-a","synapse":"10.10.10.10"}
+                  {"name":"node-a","service":"10.10.10.10"}
                 ]
               },
               "nodes": [

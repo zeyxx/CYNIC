@@ -199,7 +199,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
     fn registry_json(ip: &str) -> String {
         format!(
             r#"{{
-              "network_policy": {{ "reservations": [{{"name":"node-{ip}","synapse":"{ip}"}}] }},
+              "network_policy": {{ "reservations": [{{"name":"node-{ip}","service":"{ip}"}}] }},
               "nodes": [{{"id":"node-{ip}","role":"worker","services":[]}}]
             }}"#
         )

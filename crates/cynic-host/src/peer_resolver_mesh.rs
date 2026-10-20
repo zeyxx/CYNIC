@@ -147,7 +147,7 @@ impl MeshPeerResolver {
                 }
             }
             let ip = node
-                .synapse_ip
+                .service_ip
                 .unwrap_or_else(|| node.management_ip.clone());
             let mut any_reachable = false;
 
@@ -189,7 +189,7 @@ impl MeshPeerResolver {
 struct DeclaredPeer {
     id: String,
     role: String,
-    synapse_ip: Option<String>,
+    service_ip: Option<String>,
     management_ip: String,
     probe_ports: Vec<u16>,
 }
@@ -214,7 +214,7 @@ fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
                 .to_string();
             // Canonical plane reads (RFC-NET-001 §2). Read path only: the struct field
             // names stay historical so this does not restructure T6 territory.
-            let synapse_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
+            let service_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
                 .map(String::from);
             let management_ip =
                 cynic_network::plane_vocabulary::plane_address(reservation, "admin")
@@ -225,7 +225,7 @@ fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
                 peers.push(DeclaredPeer {
                     id: name,
                     role,
-                    synapse_ip,
+                    service_ip,
                     management_ip: management,
                     probe_ports: ports,
                 });
@@ -273,7 +273,7 @@ mod tests {
         let json = r#"{
             "network_policy": {
                 "reservations": [
-                    {"name": "test-node", "synapse": "10.10.10.99", "management": "192.168.100.99"}
+                    {"name": "test-node", "service": "10.10.10.99", "management": "192.168.100.99"}
                 ]
             },
             "nodes": [
@@ -310,7 +310,7 @@ mod tests {
         let json = r#"{
             "network_policy": {
                 "reservations": [
-                    {"name": "n1", "synapse": "10.10.10.1", "management": "10.10.10.2"}
+                    {"name": "n1", "service": "10.10.10.1", "management": "10.10.10.2"}
                 ]
             },
             "nodes": [

@@ -400,7 +400,7 @@ fn collect_assignments(registry: &serde_json::Value) -> Vec<IpAssignment> {
                 .get("name")
                 .and_then(|name| name.as_str())
                 .unwrap_or("unnamed_reservation");
-            for plane in ["management", "synapse"] {
+            for plane in ["admin", "service"] {
                 if let Some(ip) = reservation.get(plane).and_then(|ip| ip.as_str()) {
                     assignments.push(IpAssignment {
                         owner: owner.to_string(),
@@ -590,16 +590,16 @@ mod tests {
             "network_policy": {
                 "planes": {
                     "management": { "cidr": "192.168.100.0/24" },
-                    "synapse": { "cidr": "10.10.10.0/24" }
+                    "service": { "cidr": "10.10.10.0/24" }
                 },
                 "reservations": [
-                    { "name": "a", "management": "192.168.100.1", "synapse": "10.10.10.1" },
+                    { "name": "a", "management": "192.168.100.1", "service": "10.10.10.1" },
                     { "name": "b", "management": "192.168.100.2" }
                 ]
             },
             "nodes": [
                 { "id": "a", "role": "hypervisor", "status": "observed",
-                  "network": { "management": "192.168.100.1", "synapse": "10.10.10.1" } },
+                  "network": { "management": "192.168.100.1", "service": "10.10.10.1" } },
                 { "id": "b", "role": "builder", "status": "candidate",
                   "services": [ { "name": "cynic-node" } ] }
             ]
@@ -636,7 +636,7 @@ mod tests {
             .expect("nodes")
             .push(serde_json::json!({
                 "id": "rogue", "role": "x", "status": "candidate",
-                "network": { "synapse": "11.0.0.9" }
+                "network": { "service": "11.0.0.9" }
             }));
         let report = check_ipam(&registry);
         assert_eq!(

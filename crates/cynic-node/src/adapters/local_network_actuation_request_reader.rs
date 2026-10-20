@@ -35,7 +35,7 @@ mod tests {
                 "plan": {
                     "schema": "cynic.host.network_actuation_plan.v1",
                     "id": "plan",
-                    "profile": "synapse-route",
+                    "profile": "service-route",
                     "target": "guest",
                     "commands": [],
                     "preconditions": [],

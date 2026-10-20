@@ -121,9 +121,9 @@ mod tests {
             file,
             r#"{{
               "network_policy": {{
-                "canonical_service_plane": "synapse",
+                "canonical_service_plane": "service",
                 "planes": {{
-                  "synapse": {{"cidr": "10.20.0.0/24", "dns_zone": "service.cynic"}},
+                  "service": {{"cidr": "10.20.0.0/24", "dns_zone": "service.cynic"}},
                   "proxmox_guest": {{"cidr": "10.10.10.0/24"}}
                 }},
                 "reservations": [

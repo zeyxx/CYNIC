@@ -4,19 +4,19 @@ use std::error::Error;
 use cynic_types::paths::CynicPaths;
 
 use crate::dns_contract::{
-    default_dns_zone, synapse_dns_corefile_path, synapse_dns_hosts_path,
-    synapse_dns_resolved_dropin_path,
+    default_dns_zone, service_dns_corefile_path, service_dns_hosts_path,
+    service_dns_resolved_dropin_path,
 };
 use crate::ports::network_interfaces_port::{
     DnsActivationPlan, DnsBundleRendererPort, RegistryNodeRecord,
 };
 
 #[derive(Debug, Clone)]
-pub struct SynapseDnsRenderer {
+pub struct ServiceDnsRenderer {
     zone: String,
 }
 
-impl Default for SynapseDnsRenderer {
+impl Default for ServiceDnsRenderer {
     fn default() -> Self {
         Self {
             zone: default_dns_zone(),
@@ -24,19 +24,19 @@ impl Default for SynapseDnsRenderer {
     }
 }
 
-impl SynapseDnsRenderer {
+impl ServiceDnsRenderer {
     pub fn new(zone: impl Into<String>) -> Self {
         Self { zone: zone.into() }
     }
 }
 
-impl DnsBundleRendererPort for SynapseDnsRenderer {
+impl DnsBundleRendererPort for ServiceDnsRenderer {
     fn activation_plan(&self) -> Result<DnsActivationPlan, Box<dyn Error>> {
         Ok(DnsActivationPlan {
             zone: self.zone.clone(),
-            hosts_path: synapse_dns_hosts_path(),
-            corefile_path: synapse_dns_corefile_path(),
-            resolved_dropin_path: synapse_dns_resolved_dropin_path(),
+            hosts_path: service_dns_hosts_path(),
+            corefile_path: service_dns_corefile_path(),
+            resolved_dropin_path: service_dns_resolved_dropin_path(),
         })
     }
 
@@ -74,7 +74,7 @@ impl DnsBundleRendererPort for SynapseDnsRenderer {
     }
 
     fn render_corefile(&self) -> Result<String, Box<dyn Error>> {
-        let hosts_path = synapse_dns_hosts_path();
+        let hosts_path = service_dns_hosts_path();
         Ok(format!(
             ".:1053 {{\n    errors\n    hosts {hosts_path} {{\n        fallthrough\n    }}\n}}\n"
         ))
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn renders_hosts_grouped_by_ip() {
-        let renderer = SynapseDnsRenderer::new("test.zone");
+        let renderer = ServiceDnsRenderer::new("test.zone");
         let payload = renderer
             .render_hosts(&[
                 RegistryNodeRecord {
@@ -125,7 +125,7 @@ mod tests {
     fn renders_compat_hosts_with_legacy_suffix() {
         use cynic_network::dns::map_names_to_compat_zone;
 
-        let renderer = SynapseDnsRenderer::new("service.cynic");
+        let renderer = ServiceDnsRenderer::new("service.cynic");
         let topology = vec![crate::ports::network_interfaces_port::RegistryNodeRecord {
             node: "forgejo".to_string(),
             ip: "10.10.10.101".to_string(),
@@ -149,14 +149,14 @@ mod tests {
 
     #[test]
     fn renders_canonical_plan_and_templates() {
-        let renderer = SynapseDnsRenderer::new("test.zone");
+        let renderer = ServiceDnsRenderer::new("test.zone");
         let plan = renderer.activation_plan().expect("plan");
         let corefile = renderer.render_corefile().expect("corefile");
         let dropin = renderer.render_resolved_dropin().expect("dropin");
 
         assert_eq!(plan.zone, "test.zone");
-        assert_eq!(plan.hosts_path, synapse_dns_hosts_path());
-        assert!(corefile.contains(&synapse_dns_hosts_path()));
+        assert_eq!(plan.hosts_path, service_dns_hosts_path());
+        assert!(corefile.contains(&service_dns_hosts_path()));
         assert!(dropin.contains("Domains=~test.zone"));
     }
 }

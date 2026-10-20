@@ -15,7 +15,7 @@ pub enum NetworkPlaneScope {
     WireguardOnly,
     AdminOnly,
     DirectManagementOnly,
-    ClusterMesh, // Synapse + WireGuard + Management
+    ClusterMesh, // Service + WireGuard + Management
     PublicWan,
 }
 
@@ -80,7 +80,7 @@ impl DynamicFirewallPolicy {
                 }
                 NetworkPlaneScope::ServiceOnly => {
                     rules.push(format!(
-                        "        ip saddr {} {} dport {} accept comment \"cynic: {} synapse-only\"",
+                        "        ip saddr {} {} dport {} accept comment \"cynic: {} service-only\"",
                         self.planes.service_cidr, b.protocol, b.port, b.service_name
                     ));
                 }
@@ -101,7 +101,7 @@ impl DynamicFirewallPolicy {
                 }
                 NetworkPlaneScope::ClusterMesh => {
                     rules.push(format!(
-                        "        ip saddr {{ {}, {} }} {} dport {} accept comment \"cynic: {} cluster-synapse-mgmt\"",
+                        "        ip saddr {{ {}, {} }} {} dport {} accept comment \"cynic: {} cluster-service-mgmt\"",
                         self.planes.service_cidr, self.planes.admin_cidr, b.protocol, b.port, b.service_name
                     ));
                     rules.push(format!(
@@ -538,7 +538,7 @@ mod tests {
     #[test]
     fn unknown_service_plane_fails_closed() {
         let reg = firewall_test_registry(
-            serde_json::json!({ "name": "ghost", "port": 9999, "network_plane": "synapse" }),
+            serde_json::json!({ "name": "ghost", "port": 9999, "network_plane": "service" }),
         );
         let error = derive_firewall_policy_from_registry(&reg, "probe-node", 1000)
             .expect_err("unknown plane must fail");

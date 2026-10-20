@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn request_carries_provenance_and_staged_path() {
         let spec = spec_with(Some(ArtifactPublicationTarget {
-            node: "synapse".to_string(),
+            node: "local-kernel".to_string(),
             endpoint: String::new(),
             protocol: "http_put".to_string(),
         }));
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn spec_endpoint_overrides_transport_target() {
         let spec = spec_with(Some(ArtifactPublicationTarget {
-            node: "synapse".to_string(),
+            node: "local-kernel".to_string(),
             endpoint: "cynic@10.10.10.119".to_string(),
             protocol: "ssh".to_string(),
         }));
@@ -161,13 +161,13 @@ mod tests {
             .expect("request");
         assert_eq!(req.target.protocol, TransportProtocol::Ssh);
         assert_eq!(req.target.target, "cynic@10.10.10.119");
-        assert_eq!(req.target.node, "synapse");
+        assert_eq!(req.target.node, "local-kernel");
     }
 
     #[test]
     fn transport_failure_propagates() {
         let spec = spec_with(Some(ArtifactPublicationTarget {
-            node: "synapse".to_string(),
+            node: "local-kernel".to_string(),
             endpoint: String::new(),
             protocol: "http_put".to_string(),
         }));

@@ -21,7 +21,7 @@ mod tests {
         let observation = crate::observe::NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -30,7 +30,7 @@ mod tests {
             Some("192.168.0.37".to_string()),
         );
         let policy = build_policy_document(&observation);
-        assert!(policy.allowed_profiles.contains_key("synapse-route"));
+        assert!(policy.allowed_profiles.contains_key("service-route"));
         assert!(policy.allowed_profiles.contains_key("wireguard-mesh"));
         assert!(
             !policy
@@ -44,7 +44,7 @@ mod tests {
         let observation = crate::observe::NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -52,7 +52,7 @@ mod tests {
             },
             Some("192.168.0.37".to_string()),
         );
-        let report = apply_profile(&observation, "synapse-route", false);
+        let report = apply_profile(&observation, "service-route", false);
         assert_eq!(report.status, "refused");
         assert!(
             report

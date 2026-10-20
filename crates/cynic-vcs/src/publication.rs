@@ -521,7 +521,7 @@ fn is_reserved_target(replace: &str) -> bool {
 ///
 /// Heuristic and deliberately narrow: an IPv4 pattern needs three escaped dots
 /// (`\.`) separating four octet groups. A DNS pattern such as
-/// `[a-z0-9-]+\.synapse\.cynic(:[0-9]+)?` contains a digit class (the port) and a
+/// `[a-z0-9-]+\.service\.cynic(:[0-9]+)?` contains a digit class (the port) and a
 /// single dot, so a digit-class-plus-dot test would misclassify it as IPv4 and
 /// wrongly suppress the uncovered-literal report. Counting the dots avoids that.
 /// It answers "did anyone declare an IPv4 redaction", not "is the redaction

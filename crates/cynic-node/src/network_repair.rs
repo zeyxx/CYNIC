@@ -224,7 +224,7 @@ fn command_preview_with_context(
                 "ssh/curl probe failed hosts from network.observation.services.tcp",
             ),
         ],
-        NodeRuntimeAction::ActivateSynapseRoute => vec![
+        NodeRuntimeAction::ActivateServiceRoute => vec![
             argv_command(
                 "observe",
                 vec![
@@ -338,7 +338,7 @@ mod tests {
         let observation = NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -366,7 +366,7 @@ mod tests {
         let observation = NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: true,
+                service_route_active: true,
                 wireguard_active: true,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -401,7 +401,7 @@ mod tests {
         let observation = NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -411,7 +411,7 @@ mod tests {
         );
         let preview = command_preview_with_context(
             &observation,
-            &NodeRuntimeAction::ActivateSynapseRoute,
+            &NodeRuntimeAction::ActivateServiceRoute,
             &portable_context(),
         );
 

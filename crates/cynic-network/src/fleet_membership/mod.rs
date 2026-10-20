@@ -817,7 +817,7 @@ mod tests {
     #[test]
     fn legacy_plane_keys_still_resolve_a_declared_address() {
         let members = parse_declared_registry_members(&serde_json::json!({
-            "nodes": [{"name": "forgejo", "network": {"synapse": "10.10.10.101"}}]
+            "nodes": [{"name": "forgejo", "network": {"service": "10.10.10.101"}}]
         }));
         assert_eq!(members[0].address.as_deref(), Some("10.10.10.101"));
     }

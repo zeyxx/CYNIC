@@ -87,7 +87,7 @@ pub fn evaluate_status(
         blockers.push("storage_artifact_store_health_not_proven".to_string());
     }
     if !dns_ok {
-        blockers.push("storage_synapse_dns_not_proven".to_string());
+        blockers.push("storage_service_dns_not_proven".to_string());
     }
     let mut unknowns = plan.unknowns.clone();
     if provider_running.is_none() {
@@ -103,7 +103,7 @@ pub fn evaluate_status(
             "storage_artifact_store_health_not_proven" => {
                 "observe_or_reconcile_runtime_artifact_store"
             }
-            "storage_synapse_dns_not_proven" => "repair_storage_primary_dns_record",
+            "storage_service_dns_not_proven" => "repair_storage_primary_dns_record",
             "provider_reports_storage_not_running" => "plan_provider_power_reconciliation",
             _ => "repair_storage_primary_desired_state",
         })
@@ -174,10 +174,10 @@ fn build_desired_state(
     let node = storage_nodes[0];
     let node_id = required_string(node, "id", "storage_primary_node_id_missing")?;
     let synapse = node
-        .pointer("/network/synapse")
+        .pointer("/network/service")
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| vec!["storage_primary_synapse_ip_missing".to_string()])?;
+        .ok_or_else(|| vec!["storage_primary_service_ip_missing".to_string()])?;
     let service = node
         .get("services")
         .and_then(serde_json::Value::as_array)

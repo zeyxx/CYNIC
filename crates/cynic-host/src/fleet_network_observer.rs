@@ -220,7 +220,7 @@ impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
                         "Network observation unreachable for node '{}' ({})",
                         node.node_id, node.ip
                     ),
-                    recovery_hint: "Verify node power state and management/synapse route"
+                    recovery_hint: "Verify node power state and management/service route"
                         .to_string(),
                 });
                 max_level = NetworkAlertLevel::Critical;
@@ -246,7 +246,7 @@ impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
             alerts.push(NetworkAlert {
                 level: NetworkAlertLevel::Critical,
                 component: "dns_service".to_string(),
-                message: format!("Synapse DNS failed for {} record(s)", dns.failed_records),
+                message: format!("Service DNS failed for {} record(s)", dns.failed_records),
                 recovery_hint: "Inspect CoreDNS/dnsmasq on cynic-host-proxmox (10.10.10.1)"
                     .to_string(),
             });
@@ -307,7 +307,7 @@ mod tests {
     fn registry_json(ip: &str) -> String {
         format!(
             r#"{{
-              "network_policy": {{ "reservations": [{{"name":"node-{ip}","synapse":"{ip}"}}] }},
+              "network_policy": {{ "reservations": [{{"name":"node-{ip}","service":"{ip}"}}] }},
               "nodes": [{{"id":"node-{ip}","role":"worker","services":[]}}]
             }}"#
         )

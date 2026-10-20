@@ -42,7 +42,7 @@ pub(crate) fn execute_agent_session(command: &AgentSessionCommand) -> ExitCode {
                 "status": "observed",
                 "git_sha": env!("CYNIC_GIT_SHA"),
                 "version": env!("CARGO_PKG_VERSION"),
-                "canonical_service_plane": "synapse",
+                "canonical_service_plane": "service",
                 "builder": resolve_builder_endpoint(&registry).unwrap_or("unknown".to_string()),
                 "git_remote": resolve_git_remote(),
                 "active_claims_file": ".agent-claims.json",

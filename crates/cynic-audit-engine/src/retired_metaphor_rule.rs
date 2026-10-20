@@ -37,9 +37,9 @@
 //! them would break live DNS and host addressing, so they are exempt by
 //! construction, not by suppression:
 //!
-//! - `synapse` — the service network plane (`*.synapse.cynic`,
-//!   `network_policy.planes.synapse`). Its canonical name is `service`;
-//!   `synapse` is the legacy registry key handled by
+//! - `service` — the service network plane (`*.service.cynic`,
+//!   `network_policy.planes.service`). Its canonical name is `service`;
+//!   `service` is the legacy registry key handled by
 //!   `cynic_network::plane_vocabulary`.
 //! - `cortex` — the operator workstation hostname (`cynic-host-cortex`).
 //!
@@ -366,7 +366,7 @@ fn split_identifier_parts(line: &str) -> Vec<String> {
 /// True when one word is a retired term.
 ///
 /// The vocabulary owns the list, including the plural forms. The
-/// infrastructure identifiers `synapse` and `cortex` are not in the
+/// infrastructure identifiers `service` and `cortex` are not in the
 /// vocabulary at all, so they are exempt by construction: adding them to
 /// the retired list is the only way to make them a violation, and they are
 /// deliberately absent.
@@ -450,7 +450,7 @@ mod tests {
         );
     }
 
-    /// The infrastructure identifiers must never be findings: `synapse` is
+    /// The infrastructure identifiers must never be findings: `service` is
     /// the live service network plane and `cortex` is the operator
     /// workstation hostname. A rule that flagged them would send the next
     /// agent to rename live DNS.

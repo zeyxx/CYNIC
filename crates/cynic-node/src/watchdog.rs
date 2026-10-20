@@ -119,7 +119,7 @@ pub(crate) async fn run_watchdog(
 /// Dynamically resolve probeable services from `infra/registry.json`.
 ///
 /// Iterates over declared nodes and their services, finding the target IP
-/// (preferring synapse plane, falling back to management plane) and port.
+/// (preferring service plane, falling back to management plane) and port.
 pub fn resolve_watchdog_services(registry_path: &str) -> Vec<ServiceProbeSpec> {
     let Ok(content) = std::fs::read_to_string(registry_path) else {
         return Vec::new();

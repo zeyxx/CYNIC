@@ -198,8 +198,8 @@ mod tests {
     /// The argv must address the injected interface, never a hardcoded one.
     #[test]
     fn the_interface_name_is_the_one_the_adapter_was_given() {
-        let args = WireguardAdapter::new("synapse0").peer_set_args(&peer("k", "10.20.0.5", None));
-        assert_eq!(args[1], "synapse0");
+        let args = WireguardAdapter::new("mesh0").peer_set_args(&peer("k", "10.20.0.5", None));
+        assert_eq!(args[1], "mesh0");
     }
 
     /// This adapter is the declared owner of Transport; if the provider table

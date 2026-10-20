@@ -216,7 +216,7 @@ fn signals(relative: &str, content: &str) -> Vec<&'static str> {
                 "resolved",
                 "route",
                 "mesh",
-                "synapse",
+                "service",
             ],
         ),
     );

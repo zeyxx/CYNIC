@@ -6,12 +6,12 @@
 //!
 //! | Canonical (`cynic_protocol::Plane`) | Legacy registry keys |
 //! |-------------------------------------|----------------------|
-//! | `service`                           | `synapse`            |
+//! | `service`                           | `service`            |
 //! | `admin`                             | `management`         |
 //! | `mesh`                              | `overlay`            |
 //!
 //! Every reader crate used to re-implement its own fallback chain
-//! (`.get("service").or_else(|| .get("synapse"))`). Those chains drifted and
+//! (`.get("service").or_else(|| .get("service"))`). Those chains drifted and
 //! produced silently-empty lookups: the canonical keys `service`/`admin`/`mesh`
 //! written in `infra/registry.json` were never declared in the reader structs,
 //! so the fields resolved to `None` and hardcoded fallbacks took over.
@@ -61,7 +61,7 @@ pub fn is_canonical_plane_key(key: &str) -> bool {
 /// Read `plane` from a JSON object, accepting canonical and legacy keys.
 ///
 /// This is the read path every registry consumer must use. Before it existed,
-/// each crate re-implemented its own `.get("service").or_else(|| .get("synapse"))`
+/// each crate re-implemented its own `.get("service").or_else(|| .get("service"))`
 /// chain — or, worse, read the legacy key alone. Those chains drifted and then
 /// broke silently when the registry was migrated: a legacy-only reader against
 /// a canonical registry resolves to `None` and the node vanishes with no error.

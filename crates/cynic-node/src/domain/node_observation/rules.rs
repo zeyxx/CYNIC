@@ -20,8 +20,8 @@ pub fn classify_runtime(capabilities: NodeRuntimeCapabilities) -> NodeRuntimeVer
     if !capabilities.critical_tcp_open {
         blockers.push(NodeRuntimeBlocker::CriticalTcpConnectivityFailed);
     }
-    if !capabilities.synapse_route_active {
-        blockers.push(NodeRuntimeBlocker::SynapseRouteMissing);
+    if !capabilities.service_route_active {
+        blockers.push(NodeRuntimeBlocker::ServiceRouteMissing);
     }
     if !capabilities.wireguard_active {
         blockers.push(NodeRuntimeBlocker::WireguardMeshAbsent);
@@ -29,9 +29,9 @@ pub fn classify_runtime(capabilities: NodeRuntimeCapabilities) -> NodeRuntimeVer
 
     let status = if capabilities.critical_tcp_open
         && capabilities.critical_dns_ok
-        && (capabilities.provider_fallback_active || capabilities.synapse_route_active)
+        && (capabilities.provider_fallback_active || capabilities.service_route_active)
     {
-        if capabilities.wireguard_active && capabilities.synapse_route_active {
+        if capabilities.wireguard_active && capabilities.service_route_active {
             NodeRuntimeStatus::MeshActive
         } else {
             NodeRuntimeStatus::ProviderFallbackActive
@@ -72,7 +72,7 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 canonical_surface: SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS,
                 fallback_surface:
                     "ip route replace 10.10.10.0/24 via <registry.provider_gateway>".to_string(),
-                reason: "node cannot reach provider-plane services while canonical Synapse is absent",
+                reason: "node cannot reach provider-plane services while the canonical service plane is absent",
             },
             NodeRuntimeBlocker::CriticalDnsResolutionFailed => NodeRuntimeRemediation {
                 action: NodeRuntimeAction::RestoreCriticalDns,
@@ -91,7 +91,7 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                     "cynic network dns bundle --output-dir {}",
                     runtime_layout.dns_bundle_dir
                 ),
-                reason: "critical service names resolve, but not to the canonical Synapse IPs declared in registry",
+                reason: "critical service names resolve, but not to the canonical service-plane IPs declared in registry",
             },
             NodeRuntimeBlocker::CriticalTcpConnectivityFailed => NodeRuntimeRemediation {
                 action: NodeRuntimeAction::RestoreCriticalTcp,
@@ -101,8 +101,8 @@ fn remediation_for_blockers(blockers: &[NodeRuntimeBlocker]) -> Vec<NodeRuntimeR
                 fallback_surface: "ssh/curl direct provider-plane probe".to_string(),
                 reason: "at least one critical control-plane socket is unreachable",
             },
-            NodeRuntimeBlocker::SynapseRouteMissing => NodeRuntimeRemediation {
-                action: NodeRuntimeAction::ActivateSynapseRoute,
+            NodeRuntimeBlocker::ServiceRouteMissing => NodeRuntimeRemediation {
+                action: NodeRuntimeAction::ActivateServiceRoute,
                 mutates_host: true,
                 requires_root: true,
                 canonical_surface: SURFACE_NETWORK_MESH_STATUS,

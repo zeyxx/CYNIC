@@ -58,7 +58,7 @@ impl FleetDiscoveryAdapter {
 
         for declared_node in declared {
             let ip = declared_node
-                .synapse_ip
+                .service_ip
                 .unwrap_or_else(|| declared_node.management_ip.clone());
             let services = probe_services(&ip, declared_node.services.as_slice(), self.timeout_ms);
             let status = classify_node(&services);
@@ -106,7 +106,7 @@ impl FleetDiscoveryAdapter {
 struct DeclaredNode {
     id: String,
     role: String,
-    synapse_ip: Option<String>,
+    service_ip: Option<String>,
     management_ip: String,
     services: Vec<DeclaredService>,
 }
@@ -138,7 +138,7 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
             // Canonical plane reads (RFC-NET-001 §2). The struct field names
             // below are historical; only the registry access is migrated here,
             // so this does not ripple into federation_envelopes.
-            let synapse_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
+            let service_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
                 .map(String::from);
             let management_ip =
                 cynic_network::plane_vocabulary::plane_address(reservation, "admin")
@@ -150,16 +150,16 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
                 nodes.push(DeclaredNode {
                     id: name.clone(),
                     role,
-                    synapse_ip,
+                    service_ip,
                     management_ip: management,
                     services,
                 });
-            } else if let Some(synapse) = synapse_ip {
+            } else if let Some(synapse) = service_ip {
                 let (role, services) = find_node_details(&value, &name);
                 nodes.push(DeclaredNode {
                     id: name.clone(),
                     role,
-                    synapse_ip: Some(synapse.clone()),
+                    service_ip: Some(synapse.clone()),
                     management_ip: synapse,
                     services,
                 });
@@ -248,7 +248,7 @@ mod tests {
         let json = r#"{
             "network_policy": {
                 "reservations": [
-                    {"name": "test-node", "synapse": "10.10.10.99", "management": "192.168.100.99"}
+                    {"name": "test-node", "service": "10.10.10.99", "management": "192.168.100.99"}
                 ]
             },
             "nodes": [

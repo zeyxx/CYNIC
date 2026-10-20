@@ -9,8 +9,8 @@ use serde_json::Value;
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
     DnsProviderObservedStatus, DnsProviderPolicySurface, default_dns_zone,
-    dns_provider_policy_surface, observe_dns_provider_status, synapse_dns_corefile_path,
-    synapse_dns_hosts_path,
+    dns_provider_policy_surface, observe_dns_provider_status, service_dns_corefile_path,
+    service_dns_hosts_path,
 };
 use crate::network_host_substrate;
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
@@ -43,9 +43,9 @@ struct DnsActivationChecks {
     hosts_contains_storage_record: bool,
     corefile_references_hosts: bool,
     service_references_corefile: bool,
-    resolved_routes_synapse: bool,
+    resolved_routes_service: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    synapse_dns_resolves: Option<bool>,
+    service_dns_resolves: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -107,7 +107,7 @@ fn build_dns_activation_status_with_runtime(
         .ok()
         .and_then(|summary| summary.service_dns_zone)
         .unwrap_or_else(default_dns_zone);
-    let synapse_dns_resolves = if resolve_dns {
+    let service_dns_resolves = if resolve_dns {
         let dns_ok = topology_resolves_to_declared_addresses(&topology, &dns_zone);
         mesh_status = serde_json::json!({
             "schema": "cynic.infrastructure_mcp.network_mesh_status.v1",
@@ -127,11 +127,11 @@ fn build_dns_activation_status_with_runtime(
         selected_provider_provenance_verified: provider_status.package_provenance_verified,
         hosts_contains_storage_record: hosts_contains_any_topology_record(hosts_path, &topology),
         corefile_references_hosts: file_contains(corefile_path, hosts_path)
-            || file_contains(corefile_path, &synapse_dns_hosts_path()),
+            || file_contains(corefile_path, &service_dns_hosts_path()),
         service_references_corefile: file_contains(service_path, corefile_path)
-            || file_contains(service_path, &synapse_dns_corefile_path()),
-        resolved_routes_synapse: file_contains(resolved_dropin_path, &format!("~{dns_zone}")),
-        synapse_dns_resolves,
+            || file_contains(service_path, &service_dns_corefile_path()),
+        resolved_routes_service: file_contains(resolved_dropin_path, &format!("~{dns_zone}")),
+        service_dns_resolves,
     };
 
     let mut missing = Vec::new();
@@ -162,11 +162,11 @@ fn build_dns_activation_status_with_runtime(
     if !checks.service_references_corefile {
         missing.push("service_references_corefile");
     }
-    if !checks.resolved_routes_synapse {
-        missing.push("resolved_routes_synapse");
+    if !checks.resolved_routes_service {
+        missing.push("resolved_routes_service");
     }
-    if resolve_dns && checks.synapse_dns_resolves == Some(false) {
-        missing.push("synapse_dns_resolves");
+    if resolve_dns && checks.service_dns_resolves == Some(false) {
+        missing.push("service_dns_resolves");
     }
     for blocker in blocked_domains {
         missing.push(blocker);

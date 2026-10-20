@@ -26,7 +26,7 @@ pub(crate) fn usage() -> String {
         "service-reconcile --apply | network-baseline <observe|bundle|plan|apply-report|apply> ",
         "[--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] ",
         "[--dry-run|--apply] | network-actuate ",
-        "--profile <provider-fallback-route|synapse-route|wireguard-mesh|direct-management-link> ",
+        "--profile <provider-fallback-route|service-route|wireguard-mesh|direct-management-link> ",
         "[--target <name>] [--registry <path>] [--apply]>"
     )
     .to_string()

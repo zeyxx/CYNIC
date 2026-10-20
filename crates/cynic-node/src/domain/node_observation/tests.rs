@@ -3,7 +3,7 @@ use super::*;
 fn caps() -> NodeRuntimeCapabilities {
     NodeRuntimeCapabilities {
         provider_fallback_active: true,
-        synapse_route_active: false,
+        service_route_active: false,
         wireguard_active: false,
         critical_dns_ok: true,
         critical_dns_canonical: true,
@@ -20,7 +20,7 @@ fn classifies_provider_fallback_as_alive_but_not_mesh() {
     assert_eq!(
         verdict.blockers,
         vec![
-            NodeRuntimeBlocker::SynapseRouteMissing,
+            NodeRuntimeBlocker::ServiceRouteMissing,
             NodeRuntimeBlocker::WireguardMeshAbsent
         ]
     );
@@ -31,7 +31,7 @@ fn classifies_provider_fallback_as_alive_but_not_mesh() {
             .map(|item| item.action.clone())
             .collect::<Vec<_>>(),
         vec![
-            NodeRuntimeAction::ActivateSynapseRoute,
+            NodeRuntimeAction::ActivateServiceRoute,
             NodeRuntimeAction::ActivateWireguardMesh
         ]
     );
@@ -46,7 +46,7 @@ fn classifies_provider_fallback_as_alive_but_not_mesh() {
 #[test]
 fn classifies_full_mesh_as_active() {
     let mut capabilities = caps();
-    capabilities.synapse_route_active = true;
+    capabilities.service_route_active = true;
     capabilities.wireguard_active = true;
 
     let verdict = classify_runtime(capabilities);
@@ -76,7 +76,7 @@ fn classifies_missing_connectivity_as_blocked() {
 #[test]
 fn classifies_noncanonical_dns_as_warning_with_repair_path() {
     let mut capabilities = caps();
-    capabilities.synapse_route_active = true;
+    capabilities.service_route_active = true;
     capabilities.wireguard_active = true;
     capabilities.critical_dns_canonical = false;
 
@@ -107,7 +107,7 @@ fn classifies_noncanonical_dns_as_warning_with_repair_path() {
 fn remediation_surfaces_match_infrastructure_contract_operation_names() {
     let verdict = classify_runtime(NodeRuntimeCapabilities {
         provider_fallback_active: false,
-        synapse_route_active: false,
+        service_route_active: false,
         wireguard_active: false,
         critical_dns_ok: false,
         critical_dns_canonical: false,

@@ -119,7 +119,7 @@ mod tests {
         FederatedMeshNodeStatus {
             node_id: node_id.into(),
             role: "peer".into(),
-            synapse_ip: "10.10.10.x".into(),
+            service_ip: "10.10.10.x".into(),
             wireguard_reachable: reachable,
             active_services: services.iter().map(|s| s.to_string()).collect(),
             rtt_ms: None,

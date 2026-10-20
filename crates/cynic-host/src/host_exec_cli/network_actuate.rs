@@ -383,7 +383,7 @@ mod tests {
         let policy = dir.path().join("policy.json");
         std::fs::write(
             &policy,
-            r#"{"allowed_profiles":{"synapse-route":{"command_prefixes":[]}}}"#,
+            r#"{"allowed_profiles":{"service-route":{"command_prefixes":[]}}}"#,
         )
         .expect("write policy");
         let runner = MapArgvRunner {
@@ -396,14 +396,14 @@ mod tests {
                 ],
                 ArgvOutput {
                     exit_code: Some(0),
-                    stdout: r#"{"provider_fallback_active":true,"synapse_route_active":false,"wireguard_active":true,"target":{"provider_fallback_cidr":"10.0.0.0/24","provider_fallback_gateway":null,"service_cidr":"10.10.10.0/24","mesh_interface":"wg0"}}"#.into(),
+                    stdout: r#"{"provider_fallback_active":true,"service_route_active":false,"wireguard_active":true,"target":{"provider_fallback_cidr":"10.0.0.0/24","provider_fallback_gateway":null,"service_cidr":"10.10.10.0/24","mesh_interface":"wg0"}}"#.into(),
                     stderr: String::new(),
                     spawn_error: None,
                 },
             )],
         };
         let result = execute_with_runner(
-            &["--profile".into(), "synapse-route".into()],
+            &["--profile".into(), "service-route".into()],
             &runner,
             policy.to_str().expect("policy path"),
             "/portable/cynic-node",
@@ -420,7 +420,7 @@ mod tests {
             r#"{
               "network_policy": {
                 "planes": {
-                  "synapse": {"cidr":"10.10.10.0/24"}
+                  "service": {"cidr":"10.10.10.0/24"}
                 }
               },
               "nodes": [
@@ -450,7 +450,7 @@ mod tests {
         }
         let mut observation = NetworkActuationObservation {
             provider_fallback_active: true,
-            synapse_route_active: false,
+            service_route_active: false,
             wireguard_active: false,
             management_link_active: false,
             target: crate::network_actuation::NetworkActuationTarget {
@@ -506,7 +506,7 @@ mod tests {
         }
         let mut observation = NetworkActuationObservation {
             provider_fallback_active: true,
-            synapse_route_active: false,
+            service_route_active: false,
             wireguard_active: false,
             management_link_active: false,
             target: crate::network_actuation::NetworkActuationTarget {
@@ -538,7 +538,7 @@ mod tests {
         fs::write(
             &registry,
             r#"{
-              "network_policy": {"planes": {"synapse": {"cidr":"10.10.10.0/24"}}},
+              "network_policy": {"planes": {"service": {"cidr":"10.10.10.0/24"}}},
               "nodes": [
                 {"name":"local-builder","aliases":["ubuntu"],"role":"build_runner"},
                 {
@@ -563,7 +563,7 @@ mod tests {
         }
         let mut observation = NetworkActuationObservation {
             provider_fallback_active: true,
-            synapse_route_active: false,
+            service_route_active: false,
             wireguard_active: false,
             management_link_active: false,
             target: crate::network_actuation::NetworkActuationTarget {

@@ -180,9 +180,9 @@ fn remediation_to_profile(
     executor: &str,
 ) -> Option<AllowedProfile> {
     match remediation.action {
-        NodeRuntimeAction::ActivateSynapseRoute => Some(AllowedProfile {
-            profile: "synapse-route",
-            purpose: "restore canonical Synapse route on this node",
+        NodeRuntimeAction::ActivateServiceRoute => Some(AllowedProfile {
+            profile: "service-route",
+            purpose: "restore canonical service route on this node",
             action: remediation.action.clone(),
             argv_prefix: vec![
                 executor.to_string(),
@@ -190,7 +190,7 @@ fn remediation_to_profile(
                 "exec".to_string(),
                 "network-actuate".to_string(),
                 "--param".to_string(),
-                "profile=synapse-route".to_string(),
+                "profile=service-route".to_string(),
             ],
             mutates_host: remediation.mutates_host,
             requires_root: remediation.requires_root,
@@ -242,7 +242,7 @@ mod tests {
         let observation = NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -275,7 +275,7 @@ mod tests {
             policy
                 .allowed_profiles
                 .iter()
-                .any(|profile| profile.profile == "synapse-route")
+                .any(|profile| profile.profile == "service-route")
         );
         assert!(
             policy

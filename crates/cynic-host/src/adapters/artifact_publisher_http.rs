@@ -110,7 +110,7 @@ mod tests {
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
             target: cynic_lifecycle::domain::artifact_publication::PublicationTarget {
-                node: "synapse".into(),
+                node: "local-kernel".into(),
                 target: "cynic@10.10.10.119".into(),
                 protocol: TransportProtocol::Ssh,
             },
@@ -128,7 +128,7 @@ mod tests {
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
             target: cynic_lifecycle::domain::artifact_publication::PublicationTarget {
-                node: "synapse".into(),
+                node: "local-kernel".into(),
                 target: "pve.service.cynic".into(),
                 protocol: TransportProtocol::HttpPut,
             },

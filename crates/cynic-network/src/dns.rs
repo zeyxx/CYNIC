@@ -1,11 +1,11 @@
-//! Pure DNS Synthesis & Rendering Domain for CYNIC Synapse Zone
+//! Pure DNS Synthesis & Rendering Domain for CYNIC service Zone
 //! Clean-room extracted from cynic-node to cynic-network per Foundation §481 (SoC).
 //! Pure string & configuration generators. Zero I/O, zero network or filesystem calls.
 
 pub const DEFAULT_DNS_ZONE: &str = "service.cynic";
 /// Legacy compat zone, kept while pre-migration callers exist
 /// (forge remote, baked search domains). Transitional: remove when the
-/// last `synapse.cynic` reference leaves the registry and call sites.
+/// last `service.cynic` reference leaves the registry and call sites.
 pub const COMPAT_DNS_ZONE: &str = "synapse.cynic";
 pub const SERVICE_DNS_HOSTS_FILENAME: &str = "service.hosts";
 pub const COMPAT_DNS_HOSTS_FILENAME: &str = "synapse.hosts";

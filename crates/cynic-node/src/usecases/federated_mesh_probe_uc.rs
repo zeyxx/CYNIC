@@ -1,7 +1,7 @@
-//! Federated Synapse Mesh Probe Use Case.
+//! Federated service Mesh Probe Use Case.
 //!
 //! Measures live node-to-node reachability, WireGuard overlay health,
-//! and service availability across the declared Synapse cluster without modifying host state.
+//! and service availability across the declared service cluster without modifying host state.
 
 use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
@@ -10,9 +10,9 @@ use cynic_protocol::{
     FEDERATED_MESH_PROBE_SCHEMA, FederatedMeshNodeStatus, FederatedMeshProbeReport,
 };
 
-/// Probes all declared Synapse nodes and generates a read-back proof report.
+/// Probes all declared service nodes and generates a read-back proof report.
 ///
-/// The declared topology comes from `infra/synapse-nodes.seed.json`, read by the
+/// The declared topology comes from `infra/service-nodes.seed.json`, read by the
 /// resolver. This function carried its own `CANONICAL_SYNAPSE_NODES` const until
 /// 2026-09-30 — a second copy of the same five addresses and ports, kept as the
 /// resolver's fallback when the seed file was missing. The seed file's own note
@@ -24,7 +24,7 @@ use cynic_protocol::{
 /// declared nodes and a report of `isolated` — an explicit unknown, which is
 /// what a missing lower layer should produce, rather than a second copy of the
 /// answer that no test can keep honest.
-pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeReport {
+pub fn probe_federated_service_mesh(local_node_id: &str) -> FederatedMeshProbeReport {
     let resolver =
         super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default();
     let seed_peers = resolver.resolve_all_peers();
@@ -61,7 +61,7 @@ pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeRe
         node_statuses.push(FederatedMeshNodeStatus {
             node_id: node.node_id.clone(),
             role: node.role.clone(),
-            synapse_ip: node.addr.clone(),
+            service_ip: node.addr.clone(),
             wireguard_reachable: is_reachable,
             active_services,
             rtt_ms: min_rtt,

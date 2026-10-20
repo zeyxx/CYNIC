@@ -118,7 +118,7 @@ fn fetches_provider_fallback_service_checks() {
 }
 
 /// Backward-compatibility proof: a registry written with legacy plane keys
-/// (`synapse`, `management`) must still resolve to the canonical fields.
+/// (`service`, `management`) must still resolve to the canonical fields.
 /// The mapping lives in `RegistryPlanes` / `RegistryNodeNetwork` serde aliases.
 #[test]
 fn resolves_legacy_plane_keys_through_canonical_fields() {
@@ -130,7 +130,7 @@ fn resolves_legacy_plane_keys_through_canonical_fields() {
           "network_policy": {
             "canonical_service_plane": "service",
             "planes": {
-              "synapse": { "cidr": "10.20.0.0/24", "dns_zone": "service.cynic", "canonical": true }
+              "service": { "cidr": "10.20.0.0/24", "dns_zone": "service.cynic", "canonical": true }
             }
           },
           "nodes": [
@@ -138,7 +138,7 @@ fn resolves_legacy_plane_keys_through_canonical_fields() {
               "name": "storage",
               "role": "storage_primary",
               "status": "active",
-              "network": { "synapse": "10.20.0.103" },
+              "network": { "service": "10.20.0.103" },
               "services": [
                 { "name": "surrealdb", "port": 8000 }
               ]

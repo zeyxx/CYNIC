@@ -421,7 +421,7 @@ pub fn evaluate_network_watchdog(
                 "{} WireGuard peer(s) are stale (handshake > 150s)",
                 wireguard.stale_peers
             ),
-            recovery_hint: "Verify route keepalive packets on synapse plane".to_string(),
+            recovery_hint: "Verify route keepalive packets on service plane".to_string(),
         });
         if max_level == NetworkAlertLevel::Ok {
             max_level = NetworkAlertLevel::Warning;
@@ -509,7 +509,7 @@ mod tests {
             status: "planned",
             provider: "wireguard".to_string(),
             registry_path: "registry.json".to_string(),
-            service_plane: "synapse".to_string(),
+            service_plane: "service".to_string(),
             cidr: Some("10.0.0.0/24".to_string()),
             dns_zone: Some("mesh.test".to_string()),
             desired_peer_count: 0,

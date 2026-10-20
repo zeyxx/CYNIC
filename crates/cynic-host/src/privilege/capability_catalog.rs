@@ -281,7 +281,7 @@ mod tests {
             (
                 "network-actuate",
                 vec![
-                    ("profile".to_string(), "synapse-route".to_string()),
+                    ("profile".to_string(), "service-route".to_string()),
                     ("target".to_string(), "cortex".to_string()),
                     ("registry".to_string(), registry_str.clone()),
                 ],
@@ -289,7 +289,7 @@ mod tests {
             (
                 "network-baseline-apply",
                 vec![
-                    ("profile".to_string(), "synapse-route".to_string()),
+                    ("profile".to_string(), "service-route".to_string()),
                     ("target".to_string(), "cortex".to_string()),
                     ("registry".to_string(), registry_str.clone()),
                 ],

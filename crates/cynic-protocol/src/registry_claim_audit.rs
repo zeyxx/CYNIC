@@ -34,7 +34,7 @@ pub enum ClaimKind {
     /// The node declared to carry a role actually carries it.
     RoleHost,
     /// The declared address answers.
-    SynapseAddress,
+    ServiceAddress,
     /// The declared name resolves, and resolves consistently.
     DnsRecord,
     /// A declared service is listening where the registry says.
@@ -46,7 +46,7 @@ pub enum ClaimKind {
     /// `ip=dhcp`, so every peer trusting that address depends on a lease nobody
     /// pinned. Reachability probes cannot see this — the address is right until
     /// the day it silently is not.
-    SynapseAllocation,
+    ServiceAllocation,
     /// A node's overlay address is declared, not just live.
     ///
     /// The WireGuard mesh carries real traffic while all five registry peers
@@ -61,7 +61,7 @@ pub enum ClaimKind {
     PlaneOccupancy,
     /// Two declarative sources describe the same node differently.
     ///
-    /// `infra/synapse-nodes.seed.json` and the code-side `CANONICAL_SYNAPSE_NODES`
+    /// `infra/service-nodes.seed.json` and the code-side `CANONICAL_SYNAPSE_NODES`
     /// const both gave `local-kernel` the address `127.0.0.1` and the role
     /// `cortex_primary`, while `infra/registry.json` gives it `10.10.10.100` and
     /// `kernel_primary` and assigns `cortex_host` to a separate node. No
@@ -69,7 +69,7 @@ pub enum ClaimKind {
     /// look correct while disagreeing about what the node *is*.
     ///
     /// The const was deleted on 2026-09-30 — this is the kind that named it, and
-    /// the deletion is the repair. `infra/synapse-nodes.seed.json` against
+    /// the deletion is the repair. `infra/service-nodes.seed.json` against
     /// `infra/registry.json` remains a live instance of this kind.
     ///
     /// A second declarative source is not a fallback, it is a competing
@@ -83,10 +83,10 @@ impl ClaimKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::RoleHost => "role_host",
-            Self::SynapseAddress => "synapse_address",
+            Self::ServiceAddress => "service_address",
             Self::DnsRecord => "dns_record",
             Self::ServiceBinding => "service_binding",
-            Self::SynapseAllocation => "synapse_allocation",
+            Self::ServiceAllocation => "service_allocation",
             Self::OverlayAddress => "overlay_address",
             Self::PlaneOccupancy => "plane_occupancy",
             Self::DeclarativeAgreement => "declarative_agreement",
@@ -588,7 +588,7 @@ mod tests {
     fn a_leased_address_refutes_a_static_allocation_claim() {
         let observation = ClaimObservation {
             node_id: "cynic-builder".to_string(),
-            kind: ClaimKind::SynapseAllocation,
+            kind: ClaimKind::ServiceAllocation,
             declared: "static:10.10.10.119".to_string(),
             observed: Some("dhcp:10.10.10.119".to_string()),
             declared_as_candidate: true,
@@ -607,7 +607,7 @@ mod tests {
     fn a_reserved_address_confirms_the_allocation_claim() {
         let observation = ClaimObservation {
             node_id: "cynic-lxc-surrealdb".to_string(),
-            kind: ClaimKind::SynapseAllocation,
+            kind: ClaimKind::ServiceAllocation,
             declared: "static:10.10.10.103".to_string(),
             observed: Some("static:10.10.10.103".to_string()),
             declared_as_candidate: false,
@@ -680,10 +680,10 @@ mod tests {
     fn all_claim_kinds_have_stable_wire_names() {
         for (kind, expected) in [
             (ClaimKind::RoleHost, "role_host"),
-            (ClaimKind::SynapseAddress, "synapse_address"),
+            (ClaimKind::ServiceAddress, "service_address"),
             (ClaimKind::DnsRecord, "dns_record"),
             (ClaimKind::ServiceBinding, "service_binding"),
-            (ClaimKind::SynapseAllocation, "synapse_allocation"),
+            (ClaimKind::ServiceAllocation, "service_allocation"),
             (ClaimKind::OverlayAddress, "overlay_address"),
             (ClaimKind::PlaneOccupancy, "plane_occupancy"),
             (ClaimKind::DeclarativeAgreement, "declarative_agreement"),

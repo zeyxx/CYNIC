@@ -37,7 +37,7 @@ pub(crate) fn declared_service_probe_specs()
     let canonical_plane = val
         .pointer("/network_policy/canonical_service_plane")
         .and_then(|v| v.as_str())
-        .unwrap_or("synapse");
+        .unwrap_or("service");
     let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) else {
         return services;
     };
@@ -193,7 +193,7 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Reconcile and synchronize WireGuard peers and Synapse DNS from registry desired state
+    /// Reconcile and synchronize WireGuard peers and service DNS from registry desired state
     Sync {
         #[arg(long)]
         json: bool,

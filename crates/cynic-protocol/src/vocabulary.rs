@@ -32,9 +32,9 @@
 //! Two words look biological but are infrastructure identifiers, and
 //! renaming them would break live DNS and host addressing:
 //!
-//! - `synapse` — the service network plane (`*.synapse.cynic`,
-//!   `network_policy.planes.synapse`). The canonical plane name is
-//!   `service`; `synapse` is the legacy registry key, handled by
+//! - `service` — the service network plane (`*.service.cynic`,
+//!   `network_policy.planes.service`). The canonical plane name is
+//!   `service`; `service` is the legacy registry key, handled by
 //!   `cynic_network::plane_vocabulary`.
 //! - `cortex` — the operator workstation hostname (`cynic-host-cortex`).
 //!
@@ -182,7 +182,7 @@ pub fn is_legacy_persisted_key(key: &str) -> bool {
 /// renaming it would break live DNS, the mesh coordinator lookup, and the
 /// hypervisor inventory. So it stays, and the audit must not report it.
 ///
-/// The exemption is BY CONSTRUCTION, like `synapse` and `cortex`: a
+/// The exemption is BY CONSTRUCTION, like `service` and `cortex`: a
 /// composed identifier is exempt only when the WHOLE identifier is
 /// listed here. A bare `organ` is still retired, and an identifier that
 /// merely starts with one of these segments is still reported. That is the

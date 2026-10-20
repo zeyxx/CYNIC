@@ -73,7 +73,7 @@ pub struct NetworkActuationTarget {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkActuationObservation {
     pub provider_fallback_active: bool,
-    pub synapse_route_active: bool,
+    pub service_route_active: bool,
     pub wireguard_active: bool,
     #[serde(default)]
     pub management_link_active: bool,
@@ -86,7 +86,7 @@ impl NetworkActuationObservation {
             "provider-fallback-route" => {
                 !self.provider_fallback_active && self.target.provider_fallback_gateway.is_some()
             }
-            "synapse-route" => !self.synapse_route_active,
+            "service-route" => !self.service_route_active,
             "wireguard-mesh" => !self.wireguard_active,
             "direct-management-link" => {
                 !self.management_link_active
@@ -235,7 +235,7 @@ pub fn execute_network_actuation_with_readback(
 fn profile_satisfied(observation: &NetworkActuationObservation, profile: &str) -> bool {
     match profile {
         "provider-fallback-route" => observation.provider_fallback_active,
-        "synapse-route" => observation.synapse_route_active,
+        "service-route" => observation.service_route_active,
         "wireguard-mesh" => observation.wireguard_active,
         "direct-management-link" => observation.management_link_active,
         _ => false,
@@ -431,8 +431,8 @@ fn allowed_profile(
             "Restore temporary provider fallback route for resurrection only.",
             &runtime.route_bin,
         )),
-        "synapse-route" => Some(route_profile(
-            "Restore canonical Synapse route on the local node.",
+        "service-route" => Some(route_profile(
+            "Restore canonical service route on the local node.",
             &runtime.route_bin,
         )),
         "wireguard-mesh" => Some(NetworkActuationAllowedProfile {
@@ -555,7 +555,7 @@ pub fn build_network_actuation_commands(
                 ),
             ]
         }),
-        "synapse-route" => Some(vec![
+        "service-route" => Some(vec![
             argv_command(
                 "mutate_route",
                 vec![
@@ -678,7 +678,7 @@ mod tests {
     struct FailSecond(AtomicUsize);
 
     struct SuccessfulExecutor;
-    struct ActiveSynapseObserver;
+    struct ActiveServiceObserver;
 
     impl NetworkActuationExecutor for FailSecond {
         fn run_argv(&self, role: &str, argv: &[String]) -> HostCommandExecution {
@@ -705,11 +705,11 @@ mod tests {
         }
     }
 
-    impl NetworkActuationObserver for ActiveSynapseObserver {
+    impl NetworkActuationObserver for ActiveServiceObserver {
         fn observe(&self) -> Result<NetworkActuationObservation, String> {
             Ok(NetworkActuationObservation {
                 provider_fallback_active: true,
-                synapse_route_active: true,
+                service_route_active: true,
                 wireguard_active: true,
                 management_link_active: false,
                 target: NetworkActuationTarget {
@@ -796,8 +796,8 @@ mod tests {
             management_address: None,
             management_gateway: None,
         };
-        let commands = build_network_actuation_commands("synapse-route", &target, &runtime)
-            .expect("synapse route is supported");
+        let commands = build_network_actuation_commands("service-route", &target, &runtime)
+            .expect("service route is supported");
 
         assert_eq!(commands[0].role, "mutate_route");
         assert_eq!(
@@ -871,7 +871,7 @@ mod tests {
         let plan = NetworkActuationPlan {
             schema: "cynic.host.network_actuation_plan.v1",
             id: "lab-plan".to_string(),
-            profile: "synapse-route".to_string(),
+            profile: "service-route".to_string(),
             target: "guest-1".to_string(),
             commands: vec![argv_command("probe", vec!["true".to_string()])],
             preconditions: Vec::new(),
@@ -905,7 +905,7 @@ mod tests {
         let plan = NetworkActuationPlan {
             schema: "cynic.host.network_actuation_plan.v1",
             id: "proof-plan".to_string(),
-            profile: "synapse-route".to_string(),
+            profile: "service-route".to_string(),
             target: "guest-1".to_string(),
             commands: vec![argv_command("route", vec!["true".to_string()])],
             preconditions: Vec::new(),
@@ -916,9 +916,9 @@ mod tests {
             &plan,
             Vec::new(),
             &SuccessfulExecutor,
-            &ActiveSynapseObserver,
+            &ActiveServiceObserver,
         );
         assert_eq!(report.status, "proved");
-        assert_eq!(report.proof_refs, vec!["postflight:guest-1:synapse-route"]);
+        assert_eq!(report.proof_refs, vec!["postflight:guest-1:service-route"]);
     }
 }

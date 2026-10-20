@@ -205,7 +205,7 @@ impl EvolutivePolicy {
             EvolutivePolicyDomain::Network => Self {
                 schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
                 domain,
-                default_gate: "deterministic Synapse/WireGuard mesh with failover".to_string(),
+                default_gate: "deterministic service/WireGuard mesh with failover".to_string(),
                 build_gate: None,
                 release_gate: None,
                 admission_gate: Some("mesh reachability proved via peer resolver".to_string()),

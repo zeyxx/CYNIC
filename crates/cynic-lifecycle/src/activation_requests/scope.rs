@@ -9,7 +9,7 @@ pub fn activation_request_targets(action: &Value) -> (Vec<String>, Vec<String>) 
         | "activate_registry_node"
         | "materialize_runtime_path" => vec!["infra/registry.json".to_string()],
         "refresh_fleet_inventory" | "restore_fleet_probe" => vec!["crates/cynic-node".to_string()],
-        "provide_runtime_observation" | "join_or_wake_synapse_peer" => {
+        "provide_runtime_observation" | "join_or_wake_service_peer" => {
             vec![
                 "crates/cynic-node".to_string(),
                 "crates/cynic-kernel".to_string(),
@@ -17,7 +17,7 @@ pub fn activation_request_targets(action: &Value) -> (Vec<String>, Vec<String>) 
         }
         "restore_canonical_dns_projection"
         | "install_network_actuator_bundle"
-        | "activate_synapse_route"
+        | "activate_service_route"
         | "activate_wireguard_mesh" => {
             vec![
                 "crates/cynic-node".to_string(),
@@ -40,7 +40,7 @@ pub fn activation_request_priority(action: &Value) -> i64 {
         | "provide_runtime_observation"
         | "restore_canonical_dns_projection"
         | "install_network_actuator_bundle"
-        | "activate_synapse_route"
+        | "activate_service_route"
         | "activate_wireguard_mesh" => 97,
         "materialize_runtime_path" => 96,
         "verify_runtime_path_proof" | "activate_registry_node" => 95,

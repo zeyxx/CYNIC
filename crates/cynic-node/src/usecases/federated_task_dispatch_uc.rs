@@ -2,7 +2,7 @@
 //!
 //! Wraps domain tasks in cryptographically attributed `FederatedTaskEnvelope`s,
 //! issues monotonic `FederatedNodeLease`s with fencing tokens,
-//! and orchestrates task distribution across reachable Synapse WireGuard mesh nodes.
+//! and orchestrates task distribution across reachable service WireGuard mesh nodes.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
@@ -13,7 +13,7 @@ use cynic_protocol::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::federated_mesh_probe_uc::probe_federated_synapse_mesh;
+use super::federated_mesh_probe_uc::probe_federated_service_mesh;
 
 pub const FEDERATED_DISPATCH_RECEIPT_SCHEMA: &str = "cynic.federation.dispatch_receipt.v1";
 pub const FEDERATED_SYNC_REPORT_SCHEMA: &str = "cynic.federation.sync_report.v1";
@@ -75,7 +75,7 @@ impl FederatedTaskDispatcher {
                 .resolve_all_peers()
                 .into_iter()
                 .find(|n| n.node_id.eq_ignore_ascii_case(&node_id))
-                .ok_or_else(|| format!("Target node '{node_id}' not found in Synapse registry"))?,
+                .ok_or_else(|| format!("Target node '{node_id}' not found in the service registry"))?,
             None => select_canonical_node_for_domain(task.domain),
         };
 
@@ -117,9 +117,9 @@ impl FederatedTaskDispatcher {
         })
     }
 
-    /// Perform a full cluster synchronization across active Synapse mesh nodes.
+    /// Perform a full cluster synchronization across active service mesh nodes.
     pub fn sync_cluster(&self, pending_tasks: &[DomainTask]) -> FederatedSyncReport {
-        let probe = probe_federated_synapse_mesh(&self.local_node_id);
+        let probe = probe_federated_service_mesh(&self.local_node_id);
         let mut envelopes = Vec::new();
         let mut leases = Vec::new();
 

@@ -25,7 +25,7 @@ fn proof_root_policy_keeps_denial_contract_shape() {
     let observation = NodeObservation::synthetic_for_tests(
         NodeRuntimeCapabilities {
             provider_fallback_active: false,
-            synapse_route_active: true,
+            service_route_active: true,
             wireguard_active: true,
             critical_dns_ok: true,
             critical_dns_canonical: true,
@@ -85,7 +85,7 @@ fn proof_allowed_profiles_only_contains_root_remediations() {
     let observation = NodeObservation {
         remediation: vec![
             NodeRuntimeRemediation {
-                action: NodeRuntimeAction::ActivateSynapseRoute,
+                action: NodeRuntimeAction::ActivateServiceRoute,
                 reason: "route missing",
                 requires_root: true,
                 mutates_host: true,
@@ -104,7 +104,7 @@ fn proof_allowed_profiles_only_contains_root_remediations() {
         ..NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: false,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: true,
                 critical_dns_ok: false,
                 critical_dns_canonical: false,
@@ -116,7 +116,7 @@ fn proof_allowed_profiles_only_contains_root_remediations() {
 
     let profiles = allowed_profiles(&observation, "/portable/bin/cynic-network-actuator");
     assert_eq!(profiles.len(), 1);
-    assert_eq!(profiles[0].profile, "synapse-route");
+    assert_eq!(profiles[0].profile, "service-route");
     assert!(profiles[0].requires_root);
     assert!(profiles[0].mutates_host);
 }

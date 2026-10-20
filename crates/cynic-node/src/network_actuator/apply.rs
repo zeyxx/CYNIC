@@ -165,7 +165,7 @@ mod tests {
         crate::observe::NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -176,9 +176,9 @@ mod tests {
     }
 
     #[test]
-    fn synapse_route_profile_uses_injected_bins() {
+    fn service_route_profile_uses_injected_bins() {
         let commands =
-            profile_commands_with_context(&observation(), "synapse-route", &portable_context())
+            profile_commands_with_context(&observation(), "service-route", &portable_context())
                 .unwrap();
 
         match &commands[0].invocation {
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn apply_profile_with_context_preserves_refusal_without_apply() {
         let report =
-            apply_profile_with_context(&observation(), "synapse-route", false, &portable_context());
+            apply_profile_with_context(&observation(), "service-route", false, &portable_context());
 
         assert_eq!(report.status, "refused");
         assert!(!report.commands.is_empty());

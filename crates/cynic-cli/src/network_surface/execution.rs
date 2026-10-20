@@ -50,25 +50,25 @@ pub enum NetworkCommands {
         #[arg(long)]
         audit: bool,
     },
-    /// Emit canonical Synapse DNS activation bundle.
+    /// Emit canonical service DNS activation bundle.
     DnsBundle {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
         #[arg(long)]
         json: bool,
-        /// Registry path used to derive Synapse topology.
+        /// Registry path used to derive service topology.
         #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Output directory containing bundle files and manifest.
         #[arg(long)]
         output_dir: String,
     },
-    /// Emit canonical Synapse DNS activation plan.
+    /// Emit canonical service DNS activation plan.
     DnsPlan {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
         #[arg(long)]
         json: bool,
     },
-    /// Emit canonical Synapse DNS activation status.
+    /// Emit canonical service DNS activation status.
     DnsActivationStatus {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
         #[arg(long)]
@@ -92,7 +92,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         resolve_dns: bool,
     },
-    /// Plan or apply the exact digest-bound Synapse DNS bundle on this node.
+    /// Plan or apply the exact digest-bound service DNS bundle on this node.
     DnsActivate {
         #[arg(long)]
         json: bool,

@@ -4,7 +4,7 @@ use chrono::Utc;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::adapters::dns_renderer::SynapseDnsRenderer;
+use crate::adapters::dns_renderer::ServiceDnsRenderer;
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::observe;
 use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
@@ -35,7 +35,7 @@ struct ShadowProofRust {
 #[derive(Debug, Clone, Serialize)]
 struct RustDnsBundle {
     activation_plan: Value,
-    synapse_hosts: String,
+    service_hosts: String,
     corefile: String,
     resolved_dropin: String,
 }
@@ -71,9 +71,9 @@ pub fn build_shadow_proof(
         .fetch_network_policy_summary()?
         .service_dns_zone
         .unwrap_or_else(crate::dns_contract::default_dns_zone);
-    let renderer = SynapseDnsRenderer::new(zone);
+    let renderer = ServiceDnsRenderer::new(zone);
     let activation_plan = renderer.activation_plan()?;
-    let synapse_hosts = renderer.render_hosts(&topology)?;
+    let service_hosts = renderer.render_hosts(&topology)?;
     let corefile = renderer.render_corefile()?;
     let resolved_dropin = renderer.render_resolved_dropin()?;
     let rust_observation = observe::observe_payload(Some(registry));
@@ -81,7 +81,7 @@ pub fn build_shadow_proof(
     let rust = ShadowProofRust {
         dns_bundle: RustDnsBundle {
             activation_plan: serde_json::to_value(activation_plan)?,
-            synapse_hosts,
+            service_hosts,
             corefile,
             resolved_dropin,
         },
@@ -115,7 +115,7 @@ fn evaluate_rust_network_shadow(
 ) -> Vec<ShadowDrift> {
     let mut drift = Vec::new();
 
-    if normalize_text(&rust.dns_bundle.synapse_hosts).is_empty() {
+    if normalize_text(&rust.dns_bundle.service_hosts).is_empty() {
         drift.push(ShadowDrift {
             kind: "dns_hosts_empty",
             detail: "Rust DNS host projection is empty for the current registry.".to_string(),
@@ -198,7 +198,7 @@ mod tests {
             rust: ShadowProofRust {
                 dns_bundle: RustDnsBundle {
                     activation_plan: json!({}),
-                    synapse_hosts: String::new(),
+                    service_hosts: String::new(),
                     corefile: String::new(),
                     resolved_dropin: String::new(),
                 },

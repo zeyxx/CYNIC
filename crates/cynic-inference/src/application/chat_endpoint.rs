@@ -4,7 +4,7 @@
 //! 1. Breakglass `CYNIC_CHAT_ENDPOINT` (explicit operator override only)
 //! 2. Live supervised local unit (`inference start`)
 //! 3. CYNIC inference config (`inference.toml` — principal runtime config then /etc)
-//! 4. Synapse DNS names (`inference.service.cynic`, `llama.service.cynic`, …)
+//! 4. service DNS names (`inference.service.cynic`, `llama.service.cynic`, …)
 //! 5. ODS / local OpenAI-compat discovery (when `--ods` or as last probe)
 //!
 //! Never silently falls back to mock.
@@ -30,7 +30,7 @@ pub enum ChatEndpointSource {
     LocalSupervisor,
     /// From CYNIC inference.toml SSOT.
     InferenceConfig,
-    /// Resolved via synapse DNS network.
+    /// Resolved via service DNS network.
     Dns,
     /// Osmantic ODS discovery adapter.
     Ods,
@@ -148,7 +148,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
         }
     }
 
-    // 5. Synapse DNS network
+    // 5. service DNS network
     let dns_names = dns_inference_hostnames(&dns_zone);
     for host in &dns_names {
         candidates.push(format!("dns:{host}"));
@@ -166,7 +166,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                         model,
                         backend_name: Some(host.clone()),
                         api_key: resolve_chat_api_key(None),
-                        detail: format!("synapse DNS {host}:{port} (zone={dns_zone})"),
+                        detail: format!("service DNS {host}:{port} (zone={dns_zone})"),
                         candidates,
                         dns_zone,
                         config_path: None,
@@ -183,7 +183,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
                         model,
                         backend_name: Some(host.clone()),
                         api_key: resolve_chat_api_key(None),
-                        detail: format!("synapse DNS {host} via {ip}:{port}"),
+                        detail: format!("service DNS {host} via {ip}:{port}"),
                         candidates,
                         dns_zone,
                         config_path: None,
@@ -237,7 +237,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
     }
 }
 
-/// Hostnames published (or expected) on the CYNIC synapse DNS plane.
+/// Hostnames published (or expected) on the CYNIC service DNS plane.
 pub fn dns_inference_hostnames(zone: &str) -> Vec<String> {
     vec![
         format!("inference.{zone}"),

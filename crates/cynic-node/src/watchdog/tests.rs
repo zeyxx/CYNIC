@@ -111,7 +111,7 @@ impl WatchdogNetworkObservationPort for FakeNetworkObserve {
         crate::observe::NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: false,
-                synapse_route_active: true,
+                service_route_active: true,
                 wireguard_active: true,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -162,14 +162,14 @@ fn resolve_watchdog_services_and_peers_from_registry_is_dynamic() {
         "nodes": [
             {
                 "id": "forgejo",
-                "network": { "synapse": "10.10.10.101" },
+                "network": { "service": "10.10.10.101" },
                 "services": [
                     { "name": "forgejo", "port": 3000 }
                 ]
             },
             {
                 "id": "surrealdb",
-                "network": { "synapse": "10.10.10.103" },
+                "network": { "service": "10.10.10.103" },
                 "services": [
                     { "name": "surrealdb", "port": 8000 }
                 ]

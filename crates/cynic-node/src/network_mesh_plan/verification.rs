@@ -51,10 +51,10 @@ fn proof_address_plane_falls_back_to_canonical_plane() {
 }
 
 #[kani::proof]
-fn proof_address_plane_defaults_to_synapse_without_match() {
+fn proof_address_plane_defaults_to_service_without_match() {
     let policy = empty_policy();
 
-    assert_eq!(address_plane(Some(&policy), "missing"), "synapse");
+    assert_eq!(address_plane(Some(&policy), "missing"), "service");
     assert_eq!(address_plane(None, "missing"), "missing");
 }
 

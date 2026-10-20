@@ -6,7 +6,7 @@ use cynic_host::install_contract::{ROOT_OWNERSHIP, owner_string};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::adapters::dns_renderer::SynapseDnsRenderer;
+use crate::adapters::dns_renderer::ServiceDnsRenderer;
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
     DnsPackagePrecondition, DnsProviderPolicySurface, DnsRequiredModes, DnsTargetPaths,
@@ -53,7 +53,7 @@ pub fn build_dns_bundle(
         .flat_map(|record| record.names.iter())
         .find(|name| name.ends_with(&zone))
         .cloned();
-    let renderer = SynapseDnsRenderer::new(zone.clone());
+    let renderer = ServiceDnsRenderer::new(zone.clone());
 
     let out = Path::new(output_dir);
     fs::create_dir_all(out)?;

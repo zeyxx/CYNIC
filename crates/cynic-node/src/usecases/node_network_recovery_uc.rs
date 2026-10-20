@@ -287,7 +287,7 @@ fn mesh_rejoined(observation: &NodeObservation) -> bool {
 fn profile_for_action(action: &NodeRuntimeAction) -> Option<&'static str> {
     match action {
         NodeRuntimeAction::RestoreProviderFallbackRoute => Some("provider-fallback-route"),
-        NodeRuntimeAction::ActivateSynapseRoute => Some("synapse-route"),
+        NodeRuntimeAction::ActivateServiceRoute => Some("service-route"),
         NodeRuntimeAction::ActivateWireguardMesh => Some("wireguard-mesh"),
         NodeRuntimeAction::RestoreCriticalDns
         | NodeRuntimeAction::RestoreCanonicalDnsProjection

@@ -109,7 +109,7 @@ pub fn build_provider_fallback_status(
         hosts_missing,
         route: serde_json::to_value(route_status)?,
         connectivity,
-        warning: "Provider fallback is a resurrection path only while Synapse/WireGuard remains inactive.",
+        warning: "Provider fallback is a resurrection path only while service/WireGuard remains inactive.",
     })
 }
 
@@ -125,13 +125,13 @@ mod tests {
             registry,
             r#"{{
               "network_policy": {{
-                "canonical_service_plane": "synapse",
+                "canonical_service_plane": "service",
                 "planes": {{
-                  "synapse": {{"cidr": "10.20.0.0/24", "dns_zone": "service.cynic"}},
+                  "service": {{"cidr": "10.20.0.0/24", "dns_zone": "service.cynic"}},
                   "proxmox_guest": {{"cidr": "10.10.10.0/24", "canonical": false}}
                 }},
                 "reservations": [
-                  {{"name": "forge", "synapse": "10.20.0.4", "dns": ["forge.service.cynic"]}}
+                  {{"name": "forge", "service": "10.20.0.4", "dns": ["forge.service.cynic"]}}
                 ]
               }},
               "nodes": [
@@ -144,7 +144,7 @@ mod tests {
                   "name": "forge",
                   "role": "build_runner",
                   "status": "active",
-                  "network": {{"local": "10.10.10.4", "synapse": "10.20.0.4"}},
+                  "network": {{"local": "10.10.10.4", "service": "10.20.0.4"}},
                   "services": [{{"name": "forgejo", "port": 3000}}]
                 }}
               ]

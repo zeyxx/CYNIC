@@ -292,7 +292,7 @@ mod tests {
     fn claim(declared: &str, candidate: bool) -> ClaimToProbe {
         ClaimToProbe {
             node_id: "local-kernel".to_string(),
-            kind: ClaimKind::SynapseAddress,
+            kind: ClaimKind::ServiceAddress,
             declared: declared.to_string(),
             declared_as_candidate: candidate,
         }
@@ -522,7 +522,7 @@ mod tests {
     fn a_tcp_connect_confirms_an_address_without_privilege() {
         let claim = ClaimToProbe {
             node_id: "cynic-builder".to_string(),
-            kind: ClaimKind::SynapseAddress,
+            kind: ClaimKind::ServiceAddress,
             declared: "10.10.10.119".to_string(),
             declared_as_candidate: false,
         };
@@ -553,7 +553,7 @@ mod tests {
     fn a_closed_port_stays_unobservable_not_refuted() {
         let claim = ClaimToProbe {
             node_id: "local-kernel".to_string(),
-            kind: ClaimKind::SynapseAddress,
+            kind: ClaimKind::ServiceAddress,
             declared: "10.10.10.100".to_string(),
             declared_as_candidate: true,
         };

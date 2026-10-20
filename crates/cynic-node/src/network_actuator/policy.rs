@@ -75,7 +75,7 @@ mod tests {
         let observation = crate::observe::NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,
@@ -104,7 +104,7 @@ mod tests {
         };
         assert_eq!(rendered[0], "/portable/bin/systemctl");
         assert_eq!(rendered[2], "wg-quick@wg-portable");
-        let route = policy.allowed_profiles.get("synapse-route").unwrap();
+        let route = policy.allowed_profiles.get("service-route").unwrap();
         let rendered_route = match &route.command_prefixes[0].invocation {
             crate::network_command_surface::NetworkCommandInvocation::Argv { argv } => argv.clone(),
             _ => Vec::new(),

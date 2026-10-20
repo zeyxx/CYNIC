@@ -32,7 +32,7 @@ pub trait MeshRuntimeObservationPort {
     ) -> Result<CanonicalMeshStatus, Box<dyn Error>>;
 }
 
-/// Deterministic rendering of canonical Synapse DNS bundles.
+/// Deterministic rendering of canonical service DNS bundles.
 pub trait DnsBundleRendererPort {
     fn activation_plan(&self) -> Result<DnsActivationPlan, Box<dyn Error>>;
     fn render_hosts(&self, topology: &[RegistryNodeRecord]) -> Result<String, Box<dyn Error>>;
@@ -40,7 +40,7 @@ pub trait DnsBundleRendererPort {
     fn render_resolved_dropin(&self) -> Result<String, Box<dyn Error>>;
 }
 
-/// Observation of provider-plane fallback health while canonical Synapse is degraded.
+/// Observation of provider-plane fallback health while canonical service is degraded.
 pub trait ProviderFallbackProbePort {
     fn observe_route(
         &self,
@@ -61,7 +61,7 @@ pub(crate) trait NodeRuntimeObservationPort {
     fn observe_network_namespaces(&self) -> CommandObservation;
     fn observe_firewall(&self) -> CommandObservation;
     fn observe_provider_fallback_route(&self, cidr: &str) -> CommandObservation;
-    fn observe_synapse_route(&self, cidr: &str) -> CommandObservation;
+    fn observe_service_route(&self, cidr: &str) -> CommandObservation;
     fn observe_wireguard(&self) -> CommandObservation;
     fn observe_mesh_runtime(
         &self,

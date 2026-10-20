@@ -2,9 +2,9 @@
 //!
 //! ## Why this exists
 //!
-//! Before this port, every consumer hardcoded DNS literals (`"synapse.cynic"`,
-//! `"forgejo.synapse.cynic"`, `"/etc/cynic/dns/synapse.hosts"`) in ~40 files.
-//! When the canonical zone migrated from `synapse.cynic` to `service.cynic`,
+//! Before this port, every consumer hardcoded DNS literals (`"service.cynic"`,
+//! `"forgejo.service.cynic"`, `"/etc/cynic/dns/service.hosts"`) in ~40 files.
+//! When the canonical zone migrated from `service.cynic` to `service.cynic`,
 //! all 40 files broke silently — no compiler error, just wrong resolution.
 //!
 //! This port is the ONLY place that knows how to resolve a node name to its

@@ -80,7 +80,7 @@ fn proof_coredns_unit_uses_injected_binary_and_corefile() {
 
     assert_eq!(
         unit,
-        "[Unit]\nDescription=CYNIC Synapse DNS adapter (coredns)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=cynic\nGroup=cynic\nExecStart=/portable/bin/coredns -conf /portable/etc/coredns/Corefile\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\nProtectSystem=strict\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\n[Install]\nWantedBy=multi-user.target\n"
+        "[Unit]\nDescription=CYNIC service DNS adapter (coredns)\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=cynic\nGroup=cynic\nExecStart=/portable/bin/coredns -conf /portable/etc/coredns/Corefile\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\nProtectSystem=strict\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\n[Install]\nWantedBy=multi-user.target\n"
     );
 }
 

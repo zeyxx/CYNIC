@@ -165,7 +165,7 @@ pub(super) struct RegistryVm {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryNodeNetwork {
-    /// Canonical service plane address (legacy alias: `synapse`).
+    /// Canonical service plane address (legacy alias: `service`).
     #[serde(alias = "synapse")]
     pub(super) service: Option<String>,
     /// Canonical admin plane address (legacy alias: `management`).

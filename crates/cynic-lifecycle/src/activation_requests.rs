@@ -35,8 +35,8 @@ mod tests {
                     "deploy_target_role": "kernel_primary",
                     "deploy_target_flag": "deploy_target",
                     "required_node_status": "active",
-                    "activation_requirements": {"build_runner": {"network": ["synapse"]}},
-                    "fleet_requirements": {"required": true, "provider": "synapse"},
+                    "activation_requirements": {"build_runner": {"network": ["service"]}},
+                    "fleet_requirements": {"required": true, "provider": "proxmox"},
                     "runtime_paths": {"repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree"}},
                     "activation_evidence_contract": {"patch_field": "activation_evidence_patch"}
@@ -63,8 +63,8 @@ mod tests {
             "deploy_target": "cynic-vm-core",
             "deploy_target_role": "kernel_primary",
             "required_node_status": "active",
-            "activation_requirements": {"build_runner": {"network": ["synapse"]}},
-            "fleet_requirements": {"required": true, "provider": "synapse"},
+            "activation_requirements": {"build_runner": {"network": ["service"]}},
+            "fleet_requirements": {"required": true, "provider": "proxmox"},
             "runtime_paths": {"repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"},
             "runtime_path_proofs": {"repo_root": {"kind": "git_worktree"}},
             "activation_evidence_contract": {"patch_field": "activation_evidence_patch"},
@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn targets_route_network_actions_to_node_and_kernel() {
         let (targets, coord_targets) =
-            activation_request_targets(&json!({"action": "activate_synapse_route"}));
+            activation_request_targets(&json!({"action": "activate_service_route"}));
         assert_eq!(
             targets,
             vec![

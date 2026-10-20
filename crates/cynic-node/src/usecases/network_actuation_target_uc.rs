@@ -103,7 +103,7 @@ mod tests {
         let plan = NetworkActuationPlan {
             schema: "cynic.host.network_actuation_plan.v1",
             id: "plan:guest-a".to_string(),
-            profile: "synapse-route".to_string(),
+            profile: "service-route".to_string(),
             target: "guest-a".to_string(),
             commands: vec![argv_command("route", vec!["/portable/ip".to_string()])],
             preconditions: Vec::new(),

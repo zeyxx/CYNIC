@@ -100,7 +100,7 @@ fn devsecops_gaps() -> Vec<NetworkGap> {
             severity: "medium",
             layer: "network_resilience",
             status: "open",
-            risk: "provider fallback is currently the live resurrection path; canonical Synapse is not self-sustaining yet",
+            risk: "provider fallback is currently the live resurrection path; canonical service plane is not self-sustaining yet",
             next_control: "make cynic-node observe report mesh_active without depending on provider fallback routing",
         },
     ]
@@ -119,7 +119,7 @@ mod tests {
         let observation = NodeObservation::synthetic_for_tests(
             NodeRuntimeCapabilities {
                 provider_fallback_active: true,
-                synapse_route_active: false,
+                service_route_active: false,
                 wireguard_active: false,
                 critical_dns_ok: true,
                 critical_dns_canonical: true,

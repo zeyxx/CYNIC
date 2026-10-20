@@ -50,7 +50,7 @@ impl LocalMeshRuntimeObserver {
             blockers.push("wg_runtime_state".to_string());
         }
         if !route_uses_interface {
-            blockers.push("synapse_route_via_wireguard_interface".to_string());
+            blockers.push("service_route_via_wireguard_interface".to_string());
         }
 
         let status = if blockers.is_empty() {

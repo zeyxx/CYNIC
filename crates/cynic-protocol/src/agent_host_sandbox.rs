@@ -63,7 +63,7 @@ impl Default for AgentHostDesired {
             memory_bytes: 4 * 1024 * 1024 * 1024,
             disk_bytes: 32 * 1024 * 1024 * 1024,
             storage_pool: "local-lvm".to_string(),
-            network_plane: "synapse".to_string(),
+            network_plane: "service".to_string(),
             network_bridge: "vmbr0".to_string(),
             network_ip: Some("10.10.10.102/24".to_string()),
             allowed_sandbox_strategies: vec![

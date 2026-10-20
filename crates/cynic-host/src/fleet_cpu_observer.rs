@@ -206,7 +206,7 @@ some avg10=5.23 avg60=3.14 avg300=1.00 total=9432416
     fn registry_json(ip: &str) -> String {
         format!(
             r#"{{
-              "network_policy": {{ "reservations": [{{"name":"node-{ip}","synapse":"{ip}"}}] }},
+              "network_policy": {{ "reservations": [{{"name":"node-{ip}","service":"{ip}"}}] }},
               "nodes": [{{"id":"node-{ip}","role":"worker","services":[]}}]
             }}"#
         )

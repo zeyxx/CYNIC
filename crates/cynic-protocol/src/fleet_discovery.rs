@@ -15,7 +15,7 @@ pub const FLEET_DISCOVERY_SCHEMA: &str = "cynic.fleet_discovery.v1";
 pub struct FleetNodeDiscovery {
     pub node_id: String,
     pub role: String,
-    /// Resolved IP (synapse plane preferred, then management).
+    /// Resolved IP (service plane preferred, then management).
     pub ip: String,
     /// "alive" | "unreachable" | "degraded"
     pub status: FleetNodeStatus,

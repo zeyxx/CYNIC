@@ -14,7 +14,7 @@ pub(crate) enum WireguardTransportState {
 pub(crate) struct WireguardTransportChecks {
     pub(crate) wg_show_has_output: bool,
     pub(crate) wg_quick_active: bool,
-    pub(crate) synapse_route_present: bool,
+    pub(crate) service_route_present: bool,
     pub(crate) provider_fallback_still_required: bool,
     pub(crate) interface_present: bool,
     pub(crate) peer_present: bool,
@@ -40,7 +40,7 @@ pub(crate) struct DnsProjectionChecks {
     pub(crate) critical_hosts_resolve: bool,
     pub(crate) systemd_resolved_active: bool,
     pub(crate) provider_fallback_dependency: bool,
-    pub(crate) resolved_matches_expected_synapse: bool,
+    pub(crate) resolved_matches_expected_service: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,7 +72,7 @@ pub(crate) struct SharedRuntimeObservation {
 }
 
 pub(crate) fn wireguard_transport_observation(
-    synapse_route_active: bool,
+    service_route_active: bool,
     provider_fallback_active: bool,
     wireguard_active: bool,
     wg_quick_active: bool,
@@ -83,7 +83,7 @@ pub(crate) fn wireguard_transport_observation(
     let checks = WireguardTransportChecks {
         wg_show_has_output: wireguard_active,
         wg_quick_active,
-        synapse_route_present: synapse_route_active,
+        service_route_present: service_route_active,
         provider_fallback_still_required: provider_fallback_active,
         interface_present,
         peer_present,
@@ -94,7 +94,7 @@ pub(crate) fn wireguard_transport_observation(
         && peer_present
         && handshake_present
         && wg_quick_active
-        && synapse_route_active
+        && service_route_active
     {
         let drifts = if provider_fallback_active {
             vec!["provider_fallback_dependency"]
@@ -102,7 +102,7 @@ pub(crate) fn wireguard_transport_observation(
             Vec::new()
         };
         (WireguardTransportState::Active, drifts)
-    } else if synapse_route_active {
+    } else if service_route_active {
         (
             WireguardTransportState::MeshAbsent,
             vec!["mesh_transport_drift"],
@@ -123,7 +123,7 @@ pub(crate) fn wireguard_transport_observation(
 
 pub(crate) fn dns_projection_observation(
     dns_ok: bool,
-    resolved_matches_expected_synapse: bool,
+    resolved_matches_expected_service: bool,
     provider_fallback_active: bool,
     systemd_resolved_active: bool,
 ) -> DnsProjectionObservation {
@@ -131,11 +131,11 @@ pub(crate) fn dns_projection_observation(
         critical_hosts_resolve: dns_ok,
         systemd_resolved_active,
         provider_fallback_dependency: provider_fallback_active,
-        resolved_matches_expected_synapse,
+        resolved_matches_expected_service,
     };
 
     let mut drift_classes = Vec::new();
-    if !dns_ok || !systemd_resolved_active || !resolved_matches_expected_synapse {
+    if !dns_ok || !systemd_resolved_active || !resolved_matches_expected_service {
         drift_classes.push("dns_projection_drift");
     }
     if provider_fallback_active {

@@ -207,7 +207,7 @@ fn build_activation_chain_report_with_runtime(
             id: "dns_local",
             layer: "dns_plane",
             status: dns_status_value,
-            objective: "install canonical local Synapse DNS projection with CoreDNS",
+            objective: "install canonical local service DNS projection with CoreDNS",
             canonical_surface: "cynic network dns plan",
             commands: vec![
                 activation_command(

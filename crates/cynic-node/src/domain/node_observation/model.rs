@@ -32,7 +32,7 @@ pub enum NodeRuntimeBlocker {
     CriticalDnsResolutionFailed,
     CanonicalDnsProjectionDrift,
     CriticalTcpConnectivityFailed,
-    SynapseRouteMissing,
+    ServiceRouteMissing,
     WireguardMeshAbsent,
 }
 
@@ -51,7 +51,7 @@ pub enum NodeRuntimeAction {
     RestoreCriticalDns,
     RestoreCanonicalDnsProjection,
     RestoreCriticalTcp,
-    ActivateSynapseRoute,
+    ActivateServiceRoute,
     ActivateWireguardMesh,
 }
 
@@ -68,7 +68,7 @@ pub struct NodeRuntimeRemediation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct NodeRuntimeCapabilities {
     pub provider_fallback_active: bool,
-    pub synapse_route_active: bool,
+    pub service_route_active: bool,
     pub wireguard_active: bool,
     pub critical_dns_ok: bool,
     pub critical_dns_canonical: bool,

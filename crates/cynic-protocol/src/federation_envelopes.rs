@@ -75,12 +75,18 @@ impl FederatedNodeLease {
     }
 }
 
-/// Status of a federated node observed over the Synapse WireGuard overlay mesh.
+/// Status of a federated node observed over the service-plane WireGuard overlay mesh.
+///
+/// The address field was renamed from `synapse_ip` to `service_ip`. The old
+/// spelling is kept as a deserialization alias so proofs and reports written
+/// before the rename stay readable; new documents always carry the canonical
+/// name. The alias is read-only: a serialized report never emits it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FederatedMeshNodeStatus {
     pub node_id: String,
     pub role: String,
-    pub synapse_ip: String,
+    #[serde(alias = "synapse_ip")]
+    pub service_ip: String,
     pub wireguard_reachable: bool,
     pub active_services: Vec<String>,
     pub rtt_ms: Option<f32>,

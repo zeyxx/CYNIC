@@ -343,7 +343,7 @@ mod tests {
     }
 
     /// The regression T5 exists for: a canonical registry with no declared
-    /// plane used to fall back to the hardcoded legacy key `synapse`, so the
+    /// plane used to fall back to the hardcoded legacy key `service`, so the
     /// node resolved to None and vanished from the plan with no error.
     #[test]
     fn canonical_registry_without_declared_plane_resolves_the_node() {
@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn legacy_registry_key_still_resolves_the_node() {
-        let registry = registry_with(&[("synapse", "10.10.10.100")], None);
+        let registry = registry_with(&[("service", "10.10.10.100")], None);
         let plan = generate_mesh_plan(&registry, None).expect("plan");
         assert_eq!(plan.desired_peers.len(), 1);
         assert_eq!(plan.desired_peers[0].address, "10.10.10.100");

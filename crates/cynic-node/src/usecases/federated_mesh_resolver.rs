@@ -1,7 +1,7 @@
 //! Local registry-backed mesh resolver.
 //!
 //! The desired topology comes from a declared registry seed — today
-//! `infra/synapse-nodes.seed.json` (a versioned, signed artifact). Until
+//! `infra/service-nodes.seed.json` (a versioned, signed artifact). Until
 //! 2026-09-30 this module degraded to a code-side `CANONICAL_SYNAPSE_NODES`
 //! const when the seed was absent; that const was a second copy of the same
 //! topology and was deleted, so an absent seed now yields an empty topology.
@@ -28,9 +28,9 @@ use cynic_node_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
 
-/// Declared seed node as stored in `infra/synapse-nodes.seed.json`.
+/// Declared seed node as stored in `infra/service-nodes.seed.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub struct SeedSynapseNode {
+pub struct SeedNode {
     pub id: String,
     pub role: String,
     pub ip: String,
@@ -41,7 +41,7 @@ pub struct SeedSynapseNode {
 struct SeedFile {
     #[allow(dead_code)]
     schema: String,
-    nodes: Vec<SeedSynapseNode>,
+    nodes: Vec<SeedNode>,
 }
 
 /// Signed rolling fallback bundle (`infra/known-peers.<ts>.json`).
@@ -52,7 +52,7 @@ struct SignedBundle {
     #[allow(dead_code)]
     signed_by: String,
     signature: String,
-    nodes: Vec<SeedSynapseNode>,
+    nodes: Vec<SeedNode>,
 }
 
 fn transport_for(role: &str, ip: &str) -> PeerTransport {
@@ -68,20 +68,20 @@ fn transport_for(role: &str, ip: &str) -> PeerTransport {
 /// Resolver backed by a local seed (registry / declared nodes) plus an optional
 /// signed rolling fallback.
 pub struct LocalRegistryMeshResolver {
-    seed: Vec<SeedSynapseNode>,
+    seed: Vec<SeedNode>,
     /// Directory holding `known-peers.vN.<ts>.json` + `known-peers.pub`.
     fallback_dir: Option<std::path::PathBuf>,
 }
 
 impl LocalRegistryMeshResolver {
-    pub fn from_seed(seed: Vec<SeedSynapseNode>) -> Self {
+    pub fn from_seed(seed: Vec<SeedNode>) -> Self {
         Self {
             seed,
             fallback_dir: None,
         }
     }
 
-    /// Build the resolver from `infra/`: read `synapse-nodes.seed.json`.
+    /// Build the resolver from `infra/`: read `service-nodes.seed.json`.
     ///
     /// Until 2026-09-30 this took a `declared` slice and degraded to it when the
     /// seed was missing. That fallback was a second copy of the same topology,
@@ -107,7 +107,7 @@ impl LocalRegistryMeshResolver {
         Self::from_repo_infra(&Self::repo_infra_dir())
     }
 
-    fn to_endpoint(&self, node: &SeedSynapseNode) -> PeerEndpoint {
+    fn to_endpoint(&self, node: &SeedNode) -> PeerEndpoint {
         PeerEndpoint {
             node_id: node.id.clone(),
             role: node.role.clone(),
@@ -289,8 +289,8 @@ pub fn select_all_healthy(resolver: &LocalRegistryMeshResolver) -> Vec<PeerEndpo
     cynic_node_protocol::peer_resolver::select_all_peers(&resolver.resolve_all_peers())
 }
 
-/// Read the declared seed from `infra/synapse-nodes.seed.json`.
-fn read_seed_file(infra_dir: &Path) -> Option<Vec<SeedSynapseNode>> {
+/// Read the declared seed from `infra/service-nodes.seed.json`.
+fn read_seed_file(infra_dir: &Path) -> Option<Vec<SeedNode>> {
     let path = infra_dir.join("synapse-nodes.seed.json");
     let raw = std::fs::read_to_string(&path).ok()?;
     let parsed: SeedFile = serde_json::from_str(&raw).ok()?;

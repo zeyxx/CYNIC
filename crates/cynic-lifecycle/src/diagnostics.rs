@@ -257,7 +257,7 @@ pub fn lifecycle_blockers(
         let provider = fleet_requirements
             .get("provider")
             .and_then(Value::as_str)
-            .unwrap_or("synapse");
+            .unwrap_or("proxmox");
         let fleet_probe = fleet_probe
             .and_then(Value::as_object)
             .cloned()
@@ -266,7 +266,7 @@ pub fn lifecycle_blockers(
             .and_then(Value::as_object)
             .cloned()
             .unwrap_or_default();
-        if provider == "synapse" {
+        if provider == "proxmox" {
             let fleet_status = fleet_probe
                 .get("status")
                 .and_then(Value::as_str)
@@ -274,8 +274,8 @@ pub fn lifecycle_blockers(
             if fleet_status != "ok" {
                 let mut blocker = json!({
                     "category": "fleet",
-                    "kind": "synapse_probe",
-                    "provider": "synapse",
+                    "kind": "service_probe",
+                    "provider": "proxmox",
                     "required": "ok",
                     "actual": fleet_status,
                     "error": fleet_probe.get("error").cloned().unwrap_or(Value::Null),
@@ -284,7 +284,7 @@ pub fn lifecycle_blockers(
                     "resolver_consumer": "organ-forge-hermes-agent"
                 });
                 if fleet_probe.get("error").and_then(Value::as_str)
-                    == Some("synapse_cli_unavailable")
+                    == Some("service_cli_unavailable")
                     && let Some(obj) = blocker.as_object_mut()
                 {
                     obj.insert("operator_action".to_string(), Value::String("rerun fleet evidence projection through Rust CLI (registry build runner profile)".to_string()));
@@ -307,7 +307,7 @@ pub fn lifecycle_blockers(
             {
                 blockers.push(json!({
                     "category": "fleet",
-                    "kind": "synapse_peer",
+                    "kind": "service_peer",
                     "node": node_name,
                     "required": "present",
                     "actual": "missing",
@@ -328,7 +328,7 @@ pub fn lifecycle_blockers(
                     if !peer.get("online").and_then(Value::as_bool).unwrap_or(false) {
                         blockers.push(json!({
                             "category": "fleet",
-                            "kind": "synapse_peer",
+                            "kind": "service_peer",
                             "node": node_name,
                             "required": "online",
                             "actual": "offline",
@@ -460,7 +460,7 @@ mod tests {
                     "name": "cynic-vm-anvil",
                     "role": "build_runner",
                     "status": "planned",
-                    "network": {"synapse": "<SYNAPSE_ANVIL>"},
+                    "network": {"service": "<SERVICE_ANVIL>"},
                     "services": [{"name": "organ-forge"}, {"name": "cargo-build"}, {"name": "gate-2"}],
                     "activation_evidence": {"runtime_paths": {}, "services": {}}
                 },
@@ -468,7 +468,7 @@ mod tests {
                     "name": "cynic-vm-core",
                     "role": "kernel_primary",
                     "status": "planned",
-                    "network": {"synapse": "<SYNAPSE_CORE>"},
+                    "network": {"service": "<SERVICE_CORE>"},
                     "services": [{"name": "cynic-kernel"}, {"name": "cynic-portal"}],
                     "activation_evidence": {"runtime_paths": {}, "services": {}}
                 },
@@ -476,7 +476,7 @@ mod tests {
                     "name": "cynic-lxc-surrealdb",
                     "role": "storage_primary",
                     "status": "planned",
-                    "network": {"synapse": "<SYNAPSE_STORAGE>"},
+                    "network": {"service": "<SERVICE_STORAGE>"},
                     "services": [{"name": "surrealdb"}],
                     "activation_evidence": {"runtime_paths": {}, "services": {}}
                 }
@@ -489,11 +489,11 @@ mod tests {
                     "runtime_paths": {"repo_root": "/var/lib/cynic/repos/${CYNIC_PROJECT_SLUG}"},
                     "runtime_path_proofs": {"repo_root": {"kind": "git_worktree"}},
                     "activation_requirements": {
-                        "build_runner": {"network": ["synapse"], "filesystem": ["repo_root"], "services": ["organ-forge", "cargo-build", "gate-2"]},
-                        "kernel_primary": {"network": ["synapse"], "filesystem": ["repo_root"], "services": ["cynic-kernel", "cynic-portal"]},
-                        "storage_primary": {"network": ["synapse"], "filesystem": [], "services": ["surrealdb"]}
+                        "build_runner": {"network": ["service"], "filesystem": ["repo_root"], "services": ["organ-forge", "cargo-build", "gate-2"]},
+                        "kernel_primary": {"network": ["service"], "filesystem": ["repo_root"], "services": ["cynic-kernel", "cynic-portal"]},
+                        "storage_primary": {"network": ["service"], "filesystem": [], "services": ["surrealdb"]}
                     },
-                    "fleet_requirements": {"required": true, "provider": "synapse", "require_online": true}
+                    "fleet_requirements": {"required": true, "provider": "proxmox", "require_online": true}
                 }
             }
         })
@@ -511,7 +511,7 @@ mod tests {
     fn blockers_include_fleet_probe_failure() {
         let blockers = lifecycle_blockers(
             &registry_fixture(),
-            Some(&json!({"status": "error", "error": "synapse_status_failed"})),
+            Some(&json!({"status": "error", "error": "service_status_failed"})),
             Some(&json!({"enabled": true, "status": "ok"})),
             None,
         )

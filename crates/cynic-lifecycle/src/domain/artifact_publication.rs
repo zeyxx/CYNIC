@@ -42,7 +42,7 @@ impl std::str::FromStr for TransportProtocol {
 
 /// Target runtime descriptor, decoded from the node registry entry.
 ///
-/// `node` is the registry host id (e.g. `synapse`); `target` is the
+/// `node` is the registry host id (e.g. `service`); `target` is the
 /// concrete endpoint/host used by a [`TransportProtocol`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicationTarget {
@@ -137,7 +137,7 @@ mod tests {
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
             target: PublicationTarget {
-                node: "synapse".into(),
+                node: "local-kernel".into(),
                 target: "10.10.10.119".into(),
                 protocol: TransportProtocol::HttpPut,
             },
@@ -146,6 +146,6 @@ mod tests {
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("a7f5293c"));
-        assert!(json.contains("synapse"));
+        assert!(json.contains("local-kernel"));
     }
 }

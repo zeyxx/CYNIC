@@ -3,7 +3,7 @@ use crate::ports::mesh_port::{MeshAdapter, MeshStateProvider};
 use std::error::Error;
 use tracing::info;
 
-/// Use Case: Establish and synchronize the canonical Synapse mesh transport.
+/// Use Case: Establish and synchronize the canonical service mesh transport.
 /// The transport is WireGuard; provider coordination adapters are not the truth source.
 #[derive(Debug)]
 pub struct MeshSyncUseCase<A: MeshAdapter, S: MeshStateProvider> {
@@ -27,7 +27,7 @@ impl<A: MeshAdapter, S: MeshStateProvider> MeshSyncUseCase<A, S> {
     pub async fn execute(&self) -> Result<(), Box<dyn Error>> {
         info!("Initiating Mesh Synchronization (Homeostasis L2)...");
 
-        // 1. Ensure the underlying interface exists (e.g., synapse0)
+        // 1. Ensure the underlying interface exists (e.g., mesh0)
         self.adapter
             .initialize_interface(&self.local_ip, &self.private_key)?;
 

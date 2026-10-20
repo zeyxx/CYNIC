@@ -30,7 +30,7 @@ pub struct RuntimeArtifactReleaseSpec {
 /// Remote publication target for a released artifact.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactPublicationTarget {
-    /// Registry node id owning the target (e.g. `synapse`).
+    /// Registry node id owning the target (e.g. `service`).
     pub node: String,
     /// Concrete endpoint for the transport (host, URL, or ssh target).
     pub endpoint: String,
@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn publication_protocol_defaults_to_http_put() {
         let mut raw = legacy_spec();
-        raw["publication"] = serde_json::json!({"node": "synapse", "endpoint": ""});
+        raw["publication"] = serde_json::json!({"node": "local-kernel", "endpoint": ""});
         let spec: RuntimeArtifactReleaseSpec =
             serde_json::from_value(raw).expect("spec with publication parses");
         let target = spec.publication.expect("target");

@@ -228,7 +228,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
     if dns_audit.failed_records > 0 {
         alerts.push(NetworkAuditAlert {
             level: NetworkAuditAlertLevel::Critical,
-            component: "dns_synapse".to_string(),
+            component: "dns_service".to_string(),
             message: format!(
                 "DNS resolution failed for {} record(s) in zone '{}'",
                 dns_audit.failed_records, dns_audit.zone

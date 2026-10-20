@@ -71,7 +71,7 @@ impl DnsProviderKind {
 
 pub(crate) const CANONICAL_DNS_PROVIDER: &str = "coredns";
 pub(crate) const CANONICAL_DNS_BINARY: &str = "coredns";
-pub(crate) const DNS_SELECTION_SOURCE: &str = "cynic-node Synapse DNS activation contract";
+pub(crate) const DNS_SELECTION_SOURCE: &str = "cynic-node service DNS activation contract";
 pub(crate) const DNS_PROMOTION_RULE: &str = "A candidate provider becomes usable only after a dedicated adapter contract, bundle renderer, service template, and activation-status checks are added.";
 
 #[derive(Debug, Clone, Serialize)]
@@ -384,15 +384,15 @@ fn find_on_path(binary: &str) -> Option<String> {
     None
 }
 
-pub(crate) fn synapse_dns_hosts_path() -> String {
+pub(crate) fn service_dns_hosts_path() -> String {
     dns_runtime_context().hosts_path
 }
 
-pub(crate) fn synapse_dns_corefile_path() -> String {
+pub(crate) fn service_dns_corefile_path() -> String {
     dns_runtime_context().corefile_path
 }
 
-pub(crate) fn synapse_dns_resolved_dropin_path() -> String {
+pub(crate) fn service_dns_resolved_dropin_path() -> String {
     dns_runtime_context().resolved_dropin_path
 }
 
@@ -449,7 +449,7 @@ fn dns_systemd_unit_with_context(context: &DnsRuntimeContext) -> String {
         ),
     };
     format!(
-        "[Unit]\nDescription=CYNIC Synapse DNS adapter ({provider})\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=cynic\nGroup=cynic\nExecStart={exec_start}\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\nProtectSystem=strict\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\n[Install]\nWantedBy=multi-user.target\n",
+        "[Unit]\nDescription=CYNIC service DNS adapter ({provider})\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=cynic\nGroup=cynic\nExecStart={exec_start}\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\nProtectSystem=strict\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\n[Install]\nWantedBy=multi-user.target\n",
         provider = context.provider.name(),
     )
 }

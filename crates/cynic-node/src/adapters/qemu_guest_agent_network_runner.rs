@@ -536,7 +536,7 @@ mod tests {
     fn postflight_observer_reads_typed_evidence_through_same_attested_transport() {
         let expected = NetworkActuationObservation {
             provider_fallback_active: false,
-            synapse_route_active: true,
+            service_route_active: true,
             wireguard_active: false,
             management_link_active: false,
             target: NetworkActuationTarget {
@@ -580,7 +580,7 @@ mod tests {
             observed.target.mesh_interface,
             expected.target.mesh_interface
         );
-        assert!(observed.synapse_route_active);
+        assert!(observed.service_route_active);
         assert!(!observed.wireguard_active);
         assert_eq!(transport.runner.calls.lock().expect("calls").len(), 2);
     }

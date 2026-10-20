@@ -5,7 +5,7 @@ use std::error::Error;
 /// This trait isolates our Domain from the concrete transport implementation
 /// (canonical WireGuard today) and from any system-level CLI.
 pub trait MeshAdapter {
-    /// Initialize the mesh interface (e.g., creating the `synapse0` device)
+    /// Initialize the mesh interface (e.g., creating the `mesh0` device)
     fn initialize_interface(&self, local_ip: &str, private_key: &str)
     -> Result<(), Box<dyn Error>>;
 

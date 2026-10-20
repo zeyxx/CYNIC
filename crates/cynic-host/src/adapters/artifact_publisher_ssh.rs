@@ -146,7 +146,7 @@ mod tests {
         ArtifactPublicationRequest {
             proof_sha: "abc123".to_string(),
             target: PublicationTarget {
-                node: "synapse".to_string(),
+                node: "local-kernel".to_string(),
                 target: "cynic@10.10.10.119".to_string(),
                 protocol: TransportProtocol::Ssh,
             },

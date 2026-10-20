@@ -26,7 +26,11 @@ pub struct DiscoveredService {
 pub struct DiscoveredNode {
     pub node_id: String,
     pub direct_ip: Option<String>,
-    pub synapse_ip: Option<String>,
+    /// Service-plane address. Renamed from `synapse_ip`; the old spelling is
+    /// kept as a deserialization alias so discovery reports written before the
+    /// rename stay readable. A serialized report never emits the alias.
+    #[serde(alias = "synapse_ip")]
+    pub service_ip: Option<String>,
     pub wireguard_ip: Option<String>,
     pub reachability: NodeReachability,
     pub services: Vec<DiscoveredService>,
@@ -70,12 +74,12 @@ pub fn evaluate_network_drift(
                     if !expected_ips.is_empty() {
                         let matches_any = expected_ips.iter().any(|exp| {
                             obs.direct_ip.as_deref() == Some(exp.as_str())
-                                || obs.synapse_ip.as_deref() == Some(exp.as_str())
+                                || obs.service_ip.as_deref() == Some(exp.as_str())
                                 || obs.wireguard_ip.as_deref() == Some(exp.as_str())
                         });
                         if !matches_any
                             && (obs.direct_ip.is_some()
-                                || obs.synapse_ip.is_some()
+                                || obs.service_ip.is_some()
                                 || obs.wireguard_ip.is_some())
                         {
                             drifts.push(format!(
@@ -102,7 +106,7 @@ pub fn evaluate_network_drift(
 pub struct DesiredNodeNetworkSpec {
     pub node_id: String,
     pub direct_ip: Option<String>,
-    pub synapse_ip: Option<String>,
+    pub service_ip: Option<String>,
     pub wireguard_ip: Option<String>,
     pub wireguard_public_key: Option<String>,
     pub probe_ports: Vec<u16>,
@@ -139,7 +143,7 @@ pub fn discover_cluster_nodes(
 
             let mut tested_ok = None;
             let target_ips: Vec<&str> = [
-                spec.synapse_ip.as_deref(),
+                spec.service_ip.as_deref(),
                 spec.wireguard_ip.as_deref(),
                 spec.direct_ip.as_deref(),
             ]
@@ -182,7 +186,7 @@ pub fn discover_cluster_nodes(
             DiscoveredNode {
                 node_id: spec.node_id.clone(),
                 direct_ip: spec.direct_ip.clone(),
-                synapse_ip: spec.synapse_ip.clone(),
+                service_ip: spec.service_ip.clone(),
                 wireguard_ip: spec.wireguard_ip.clone(),
                 reachability,
                 services: vec![],
@@ -195,7 +199,7 @@ pub fn discover_cluster_nodes(
         .iter()
         .map(|s| {
             let mut ips = Vec::new();
-            if let Some(ref ip) = s.synapse_ip {
+            if let Some(ref ip) = s.service_ip {
                 ips.push(ip.clone());
             }
             if let Some(ref ip) = s.wireguard_ip {
@@ -227,7 +231,7 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
     let canonical_service_plane = registry
         .pointer("/network_policy/canonical_service_plane")
         .and_then(|v| v.as_str())
-        .unwrap_or("synapse");
+        .unwrap_or("service");
 
     let mut reservations_service: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -293,7 +297,7 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
             let name = n.get("name").and_then(|v| v.as_str()).unwrap_or(node_id);
 
             let node_net = n.get("network");
-            let synapse_ip = node_net
+            let service_ip = node_net
                 .and_then(|net| {
                     net.get(canonical_service_plane)
                         .or_else(|| net.get("synapse"))
@@ -339,7 +343,7 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
             specs.push(DesiredNodeNetworkSpec {
                 node_id: node_id.to_string(),
                 direct_ip,
-                synapse_ip,
+                service_ip,
                 wireguard_ip,
                 wireguard_public_key,
                 probe_ports,
@@ -370,7 +374,7 @@ mod tests {
             DiscoveredNode {
                 node_id: "cynic-builder".to_string(),
                 direct_ip: None,
-                synapse_ip: Some("10.10.10.119".to_string()),
+                service_ip: Some("10.10.10.119".to_string()),
                 wireguard_ip: Some("10.20.0.5".to_string()),
                 reachability: NodeReachability::Reachable {
                     latency_ms: 2,
@@ -382,7 +386,7 @@ mod tests {
             DiscoveredNode {
                 node_id: "local-kernel".to_string(),
                 direct_ip: None,
-                synapse_ip: Some("10.10.10.100".to_string()),
+                service_ip: Some("10.10.10.100".to_string()),
                 wireguard_ip: None,
                 reachability: NodeReachability::Unreachable {
                     last_seen_unix_ms: None,
@@ -430,7 +434,7 @@ mod tests {
             DesiredNodeNetworkSpec {
                 node_id: "cortex".to_string(),
                 direct_ip: Some("192.168.100.2".to_string()),
-                synapse_ip: None,
+                service_ip: None,
                 wireguard_ip: Some("10.20.0.3".to_string()),
                 wireguard_public_key: Some("pk_cortex".to_string()),
                 probe_ports: vec![22],
@@ -438,7 +442,7 @@ mod tests {
             DesiredNodeNetworkSpec {
                 node_id: "cynic-builder".to_string(),
                 direct_ip: None,
-                synapse_ip: Some("10.10.10.119".to_string()),
+                service_ip: Some("10.10.10.119".to_string()),
                 wireguard_ip: Some("10.20.0.5".to_string()),
                 wireguard_public_key: Some("pk_builder".to_string()),
                 probe_ports: vec![9090, 22],
@@ -514,14 +518,14 @@ mod tests {
         assert_eq!(specs.len(), 2);
 
         let spec_a = specs.iter().find(|s| s.node_id == "node-a").unwrap();
-        assert_eq!(spec_a.synapse_ip.as_deref(), Some("10.42.0.1"));
+        assert_eq!(spec_a.service_ip.as_deref(), Some("10.42.0.1"));
         assert_eq!(spec_a.direct_ip.as_deref(), Some("192.168.1.1"));
         assert_eq!(spec_a.wireguard_ip.as_deref(), Some("10.99.0.1"));
         assert_eq!(spec_a.wireguard_public_key.as_deref(), Some("pk_a"));
         assert_eq!(spec_a.probe_ports, vec![8080]);
 
         let spec_b = specs.iter().find(|s| s.node_id == "node-b").unwrap();
-        assert_eq!(spec_b.synapse_ip.as_deref(), Some("10.42.0.2"));
+        assert_eq!(spec_b.service_ip.as_deref(), Some("10.42.0.2"));
         assert_eq!(spec_b.direct_ip.as_deref(), Some("192.168.1.2"));
     }
 }

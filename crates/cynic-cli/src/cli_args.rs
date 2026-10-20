@@ -205,7 +205,7 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: TaskCommand,
     },
-    /// Federated cluster status, Synapse WireGuard mesh probes, and cross-node sync.
+    /// Federated cluster status, service WireGuard mesh probes, and cross-node sync.
     Federation {
         #[command(subcommand)]
         command: FederationCommand,
