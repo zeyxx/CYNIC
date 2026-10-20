@@ -31,7 +31,10 @@ pub fn default_build_artefact_policy() -> RetentionPolicy {
         preserve_profiles: vec![],
         grace_period: None,
         scopes: vec![RetentionScope {
-            root: "/var/lib/cynic/checkouts".to_string(),
+            root: cynic_types::paths::CynicPaths::state_dir()
+                .join("checkouts")
+                .display()
+                .to_string(),
             patterns: vec![],
         }],
     }

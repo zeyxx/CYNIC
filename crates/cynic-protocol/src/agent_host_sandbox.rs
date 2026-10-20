@@ -3,6 +3,8 @@
 //! Defined in `docs/design/AGENT_FLEET_HOSTING_DESIGN.md` and `docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md`.
 //! Pure types and predicates without I/O.
 
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 use crate::agent_isolation::SandboxStrategy;
@@ -360,11 +362,12 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
     }
 
     // Shared git admin detection (reject shared checkout paths)
+    let source_root = cynic_types::paths::CynicPaths::state_dir().join("source");
     let shared_markers = [
-        "/var/lib/cynic/source/repositories/CYNIC",
-        "/.git",
+        source_root.join("repositories").join("CYNIC"),
+        PathBuf::from("/.git"),
     ];
-    for marker in shared_markers {
+    for marker in &shared_markers {
         if git_dir.starts_with(marker) || workspace.starts_with(marker) {
             violations.push("blocked_shared_git_admin".to_string());
             break;
@@ -377,25 +380,31 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
     }
 
     // Mount security: non-read-only mounts must strictly target inside private workspace
+    let state_root = cynic_types::paths::CynicPaths::state_dir();
     let forbidden_rw_prefixes = [
         "/etc",
         "/usr",
-        "/var/lib/cynic/source",
-        "/var/lib/cynic/identity",
         "/root",
         "/home",
         "/bin",
         "/sbin",
         "/lib",
     ];
+    let forbidden_state_prefixes = [
+        state_root.join("source"),
+        state_root.join("identity"),
+    ];
 
     for mount in &allocation.mounts {
         if !mount.read_only {
-            for prefix in forbidden_rw_prefixes {
-                if mount.target == prefix || mount.target.starts_with(&format!("{prefix}/")) {
-                    violations.push("blocked_excessive_rw_mount".to_string());
-                    break;
-                }
+            let blocked = forbidden_rw_prefixes.iter().any(|prefix| {
+                mount.target == prefix || mount.target.starts_with(&format!("{prefix}/"))
+            }) || forbidden_state_prefixes.iter().any(|prefix| {
+                mount.target == prefix || mount.target.starts_with(&format!("{}/", prefix.display()))
+            });
+            if blocked {
+                violations.push("blocked_excessive_rw_mount".to_string());
+                break;
             }
         }
     }

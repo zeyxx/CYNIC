@@ -113,7 +113,7 @@ pub fn catalog_path_from_env() -> PathBuf {
     if repo_default.is_file() {
         return repo_default;
     }
-    let machine_default = PathBuf::from("/etc/cynic/catalog.json");
+    let machine_default = cynic_types::paths::CynicPaths::system_config_dir().join("catalog.json");
     if machine_default.is_file() {
         return machine_default;
     }
