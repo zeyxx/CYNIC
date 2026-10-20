@@ -109,7 +109,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45693
+      "loc": 45703
     },
     "cynic-consensus": {
       "consumers": [
@@ -262,7 +262,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 90755
+      "loc": 90761
     },
     "cynic-inference": {
       "consumers": [
@@ -693,7 +693,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 3526
+      "loc": 3527
     },
     "cynic-tui": {
       "consumers": [
@@ -731,7 +731,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 967
+      "loc": 991
     },
     "cynic-vcs": {
       "consumers": [
@@ -1061,7 +1061,7 @@
     "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 388576,
+    "loc_total": 388617,
     "pending_disposition": 3,
     "runtime_edges": 175,
     "unjustified": 0,
