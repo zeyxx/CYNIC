@@ -28,9 +28,9 @@
       ],
       "dev_depends_on": [],
       "justified": true,
-      "kind": "binary",
+      "kind": "library",
       "layer": "L1",
-      "loc": 6516
+      "loc": 7195
     },
     "cynic-build": {
       "consumers": [
@@ -79,6 +79,7 @@
         "cynic-domain-ops",
         "cynic-domain-porkbun",
         "cynic-eval",
+        "cynic-fleet",
         "cynic-forensics",
         "cynic-host",
         "cynic-huggingface",
@@ -100,6 +101,7 @@
         "cynic-secrets",
         "cynic-storage",
         "cynic-surreal",
+        "cynic-tui",
         "cynic-types",
         "cynic-vcs",
         "cynic-vcs-forgejo",
@@ -112,7 +114,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 38984
+      "loc": 40548
     },
     "cynic-consensus": {
       "consumers": [
@@ -223,7 +225,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 10340
+      "loc": 10965
     },
     "cynic-finance": {
       "consumers": [
@@ -253,7 +255,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L4",
-      "loc": 0
+      "loc": 328
     },
     "cynic-forensics": {
       "consumers": [
@@ -265,7 +267,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1279
+      "loc": 1284
     },
     "cynic-host": {
       "consumers": [
@@ -303,7 +305,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 90023
+      "loc": 90509
     },
     "cynic-huggingface": {
       "consumers": [
@@ -337,7 +339,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 16401
+      "loc": 16505
     },
     "cynic-intel": {
       "consumers": [
@@ -418,7 +420,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6472
+      "loc": 6504
     },
     "cynic-lifecycle": {
       "consumers": [
@@ -504,7 +506,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6588
+      "loc": 7059
     },
     "cynic-node": {
       "consumers": [
@@ -538,7 +540,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 61029
+      "loc": 62007
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -632,7 +634,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 39451
+      "loc": 40917
     },
     "cynic-proxmox": {
       "consumers": [
@@ -765,7 +767,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L4",
-      "loc": 0
+      "loc": 469
     },
     "cynic-types": {
       "consumers": [
@@ -791,7 +793,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 945
+      "loc": 946
     },
     "cynic-vcs": {
       "consumers": [
@@ -811,7 +813,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 9079
+      "loc": 9125
     },
     "cynic-vcs-forgejo": {
       "consumers": [
@@ -827,7 +829,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 1980
+      "loc": 2060
     },
     "cynic-workload": {
       "consumers": [
@@ -864,9 +866,11 @@
     }
   },
   "extraction_order": [
+    "cynic-fleet",
     "cynic-forensics",
     "cynic-huggingface",
     "cynic-pool",
+    "cynic-tui",
     "cynic-types",
     "cynic-knowledge",
     "cynic-protocol",
@@ -1120,7 +1124,9 @@
     ],
     "L4": [
       "cynic-cli",
-      "cynic-mcp"
+      "cynic-fleet",
+      "cynic-mcp",
+      "cynic-tui"
     ],
     "cross_cutting": [
       "cynic-secrets",
@@ -1129,13 +1135,13 @@
   },
   "measured": {
     "acyclic": true,
-    "binaries": 6,
-    "crates": 44,
+    "binaries": 5,
+    "crates": 46,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 368026,
+    "loc_total": 375360,
     "pending_disposition": 3,
-    "runtime_edges": 175,
+    "runtime_edges": 177,
     "unjustified": 0,
     "upward_edges": 14
   },
