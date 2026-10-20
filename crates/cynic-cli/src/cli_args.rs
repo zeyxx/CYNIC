@@ -7,6 +7,7 @@ use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;
 use crate::host_surface::HostCommand;
+use crate::idea_surface::IdeaCommand;
 use crate::mask::{JudgeCommand, MaskCommand};
 use crate::network_surface::NetworkCommand;
 use crate::node_surface::NodeCommand;
@@ -193,6 +194,11 @@ pub(crate) enum Command {
         /// Do not open the interactive TUI when prompt is omitted.
         #[arg(long = "no-tui")]
         no_tui: bool,
+    },
+    /// Idea ledger: track ideas, status, consumption, and compounding.
+    Idea {
+        #[command(subcommand)]
+        command: IdeaCommand,
     },
     /// Asynchronous domain-partitioned task queue (Inference, Infra, CodeAudit, Cortex, Governance, Nightshift).
     Task {

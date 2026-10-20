@@ -50,6 +50,8 @@ pub mod git_surface;
 pub mod host_exec_alias_surface;
 pub mod host_profile_selection;
 pub mod host_surface;
+pub mod idea_ledger;
+pub mod idea_surface;
 pub(crate) mod hub_surface;
 pub(crate) mod inference_surface;
 pub mod invoice_log;
