@@ -11,7 +11,7 @@ use crate::ports::build_runner::{
 };
 use cynic_build::build::canonical_argv_from_build_action;
 use cynic_types::paths::CynicPaths;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Minimal argv command runner (no shell composition).
 ///
