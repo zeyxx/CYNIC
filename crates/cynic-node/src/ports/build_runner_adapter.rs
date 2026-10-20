@@ -265,7 +265,7 @@ impl SshBuildRunner {
     /// `None` when the host cannot be asked. The question is asked of the
     /// host, over the same transport the build uses.
     fn count_waiting_sccache_clients(&self) -> Option<u32> {
-        let mut argv: Vec<String> = vec![
+        let argv: Vec<String> = vec![
             "ssh".to_string(),
             self.ssh_target(),
             "pgrep".to_string(),
@@ -545,7 +545,7 @@ impl BuildRunnerPort for SshBuildRunner {
             // So the isolation is per agent when the host is busy, and
             // shared when it is quiet. The decision is the host's, not the
             // build's.
-            let cache_mode = self.resolve_cache_mode(dir, sha);
+            let cache_mode = self.resolve_cache_mode(dir, &sha);
             argv.extend(
                 cynic_build::build::cache_isolation::cache_env(
                     &cache_mode,
