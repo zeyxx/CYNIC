@@ -106,7 +106,7 @@ pub(crate) fn trigger_build(
         sccache_dir.to_string(),
         // The pre-trigger disk gate reads its threshold from the registry, so
         // the policy lives in one place and the code never hardcodes a floor.
-        cynic_host::registry::resolve::minimum_available_bytes_for_runner(registry, &host)?,
+        cynic_host::registry::resolve::minimum_available_bytes_for_runner(Some(registry), &host)?,
     );
     let health = runner.observe_runner();
     if !health.reachable {

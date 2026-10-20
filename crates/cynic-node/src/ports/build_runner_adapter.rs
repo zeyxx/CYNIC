@@ -706,6 +706,7 @@ mod tests {
             ssot_url: "ssh://example/CYNIC.git".into(),
             package: Some("cynic-host".into()),
             sccache_dir: None,
+            minimum_available_bytes: None,
             runner: Box::new(fake),
         };
         (runner, handle)
@@ -717,6 +718,121 @@ mod tests {
             phase: BuildPhase::Check,
             network_mode: NetworkMode::Offline,
         }
+    }
+
+    /// The df read-back the pre-trigger gate consumes.
+    fn df_with_available_kb(available_kb: u64) -> String {
+        format!(
+            "Filesystem     1K-blocks     Used Available Use% Mounted on\n\
+             /dev/sda1      100000000  50000000  {available_kb}  50% /var/lib/cynic\n"
+        )
+    }
+
+    #[test]
+    fn a_runner_below_the_disk_minimum_is_refused_before_any_clone() {
+        let commit = "b".repeat(40);
+        // The gate is armed at 4 GiB; the runner reports 1 GiB free.
+        let fake = FakeRunner::with(vec![ok(&df_with_available_kb(1024 * 1024))]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("the gate refuses with a verdict, not an error");
+
+        assert!(
+            matches!(proof.verdict, BuildVerdict::Blocked { .. }),
+            "a full disk must block, not converge: {:?}",
+            proof.verdict
+        );
+        let logged = handle.argv_log();
+        let cloned = logged
+            .iter()
+            .any(|argv| argv.iter().any(|arg| arg == "clone"));
+        assert!(
+            !cloned,
+            "the checkout must never be materialized on a disk that cannot hold it: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn an_unobservable_disk_blocks_instead_of_proceeding() {
+        let commit = "c".repeat(40);
+        // df fails: the disk state is unknown. Unknown is not free.
+        let fake = FakeRunner::with(vec![fail("df: cannot read table")]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("the gate refuses with a verdict, not an error");
+
+        assert!(
+            matches!(proof.verdict, BuildVerdict::Blocked { .. }),
+            "an unknown disk must block: {:?}",
+            proof.verdict
+        );
+        let logged = handle.argv_log();
+        assert!(
+            !logged
+                .iter()
+                .any(|argv| argv.iter().any(|arg| arg == "clone")),
+            "no clone on an unobserved disk: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn a_runner_with_room_proceeds_to_the_checkout() {
+        let commit = "d".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(&df_with_available_kb(64 * 1024 * 1024)),
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds when the disk has room");
+
+        let logged = handle.argv_log();
+        assert!(
+            logged.iter().any(|argv| argv.iter().any(|arg| arg == "df")),
+            "the gate must read the disk: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn the_gate_is_off_when_no_threshold_is_declared() {
+        let commit = "e".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+
+        let logged = handle.argv_log();
+        assert!(
+            !logged.iter().any(|argv| argv.iter().any(|arg| arg == "df")),
+            "an undeclared threshold must not invent a gate: {logged:?}"
+        );
     }
 
     #[test]
