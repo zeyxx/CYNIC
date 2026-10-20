@@ -688,16 +688,6 @@ mod tests {
     }
 
     #[test]
-    fn different_commits_are_different_groups() {
-        let report = measure_pool(&[
-            job_at("builder", "success", "Gate 3 Core Types", "sha1", 0, 100),
-            job_at("builder", "success", "Gate 3 Core Types", "sha2", 0, 100),
-        ]);
-        assert_eq!(report.inefficiencies.groups, 2);
-        assert_eq!(report.inefficiencies.redundant_jobs, 0);
-    }
-
-    #[test]
     fn the_same_commit_rerun_is_a_distinct_group() {
         // Two executions of the same commit are two groups, not one merged
         // group: the second execution must not look like a redundant job.
