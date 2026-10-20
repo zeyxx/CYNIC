@@ -244,6 +244,15 @@
       "home": "specs/SPEC-CYNIC-MEASURE-ARBITRATION.md 2.5; contracts/measure-arbitration.json rejected_models",
       "falsifier": "A calibration constant that is both calibrated against a corpus and justified only by analogy.",
       "note": "The 0.618 golden threshold was already refuted in this repository as structurally aesthetic choices. The same rule now applies to the electricity metaphor, which is newer and more seductive."
+    },
+    {
+      "claim_id": "CLM-0025",
+      "statement": "The public repository is a generated artifact with infra/** excluded and identities redacted.",
+      "status": "falsified",
+      "load_bearing": true,
+      "home": "contracts/publication.json path_rules, redactions",
+      "falsifier": "n/a — refuted by observation.",
+      "note": "DEVIATION. The Forgejo push mirror relays the raw tree: infra/registry.json is readable on the public mirror with node topology, RFC1918 addresses and SSH targets (observed 2026-10-20). The publisher that should render the exclusion (cynic dev publish) is not implemented. Exposure is reconnaissance-grade only: RFC1918 addresses are not remotely routable. Accepted risk until the exclusion publisher exists; the genesis release notes must carry this deviation. Follow-up chantier: implement the infra/** exclusion render."
     }
   ],
   "known_contradictions": [
