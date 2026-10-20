@@ -214,6 +214,17 @@
       "layer": "L2",
       "loc": 345
     },
+    "cynic-fleet": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L4",
+      "loc": 0
+    },
     "cynic-forensics": {
       "consumers": [
         "cynic-cli",
@@ -705,6 +716,17 @@
       "kind": "library",
       "layer": "L2",
       "loc": 469
+    },
+    "cynic-tui": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L4",
+      "loc": 0
     },
     "cynic-types": {
       "consumers": [
