@@ -92,12 +92,17 @@ fn resolve_forgejo(root: &Path) -> Result<(String, String, String, String), Stri
             let token_file = ssot
                 .get("token_file")
                 .and_then(|v| v.as_str())
-                .unwrap_or("/etc/cynic/secrets/forgejo-token");
-            let content = std::fs::read_to_string(token_file)
-                .map_err(|e| format!("token file unreadable at {token_file}: {e}"))?;
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| {
+                    cynic_types::paths::CynicPaths::secret_path(
+                        cynic_types::paths::CynicPaths::DEFAULT_FORGEJO_TOKEN_SECRET,
+                    )
+                });
+            let content = std::fs::read_to_string(&token_file)
+                .map_err(|e| format!("token file unreadable at {}: {e}", token_file.display()))?;
             let t = content.trim().to_string();
             if t.is_empty() {
-                return Err(format!("token empty in {token_file}"));
+                return Err(format!("token empty in {}", token_file.display()));
             }
             t
         }

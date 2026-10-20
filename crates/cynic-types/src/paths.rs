@@ -81,6 +81,12 @@ impl CynicPaths {
             .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_INFERENCE_FILENAME))
     }
 
+    /// Canonical name of the Forgejo bearer-token secret file.
+    ///
+    /// `infra/directory-tree.json:installed_system.tree.key_paths["secrets/"]`
+    /// declares the secrets directory and names this file in it.
+    pub const DEFAULT_FORGEJO_TOKEN_SECRET: &'static str = "forgejo-token";
+
     /// Résout le chemin du répertoire des secrets.
     /// Ordre d'autorité :
     /// 1. `CYNIC_SECRETS_DIR`
