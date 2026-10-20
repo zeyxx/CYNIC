@@ -693,7 +693,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 3526
+      "loc": 3527
     },
     "cynic-tui": {
       "consumers": [
@@ -1061,7 +1061,7 @@
     "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 388576,
+    "loc_total": 388577,
     "pending_disposition": 3,
     "runtime_edges": 175,
     "unjustified": 0,
