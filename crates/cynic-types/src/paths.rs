@@ -32,6 +32,12 @@ impl CynicPaths {
     /// Canonical install directory for runtime binaries.
     pub const DEFAULT_BINARY_DIR: &'static str = "/usr/local/bin";
 
+    /// Canonical file name of the installed CYNIC binary.
+    ///
+    /// `infra/directory-tree.json:system_binaries.tree.root` declares
+    /// `/usr/local/bin/cynic` — the binary itself, not its directory.
+    pub const DEFAULT_BINARY_NAME: &'static str = "cynic";
+
     /// Path prefixes that must be redacted from any text leaving the host.
     ///
     /// These are SENSITIVE DATA, not destinations: a caller redacts them
@@ -134,6 +140,18 @@ impl CynicPaths {
         std::env::var("CYNIC_BINARY_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_BINARY_DIR))
+    }
+
+    /// Resolve the installed CYNIC binary itself.
+    /// Authority order:
+    /// 1. `CYNIC_BIN` environment variable (the operator's override).
+    /// 2. `CYNIC_BINARY_DIR` joined with the canonical binary name.
+    /// 3. `/usr/local/bin/cynic` (installed production norm, the root
+    ///    declared by `infra/directory-tree.json:system_binaries`).
+    pub fn binary_path() -> PathBuf {
+        std::env::var("CYNIC_BIN")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::binary_dir().join(Self::DEFAULT_BINARY_NAME))
     }
 
     /// Résout le répertoire de configuration utilisateur (~/.config/cynic).
