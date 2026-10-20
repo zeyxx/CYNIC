@@ -19,15 +19,16 @@ use crate::cli_json::emit_pretty_json;
 
 use self::coordination::{
     execute_claim, execute_events, execute_heartbeat, execute_identify, execute_register,
-    execute_release, execute_scope, execute_status, resolve_builder_endpoint, resolve_git_remote,
-    resolve_kernel_base,
+    execute_release, execute_scope, execute_status, resolve_kernel_base,
 };
-use self::intent::{execute_intent, IntentCommand};
+use self::intent::{IntentCommand, execute_intent};
+use self::session::{AgentSessionCommand, execute_agent_session};
 
 pub mod coordination;
 pub mod intent;
 pub mod render;
 pub mod scan;
+pub mod session;
 pub mod types;
 
 #[derive(Subcommand)]
@@ -184,14 +185,10 @@ pub(crate) enum AgentCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Return lightweight non-blocking session context evidence for agent boots
-    SessionContext {
-        /// Print JSON output (default true)
-        #[arg(long, default_value = "true")]
-        json: bool,
-        /// Registry path used to resolve the builder endpoint.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
+    /// Session evidence for agent boots (nested arm, no new top level)
+    Session {
+        #[command(subcommand)]
+        command: AgentSessionCommand,
     },
     /// Seal or verify intent transmission records (nested arm, no new top level)
     Intent {
@@ -374,20 +371,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::SessionContext { json: _, registry } => {
-            let report = serde_json::json!({
-                "schema": "cynic.agent.session_context.v1",
-                "status": "observed",
-                "git_sha": env!("CYNIC_GIT_SHA"),
-                "version": env!("CARGO_PKG_VERSION"),
-                "canonical_service_plane": "synapse",
-                "builder": resolve_builder_endpoint(&registry).unwrap_or("unknown".to_string()),
-                "git_remote": resolve_git_remote(),
-                "active_claims_file": ".agent-claims.json",
-            });
-            emit_pretty_json(&report);
-            ExitCode::SUCCESS
-        }
+        AgentCommand::Session { command } => execute_agent_session(command),
         AgentCommand::Intent { command } => execute_intent(command),
         AgentCommand::Host { command } => crate::agent_host_surface::execute_agent_host(command),
     }
