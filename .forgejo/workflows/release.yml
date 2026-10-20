@@ -143,6 +143,11 @@ jobs:
       # registry the deploy executor reads. The set is read, not restated:
       # a literal list here would be a second authority for what a release
       # ships.
+      #
+      # The registry names the crate of every binary, so the build command
+      # is derived from it too — no `--bin` and no `-p` is written here.
+      # A registry entry that names a crate cannot drift from the crate
+      # that is actually built.
       - name: "Read the declared release binary set"
         id: release_binaries
         run: |
@@ -163,15 +168,35 @@ jobs:
           echo "names=${names}" >> "$GITHUB_OUTPUT"
           echo "release binaries: ${names}"
 
+      - name: "Derive the build command from the registry"
+        id: build_command
+        run: |
+          set -eu
+          read -r packages bins <<< "$(python3 -c "
+          import json
+          with open('infra/release-binaries.json') as handle:
+              registry = json.load(handle)
+          deployable = [
+              entry
+              for entry in registry['binaries']
+              if entry.get('deploy', True)
+          ]
+          if not deployable:
+              raise SystemExit('the deployable set is empty')
+          packages = ' '.join(sorted({entry['crate'] for entry in deployable}))
+          bins = ' '.join('--bin ' + entry['name'] for entry in deployable)
+          print(packages, bins)
+          ")"
+          echo "packages=${packages}" >> "$GITHUB_OUTPUT"
+          echo "bins=${bins}" >> "$GITHUB_OUTPUT"
+          echo "cargo build -p ${packages} ${bins}"
+
       - name: Build release binaries
         run: |
           set -eu
-          packages=""
-          for name in ${{ steps.release_binaries.outputs.names }}; do
-            packages="${packages} ${name}"
-          done
-          cargo build --release --locked -p cynic-cli -p cynic-node -p cynic-kernel \
-            --bin cynic --bin cynic-node --bin cynic-kernel
+          cargo build --release --locked \
+            -p ${{ steps.build_command.outputs.packages }} \
+            ${{ steps.build_command.outputs.bins }}
 
       - name: Package release binaries
         id: package
@@ -181,6 +206,60 @@ jobs:
           for name in ${{ steps.release_binaries.outputs.names }}; do
             cp "target/release/${name}" "dist/${name}"
           done
+
+      # `contracts/release-versioning.json`:
+      #   "A distribution.yaml manifest accompanies each release with name,
+      #    version, description, and environment requirements."
+      #   fields: name, version, description, hermes_requires, env_requires
+      #
+      # The manifest is machine-readable release metadata for downstream
+      # consumers, so it is generated from the same authorities the release
+      # uses: the version comes from Cargo.toml, the binary set from the
+      # registry. Writing it by hand would be a third place where the
+      # version lives.
+      - name: "Generate the distribution manifest"
+        id: distribution
+        run: |
+          set -eu
+          python3 - <<'PY' > dist/distribution.yaml
+          import json
+          import re
+
+          with open('Cargo.toml', encoding='utf-8') as handle:
+              cargo = handle.read()
+          workspace = cargo.split('[workspace.package]', 1)[1]
+          version = re.search(r'^version\s*=\s*"([^"]+)"', workspace, re.M).group(1)
+
+          with open('infra/release-binaries.json', encoding='utf-8') as handle:
+              registry = json.load(handle)
+          deployable = [
+              entry for entry in registry['binaries'] if entry.get('deploy', True)
+          ]
+
+          def quoted(value):
+              return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+          print('name: "cynic"')
+          print('version: ' + quoted(version))
+          print('description: "CYNIC — a sovereign, low-layer runtime for multi-agent systems."')
+          print('hermes_requires: ">=0.1.0"')
+          print('env_requires:')
+          print('  RUST_LOG: "optional; default info"')
+          print('  CYNIC_HOME: "optional; default ~/.local/share/cynic"')
+          print('binaries:')
+          for entry in deployable:
+              print('  - name: ' + quoted(entry['name']))
+              print('    crate: ' + quoted(entry['crate']))
+              print('    role: ' + quoted(entry['role']))
+          PY
+          cat dist/distribution.yaml
+
+      # The checksums cover every artefact that ships, the manifest
+      # included — the manifest is the file a downstream consumer reads
+      # first, so it is the one whose integrity matters most.
+      - name: "Checksum every release artefact"
+        run: |
+          set -eu
           ( cd dist && sha256sum * > SHA256SUMS )
           cat dist/SHA256SUMS
 
