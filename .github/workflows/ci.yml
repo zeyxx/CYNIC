@@ -49,36 +49,38 @@ jobs:
       # The raw result survives in steps.<id>.outcome; the final
       # "Aggregate Test Suite Verdict" step is the single gate that decides
       # the job's fate. See docs/design/CI_EVOLUTION.md.
+      #
+      # The gate runs the whole workspace, not four crates.
+      #
+      # It used to run `cargo test -p cynic-types`, `-p cynic-knowledge`,
+      # `-p cynic-inference` and one `cynic-cli` integration test. That left
+      # 42 of the 46 workspace crates untested on every pull request, and
+      # the gap was not theoretical:
+      #
+      #   * pull request #350 passed CI green and then failed 11 tests on
+      #     the builder, in `cynic-build`;
+      #   * `cynic-channel`'s settlement balance test had been failing
+      #     since the file was introduced, because no gate ever ran it.
+      #
+      # The tests are cheap: the 18 suites take about 81 seconds. The cost
+      # is the compile, and `cargo check --workspace` above already pays
+      # most of it.
+      #
+      # `cargo test --workspace --locked` is also exactly what the release
+      # workflow demands before a tag. The pull-request gate and the
+      # release gate now test the same thing.
 
-      - name: Run Core Types Test Suite
-        id: test_core_types
+      - name: Run Workspace Test Suite
+        id: test_workspace
         continue-on-error: true
-        run: cargo test -p cynic-types
-
-      - name: Run Knowledge Test Suite
-        id: test_knowledge
-        continue-on-error: true
-        run: cargo test -p cynic-knowledge
-
-      - name: Run Inference Test Suite
-        id: test_inference
-        continue-on-error: true
-        run: cargo test -p cynic-inference
-
-      - name: Run Canonical Paths Coherence Test
-        id: test_canonical_paths
-        continue-on-error: true
-        run: cargo test -p cynic-cli --test canonical_paths_coherence
+        run: cargo test --workspace --locked
 
       - name: Aggregate Test Suite Verdict
         if: always()
         env:
           JSON_VALIDATION_OUTCOME: ${{ steps.validate_json.outcome }}
           COMPILE_OUTCOME: ${{ steps.check_compile.outcome }}
-          CORE_TYPES_OUTCOME: ${{ steps.test_core_types.outcome }}
-          KNOWLEDGE_OUTCOME: ${{ steps.test_knowledge.outcome }}
-          INFERENCE_OUTCOME: ${{ steps.test_inference.outcome }}
-          CANONICAL_PATHS_OUTCOME: ${{ steps.test_canonical_paths.outcome }}
+          WORKSPACE_OUTCOME: ${{ steps.test_workspace.outcome }}
         run: |
           set -u
 
@@ -99,7 +101,7 @@ jobs:
           # so `failure` here is a genuinely failing suite.
           failed_suites=""
           skipped_suites=""
-          for suite in core_types knowledge inference canonical_paths; do
+          for suite in workspace; do
             var="$(printf '%s_OUTCOME' "${suite}" | tr '[:lower:]' '[:upper:]')"
             outcome="${!var}"
             printf '  %-18s %s\n' "${suite}" "${outcome}"
@@ -129,10 +131,9 @@ jobs:
 
           # Gate receipt: machine-readable proof of what ran and what it said.
           # Audits the audit — a green job without this file is suspect.
-          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
+          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"validate_json":"%s","check_compile":"%s","workspace":"%s"}}\n' \
             "${verdict}" "${GITHUB_SHA}" "${GITHUB_RUN_ID}" "$(date -u +%FT%TZ)" \
-            "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
-            "${KNOWLEDGE_OUTCOME}" "${INFERENCE_OUTCOME}" "${CANONICAL_PATHS_OUTCOME}" \
+            "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${WORKSPACE_OUTCOME}" \
             > gate-receipt.json
           cat gate-receipt.json
 
