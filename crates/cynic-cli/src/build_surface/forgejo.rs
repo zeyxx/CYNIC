@@ -57,7 +57,7 @@ pub(crate) struct RunsReport {
     pub runs: Vec<WorkflowRun>,
 }
 
-fn resolve_forgejo(root: &Path) -> Result<(String, String, String, String), String> {
+pub(crate) fn resolve_forgejo(root: &Path) -> Result<(String, String, String, String), String> {
     let registry_path = root.join("infra/registry.json");
     let raw = std::fs::read_to_string(&registry_path)
         .map_err(|e| format!("registry unreadable at {}: {e}", registry_path.display()))?;
@@ -111,7 +111,7 @@ fn resolve_forgejo(root: &Path) -> Result<(String, String, String, String), Stri
     Ok((api_url, owner, repo, token))
 }
 
-fn http_get_json(url: &str, token: &str) -> Result<serde_json::Value, String> {
+pub(crate) fn http_get_json(url: &str, token: &str) -> Result<serde_json::Value, String> {
     // reqwest (not curl subprocess): the token travels in a header object,
     // never in argv, so it cannot leak via /proc to other local users.
     // Client is built AND dropped inside block_in_place: reqwest::blocking

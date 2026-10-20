@@ -8,6 +8,7 @@ pub mod cpu_usage_meter;
 pub mod cgroup_isolation;
 pub mod fleet_branch_graph_observer;
 pub mod fleet_build_discovery_observer;
+pub mod forgejo_run_observer;
 pub mod fleet_queue_observer;
 pub mod fs_window_journal;
 pub mod http_freebox_probe_adapter;
