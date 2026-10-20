@@ -1014,7 +1014,7 @@ mod tests {
             .expect("trigger succeeds");
         assert_eq!(proof.status, PipelineStatus::Converged);
         let log = handle.argv_log();
-        assert_eq!(log.len(), 9);
+        assert_eq!(log.len(), 10);
         assert!(log[1].contains(&"git".to_string()));
         assert!(log[1].contains(&"clone".to_string()));
         assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
