@@ -125,6 +125,11 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
         let state_root = Path::new(&desired.state_root);
         let temporary_root = Path::new(&desired.temporary_root);
         let mut removed = Vec::new();
+        // Two distinct reasons a path is not reclaimed: it was already gone,
+        // or a live unit executes from it. Collapsing them would make an
+        // operator read "skipped" without knowing which.
+        let mut skipped_absent: Vec<String> = Vec::new();
+        let mut skipped_live_service: Vec<String> = Vec::new();
 
         for raw in &desired.noncanonical_cache_paths {
             let path = Path::new(raw);
@@ -147,8 +152,6 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
             }
 
             let mut unknowns = Vec::new();
-            let mut skipped_absent: Vec<String> = Vec::new();
-            let mut skipped_live_service: Vec<String> = Vec::new();
             match fs::symlink_metadata(path) {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                     skipped_absent.push(raw.clone());
