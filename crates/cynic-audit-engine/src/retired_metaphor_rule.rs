@@ -58,7 +58,12 @@ use super::rules::AuditRule;
 use super::scanner::WorkspaceSourceIndex;
 
 const RULE_ID: &str = "NAM-001";
-const LEDGER_PATH: &str = "infra/retired-metaphor-ledger.json";
+/// The baseline the rule compares the observation against.
+///
+/// Public because the ratchet test reads the same file: a test that read a
+/// DIFFERENT path than the rule would compare two different baselines and
+/// agree with neither.
+pub const LEDGER_PATH: &str = "infra/retired-metaphor-ledger.json";
 
 /// `NAM-001` — retired biological metaphors must not reappear.
 pub struct RetiredMetaphorRule;
