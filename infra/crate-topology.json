@@ -51,7 +51,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 13014
+      "loc": 13027
     },
     "cynic-channel": {
       "consumers": [
@@ -65,7 +65,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 485
+      "loc": 490
     },
     "cynic-cli": {
       "consumers": [],
@@ -109,7 +109,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45701
+      "loc": 45946
     },
     "cynic-consensus": {
       "consumers": [
@@ -201,7 +201,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 1546
+      "loc": 1549
     },
     "cynic-fleet": {
       "consumers": [
@@ -478,7 +478,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 62036
+      "loc": 62052
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -607,7 +607,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1970
+      "loc": 2195
     },
     "cynic-sandbox": {
       "consumers": [
@@ -751,7 +751,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 10218
+      "loc": 10222
     },
     "cynic-vcs-providers": {
       "consumers": [
@@ -1061,7 +1061,7 @@
     "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 388671,
+    "loc_total": 389182,
     "pending_disposition": 3,
     "runtime_edges": 175,
     "unjustified": 0,

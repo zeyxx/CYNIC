@@ -262,7 +262,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -281,7 +281,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         )
@@ -302,7 +302,7 @@ mod tests {
             &lease,
             &dirty_snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -327,7 +327,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -351,7 +351,7 @@ mod tests {
             &rejected_lease,
             &snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -418,7 +418,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -449,7 +449,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["make".to_string(), "check".to_string()],
+            vec!["cargo".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         )

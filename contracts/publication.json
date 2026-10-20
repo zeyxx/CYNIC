@@ -44,6 +44,10 @@
       "status": "public"
     },
     {
+      "path": ".github/workflows/ci-sync.yml",
+      "status": "public"
+    },
+    {
       "path": ".github/CODEOWNERS",
       "status": "public"
     },
@@ -57,6 +61,14 @@
     },
     {
       "path": ".mcp.json",
+      "status": "public"
+    },
+    {
+      "path": ".forgejo/workflows/fgate.yml",
+      "status": "public"
+    },
+    {
+      "path": ".forgejo/workflows/release.yml",
       "status": "public"
     },
     {
@@ -120,6 +132,10 @@
       "status": "public"
     },
     {
+      "path": "BUILDER_TOOLCHAIN_PROVISIONING.md",
+      "status": "public"
+    },
+    {
       "path": "docs/foundation/WHITEPAPER.md",
       "status": "public"
     },
@@ -175,6 +191,10 @@
       "reason": "a separate Kotlin product, not one of the runtime crates"
     },
     {
+      "path": "services/relay-gateway/**",
+      "status": "public"
+    },
+    {
       "path": ".cortex/**",
       "status": "exclude",
       "reason": "agent session scratch, not a runtime artefact"
@@ -203,6 +223,11 @@
       "path": "evidence/**",
       "status": "exclude",
       "reason": "local forensic evidence"
+    },
+    {
+      "path": ".cynic/evidence/**",
+      "status": "exclude",
+      "reason": "a failing external audit report: it names the private builder address and the local clone path of an external project, and it records a FAILURE verdict rather than evidence of the runtime"
     },
     {
       "path": "references/**",

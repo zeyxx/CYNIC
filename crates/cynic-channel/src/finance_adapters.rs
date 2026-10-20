@@ -8,20 +8,7 @@ use cynic_finance::ports::MeterError;
 use cynic_finance::types::{
     ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
 };
-use cynic_finance::ResourceUnit;
-
-/// Adds a token amount to a balance, keeping the unit.
-///
-/// `ResourceUnit` has no arithmetic in `cynic-finance`, and
-/// `increment_unit` there is private to that crate. A ledger balance is a
-/// TOKEN balance, so the addition is the token one; a balance of another
-/// unit is returned unchanged rather than silently reinterpreted.
-fn add_token_cyd(balance: &ResourceUnit, amount: u64) -> ResourceUnit {
-    match balance {
-        ResourceUnit::TokenCyd(current) => ResourceUnit::TokenCyd(current.saturating_add(amount)),
-        other => other.clone(),
-    }
-}
+use cynic_finance::{increment_unit, ResourceUnit};
 
 /// Channel settlement ledger — records channel settlements as ResourceTransaction.
 ///
@@ -97,25 +84,16 @@ impl ChannelSettlementLedger {
         self.ledger.entries.push(debit_tx);
         self.ledger.entries.push(credit_tx);
 
-        // The balance ACCUMULATES.
+        // The balance accumulates the settlement total. It used to be
+        // *assigned* that total, which meant it reported the last
+        // settlement rather than the sum of every settlement — and the
+        // `ResourceLedger` doc says the balance is derived from the
+        // entries, never stored independently.
         //
-        // It used to be REPLACED (`self.ledger.balance = total`), so a
-        // second settlement overwrote the first and the ledger reported
-        // only the last settlement's total. The test
-        // `record_settlement_multiple_times_accumulates` caught it:
-        // two settlements of 1000 each reported 1000 instead of 2000.
-        //
-        // `ResourceLedger` documents its balance as "Derived balance —
-        // computed from entries, never stored independently", and the
-        // ledger as "append-only, monotone". Monotone means the balance
-        // only grows, so a settlement adds to it.
-        //
-        // The amount added is the settled TOTAL — the debit and the
-        // credit together are the amount that crossed the channel, and
-        // the two entries are the two sides of that one movement. Adding
-        // the credit alone would report what the worker earned and lose
-        // the initiator's half of the settlement.
-        self.ledger.balance = add_token_cyd(&self.ledger.balance, total);
+        // The arithmetic lives in `cynic_finance::increment_unit`: the
+        // code that moves a balance belongs to one place, not to each
+        // adapter that touches a ledger.
+        self.ledger.balance = increment_unit(&self.ledger.balance, total as f64);
 
         Ok((debit_id, credit_id))
     }

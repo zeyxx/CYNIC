@@ -427,7 +427,9 @@ release.deploy: ## Run the release gate, then build and atomically deploy via na
 	$(source_bin)
 	$(CYNIC_SOURCE_BIN) source release
 	@echo "==> building release binaries"
-	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node -p cynic-kernel --bin cynic --bin cynic-node --bin cynic-kernel
+	@$(RELEASE_ENV) $(CARGO) build --release \
+		$(shell jq -r '[.binaries[] | select(.deploy != false) | .crate] | unique | join(" ")' infra/release-binaries.json) \
+		$(shell jq -r '[.binaries[] | select(.deploy != false) | "--bin \(.name)"] | join(" ")' infra/release-binaries.json)
 	@echo "==> deploying"
 	@$(RELEASE_ENV) $(CYNIC_SOURCE_BIN) source deploy --apply
 
@@ -502,7 +504,7 @@ run.node: ## Run the node locally
 .PHONY: install.bins
 install.bins: ## Install built binaries into ~/bin
 	@mkdir -p "$$HOME/bin"
-	@for bin in cynic cynic-node cynic-kernel; do \
+	@for bin in $(shell jq -r '[.binaries[] | select(.deploy != false) | .name] | join(" ")' infra/release-binaries.json); do \
 		src="$(CARGO_TARGET_DIR)/debug/$$bin"; \
 		if [ -x "$$src" ]; then \
 			install -m 0755 "$$src" "$$HOME/bin/$$bin"; \

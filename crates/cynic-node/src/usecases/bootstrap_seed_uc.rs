@@ -229,7 +229,7 @@ mod tests {
                 source_authority_ref: "test:source".to_string(),
                 builder_image: format!("test@sha256:{}", "c".repeat(64)),
                 expires_at_unix_s: 200,
-                allowed_actions: vec![DevelopmentGenesisAction::MakeCheck],
+                allowed_actions: vec![DevelopmentGenesisAction::CargoCheck],
                 requested_capabilities: vec!["build_artifact".to_string()],
                 evidence_refs: vec![format!("source-capsule:sha256:{}", "d".repeat(64))],
             },
@@ -252,7 +252,7 @@ mod tests {
             cynic_node_protocol::NodeExecutionMode::BootstrapSeed,
             plan(
                 "ready",
-                vec![vec!["make".to_string(), "check".to_string()]],
+                vec![vec!["cargo".to_string(), "check".to_string()]],
                 Vec::new(),
             ),
         );
@@ -260,7 +260,7 @@ mod tests {
         assert_eq!(
             decision,
             BootstrapSeedExecutionDecision::Ready {
-                argv: vec![vec!["make".to_string(), "check".to_string()]],
+                argv: vec![vec!["cargo".to_string(), "check".to_string()]],
             }
         );
     }
@@ -288,7 +288,7 @@ mod tests {
     fn ready_seed_decision_becomes_bounded_node_execution_requests() {
         let requests = bootstrap_seed_execution_requests(
             &BootstrapSeedExecutionDecision::Ready {
-                argv: vec![vec!["make".to_string(), "check".to_string()]],
+                argv: vec![vec!["cargo".to_string(), "check".to_string()]],
             },
             std::path::Path::new("/var/lib/cynic/bootstrap/seed-1/source"),
             std::time::Duration::from_secs(60),
@@ -296,7 +296,7 @@ mod tests {
         .expect("ready seed requests");
 
         assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].argv, vec!["make", "check"]);
+        assert_eq!(requests[0].argv, vec!["cargo", "check"]);
         assert_eq!(
             requests[0].working_directory,
             std::path::PathBuf::from("/var/lib/cynic/bootstrap/seed-1/source")
@@ -309,7 +309,7 @@ mod tests {
     fn all_zero_exit_steps_prove_a_receipt_with_full_genesis_lineage() {
         let seed_plan = plan(
             "ready",
-            vec![vec!["make".to_string(), "check".to_string()]],
+            vec![vec!["cargo".to_string(), "check".to_string()]],
             Vec::new(),
         );
         let requests = bootstrap_seed_execution_requests(
@@ -342,7 +342,7 @@ mod tests {
         );
         assert_eq!(
             receipt.argv_requested,
-            vec![vec!["make".to_string(), "check".to_string()]]
+            vec![vec!["cargo".to_string(), "check".to_string()]]
         );
         assert_eq!(receipt.steps.len(), 1);
         assert!(receipt.blockers.is_empty());
@@ -353,7 +353,7 @@ mod tests {
         let seed_plan = plan(
             "ready",
             vec![
-                vec!["make".to_string(), "check".to_string()],
+                vec!["cargo".to_string(), "check".to_string()],
                 vec!["cargo".to_string()],
             ],
             Vec::new(),
@@ -401,7 +401,7 @@ mod tests {
     fn cancellation_marks_the_receipt_cancelled_never_proved() {
         let seed_plan = plan(
             "ready",
-            vec![vec!["make".to_string(), "check".to_string()]],
+            vec![vec!["cargo".to_string(), "check".to_string()]],
             Vec::new(),
         );
         let requests: Vec<crate::ports::build_scheduler_port::BuildExecutionRequest> = seed_plan
@@ -435,7 +435,7 @@ mod tests {
     fn spawn_failure_fails_without_inventing_a_step_read_back() {
         let seed_plan = plan(
             "ready",
-            vec![vec!["make".to_string(), "check".to_string()]],
+            vec![vec!["cargo".to_string(), "check".to_string()]],
             Vec::new(),
         );
         let requests: Vec<crate::ports::build_scheduler_port::BuildExecutionRequest> = seed_plan
@@ -523,7 +523,7 @@ mod tests {
         plan(
             "ready",
             vec![
-                vec!["make".to_string(), "check".to_string()],
+                vec!["cargo".to_string(), "check".to_string()],
                 vec!["cargo".to_string(), "check".to_string()],
             ],
             Vec::new(),
