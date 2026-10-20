@@ -160,9 +160,14 @@
  ],
  "retired": [
   {
-   "id": "ecosystem_dependencies",
-   "reason": "superseded by the split ecosystem_deps, ecosystem_deps_upgrade, and ecosystem_integrations surfaces",
-   "path": "fragments/ecosystem_dependencies.json"
+    "id": "ecosystem_dependencies",
+    "reason": "superseded by the split ecosystem_deps, ecosystem_deps_upgrade, and ecosystem_integrations surfaces",
+    "path": "fragments/ecosystem_dependencies.json"
+  },
+  {
+    "id": "node_cert_issue",
+    "reason": "the cynic node cert issue arm was removed from the CLI by the node surface flattening (76f7315f); the certificate-issuing capability still lives in cynic-host::node_identity_workflow::issue_certificate, but no operator surface routes to it",
+    "path": "fragments/node_cert_issue.json"
   },
   {
    "id": "audit_node_host_boundary",

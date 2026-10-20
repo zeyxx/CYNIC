@@ -1343,6 +1343,42 @@ fn emit_json<T: serde::Serialize>(label: &str, value: &T, should_fail: bool) -> 
 mod tests {
     use super::*;
 
+    /// A registry the network arms can read, written by the test.
+    ///
+    /// These arms read the fleet registry, so a test that points them at
+    /// `CynicPaths::registry_path()` reads whatever
+    /// `/etc/cynic/registry.json` holds on the machine running it. That
+    /// made the outcome a property of the host, not of the code: the arm
+    /// passed on a workstation with a populated registry and failed on a
+    /// CI runner where the file does not exist, and on the builder it
+    /// failed again for a third reason - the installed registry there
+    /// has no network_policy plane interface, and the firewall
+    /// derivation fails closed without one.
+    ///
+    /// The registry is an input to these arms, so the test supplies it.
+    fn registry_fixture() -> tempfile::NamedTempFile {
+        let file = tempfile::NamedTempFile::new().expect("temp registry");
+        std::fs::write(
+            file.path(),
+            serde_json::json!({
+                "network_policy": {
+                    "canonical_service_plane": "service",
+                    "planes": {
+                        "service": { "cidr": "10.10.10.0/24" },
+                        "admin": { "cidr": "192.168.100.0/24" },
+                        "mesh": { "cidr": "100.64.0.0/10", "interface": "wg0" }
+                    }
+                },
+                "nodes": [
+                    { "id": "probe-node", "services": [] }
+                ]
+            })
+            .to_string(),
+        )
+        .expect("write registry fixture");
+        file
+    }
+
     #[test]
     fn runtime_status_only_fails_when_blocked() {
         assert!(should_fail_runtime_status("blocked"));
@@ -1352,10 +1388,11 @@ mod tests {
 
     #[test]
     fn security_audit_executes_live_telemetry_without_panic() {
+        let registry = registry_fixture();
         let cmd = NetworkCommands::SecurityAudit {
             json: true,
             max_handshake_age_secs: 180,
-            registry: CynicPaths::registry_path().display().to_string(),
+            registry: registry.path().display().to_string(),
         };
         let code = execute_network_command(&cmd);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -1363,9 +1400,10 @@ mod tests {
 
     #[test]
     fn reconcile_observed_dry_run_executes_without_panic() {
+        let registry = registry_fixture();
         let cmd = NetworkCommands::ReconcileObserved {
             json: true,
-            registry: CynicPaths::registry_path().display().to_string(),
+            registry: registry.path().display().to_string(),
             timeout_ms: 100,
             apply: false,
         };
@@ -1375,10 +1413,11 @@ mod tests {
 
     #[test]
     fn firewall_policy_executes_without_panic() {
+        let registry = registry_fixture();
         let cmd = NetworkCommands::FirewallPolicy {
             json: true,
-            registry: CynicPaths::registry_path().display().to_string(),
-            node_id: None,
+            registry: registry.path().display().to_string(),
+            node_id: Some("probe-node".to_string()),
             audit: false,
         };
         let code = execute_network_command(&cmd);
