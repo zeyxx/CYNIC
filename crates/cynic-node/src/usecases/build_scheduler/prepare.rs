@@ -616,6 +616,7 @@ mod tests {
         scheduler.sccache = Some(crate::config::SccacheConfig {
             cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
             binary: "sccache".to_string(),
+            max_size_bytes: 8 * 1024 * 1024 * 1024,
         });
         let argv = vec!["cargo".to_string(), "build".to_string()];
         let env = build_execution_env(&scheduler, &argv);
@@ -642,6 +643,7 @@ mod tests {
         scheduler.sccache = Some(crate::config::SccacheConfig {
             cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
             binary: "/usr/local/bin/sccache".to_string(),
+            max_size_bytes: 8 * 1024 * 1024 * 1024,
         });
         let argv = vec!["cargo".to_string(), "build".to_string()];
         let env = build_execution_env(&scheduler, &argv);
