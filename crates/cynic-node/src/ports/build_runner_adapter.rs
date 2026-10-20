@@ -964,7 +964,7 @@ mod tests {
         // Busy jiffies 250-150 = 100 at 100 Hz = 1000 ms of builder CPU.
         assert_eq!(proof.cpu_ms, Some(1000));
         let log = handle.argv_log();
-        assert_eq!(log.len(), 8);
+        assert_eq!(log.len(), 9);
         assert!(log.iter().all(|argv| argv[0] == "ssh"));
         assert!(
             log.iter()
@@ -976,7 +976,19 @@ mod tests {
             .expect("cargo argv logged")
             .join(" ");
         assert!(cargo.contains("cargo check"));
-        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
+        // The target dir comes from the RUNNER's own layout, read back
+        // through `cynic runtime paths --json`. The old assertion pinned
+        // the client's convention (`shared-target`), which is the bug:
+        // it wrote to a path the runner may not own and that the disk
+        // observer never saw.
+        assert!(
+            cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/build-targets/fgate"),
+            "the cargo target dir must be the runner's own: {cargo}"
+        );
+        assert!(
+            !cargo.contains("shared-target"),
+            "the orphaned second cache convention must be gone: {cargo}"
+        );
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
@@ -1026,7 +1038,7 @@ mod tests {
             .trigger(&check_trigger(&commit))
             .expect("matching read-back is authoritative");
         assert_eq!(proof.status, PipelineStatus::Converged);
-        assert_eq!(handle.argv_log().len(), 8);
+        assert_eq!(handle.argv_log().len(), 9);
     }
 
     #[test]
