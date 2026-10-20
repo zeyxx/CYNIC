@@ -69,11 +69,7 @@ pub(super) async fn prepare(
     // override. Admission binds `action.working_directory` to this path;
     // after the override it must be rebased to follow the stable root.
     let original_root = layout.workspace_root.clone();
-    let layout = apply_stable_workspace(
-        layout,
-        scheduler,
-        &claimed.record.envelope.action.argv,
-    )?;
+    let layout = apply_stable_workspace(layout, scheduler, &claimed.record.envelope.action.argv)?;
     let desired = claimed.record.envelope.action.working_directory.as_deref();
     let rebased = rebase_working_directory(desired, &original_root, &layout.workspace_root);
     let _desired_working_directory = resolve_working_directory(rebased, &layout.workspace_root)?;
@@ -189,7 +185,8 @@ pub(super) async fn prepare(
 ///   default job count.
 /// - `sccache` stanza present ⇒ `RUSTC_WRAPPER=<binary>` (cargo routes
 ///   every rustc invocation through sccache) + `SCCACHE_DIR=<dir>` (the
-///   persistent cache). Absent = behavior unchanged (plain rustc).
+///   persistent cache) + `SCCACHE_CACHE_SIZE=<bytes>` (the bound sccache
+///   prunes itself against). Absent = behavior unchanged (plain rustc).
 ///
 /// The map is the bounded passthrough: off-mode execs it directly
 /// (`TokioBuildExecution`), bwrap forwards every entry via `--setenv`
@@ -217,6 +214,15 @@ pub(super) fn build_execution_env(
             "SCCACHE_DIR".into(),
             sccache.cache_dir.to_string_lossy().into_owned(),
         );
+        // Bound the cache. sccache prunes itself above this size, so the
+        // cache stays a cache instead of becoming an unbounded directory
+        // on a disk the builder also needs for checkouts and targets.
+        if sccache.max_size_bytes > 0 {
+            env.insert(
+                "SCCACHE_CACHE_SIZE".into(),
+                sccache.max_size_bytes.to_string(),
+            );
+        }
     }
     env
 }
@@ -286,8 +292,7 @@ fn apply_stable_workspace(
     // Recompute the evidence digest so it describes the actual workspace
     // path after the override, not the registry-declared path (C1).
     layout.evidence_digest = recompute_layout_digest(
-        &layout,
-        "", // node_id not needed for the resolved-layout digest
+        &layout, "", // node_id not needed for the resolved-layout digest
         "", // repository_id not needed for the resolved-layout digest
         "", // workspace_id not needed for the resolved-layout digest
     )?;
@@ -345,11 +350,9 @@ fn sandbox_mode_for(
         .shared_target_root
         .as_ref()
         .map(|root| shared_target_dir_for(root, argv));
-    let mut spec = CargoSandboxSpec::resolve_from_host_env(
-        workspace_root.to_path_buf(),
-        target_dir,
-    )
-    .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
+    let mut spec =
+        CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
+            .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
     if let Some(sccache) = scheduler.sccache.as_ref() {
         spec.sccache_cache_dir = Some(sccache.cache_dir.clone());
     }
@@ -475,11 +478,7 @@ mod tests {
         // (pass None so resolve assigns the stable root).
         let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
         let stable = PathBuf::from("/var/lib/cynic/build-workspaces/debug");
-        let rebased = rebase_working_directory(
-            original.to_str(),
-            &original,
-            &stable,
-        );
+        let rebased = rebase_working_directory(original.to_str(), &original, &stable);
         assert_eq!(
             rebased, None,
             "admission-bound dir equal to original root must rebase to None"
@@ -517,11 +516,7 @@ mod tests {
         // dir equal to the original must still resolve to the original —
         // the rebase must not change behavior when there is no override.
         let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
-        let rebased = rebase_working_directory(
-            original.to_str(),
-            &original,
-            &original,
-        );
+        let rebased = rebase_working_directory(original.to_str(), &original, &original);
         assert_eq!(
             rebased, None,
             "desired==original must rebase to None even when override is off"
@@ -630,6 +625,11 @@ mod tests {
             "RUSTC_WRAPPER must route rustc through sccache when the stanza is present"
         );
         assert_eq!(
+            env.get("SCCACHE_CACHE_SIZE"),
+            Some(&"8589934592".to_string()),
+            "SCCACHE_CACHE_SIZE must bound the cache; an unbounded cache is a disk incident"
+        );
+        assert_eq!(
             env.get("SCCACHE_DIR"),
             Some(&"/var/lib/cynic/sccache-cache".to_string()),
             "SCCACHE_DIR must point at the configured cache dir"
@@ -664,6 +664,10 @@ mod tests {
         assert!(
             !env.contains_key("RUSTC_WRAPPER"),
             "RUSTC_WRAPPER must NOT be set when the sccache stanza is absent"
+        );
+        assert!(
+            !env.contains_key("SCCACHE_CACHE_SIZE"),
+            "SCCACHE_CACHE_SIZE must NOT be set when the sccache stanza is absent"
         );
         assert!(
             !env.contains_key("SCCACHE_DIR"),
@@ -760,19 +764,13 @@ mod tests {
         std::fs::create_dir_all(&workspace).unwrap();
         std::fs::write(workspace.join("sentinel.txt"), b"keep-me").unwrap();
         let sentinel = workspace.join("sentinel.txt");
-        let mtime_before = std::fs::metadata(&sentinel)
-            .unwrap()
-            .modified()
-            .unwrap();
+        let mtime_before = std::fs::metadata(&sentinel).unwrap().modified().unwrap();
         prepare_stable_workspace(&workspace).unwrap();
         assert!(
             sentinel.exists(),
             "sentinel file must survive prepare (no wipe)"
         );
-        let mtime_after = std::fs::metadata(&sentinel)
-            .unwrap()
-            .modified()
-            .unwrap();
+        let mtime_after = std::fs::metadata(&sentinel).unwrap().modified().unwrap();
         assert_eq!(
             mtime_before, mtime_after,
             "sentinel mtime must be unchanged (no re-materialization)"
@@ -829,10 +827,7 @@ mod tests {
         );
         // The .git/worktrees registration must persist.
         assert!(
-            repository
-                .join(".git")
-                .join("worktrees")
-                .exists(),
+            repository.join(".git").join("worktrees").exists(),
             "worktree registration must persist"
         );
     }
@@ -911,9 +906,9 @@ mod tests {
         let layout = registry_layout();
         let mut scheduler = scheduler_config();
         // Set stable root inside the repository.
-        scheduler.stable_workspace_root = Some(
-            PathBuf::from("/var/lib/cynic/state/source/repositories/CYNIC/stable")
-        );
+        scheduler.stable_workspace_root = Some(PathBuf::from(
+            "/var/lib/cynic/state/source/repositories/CYNIC/stable",
+        ));
         let argv = vec!["cargo".to_string(), "build".to_string()];
         let result = apply_stable_workspace(layout, &scheduler, &argv);
         assert_eq!(
@@ -949,10 +944,7 @@ mod tests {
         scheduler.stable_workspace_root = Some(file_path);
         let argv = vec!["cargo".to_string(), "build".to_string()];
         let result = apply_stable_workspace(layout, &scheduler, &argv);
-        assert_eq!(
-            result.unwrap_err(),
-            "build_workspace_stable_root_is_file"
-        );
+        assert_eq!(result.unwrap_err(), "build_workspace_stable_root_is_file");
     }
 
     // --- M3: root==repo guard ---
@@ -961,9 +953,9 @@ mod tests {
     fn stable_workspace_root_equals_repository_is_rejected() {
         let layout = registry_layout();
         let mut scheduler = scheduler_config();
-        scheduler.stable_workspace_root = Some(
-            PathBuf::from("/var/lib/cynic/state/source/repositories/CYNIC")
-        );
+        scheduler.stable_workspace_root = Some(PathBuf::from(
+            "/var/lib/cynic/state/source/repositories/CYNIC",
+        ));
         let argv = vec!["cargo".to_string(), "build".to_string()];
         let result = apply_stable_workspace(layout, &scheduler, &argv);
         assert_eq!(

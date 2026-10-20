@@ -140,6 +140,19 @@ pub struct SccacheConfig {
     /// exact binary.
     #[serde(default = "defaults::default_sccache_binary")]
     pub binary: String,
+    /// Upper bound on the cache size, in bytes.
+    ///
+    /// sccache prunes itself when it exceeds this bound. Without it the
+    /// cache can only grow, and a cache that has become the second-largest
+    /// directory on the builder is a disk incident waiting to happen: the
+    /// builder reached 92 % with 10.4 GiB of sccache next to 46.4 GiB of
+    /// per-SHA checkouts.
+    ///
+    /// The bound is emitted as `SCCACHE_CACHE_SIZE`, which sccache reads
+    /// directly. 8 GiB keeps a warm build warm (the measured warm build is
+    /// 96 s against 194 s cold) while capping the disk cost.
+    #[serde(default = "defaults::default_sccache_max_size_bytes")]
+    pub max_size_bytes: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
