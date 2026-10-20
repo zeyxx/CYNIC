@@ -24,7 +24,7 @@ pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEnt
         // Optional 7th field: the tree contains entries this account does
         // not own. Absent means false, so a line from an older producer
         // still parses.
-        let contains_foreign_owned = parts.get(6).map(|v| v == "1").unwrap_or(false);
+        let contains_foreign_owned = parts.get(6).map(|v| *v == "1").unwrap_or(false);
         let path = parts[0].to_string();
         let sha = parts[1].to_string();
         let size_bytes: u64 = parts[2].parse().unwrap_or(0);
