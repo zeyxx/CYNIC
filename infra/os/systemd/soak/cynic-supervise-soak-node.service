@@ -15,7 +15,15 @@ Type=simple
 User=cynic
 Group=cynic
 WorkingDirectory=/var/lib/cynic
-ExecStart=/var/lib/cynic/shared-target/debug/cynic supervise run --role node --state-dir /var/lib/cynic/supervise-soak --status-file /var/lib/cynic/supervise-soak/node.status.json -- sleep infinity
+# The binary lives outside the Cargo tree on purpose: a build in the
+# shared target directory replaces the file a running unit executes,
+# which is a service-under-a-reclaimable-path failure.
+#
+# /var/lib/cynic/bin/cynic is the operator entry point that symlinks to
+# current/ (infra/directory-tree.json, runtime_install.layer): the
+# release is versioned under releases/ and the switch is a symlink, so
+# a unit restart picks up a new release instead of a rebuilt cache file.
+ExecStart=/var/lib/cynic/bin/cynic supervise run --role node --state-dir /var/lib/cynic/supervise-soak --status-file /var/lib/cynic/supervise-soak/node.status.json -- sleep infinity
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
