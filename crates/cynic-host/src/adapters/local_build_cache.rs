@@ -13,18 +13,16 @@ use crate::domain::disk::build_runner::{
 
 /// The unit executables the reclaim refuses to touch.
 ///
-/// A function pointer keeps the production path reading the real unit files
-/// while a test can declare the executables it wants to protect. The choice
-/// is made at the call site, not from a global, so a test never depends on
-/// what the host happens to run.
-type UnitExecutables = fn() -> Vec<crate::adapters::live_service_paths::UnitExecutable>;
+/// The production path reads the real unit files; a test declares the
+/// executables it wants to protect. The choice is made at the call site, not
+/// from a global, so a test never depends on what the host happens to run.
+type UnitExecutables = Box<dyn Fn() -> Vec<crate::adapters::live_service_paths::UnitExecutable>>;
 
 /// Read the real unit executables.
 fn observe_real_unit_executables() -> Vec<crate::adapters::live_service_paths::UnitExecutable> {
     crate::adapters::live_service_paths::observe_unit_executables()
 }
 
-#[derive(Debug, Clone, Copy)]
 pub struct LocalBuildCacheAdapter {
     unit_executables: UnitExecutables,
 }
@@ -32,7 +30,7 @@ pub struct LocalBuildCacheAdapter {
 impl Default for LocalBuildCacheAdapter {
     fn default() -> Self {
         Self {
-            unit_executables: observe_real_unit_executables,
+            unit_executables: Box::new(observe_real_unit_executables),
         }
     }
 }
@@ -42,8 +40,13 @@ impl LocalBuildCacheAdapter {
     ///
     /// The production adapter reads the unit files; this one takes the list
     /// as given, so the decision can be exercised against a known state.
-    pub fn protecting(unit_executables: UnitExecutables) -> Self {
-        Self { unit_executables }
+    pub fn protecting<F>(unit_executables: F) -> Self
+    where
+        F: Fn() -> Vec<crate::adapters::live_service_paths::UnitExecutable> + 'static,
+    {
+        Self {
+            unit_executables: Box::new(unit_executables),
+        }
     }
 }
 
