@@ -49,6 +49,18 @@ pub(super) async fn prepare(
     if cancellation.is_cancelled() {
         return Err("build_scheduler_cancelled_before_prepare".into());
     }
+    // Reclaim before consuming space.
+    //
+    // A build materializes a checkout and a target dir. On a builder that
+    // reached 92 % with 46.4 GiB of per-SHA checkouts, the space was never
+    // reclaimed because nothing invoked the retention pass: the command
+    // existed, the policy existed, and no one called them.
+    //
+    // The reclaim runs here, at the point where space is about to be
+    // consumed, and its failure is never fatal: an unobservable disk must
+    // not block a build that may still fit.
+    reclaim_before_build();
+
     let source = build_source_reference_from_workload(&claimed.record.envelope)
         .map_err(|blockers| blockers.join(","))?;
     if source.repository_id != scheduler.repository_id {
@@ -258,6 +270,58 @@ fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::Pat
 /// unchanged sources keep their old mtimes and the cargo fingerprints hit the
 /// warm shared target (H1b). The actual update (fetch + reset --hard)
 /// happens in `LocalBuildWorkspace::prepare`.
+/// Run the retention pass over the build artefacts, best effort.
+///
+/// The pass observes the checkouts and the disk, plans what the policy
+/// allows, and reclaims it. Every step is a read-back: the plan lists the
+/// paths and the bytes, the execution reports what was removed.
+///
+/// A failure here is reported, never fatal. The build may still fit on the
+/// disk; refusing it because the reclaim failed would turn a maintenance
+/// problem into an outage. The pre-trigger disk gate is what refuses a
+/// build that does not fit.
+fn reclaim_before_build() {
+    use cynic_host::adapters::local_build_artefact::LocalBuildArtefactAdapter;
+    use cynic_host::domain::build_artefact::{
+        RetentionExecutor, RetentionObserver, RetentionPlanner,
+    };
+    use cynic_protocol::retention::default_build_artefact_policy;
+
+    let adapter = LocalBuildArtefactAdapter;
+    let Ok(observation) = adapter.observe() else {
+        eprintln!("cynic: build artefact observation failed; reclaim skipped");
+        return;
+    };
+    let policy = default_build_artefact_policy();
+    let plan = adapter.plan(&observation, &policy);
+    if plan.items.is_empty() {
+        return;
+    }
+    match adapter.execute(&plan) {
+        Ok(result) if result.success => {
+            eprintln!(
+                "cynic: reclaimed {} build artefact(s), {} bytes",
+                result.items_executed.len(),
+                plan.total_reclaimable_bytes
+            );
+        }
+        Ok(result) => {
+            eprintln!(
+                "cynic: reclaim incomplete: {} of {} artefact(s) reclaimed",
+                result
+                    .items_executed
+                    .iter()
+                    .filter(|item| item.success)
+                    .count(),
+                plan.items.len()
+            );
+        }
+        Err(error) => {
+            eprintln!("cynic: reclaim failed: {error}");
+        }
+    }
+}
+
 fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
     let parent = workspace
         .parent()
