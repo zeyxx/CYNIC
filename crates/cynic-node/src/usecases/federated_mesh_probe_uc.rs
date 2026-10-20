@@ -12,7 +12,7 @@ use cynic_protocol::{
 
 /// Probes all declared service nodes and generates a read-back proof report.
 ///
-/// The declared topology comes from `infra/service-nodes.seed.json`, read by the
+/// The declared topology comes from `infra/registry.json`, read by the
 /// resolver. This function carried its own `CANONICAL_SYNAPSE_NODES` const until
 /// 2026-09-30 — a second copy of the same five addresses and ports, kept as the
 /// resolver's fallback when the seed file was missing. The seed file's own note

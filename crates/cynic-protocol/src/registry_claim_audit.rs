@@ -61,7 +61,7 @@ pub enum ClaimKind {
     PlaneOccupancy,
     /// Two declarative sources describe the same node differently.
     ///
-    /// `infra/service-nodes.seed.json` and the code-side `CANONICAL_SYNAPSE_NODES`
+    /// `infra/service-nodes.seed.json` (deleted) and the code-side `CANONICAL_SERVICE_NODES`
     /// const both gave `local-kernel` the address `127.0.0.1` and the role
     /// `cortex_primary`, while `infra/registry.json` gives it `10.10.10.100` and
     /// `kernel_primary` and assigns `cortex_host` to a separate node. No
@@ -69,7 +69,7 @@ pub enum ClaimKind {
     /// look correct while disagreeing about what the node *is*.
     ///
     /// The const was deleted on 2026-09-30 — this is the kind that named it, and
-    /// the deletion is the repair. `infra/service-nodes.seed.json` against
+    /// the deletion is the repair. `infra/service-nodes.seed.json` (deleted) against
     /// `infra/registry.json` remains a live instance of this kind.
     ///
     /// A second declarative source is not a fallback, it is a competing

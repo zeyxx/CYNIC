@@ -468,7 +468,7 @@ kani.layers: ## Run aggregated low-layer Kani proofs for cynic-node (requires `c
 		--harness dns_contract::verification::proof_dns_source_lists_keep_canonical_guardrails \
 		--harness network_mesh_plan::verification::proof_address_plane_prefers_declared_service_plane \
 		--harness network_mesh_plan::verification::proof_address_plane_falls_back_to_canonical_plane \
-		--harness network_mesh_plan::verification::proof_address_plane_defaults_to_synapse_without_match \
+		--harness network_mesh_plan::verification::proof_address_plane_defaults_to_service_without_match \
 		--harness network_mesh_plan::verification::proof_default_dns_names_follow_zone_presence \
 		--harness network_mesh_apply_plan::command_plan_verification::proof_route_install_uses_injected_ip_bin_and_mesh_interface \
 		--harness network_mesh_apply_plan::command_plan_verification::proof_post_apply_observation_adds_dns_probe_only_when_dns_exists \

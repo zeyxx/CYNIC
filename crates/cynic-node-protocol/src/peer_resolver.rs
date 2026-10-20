@@ -1,7 +1,7 @@
 //! Peer resolution types and pure peer-selection helpers.
 //!
 //! The desired mesh topology comes from a declared registry seed
-//! (`infra/service-nodes.seed.json`) and an optional signed rolling fallback
+//! (`infra/registry.json`) and an optional signed rolling fallback
 //! bundle. This module carries only the portable types and the pure
 //! selection decisions; resolver implementations live behind the
 //! `PeerResolver` trait in the consuming crate (e.g. cynic-node).

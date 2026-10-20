@@ -35,7 +35,7 @@ SSOT proposé, avec un modèle multi-rôles et les faits non résolus marqués
 |---|--------|---------|---------------|
 | S1 | `infra/registry.json` network_policy | planes + reservations + wireguard | tout le monde (théoriquement) |
 | S2 | `infra/verticals/network/intent.json` | DUPLIQUE S1 presque mot pour mot (+ code_contract) | surfaces vertical intent |
-| S3 | `infra/synapse-nodes.seed.json` | nodes/ip/role « généré par machine enrollment » | peer_resolver, registry_claim_audit, mesh_resolver |
+| S3 | `infra/registry.json` | nodes/ip/role — autorité unique du fleet (l'ancien `synapse-nodes.seed.json` a été supprimé : c'était une seconde source déclarative en divergence sur `local-kernel`) | peer_resolver, registry_claim_audit, mesh_resolver |
 | S4 | `infra/known-peers.<ts>.json` signé | nodes/ip/role/probe_ports (rolling fallback) | mesh_sync, registry_mesh_state, surrealdb adapter |
 | S5 | `/etc/cynic/dns/synapse.hosts` (dnsmasq :1053) | 4 lignes hosts | résolution DNS fleet |
 | S6 | `/etc/hosts` manuels par machine | entrées à la main (dont une ligne `jeanterre13`) | résolution locale |
