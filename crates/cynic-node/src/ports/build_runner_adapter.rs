@@ -13,8 +13,7 @@ use cynic_build::build::canonical_argv_from_build_action;
 use cynic_protocol::build_disk_capacity::{
     DiskCapacityDecision, decide_disk_capacity, parse_df_available_bytes,
 };
-use cynic_types::paths::CynicPaths;
-use std::path::PathBuf;
+use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
 /// Minimal argv command runner (no shell composition).
 ///
@@ -129,8 +128,6 @@ fn observe_log_path() -> Option<String> {
 pub struct SshBuildRunner {
     pub host: String,
     pub user: String,
-    /// Base dir for per-SHA checkouts, e.g. `<state>/checkouts`.
-    pub checkout_base: String,
     /// Source of truth cloned when no checkout exists for the SHA.
     pub ssot_url: String,
     /// Optional single package scope (`cargo --package`). None = workspace.
@@ -140,6 +137,13 @@ pub struct SshBuildRunner {
     /// hash (profile/flags/rustc in key), so hits are byte-identical across
     /// SHAs — proof value unchanged.
     pub sccache_dir: Option<String>,
+    /// Explicit override of the checkout base on the runner.
+    ///
+    /// `None` means the runner's own layout decides, which is the normal
+    /// case: the runner reports its state root through `cynic runtime paths
+    /// --json`. An explicit override stays supported for a runner whose
+    /// checkouts live outside its state root.
+    pub checkout_base: Option<String>,
     /// Minimum free bytes the runner must have before a checkout may be
     /// materialized. `None` means the gate is off.
     ///
@@ -151,26 +155,16 @@ pub struct SshBuildRunner {
     pub runner: Box<dyn CommandRunner>,
 }
 
-/// Default checkout base on runner nodes.
-pub fn default_checkout_base() -> PathBuf {
-    CynicPaths::state_dir().join("checkouts")
-}
-/// Shared compilation cache across per-SHA checkouts. Third-party
-/// dependencies (same lockfile, same toolchain) compile once; only the
-/// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
-/// isolated; concurrent builds serialize on the target-dir lock.
-pub fn default_shared_target_dir() -> PathBuf {
-    CynicPaths::state_dir().join("shared-target")
-}
-/// Default shared sccache dir on runner nodes (created on first use).
-pub fn default_sccache_dir() -> PathBuf {
-    CynicPaths::state_dir().join("sccache")
-}
-/// Absolute sccache binary on runners (non-interactive SSH has no cargo/bin
-/// on PATH, so the wrapper must never rely on PATH resolution).
-pub fn default_sccache_bin() -> PathBuf {
-    CynicPaths::state_dir().join("bin/sccache")
-}
+// The shared-target / sccache path helpers that used to live here are gone.
+//
+// They resolved the cache roots on the CLIENT and shipped the result to the
+// runner as a hardcoded `CARGO_TARGET_DIR`. Two consequences, both observed:
+// a second cache convention (`shared-target`, 33 GiB) that the disk observer
+// never saw, and a target dir pointing at a path the runner does not own
+// whenever the two hosts did not share a layout (compute-01).
+//
+// The cache roots are now resolved on the runner itself, through
+// `cynic runtime paths --json`. See `cynic_protocol::remote_cache_roots`.
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
 
@@ -179,8 +173,26 @@ impl SshBuildRunner {
         format!("{}@{}", self.user, self.host)
     }
 
-    fn checkout_dir(&self, sha: &str) -> String {
-        format!("{}/cynic-{}", self.checkout_base, &sha[..12.min(sha.len())])
+    /// Resolve the cache roots on the runner itself.
+    ///
+    /// The runner is asked for its own state root with the native CYNIC
+    /// command (`cynic runtime paths --json`), so the build writes its
+    /// artifacts where the runner's layout says they belong, and the disk
+    /// observer sees them. A runner that cannot answer yields `None` and the
+    /// build is refused: a guessed path is how two cache conventions and 33
+    /// GiB of invisible cache appeared.
+    fn resolve_runner_cache_roots(
+        &self,
+        target: &str,
+    ) -> Option<cynic_protocol::remote_cache_roots::RemoteCacheRoots> {
+        let paths = self
+            .runner
+            .run(&["ssh", target, "cynic", "runtime", "paths", "--json"]);
+        if !paths.success() {
+            return None;
+        }
+        let state_root = parse_state_root(&paths.stdout)?;
+        Some(remote_cache_roots(&state_root))
     }
 
     fn action_for_phase(phase: BuildPhase) -> Result<&'static str, BuildError> {
@@ -240,7 +252,6 @@ impl BuildRunnerPort for SshBuildRunner {
         trigger.validate()?;
         let action = Self::action_for_phase(trigger.phase)?;
         let sha = trigger.source_commit.clone();
-        let dir = self.checkout_dir(&sha);
         let target = self.ssh_target();
         let scope = self
             .package
@@ -269,6 +280,24 @@ impl BuildRunnerPort for SshBuildRunner {
             ))
         };
 
+        // The paths below belong to the runner, not to this client. The
+        // runner reports its own layout; the client never assumes one.
+        let roots = match self.resolve_runner_cache_roots(&target) {
+            Some(roots) => roots,
+            None => {
+                return blocked(
+                    Some("runner_cache_roots".to_string()),
+                    "runner paths unresolvable: the runner did not report its state root"
+                        .to_string(),
+                );
+            }
+        };
+        let checkout_base = self
+            .checkout_base
+            .clone()
+            .unwrap_or_else(|| roots.checkout_base.clone());
+        let dir = format!("{}/cynic-{}", checkout_base, &sha[..12.min(sha.len())]);
+
         // Step 0: the runner's disk must be able to hold the checkout.
         //
         // This is the pre-trigger gate. Materializing a checkout on a disk
@@ -285,13 +314,13 @@ impl BuildRunnerPort for SshBuildRunner {
                 "df",
                 "-k",
                 "--output=avail",
-                self.checkout_base.as_str(),
+                checkout_base.as_str(),
             ]);
             if let Some(e) = &df.spawn_error {
                 return Err(BuildError::RunnerUnreachable(e.clone()));
             }
             let available = if df.success() {
-                parse_df_available_bytes(&df.stdout, &self.checkout_base)
+                parse_df_available_bytes(&df.stdout, &checkout_base)
             } else {
                 None
             };
@@ -415,6 +444,13 @@ impl BuildRunnerPort for SshBuildRunner {
         if trigger.network_mode == NetworkMode::Offline {
             cargo.push("--offline".to_string());
         }
+        // The cache roots belong to the runner, not to this client.
+        //
+        // Resolving them here sent the client's own state root to a host
+        // that may not share it: on compute-01 the real cache lives under
+        // /home/titouan/.local/share/cynic, while the client would have sent
+        // /var/lib/cynic/shared-target. Two conventions then coexisted, and
+        // 33 GiB of cache was invisible to the disk observer.
         let mut argv: Vec<String> = vec![
             "ssh".to_string(),
             target,
@@ -422,11 +458,11 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!("CARGO_TARGET_DIR={}", default_shared_target_dir().display()),
+            format!("CARGO_TARGET_DIR={}", roots.target_dir),
         ];
-        if let Some(dir) = self.sccache_dir.as_deref() {
-            argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));
-            argv.push(format!("SCCACHE_DIR={dir}"));
+        if self.sccache_dir.is_some() {
+            argv.push(format!("RUSTC_WRAPPER={}", roots.sccache_bin));
+            argv.push(format!("SCCACHE_DIR={}", roots.sccache_dir));
         }
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
@@ -480,16 +516,17 @@ impl BuildRunnerPort for SshBuildRunner {
         } else {
             "unknown".to_string()
         };
-        let warm = self
-            .runner
-            .run(&[
-                "ssh",
-                target.as_str(),
-                "test",
-                "-d",
-                self.checkout_base.as_str(),
-            ])
-            .success();
+        // The cache root is the runner's own; ask the runner for it rather
+        // than testing a path this client assumed.
+        let warm = match self.resolve_runner_cache_roots(&target) {
+            Some(roots) => {
+                let base = self.checkout_base.clone().unwrap_or(roots.checkout_base);
+                self.runner
+                    .run(&["ssh", target.as_str(), "test", "-d", base.as_str()])
+                    .success()
+            }
+            None => false,
+        };
         let version = self
             .runner
             .run(&["ssh", target.as_str(), "cynic", "version", "--json"]);
@@ -702,10 +739,10 @@ mod tests {
         let runner = SshBuildRunner {
             host: "runner-1".into(),
             user: "cynic".into(),
-            checkout_base: "/var/lib/cynic/checkouts".into(),
             ssot_url: "ssh://example/CYNIC.git".into(),
             package: Some("cynic-host".into()),
             sccache_dir: None,
+            checkout_base: None,
             minimum_available_bytes: None,
             runner: Box::new(fake),
         };

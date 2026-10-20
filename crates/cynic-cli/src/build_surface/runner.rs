@@ -102,13 +102,15 @@ pub(crate) fn trigger_build(
     let runner = cynic_node::cli_factory::ssh_build_runner(
         host,
         user.to_string(),
-        checkout_base.to_string(),
         // Registry-driven source: an explicit --ssot-url wins, otherwise the
         // clone URI comes from source_workspace_layout.repositories. Never the
         // hardcoded default — the runner cannot resolve it.
         cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
         package,
         sccache_dir.to_string(),
+        // An explicit --checkout-base overrides the runner's own layout; the
+        // default is the runner's state root, read back from the runner.
+        Some(checkout_base.to_string()).filter(|value| !value.trim().is_empty()),
         minimum_available_bytes,
     );
     let health = runner.observe_runner();
