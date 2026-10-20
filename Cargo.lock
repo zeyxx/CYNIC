@@ -929,6 +929,7 @@ dependencies = [
  "cynic-pool",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-supervisor",
  "cynic-types",
  "cynic-workload",
  "futures-util",

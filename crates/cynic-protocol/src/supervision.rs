@@ -74,9 +74,9 @@ pub fn service_supervisor_status(
 /// Wire schema for supervisor observations (`cynic supervise observe` emits these).
 pub const SUPERVISOR_OBSERVATION_SCHEMA: &str = "cynic.supervisor_observation.v1";
 /// Declared supervisor roles from `contracts/supervisor-contract.json`
-/// `lifecycle.roles`. Mirrored here as the materialised contract (Layer-0);
+/// `process_model.child_roles`. Mirrored here as the materialised contract (Layer-0);
 /// a coherence test pins this list against the JSON source.
-pub const SUPERVISED_ROLE_IDS: &[&str] = &["node", "kernel", "mcp"];
+pub const SUPERVISED_ROLE_IDS: &[&str] = &["node", "kernel", "mcp", "inference"];
 /// Backoff defaults from the contract `lifecycle.restart.backoff` section.
 pub const SUPERVISOR_BACKOFF_INITIAL_SECS: u64 = 5;
 pub const SUPERVISOR_BACKOFF_MAX_SECS: u64 = 60;
@@ -614,7 +614,7 @@ mod tests {
 
     #[test]
     fn supervised_role_ids_match_contract() {
-        assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp"]);
+        assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp", "inference"]);
     }
 
     #[test]

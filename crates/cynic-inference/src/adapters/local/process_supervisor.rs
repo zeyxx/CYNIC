@@ -25,6 +25,21 @@ use cynic_types::paths::CynicPaths;
 
 const SUPERVISOR_SURFACE: &str = "process";
 
+/// Refuse-when-parented (spec amendment A6): direct spawn refuses while a
+/// supervised parent holds the inference role, so two custodians never race
+/// one backend. Returns the named refusal or `None` when standalone start
+/// is allowed.
+fn parent_refusal(state_dir: &std::path::Path) -> Option<String> {
+    if cynic_supervisor::is_role_parented(state_dir, cynic_supervisor::INFERENCE_ROLE_ID) {
+        Some(format!(
+            "supervisor_parent_holds_role:{}; stop the parent or use it to run this backend",
+            cynic_supervisor::INFERENCE_ROLE_ID
+        ))
+    } else {
+        None
+    }
+}
+
 #[derive(Debug)]
 pub struct ProcessLocalRuntime {
     inventory: FsLocalModelInventory,
@@ -372,6 +387,12 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         alias: &str,
         wait_for_ready: bool,
     ) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
+        // Custody first: never race a supervised parent for one backend.
+        if let Some(refusal) = parent_refusal(std::path::Path::new(
+            cynic_supervisor::DEFAULT_SUPERVISE_STATE_DIR,
+        )) {
+            return Err(LocalRuntimeError::Rejected(refusal));
+        }
         crate::progress::progress("start", format!("alias={alias} supervisor=process"));
         let profile = self.inventory.get_profile(alias)?;
         if !profile.model_exists {
@@ -613,5 +634,36 @@ impl InferenceSupervisorKind {
             Self::Process => "process",
             Self::Docker => "docker",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("cynic-refuse-test-{name}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn direct_spawn_allowed_without_parent_refuses_with_parent() {
+        let dir = test_dir("parented");
+        // No lock: standalone start allowed.
+        assert!(parent_refusal(&dir).is_none());
+        // A live parent lock (own pid, fresh mtime) refuses with a named error.
+        let lock = format!(
+            r#"{{"pid":{},"epoch":"test-epoch","started_at_ms":0}}"#,
+            std::process::id()
+        );
+        fs::write(dir.join("supervise-inference.lock"), lock).unwrap();
+        let refusal = parent_refusal(&dir).expect("parented start must refuse");
+        assert!(
+            refusal.starts_with("supervisor_parent_holds_role:inference"),
+            "named refusal, got: {refusal}"
+        );
+        let _ = fs::remove_dir_all(&dir);
     }
 }

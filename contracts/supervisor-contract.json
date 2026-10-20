@@ -69,6 +69,15 @@
         "privilege": "cynic",
         "health": ["process"],
         "note": "MCP remains a projection boundary. The supervisor must not add a Cargo dependency from cynic-mcp to any crate; spawning an existing projection binary is permitted only while that constitutional boundary stands."
+      },
+      {
+        "id": "inference",
+        "argv": ["supervise", "run", "--role", "inference"],
+        "audience": "service",
+        "restart": "on-failure",
+        "privilege": "cynic",
+        "health": ["process", "port"],
+        "note": "Local inference backend (llama-server). The backend argv after `--` is declared by deployment. Direct CLI spawn refuses while a parent holds this role (refuse-when-parented); the pidfile detach backend burns at the standalone-removal step."
       }
     ],
     "stdin": "inherit or an explicit typed descriptor; never shell",

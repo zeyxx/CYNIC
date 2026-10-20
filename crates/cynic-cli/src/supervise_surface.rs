@@ -19,7 +19,7 @@ use cynic_protocol::supervision::{
 pub enum SuperviseCommand {
     /// Observe declared supervisor roles (read-only, JSON observations).
     Observe {
-        /// Restrict output to one declared role id (`node`, `kernel`, `mcp`).
+        /// Restrict output to one declared role id (`node`, `kernel`, `mcp`, `inference`).
         #[arg(long)]
         role: Option<String>,
         /// Override the parent status file path (default per role under `/run/cynic`).
@@ -28,7 +28,7 @@ pub enum SuperviseCommand {
     },
     /// Run the supervised parent for one role (long-running, holds the child handle).
     Run {
-        /// Declared role id to parent (`node`, `kernel`, `mcp`).
+        /// Declared role id to parent (`node`, `kernel`, `mcp`, `inference`).
         #[arg(long)]
         role: String,
         /// State directory for the single-parent lock and restart history.
