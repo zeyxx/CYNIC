@@ -173,12 +173,12 @@ fn build_desired_state(
     }
     let node = storage_nodes[0];
     let node_id = required_string(node, "id", "storage_primary_node_id_missing")?;
-    let service = node
+    let service_ip = node
         .pointer("/network/service")
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| vec!["storage_primary_service_ip_missing".to_string()])?;
-    let service = node
+    let surrealdb_service = node
         .get("services")
         .and_then(serde_json::Value::as_array)
         .into_iter()
@@ -187,15 +187,19 @@ fn build_desired_state(
             service.get("name").and_then(serde_json::Value::as_str) == Some("surrealdb")
         })
         .ok_or_else(|| vec!["storage_primary_surrealdb_service_missing".to_string()])?;
-    let port = service
+    let port = surrealdb_service
         .get("port")
         .and_then(serde_json::Value::as_u64)
         .ok_or_else(|| vec!["storage_primary_surrealdb_port_missing".to_string()])?;
-    let scheme = service
+    let scheme = surrealdb_service
         .get("scheme")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("http");
-    let unit = required_string(service, "unit", "storage_primary_unit_missing")?;
+    let unit = required_string(
+        surrealdb_service,
+        "unit",
+        "storage_primary_unit_missing",
+    )?;
     let artifact_service = node
         .get("services")
         .and_then(serde_json::Value::as_array)
@@ -239,7 +243,7 @@ fn build_desired_state(
     // The IPAM address must sit on the `service` plane. Read through the shared
     // resolver so a canonical or legacy registry key both satisfy the check;
     // the plane name is stated here rather than implied by a hardcoded key.
-    if cynic_network::plane_vocabulary::plane_address(reservation, "service") != Some(service) {
+    if cynic_network::plane_vocabulary::plane_address(reservation, "service") != Some(service_ip) {
         return Err(vec![
             "storage_primary_ipam_reservation_mismatch".to_string(),
         ]);
@@ -250,8 +254,8 @@ fn build_desired_state(
         .into_iter()
         .flatten()
         .filter_map(serde_json::Value::as_str)
-        .find(|name| name.ends_with(".service.cynic") || name.ends_with(".service.cynic"))
-        .unwrap_or(service);
+        .find(|name| name.ends_with(".service.cynic") || name.ends_with(".synapse.cynic"))
+        .unwrap_or(service_ip);
     let target = registry
         .pointer("/fleet_desired/targets")
         .and_then(serde_json::Value::as_array)
