@@ -34,7 +34,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::argv_allow::{AllowRule, ArgvVerdict, observe_argv_verdict};
+use crate::argv_allow::{AllowRule, ArgvVerdict, observe_argv_verdict};
 
 /// Schema of the deny-by-default execution policy.
 pub const EXECUTION_POLICY_SCHEMA: &str = "cynic.execution_policy.v1";
@@ -273,6 +273,45 @@ pub fn remote_target(argv: &[&str]) -> Option<String> {
     None
 }
 
+
+/// Build the execution ruleset from a declared capability catalog.
+///
+/// The catalog is the single authority for what may run: a capability
+/// declares the exact argv it composes, so the rule that admits it is
+/// the leading literal arguments of that template, up to the first
+/// placeholder. A template with no placeholder admits the whole argv;
+/// a template whose first element is a placeholder admits the program
+/// alone, because nothing more is known statically.
+///
+/// The rules are pure data: a policy change is a catalogue diff, and
+/// the diff is reviewed like any other declaration.
+pub fn rules_from_catalog(
+    catalog: &crate::privilege::CapabilityCatalog,
+) -> Vec<AllowRule> {
+    catalog
+        .capabilities
+        .iter()
+        .map(|capability| {
+            let prefix: Vec<String> = capability
+                .argv_template
+                .iter()
+                .take_while(|part| !part.contains('{'))
+                .cloned()
+                .collect();
+            AllowRule {
+                program: capability
+                    .argv_template
+                    .first()
+                    .cloned()
+                    .unwrap_or_default(),
+                arg_prefix: prefix.into_iter().skip(1).collect(),
+                reason: format!("capability:{}", capability.id),
+            }
+        })
+        .filter(|rule| !rule.program.is_empty())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -435,6 +474,73 @@ mod tests {
         assert_eq!(HostRole::parse("build_runner"), HostRole::BuildRunner);
         assert_eq!(HostRole::parse("cortex_host"), HostRole::Host);
         assert_eq!(HostRole::parse(""), HostRole::Host);
+    }
+
+    #[test]
+    fn a_catalog_capability_becomes_a_rule() {
+        let catalog: crate::privilege::CapabilityCatalog = serde_json::from_str(
+            r#"{
+              "schema": "cynic.capability_catalog.v1",
+              "capabilities": [
+                {
+                  "id": "pct-list",
+                  "domain": "hypervisor",
+                  "argv_template": ["/usr/sbin/pct", "list"],
+                  "params": [],
+                  "requires_root": true,
+                  "mandatory": false,
+                  "purpose": "CT inventory"
+                },
+                {
+                  "id": "service-reconcile",
+                  "domain": "host-service",
+                  "argv_template": ["/usr/local/bin/cynic", "host", "service", "reconcile", "--node", "{node}"],
+                  "params": [{"name": "node", "kind": "path_segment"}],
+                  "requires_root": true,
+                  "mandatory": false,
+                  "purpose": "reconcile a systemd unit"
+                }
+              ]
+            }"#,
+        )
+        .expect("catalog parses");
+        let rules = rules_from_catalog(&catalog);
+        assert_eq!(rules.len(), 2);
+        assert_eq!(rules[0].program, "/usr/sbin/pct");
+        assert_eq!(rules[0].arg_prefix, vec!["list".to_string()]);
+        assert_eq!(rules[1].program, "/usr/local/bin/cynic");
+        assert_eq!(
+            rules[1].arg_prefix,
+            vec!["host".to_string(), "service".to_string(), "reconcile".to_string()]
+        );
+        assert_eq!(rules[1].reason, "capability:service-reconcile");
+    }
+
+    #[test]
+    fn a_catalog_capability_admits_its_own_argv() {
+        let catalog: crate::privilege::CapabilityCatalog = serde_json::from_str(
+            r#"{
+              "schema": "cynic.capability_catalog.v1",
+              "capabilities": [
+                {
+                  "id": "pct-list",
+                  "domain": "hypervisor",
+                  "argv_template": ["/usr/sbin/pct", "list"],
+                  "params": [],
+                  "requires_root": true,
+                  "mandatory": false,
+                  "purpose": "CT inventory"
+                }
+              ]
+            }"#,
+        )
+        .expect("catalog parses");
+        let policy = ExecutionPolicy::new(rules_from_catalog(&catalog));
+        assert!(
+            policy
+                .decide(&["/usr/sbin/pct", "list"], HostRole::Host)
+                .allowed()
+        );
     }
 
     impl ExecutionPolicy {

@@ -339,4 +339,3 @@ mod tests {
         assert_eq!(relative_to_workspace(root, outside), "/elsewhere/bar.rs");
     }
 }
-PY
