@@ -24,6 +24,8 @@ struct Surface {
     program: String,
     risk_class: String,
     is_capability_binary: bool,
+    /// A spawn inside a test module is an assertion, not a capability.
+    is_test: bool,
 }
 
 /// Extract the program argument of a `Command::new(...)` call.
