@@ -10,7 +10,7 @@ use cynic_host::registry::{
 
 use crate::registry_path;
 
-#[derive(Args, Clone)]
+#[derive(Args, Clone, Debug)]
 pub(crate) struct ProfileArgs {
     #[arg(long)]
     pub(crate) profile: Option<String>,
