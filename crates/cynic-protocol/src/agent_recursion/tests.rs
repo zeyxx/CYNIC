@@ -195,7 +195,8 @@ fn pool_addressed_delegation_validates_without_node() {
 fn empty_role_and_dual_addressing_are_violations() {
     let mut empty_role = parent();
     empty_role.role = Some("  ".to_string());
-    let codes = validate_delegation(&empty_role)
+    let empty_violations = validate_delegation(&empty_role);
+    let codes = empty_violations
         .iter()
         .map(|violation| violation.code.as_str())
         .collect::<BTreeSet<_>>();
@@ -203,7 +204,8 @@ fn empty_role_and_dual_addressing_are_violations() {
 
     let mut dual = parent();
     dual.role = Some("build_runner".to_string());
-    let codes = validate_delegation(&dual)
+    let dual_violations = validate_delegation(&dual);
+    let codes = dual_violations
         .iter()
         .map(|violation| violation.code.as_str())
         .collect::<BTreeSet<_>>();
