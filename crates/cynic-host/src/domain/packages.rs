@@ -117,6 +117,12 @@ pub(crate) fn promoted_package_state(installed_packages: Vec<String>) -> Package
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageCommandContext {
     pub package_query_bin: String,
+    /// The binary that answers "is this package installed?".
+    ///
+    /// `dpkg-query` is the query front-end of the package database;
+    /// `dpkg` itself is the low-level tool whose `-s` subcommand is a
+    /// status report, not a query that exits zero for a present package.
+    pub dpkg_query_bin: String,
     pub package_install_bin: String,
     pub apk_bin: String,
     pub dnf_bin: String,
@@ -130,6 +136,7 @@ impl PackageCommandContext {
         let layout = current_runtime_layout();
         Self {
             package_query_bin: layout.package_query_bin(),
+            dpkg_query_bin: layout.dpkg_query_bin(),
             package_install_bin: layout.package_install_bin(),
             apk_bin: layout.apk_bin(),
             dnf_bin: layout.dnf_bin(),
@@ -448,9 +455,16 @@ fn package_query_argv(
     context: &PackageCommandContext,
 ) -> Vec<String> {
     match manager {
+        // The query asks the package DATABASE; it does not simulate an
+        // install. `apt -s <pkg>` is a simulation and FAILS for a package
+        // that is installed, so the old form reported a present package as
+        // absent and blocked the packages domain on a host whose packages
+        // were all present. `dpkg-query -W -f=${Status}` answers the
+        // question directly.
         PackageManagerKind::Apt => vec![
-            context.package_query_bin.clone(),
-            "-s".to_string(),
+            context.dpkg_query_bin.clone(),
+            "-W".to_string(),
+            "-f=${Status}".to_string(),
             package.to_string(),
         ],
         PackageManagerKind::Apk => vec![
@@ -551,6 +565,7 @@ mod tests {
     fn context() -> PackageCommandContext {
         PackageCommandContext {
             package_query_bin: "/portable/bin/dpkg".to_string(),
+            dpkg_query_bin: "/portable/bin/dpkg-query".to_string(),
             package_install_bin: "/portable/bin/apt-get".to_string(),
             apk_bin: "/portable/bin/apk".to_string(),
             dnf_bin: "/portable/bin/dnf".to_string(),
@@ -574,6 +589,27 @@ mod tests {
             promotion_policy: PackagePromotionPolicy::critical_infrastructure(),
             bootstrap_packages: vec!["coredns".to_string(), "wireguard-tools".to_string()],
         }
+    }
+
+    #[test]
+    fn the_apt_presence_query_asks_the_database_and_does_not_simulate() {
+        let context = context();
+        let argv = super::package_query_argv(PackageManagerKind::Apt, "wireguard-tools", &context);
+        assert_eq!(
+            argv.first().map(String::as_str),
+            Some("/portable/bin/dpkg-query"),
+            "the presence query must go to the package database front-end"
+        );
+        assert!(
+            argv.iter().any(|token| token == "-W"),
+            "the query must SELECT the package status, got {argv:?}"
+        );
+        assert!(
+            !argv.iter().any(|token| token == "-s" || token == "--simulate"),
+            "the query must not SIMULATE an install: `apt -s` fails for an \
+             INSTALLED package, which reported a present package as absent"
+        );
+        assert_eq!(argv.last().map(String::as_str), Some("wireguard-tools"));
     }
 
     #[test]
