@@ -67,6 +67,20 @@ units were pointed at it:
 watcher is a long-running consumer by design, so a timeout on it is the
 expected exit, not a failure.
 
+## One path, one authority
+
+These units are versioned HERE and nowhere else. An earlier state of the
+repository also carried copies at `infra/os/systemd/`, and the copy at the
+repository root was the one installed on builder-119 — so the corrected
+units looked right in the repository while the service kept failing at
+runtime. The installed file was byte-identical to the stale copy
+(sha256 `cf8bdb0e…`), which is the only thing that settles which one the
+host used. See killchain 13 in
+`docs/design/OPERATIONAL_DRIFT_KILLCHAINS.md`.
+
+A file versioned twice is a service with two definitions, and which one
+wins is decided by whoever copied a path, not by which one is correct.
+
 ## Install
 
     install -m 0644 infra/os/systemd/soak/cynic-supervise-soak-node.service /etc/systemd/system/

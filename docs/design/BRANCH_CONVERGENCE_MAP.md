@@ -240,7 +240,7 @@ Read-back from `main` after the merge, 9/9 confirmed:
 | supervisor crate | `crates/cynic-supervisor/src/{lib,parent,spawn,stop,watch}.rs` |
 | supervision vocabulary | `crates/cynic-protocol/src/supervision.rs` |
 | supervisor contract | `contracts/supervisor-contract.json` |
-| soak unit | `infra/os/systemd/cynic-supervise-soak-node.service` |
+| soak unit | `infra/os/systemd/soak/cynic-supervise-soak-node.service` |
 | live-service fence (PR #208) | `crates/cynic-host/src/adapters/local_build_artefact.rs` — 5 occurrences, intact |
 
 ### The rule that made it work
