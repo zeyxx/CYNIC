@@ -218,6 +218,17 @@ impl<R: ArgvRunner> SourceRepositoryBootstrapPort for LocalSourceRepositoryBoots
     }
 }
 
+fn checkout_detached_at<R: ArgvRunner>(
+    runner: &R,
+    git_bin: &str,
+    repository: &str,
+    revision: &str,
+) -> bool {
+    runner
+        .run(&[git_bin, "-C", repository, "checkout", "--detach", revision])
+        .success()
+}
+
 fn sync_existing_repository<R: ArgvRunner>(
     runner: &R,
     git_bin: &str,
@@ -261,26 +272,47 @@ fn sync_existing_repository<R: ArgvRunner>(
             fetch.spawn_error.as_deref().unwrap_or(fetch.stderr.trim()),
         ));
     }
-    let checkout = runner.run(&[
+    let checkout_ok = checkout_detached_at(runner, git_bin, repository, &request.revision);
+    if checkout_ok {
+        let read_back = runner.run(&[git_bin, "-C", repository, "rev-parse", "HEAD"]);
+        if read_back.success() && read_back.stdout.trim() == request.revision {
+            return Ok(());
+        }
+        if let Some(before_revision) = before_revision {
+            let _ = runner.run(&[
+                git_bin,
+                "-C",
+                repository,
+                "checkout",
+                "--detach",
+                &before_revision,
+            ]);
+        }
+        return Err(error(
+            "source_sync_revision_read_back_failed",
+            "managed repository did not read back the exact requested revision",
+        ));
+    }
+    // Self-heal once: a dirty tree blocks checkout, and a blocked mirror
+    // blocks every build behind it. Stash the dirt (recoverable, listed,
+    // never deleted) and retry exactly once. The stash entry is the proof.
+    let quarantine_message = format!("cynic-auto-quarantine {}", request.revision);
+    let stash = runner.run(&[
         git_bin,
         "-C",
         repository,
-        "checkout",
-        "--detach",
-        &request.revision,
+        "stash",
+        "push",
+        "-u",
+        "-m",
+        &quarantine_message,
     ]);
-    if !checkout.success() {
-        return Err(error(
-            "source_sync_checkout_failed",
-            checkout
-                .spawn_error
-                .as_deref()
-                .unwrap_or(checkout.stderr.trim()),
-        ));
-    }
-    let read_back = runner.run(&[git_bin, "-C", repository, "rev-parse", "HEAD"]);
-    if read_back.success() && read_back.stdout.trim() == request.revision {
-        return Ok(());
+    let stash_proof = stash.summary();
+    if stash.success() && checkout_detached_at(runner, git_bin, repository, &request.revision) {
+        let read_back = runner.run(&[git_bin, "-C", repository, "rev-parse", "HEAD"]);
+        if read_back.success() && read_back.stdout.trim() == request.revision {
+            return Ok(());
+        }
     }
     if let Some(before_revision) = before_revision {
         let _ = runner.run(&[
@@ -293,8 +325,8 @@ fn sync_existing_repository<R: ArgvRunner>(
         ]);
     }
     Err(error(
-        "source_sync_revision_read_back_failed",
-        "managed repository did not read back the exact requested revision",
+        "source_sync_checkout_failed",
+        format!("managed repository checkout failed; auto-quarantine: {stash_proof}"),
     ))
 }
 
@@ -387,4 +419,189 @@ fn error(
     message: impl Into<String>,
 ) -> SourceRepositoryBootstrapPortError {
     SourceRepositoryBootstrapPortError::new(code, message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+    use std::sync::Mutex;
+
+    use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+
+    fn ok(stdout: &str) -> ArgvOutput {
+        ArgvOutput {
+            exit_code: Some(0),
+            stdout: stdout.to_string(),
+            stderr: String::new(),
+            spawn_error: None,
+        }
+    }
+
+    fn failed(stderr: &str) -> ArgvOutput {
+        ArgvOutput {
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: stderr.to_string(),
+            spawn_error: None,
+        }
+    }
+
+    struct ScriptRunner {
+        script: Mutex<VecDeque<ArgvOutput>>,
+        seen: Mutex<Vec<Vec<String>>>,
+    }
+
+    impl ScriptRunner {
+        fn new(outputs: Vec<ArgvOutput>) -> Self {
+            Self {
+                script: Mutex::new(outputs.into()),
+                seen: Mutex::new(Vec::new()),
+            }
+        }
+
+        fn argv_seen(&self) -> Vec<Vec<String>> {
+            self.seen.lock().expect("seen").clone()
+        }
+    }
+
+    impl ArgvRunner for ScriptRunner {
+        fn run(&self, argv: &[&str]) -> ArgvOutput {
+            self.seen
+                .lock()
+                .expect("seen")
+                .push(argv.iter().map(|arg| arg.to_string()).collect());
+            self.script
+                .lock()
+                .expect("script")
+                .pop_front()
+                .expect("script exhausted")
+        }
+    }
+
+    fn layout_in(root: &Path) -> AgentWorkspaceLayout {
+        AgentWorkspaceLayout {
+            repository_root: root.to_path_buf(),
+            workspace_root: root.join("ws"),
+            dedicated: false,
+            required_principal: String::new(),
+            evidence_digest: String::new(),
+            transport_uri: None,
+        }
+    }
+
+    fn request(source: &str, revision: &str) -> SourceRepositoryBootstrapRequest {
+        SourceRepositoryBootstrapRequest {
+            schema: "test".to_string(),
+            node_id: "node-1".to_string(),
+            repository_id: "cynic".to_string(),
+            source: source.to_string(),
+            revision: revision.to_string(),
+        }
+    }
+
+    fn temp_repo() -> tempfile::TempDir {
+        tempfile::tempdir().expect("temp repo")
+    }
+
+    #[test]
+    fn clean_tree_syncs_without_stash() {
+        let repo = temp_repo();
+        let runner = ScriptRunner::new(vec![
+            ok("origin-url"),
+            ok("old-rev"),
+            ok(""),
+            ok(""),
+            ok("new-rev"),
+        ]);
+        let result = sync_existing_repository(
+            &runner,
+            "git",
+            &layout_in(repo.path()),
+            &request("origin-url", "new-rev"),
+        );
+        assert!(result.is_ok());
+        assert!(
+            !runner
+                .argv_seen()
+                .iter()
+                .any(|argv| argv.contains(&"stash".to_string()))
+        );
+    }
+
+    #[test]
+    fn dirty_tree_is_stashed_and_retried_once() {
+        let repo = temp_repo();
+        let runner = ScriptRunner::new(vec![
+            ok("origin-url"),
+            ok("old-rev"),
+            ok(""),
+            failed("error: Your local changes would be overwritten"),
+            ok("Saved working directory"),
+            ok(""),
+            ok("new-rev"),
+        ]);
+        let result = sync_existing_repository(
+            &runner,
+            "git",
+            &layout_in(repo.path()),
+            &request("origin-url", "new-rev"),
+        );
+        assert!(result.is_ok());
+        let stash_calls = runner
+            .argv_seen()
+            .iter()
+            .filter(|argv| argv.contains(&"stash".to_string()))
+            .count();
+        assert_eq!(stash_calls, 1);
+        let stash_argv = runner
+            .argv_seen()
+            .into_iter()
+            .find(|argv| argv.contains(&"stash".to_string()))
+            .expect("stash call");
+        assert!(stash_argv.contains(&"-u".to_string()));
+    }
+
+    #[test]
+    fn failed_stash_keeps_checkout_failure() {
+        let repo = temp_repo();
+        let runner = ScriptRunner::new(vec![
+            ok("origin-url"),
+            ok("old-rev"),
+            ok(""),
+            failed("would be overwritten"),
+            failed("no local changes"),
+            ok(""),
+        ]);
+        let result = sync_existing_repository(
+            &runner,
+            "git",
+            &layout_in(repo.path()),
+            &request("origin-url", "new-rev"),
+        );
+        let error = result.expect_err("must stay a checkout failure");
+        assert_eq!(error.code, "source_sync_checkout_failed");
+    }
+
+    #[test]
+    fn failed_retry_keeps_checkout_failure() {
+        let repo = temp_repo();
+        let runner = ScriptRunner::new(vec![
+            ok("origin-url"),
+            ok("old-rev"),
+            ok(""),
+            failed("would be overwritten"),
+            ok("Saved working directory"),
+            failed("object missing"),
+            ok(""),
+        ]);
+        let result = sync_existing_repository(
+            &runner,
+            "git",
+            &layout_in(repo.path()),
+            &request("origin-url", "new-rev"),
+        );
+        let error = result.expect_err("must stay a checkout failure");
+        assert_eq!(error.code, "source_sync_checkout_failed");
+    }
 }
