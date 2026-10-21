@@ -240,14 +240,20 @@ pub const BUILD_RUNNER_TARGETS: &[&str] = &[
     "cynic-builder-build",
 ];
 
-/// True when the program is a build tool.
+/// The base name of a program: the last path element.
+fn base_name(program: &str) -> &str {
+    program.rsplit('/').next().unwrap_or(program)
+}
+
+/// True when the program is a build tool. The comparison is on the base
+/// name, so `/usr/bin/cargo` is the build tool `cargo`.
 pub fn is_build_program(program: &str) -> bool {
-    BUILD_PROGRAMS.contains(&program)
+    BUILD_PROGRAMS.contains(&base_name(program))
 }
 
 /// True when the program reaches another host.
 pub fn is_remote_exec_program(program: &str) -> bool {
-    REMOTE_EXEC_PROGRAMS.contains(&program)
+    REMOTE_EXEC_PROGRAMS.contains(&base_name(program))
 }
 
 /// The remote target of an argv, when the program reaches another host.
@@ -258,17 +264,26 @@ pub fn remote_target(argv: &[&str]) -> Option<String> {
     if !is_remote_exec_program(program.rsplit('/').next().unwrap_or(program)) {
         return None;
     }
-    for arg in argv.iter().skip(1) {
+    // An option that takes its value in the next argument would make
+    // that value look like the host. The options that do are named
+    // explicitly: guessing would either miss a target or read an
+    // option value as one.
+    const VALUE_OPTIONS: &[&str] = &[
+        "-o", "-i", "-F", "-J", "-l", "-p", "-c", "-b", "-e", "-S", "-J", "-w", "-i",
+    ];
+    let mut index = 1;
+    while index < argv.len() {
+        let arg = argv[index];
         if arg.starts_with('-') {
-            // An option may carry its value in the next argument, but a
-            // host never starts with a dash: skip the option and any
-            // value that follows it only when the option takes one.
+            if VALUE_OPTIONS.contains(&arg) {
+                // The next argument is the option's value, not the host.
+                index += 2;
+                continue;
+            }
+            index += 1;
             continue;
         }
-        if *arg == "host" || *arg == "hostname" {
-            continue;
-        }
-        return Some((*arg).to_string());
+        return Some(arg.to_string());
     }
     None
 }
@@ -292,19 +307,19 @@ pub fn rules_from_catalog(
         .capabilities
         .iter()
         .map(|capability| {
+            // The program is the first element; the prefix is the
+            // leading arguments after it, up to the first placeholder.
+            let program = capability.argv_template.first().cloned().unwrap_or_default();
             let prefix: Vec<String> = capability
                 .argv_template
                 .iter()
+                .skip(1)
                 .take_while(|part| !part.contains('{'))
                 .cloned()
                 .collect();
             AllowRule {
-                program: capability
-                    .argv_template
-                    .first()
-                    .cloned()
-                    .unwrap_or_default(),
-                arg_prefix: prefix.into_iter().skip(1).collect(),
+                program,
+                arg_prefix: prefix,
                 reason: format!("capability:{}", capability.id),
             }
         })
