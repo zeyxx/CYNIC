@@ -15,8 +15,7 @@ use crate::ports::network_interfaces_port::RegistryTopologyPort;
 
 use super::types::{DnsActivationFileSpec, DnsActivationSpec};
 use cynic_network::dns::{
-    DEFAULT_DNS_ZONE, SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
-    dnsmasq_service_unit_for_zone,
+    DEFAULT_DNS_ZONE, SERVICE_DNS_RESOLVED_DROPIN_FILENAME, dnsmasq_service_unit_for_zone,
 };
 
 pub(crate) fn resolve_dns_activation_spec(

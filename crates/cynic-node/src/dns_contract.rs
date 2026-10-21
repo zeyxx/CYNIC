@@ -32,15 +32,15 @@ struct DnsRuntimeContext {
     corefile_path: String,
     service_path: String,
     resolved_dropin_path: String,
-    bundle_config_filename: &'static str,
-    bundle_service_filename: &'static str,
+    bundle_config_filename: String,
+    bundle_service_filename: String,
 }
 
 pub(crate) use cynic_network::dns::{
     COMPAT_DNS_HOSTS_FILENAME, DEFAULT_DNS_ZONE, SERVICE_DNS_COREFILE_FILENAME,
     SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME, SERVICE_DNS_README_FILENAME,
     SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
-    dnsmasq_service_unit_for_zone, service_unit_filename_for_zone,
+    dnsmasq_service_unit_for_zone,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -412,11 +412,11 @@ pub(crate) fn dns_forbidden_patterns() -> Vec<&'static str> {
     ]
 }
 
-pub(crate) fn dns_bundle_config_filename() -> &'static str {
+pub(crate) fn dns_bundle_config_filename() -> String {
     dns_runtime_context().bundle_config_filename
 }
 
-pub(crate) fn dns_bundle_service_filename() -> &'static str {
+pub(crate) fn dns_bundle_service_filename() -> String {
     dns_runtime_context().bundle_service_filename
 }
 
@@ -514,8 +514,8 @@ fn dns_runtime_context_for_zone(
             runtime_layout.dns_hosts_path(),
             runtime_layout.dns_corefile_path(),
             runtime_layout.dns_service_path(),
-            SERVICE_DNS_COREFILE_FILENAME,
-            SERVICE_DNS_SERVICE_FILENAME,
+            SERVICE_DNS_COREFILE_FILENAME.to_string(),
+            SERVICE_DNS_SERVICE_FILENAME.to_string(),
         ),
         DnsProviderKind::Dnsmasq => (
             dnsmasq_service_unit_for_zone(zone),
@@ -598,14 +598,14 @@ mod tests {
             ),
             corefile_path: "/etc/coredns/Corefile".to_string(),
             service_path: format!(
-                "/etc/systemd/system/coredns-{}.service",
+                "/etc/systemd/system/{}",
                 SERVICE_DNS_SERVICE_FILENAME
             ),
             resolved_dropin_path: format!(
                 "/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"
             ),
-            bundle_config_filename: "Corefile",
-            bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME,
+            bundle_config_filename: SERVICE_DNS_COREFILE_FILENAME.to_string(),
+            bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME.to_string(),
         }
     }
 
@@ -653,11 +653,11 @@ mod tests {
             .join("\n");
 
         assert!(rendered.contains(&format!(
-            "/sbin/rc-update add coredns-{} default",
+            "/sbin/rc-update add {} default",
             SERVICE_DNS_SERVICE_FILENAME
         )));
         assert!(rendered.contains(&format!(
-            "/sbin/rc-service coredns-{} start",
+            "/sbin/rc-service {} start",
             SERVICE_DNS_SERVICE_FILENAME
         )));
         assert!(rendered.contains("OpenRC resolver integration requires a dedicated adapter"));

@@ -36,8 +36,8 @@ fn context() -> DnsRuntimeContext {
             "/portable/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"
         )
         .to_string(),
-        bundle_config_filename: SERVICE_DNS_COREFILE_FILENAME,
-        bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME,
+        bundle_config_filename: SERVICE_DNS_COREFILE_FILENAME.to_string(),
+        bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME.to_string(),
     }
 }
 
