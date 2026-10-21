@@ -20,8 +20,10 @@ fn extracts_literal_vs_dynamic() {
 fn classifies_risk() {
     assert_eq!(classify("ssh", "x.rs"), "remote-exec");
     assert_eq!(classify("dynamic", "x.rs"), "self-exec");
-    assert_eq!(classify("git", "x.rs"), "local-build");
-    assert_eq!(classify("cargo", "x.rs"), "package-manager");
+    assert_eq!(classify("git", "x.rs"), "vcs");
+    // cargo is a compilation tool: it belongs to the class the policy refuses
+    // outside a build runner, not to the package managers.
+    assert_eq!(classify("cargo", "x.rs"), "local-build");
     assert_eq!(classify("curl", "x.rs"), "provider-specific");
     assert_eq!(classify("which", "x.rs"), "observability");
 }

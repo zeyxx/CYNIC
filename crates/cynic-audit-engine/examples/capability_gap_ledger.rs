@@ -184,6 +184,12 @@ fn is_test_surface(relative_path: &str, lines: &[&str], line_index: usize) -> bo
     if relative_path.contains("/tests/") || relative_path.starts_with("tests/") {
         return true;
     }
+    // A file whose whole body is a test module carries no `#[cfg(test)]`
+    // and no `mod tests` of its own, so the walk below finds nothing.
+    // A file whose name says it is a test file is one.
+    if relative_path.ends_with("_tests.rs") {
+        return true;
+    }
     // A `#[cfg(test)] mod tests` block. The attribute and the module
     // header are adjacent, and the module header is what the scan meets
     // first when it walks backwards, so the module header alone cannot
