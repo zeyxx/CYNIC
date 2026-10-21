@@ -363,6 +363,6 @@ migration (dev→served, move + sudo).
 
 The normative registry (`infra/external-project-registry.json`) now covers all
 9 governed projects (gasdf, kora served; trenchscanner, cultscreener, tokensage,
-holddex, aegisscan, aegis-core, ai-bus dev). The legacy seed
+holdex, aegisscan, aegis-core, ai-bus dev). The legacy seed
 (`infra/external-projects.json`) remains for aegisscan-era compatibility;
 `cynic audit external` will be repointed to the normative registry in Phase 2.

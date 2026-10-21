@@ -100,7 +100,7 @@
    }
   },
   {
-   "slug": "holddex",
+   "slug": "holdex",
    "serving_tier": "dev",
    "pin": {
     "file": "infra/external-pins.json",
