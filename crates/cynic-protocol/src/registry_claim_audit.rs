@@ -61,7 +61,7 @@ pub enum ClaimKind {
     PlaneOccupancy,
     /// Two declarative sources describe the same node differently.
     ///
-    /// `infra/service-nodes.seed.json` (deleted) and the code-side `CANONICAL_SERVICE_NODES`
+    /// A second declarative source and the code-side `CANONICAL_SERVICE_NODES`
     /// const both gave `local-kernel` the address `127.0.0.1` and the role
     /// `cortex_primary`, while `infra/registry.json` gives it `10.10.10.100` and
     /// `kernel_primary` and assigns `cortex_host` to a separate node. No
@@ -69,8 +69,9 @@ pub enum ClaimKind {
     /// look correct while disagreeing about what the node *is*.
     ///
     /// The const was deleted on 2026-09-30 — this is the kind that named it, and
-    /// the deletion is the repair. `infra/service-nodes.seed.json` (deleted) against
-    /// `infra/registry.json` remains a live instance of this kind.
+    /// the deletion is the repair. The seed file that stood against the registry
+    /// was deleted on 2026-10-21, which closes the live instance of this kind:
+    /// the registry is now the only declarative source of the fleet topology.
     ///
     /// A second declarative source is not a fallback, it is a competing
     /// authority. Registry order in `AGENTS.md` makes `infra/registry.json` the

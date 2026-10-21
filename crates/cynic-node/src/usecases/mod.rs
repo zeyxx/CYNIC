@@ -27,6 +27,7 @@ pub mod network_watchdog_uc;
 // Declaring one member alone produced E0433 for a module that does exist.
 pub mod build_scheduler;
 pub mod federated_mesh_probe_uc;
+pub mod federated_mesh_registry_reader;
 pub mod federated_mesh_resolver;
 pub mod federated_task_dispatch_uc;
 pub mod federation_membership_uc;

@@ -14,6 +14,7 @@ pub mod firewall_policy;
 pub mod freebox;
 pub mod mesh_plan;
 pub mod fleet_membership;
+pub mod plane_cidr;
 pub mod plane_vocabulary;
 pub mod port;
 pub mod probe;
