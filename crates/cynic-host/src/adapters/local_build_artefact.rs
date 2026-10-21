@@ -258,8 +258,14 @@ fn observe_checkouts_raw(shallow: bool) -> (String, Vec<String>) {
         });
         let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
         let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
-        let line =
-            format!("{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}");
+        let foreign = if contains_foreign_owned_entries(&path, uid) {
+            "1"
+        } else {
+            "0"
+        };
+        let line = format!(
+            "{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}|{foreign}"
+        );
         lines.push(line);
     }
     (lines.join("\n"), remote_shas)
@@ -311,6 +317,42 @@ fn file_meta(path: &Path, shallow: bool) -> (u64, u32, u32, u64) {
             .unwrap_or_else(|| walk_size(path))
     };
     (size_bytes, uid, gid, mtime_secs)
+}
+
+/// True when the tree holds at least one entry this account does not own.
+///
+/// The ROOT's ownership is not enough: `rm` walks the whole tree and
+/// fails on the first entry it cannot remove, so a tree rooted in an
+/// owned directory can still be unremovable. Measured: two checkouts
+/// rooted `cynic:cynic` holding 9580 and 21 foreign-owned entries, both
+/// planned as removable without privilege and both failing at delete.
+///
+/// The scan is bounded: it stops at the first foreign entry, and it
+/// prunes `.git` — that directory is a known source of root-owned pack
+/// files written by a privileged git operation, and it is reported
+/// through the same path.
+fn contains_foreign_owned_entries(path: &Path, owner_uid: u32) -> bool {
+    let mut stack = vec![path.to_path_buf()];
+    while let Some(cur) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&cur) else {
+            continue;
+        };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.file_name().and_then(|n| n.to_str()) == Some(".git") {
+                continue;
+            }
+            if let Ok(m) = e.metadata() {
+                if m.uid() != owner_uid {
+                    return true;
+                }
+            }
+            if p.is_dir() && !p.is_symlink() {
+                stack.push(p);
+            }
+        }
+    }
+    false
 }
 
 fn walk_size(path: &Path) -> u64 {

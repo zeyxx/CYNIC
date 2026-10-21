@@ -135,6 +135,50 @@ pub fn plan_build_artefacts(obs: &RetentionObservation, policy: &RetentionPolicy
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A checkout rooted in an owned directory can still hold entries this
+    /// account cannot remove. The observation must mark it as
+    /// privilege-requiring BEFORE the plan claims it is reclaimable,
+    /// otherwise the delete fails on the first foreign entry and the run
+    /// ends PARTIAL.
+    ///
+    /// Measured on builder-119: two checkouts whose root was `cynic:cynic`
+    /// held 9580 and 21 foreign-owned entries, were planned as
+    /// `requires_privilege: false`, and both failed at `rm`.
+    #[test]
+    fn a_checkout_with_foreign_owned_content_requires_privilege() {
+        let line = "/var/lib/cynic/checkouts/aegis-consortium|sha1|1024|999:990|600|0|1";
+        let parsed = super::parse_checkout_list(line, &[]);
+        assert_eq!(parsed.len(), 1);
+        let entry = &parsed[0];
+        assert!(entry.contains_foreign_owned);
+        assert!(entry.is_root_owned);
+    }
+
+    /// The same tree without foreign-owned content is NOT privilege
+    /// requiring: the root is owned and everything under it is too.
+    #[test]
+    fn a_checkout_fully_owned_by_this_account_does_not_require_privilege() {
+        let line = "/var/lib/cynic/checkouts/cynic-0fa0852b|sha2|1024|999:990|600|0|0";
+        let parsed = super::parse_checkout_list(line, &[]);
+        assert_eq!(parsed.len(), 1);
+        let entry = &parsed[0];
+        assert!(!entry.contains_foreign_owned);
+        assert!(!entry.is_root_owned);
+    }
+
+    /// A line without the optional foreign field still parses: an older
+    /// producer must not break the observer.
+    #[test]
+    fn a_line_without_the_foreign_field_still_parses() {
+        let line = "/var/lib/cynic/checkouts/legacy|sha3|1024|0:0|600|0";
+        let parsed = super::parse_checkout_list(line, &[]);
+        assert_eq!(parsed.len(), 1);
+        let entry = &parsed[0];
+        assert!(!entry.contains_foreign_owned);
+        // uid 0 on the root still requires privilege.
+        assert!(entry.is_root_owned);
+    }
     use std::time::Duration;
 
     use cynic_protocol::retention::{PressureSignal, default_build_artefact_policy};
