@@ -12,13 +12,15 @@ use cynic_protocol::{
 };
 
 use super::{
-    AGENT_WORKLOAD_DELIVERY_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, SETTLED_PARCEL_RECEIPT_SCHEMA,
+    AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadDelivery,
+    AgentWorkloadDeliveryLease, AgentWorkloadDeliveryStatus, SETTLED_PARCEL_RECEIPT_SCHEMA,
     acknowledge_agent_workload_cancellation, admit_agent_workload, admit_agent_workload_dispatch,
     admit_workload_action, admit_workload_mandate_binding, claim_agent_workload,
-    complete_agent_workload, consume_agent_workload_action, delivery_addressed_to_node,
-    finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
-    request_agent_workload_cancellation, settle_parcel, settle_parcel_with_receipt,
+    complete_agent_workload, consume_agent_workload_action, decide_claimable_deliveries,
+    delivery_addressed_to_node, finalize_unclaimed_agent_workload_cancellation,
+    renew_agent_workload_claim, request_agent_workload_cancellation, settle_parcel,
+    settle_parcel_with_receipt,
 };
 
 fn evidence(kind: &str) -> AgentEvidenceRef {
@@ -580,8 +582,12 @@ fn addressed_delivery(
         submitted_at_ms: 1_000,
         status: AgentWorkloadDeliveryStatus::Pending,
         accepted_at_ms: None,
-        accepted_by: None,
-        delivery_lease: None,
+        accepted_record_digest: None,
+        acceptance_lease: None,
+        terminal_at_ms: None,
+        terminal_record_digest: None,
+        terminal_record: None,
+        completion: None,
         completion_evidence: Vec::new(),
         evidence_refs: Vec::new(),
     }
@@ -626,4 +632,49 @@ fn mismatched_pool_delivery_is_not_visible() {
         "any-node",
         "build_runner"
     ));
+}
+
+fn held_lease(expires_at_ms: u64) -> AgentWorkloadDeliveryLease {
+    AgentWorkloadDeliveryLease {
+        schema: AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA.to_string(),
+        lease_id: format!("sha256:{}", "c".repeat(64)),
+        fencing_token: 7,
+        consumer_instance_id: "other-incarnation".to_string(),
+        accepted_at_ms: 1_000,
+        expires_at_ms,
+        record_digest: format!("sha256:{}", "d".repeat(64)),
+    }
+}
+
+#[test]
+fn server_selection_hides_held_pool_delivery() {
+    let mut held = addressed_delivery("", "", Some("build_runner"));
+    held.status = AgentWorkloadDeliveryStatus::Accepted;
+    held.acceptance_lease = Some(held_lease(9_000));
+    let pending = addressed_delivery("", "", Some("build_runner"));
+    let all = vec![held, pending];
+
+    let claimable = decide_claimable_deliveries(&all, "node-9", "build_runner", 5_000);
+    assert_eq!(claimable.len(), 1);
+    assert!(claimable[0].acceptance_lease.is_none());
+}
+
+#[test]
+fn server_selection_reoffers_expired_pool_lease() {
+    let mut stale = addressed_delivery("", "", Some("build_runner"));
+    stale.status = AgentWorkloadDeliveryStatus::Accepted;
+    stale.acceptance_lease = Some(held_lease(4_000));
+    let all = vec![stale];
+
+    let claimable = decide_claimable_deliveries(&all, "node-9", "build_runner", 5_000);
+    assert_eq!(claimable.len(), 1);
+}
+
+#[test]
+fn server_selection_ignores_foreign_node_delivery() {
+    let foreign = addressed_delivery("cynic-builder", "cynic-builder", None);
+    let all = vec![foreign];
+
+    let claimable = decide_claimable_deliveries(&all, "node-9", "build_runner", 5_000);
+    assert!(claimable.is_empty());
 }

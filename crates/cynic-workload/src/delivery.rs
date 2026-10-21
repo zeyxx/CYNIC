@@ -239,6 +239,28 @@ pub fn agent_workload_delivery_available(delivery: &AgentWorkloadDelivery, now_m
     }
 }
 
+/// Server-side selection: the deliveries a `(node_id, node_role)` holder
+/// may claim now. Pure conjunction of visibility
+/// (`delivery_addressed_to_node`) and availability
+/// (`agent_workload_delivery_available`, lease TTL expiry included for
+/// crash recovery). This is the decision the kernel `/node-control`
+/// router will serve once reintroduced in-tree; the transport is not
+/// this function's business.
+pub fn decide_claimable_deliveries(
+    deliveries: &[AgentWorkloadDelivery],
+    node_id: &str,
+    node_role: &str,
+    now_ms: u64,
+) -> Vec<&AgentWorkloadDelivery> {
+    deliveries
+        .iter()
+        .filter(|delivery| {
+            delivery_addressed_to_node(delivery, node_id, node_role)
+                && agent_workload_delivery_available(delivery, now_ms)
+        })
+        .collect()
+}
+
 pub fn validate_agent_workload_delivery_lease(lease: &AgentWorkloadDeliveryLease) -> Vec<String> {
     let mut violations = Vec::new();
     if lease.schema != AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA

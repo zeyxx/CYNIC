@@ -43,7 +43,7 @@ pub use delivery::{
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
     AgentWorkloadDeliveryLease, AgentWorkloadDeliveryStatus, KernelDeliveryEnvelope,
     accept_agent_workload_delivery, agent_workload_delivery_available,
-    complete_agent_workload_delivery, delivery_addressed_to_node,
+    complete_agent_workload_delivery, decide_claimable_deliveries, delivery_addressed_to_node,
     parse_agent_workload_observation_read_back, validate_agent_workload_completion_publication,
     validate_agent_workload_delivery, validate_agent_workload_delivery_lease,
     validate_agent_workload_submission_read_back,
