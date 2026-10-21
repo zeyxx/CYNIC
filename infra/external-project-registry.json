@@ -26,6 +26,12 @@
     "websocket"
    ],
    "status": "usable",
+   "build_commands": [
+    "npm start",
+    "npm test"
+   ],
+   "test_commands": [],
+   "build_commands_status": "inferred_from_manifest_presence",
    "evidence_ref": "gasdf-phase0-20261016",
    "roots": {
     "referential": "/var/lib/cynic/source/repositories/external/gasdf",
@@ -143,6 +149,19 @@
   {
    "slug": "aegisscan",
    "serving_tier": "dev",
+   "build_commands": [
+    "go build ./..."
+   ],
+   "test_commands": [
+    "go test ./..."
+   ],
+   "build_commands_status": "observed_on_builder",
+   "port_status": {
+    "SourcePort": "adapter_defined",
+    "BuildPort": "adapter_defined",
+    "EvidencePort": "adapter_defined"
+   },
+   "port_wiring_status": "adapters_defined",
    "pin": {
     "file": "infra/external-pins.json",
     "slug": "aegisscan"
@@ -165,6 +184,19 @@
   {
    "slug": "aegis-core",
    "serving_tier": "dev",
+   "build_commands": [
+    "go build ./..."
+   ],
+   "test_commands": [
+    "go test ./..."
+   ],
+   "build_commands_status": "observed_on_builder",
+   "port_status": {
+    "SourcePort": "adapter_defined",
+    "BuildPort": "adapter_defined",
+    "EvidencePort": "adapter_defined"
+   },
+   "port_wiring_status": "adapters_defined",
    "pin": {
     "file": "infra/external-pins.json",
     "slug": "aegis-core"
@@ -188,6 +220,20 @@
   {
    "slug": "ai-bus",
    "serving_tier": "dev",
+   "build_commands": [
+    "npm ci",
+    "npm run build"
+   ],
+   "test_commands": [
+    "npm test"
+   ],
+   "build_commands_status": "observed_on_builder",
+   "port_status": {
+    "SourcePort": "adapter_defined",
+    "BuildPort": "adapter_defined",
+    "EvidencePort": "adapter_defined"
+   },
+   "port_wiring_status": "adapters_defined",
    "pin": {
     "file": "infra/external-pins.json",
     "slug": "ai-bus"
