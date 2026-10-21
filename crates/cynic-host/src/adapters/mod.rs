@@ -25,6 +25,7 @@ pub mod local_disk;
 pub mod local_evidence_store;
 pub mod local_hardware_baseline;
 pub mod local_hardware_baseline_bundle;
+pub mod execution_policy_install;
 pub mod local_host_role;
 pub mod local_integration;
 pub mod local_memory;

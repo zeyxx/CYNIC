@@ -101,6 +101,13 @@ use crate::root_dispatch::{execute_root_command, print_cli_help};
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 pub async fn run_main() -> ExitCode {
+    // Deny-by-default: the execution policy is installed before any
+    // command runs, so every process this CLI spawns is judged against
+    // the declared capability catalogue. A catalogue that cannot be read
+    // leaves the process unfiltered, which is reported rather than
+    // hidden: the operator must know the membrane is not in force.
+    install_execution_policy();
+
     if let Some(exit_code) = maybe_run_host_exec_alias() {
         return exit_code;
     }
@@ -112,6 +119,34 @@ pub async fn run_main() -> ExitCode {
             print_cli_help(&mut command)
         }
         Some(command) => execute_root_command(command).await,
+    }
+}
+
+/// Install the deny-by-default execution policy from the declared
+/// capability catalogue.
+///
+/// The catalogue path follows the same resolution the privilege surface
+/// uses: the env override, the repository default, then the
+/// machine-wide install. A failure is reported on stderr: a process that
+/// believes it is protected when it is not is worse than one that says
+/// so.
+fn install_execution_policy() {
+    use cynic_host::adapters::execution_policy_install::{
+        PolicyInstallation, install_policy_from_catalog_path,
+    };
+    use cynic_host::privilege::capability_catalog::catalog_path_from_env;
+
+    let path = catalog_path_from_env();
+    match install_policy_from_catalog_path(&path) {
+        PolicyInstallation::Installed { rules } => {
+            eprintln!("[cynic] execution policy installed: {rules} rules from {}", path.display());
+        }
+        PolicyInstallation::Unavailable { reason } => {
+            eprintln!(
+                "[cynic] execution policy NOT installed ({reason}); \
+                 process spawning is unfiltered"
+            );
+        }
     }
 }
 
