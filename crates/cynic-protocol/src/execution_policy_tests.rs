@@ -246,3 +246,5 @@ impl ExecutionPolicy {
     fn with_build_roles(mut self, roles: Vec<&str>) -> Self {
         self.build_roles = roles.iter().map(|role| (*role).to_string()).collect();
         self
+    }
+}

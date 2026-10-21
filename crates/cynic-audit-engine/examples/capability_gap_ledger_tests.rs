@@ -86,3 +86,4 @@ fn relative_path_to_workspace() {
     assert_eq!(relative_to_workspace(root, path), "crates/foo.rs");
     let outside = Path::new("/elsewhere/bar.rs");
     assert_eq!(relative_to_workspace(root, outside), "/elsewhere/bar.rs");
+}
