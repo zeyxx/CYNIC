@@ -125,7 +125,7 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         kind: Option<String>,
     },
-    /// Read-back of the external (non-CYNIC) project registry (infra/external-projects.json).
+    /// Read-back of the external (non-CYNIC) project registry (infra/external-project-registry.json, normative).
     External {
         #[arg(long)]
         json: bool,
