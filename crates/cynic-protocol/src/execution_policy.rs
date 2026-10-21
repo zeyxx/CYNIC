@@ -289,6 +289,14 @@ pub fn remote_target(argv: &[&str]) -> Option<String> {
 }
 
 
+/// True when a template part is exactly a `{slot}` placeholder.
+///
+/// A part that merely contains a slot, like `--node={node}`, is not a
+/// placeholder: the literal flag is known, only its value is not.
+fn is_placeholder(part: &str) -> bool {
+    part.starts_with('{') && part.ends_with('}') && part.len() > 2
+}
+
 /// Build the execution ruleset from a declared capability catalog.
 ///
 /// The catalog is the single authority for what may run: a capability
@@ -308,13 +316,17 @@ pub fn rules_from_catalog(
         .iter()
         .map(|capability| {
             // The program is the first element; the prefix is the
-            // leading arguments after it, up to the first placeholder.
+            // leading arguments after it. A literal argument is part of
+            // the prefix even when it follows a placeholder: `--node`
+            // is a literal, `{node}` is the value. Only a part that is
+            // itself a placeholder stops the prefix, because nothing
+            // beyond it is known statically.
             let program = capability.argv_template.first().cloned().unwrap_or_default();
             let prefix: Vec<String> = capability
                 .argv_template
                 .iter()
                 .skip(1)
-                .take_while(|part| !part.contains('{'))
+                .take_while(|part| !is_placeholder(part))
                 .cloned()
                 .collect();
             AllowRule {
@@ -524,11 +536,26 @@ mod tests {
         assert_eq!(rules[0].program, "/usr/sbin/pct");
         assert_eq!(rules[0].arg_prefix, vec!["list".to_string()]);
         assert_eq!(rules[1].program, "/usr/local/bin/cynic");
+        // The prefix carries the literals up to the first placeholder:
+        // `--node` is a literal, `{node}` is the unknown value.
         assert_eq!(
             rules[1].arg_prefix,
-            vec!["host".to_string(), "service".to_string(), "reconcile".to_string()]
+            vec![
+                "host".to_string(),
+                "service".to_string(),
+                "reconcile".to_string(),
+                "--node".to_string(),
+            ]
         );
         assert_eq!(rules[1].reason, "capability:service-reconcile");
+    }
+
+    #[test]
+    fn a_literal_carrying_a_slot_is_not_a_placeholder() {
+        assert!(is_placeholder("{node}"));
+        assert!(!is_placeholder("--node"));
+        assert!(!is_placeholder("--node={node}"));
+        assert!(!is_placeholder("{}"));
     }
 
     #[test]
