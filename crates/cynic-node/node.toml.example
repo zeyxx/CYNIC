@@ -6,7 +6,7 @@
 # cynic-node --watchdog --config /etc/cynic/node-watchdog.toml
 #
 # [kernel]
-# url = "http://cynic-kernel-primary.synapse.cynic:3030"
+# url = "http://cynic-kernel-primary.service.cynic:3030"
 # api_key_env = "CYNIC_API_KEY"
 #
 # [node]

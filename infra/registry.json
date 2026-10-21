@@ -68,7 +68,7 @@
   "provider_control": {
     "schema": "cynic.provider_control.desired_state.v1",
     "provider": "proxmox",
-    "endpoint": "https://pve.synapse.cynic:8006",
+    "endpoint": "https://pve.service.cynic:8006",
     "token_identity": "cynic@pve!runtime",
     "credential_ref": "/etc/cynic/secrets/proxmox-token",
     "credential_lease_metadata_ref": "/etc/cynic/identity/proxmox-credential-lease.json",
@@ -486,7 +486,7 @@
       "boot_persistence": true,
       "transports": {
         "ssh": {
-          "target": "cynic-storage-primary.synapse.cynic",
+          "target": "cynic-storage-primary.service.cynic",
           "trust": "ssh_trust_anchor",
           "enrollment_authority": {
             "class": "machine_enrollment",
@@ -523,7 +523,7 @@
             "provenance": "storage_primary_image"
           },
           "scheme": "https",
-          "endpoint_host": "cynic-storage-primary.synapse.cynic",
+          "endpoint_host": "cynic-storage-primary.service.cynic",
           "port": 8443,
           "base_path": "/runtime-releases",
           "protocol": "generic_https_put_get",
@@ -576,14 +576,14 @@
           {
             "id": "cynic",
             "relative_path": "CYNIC",
-            "transport_uri": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
+            "transport_uri": "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git"
           }
         ],
         "vcs_provider": {
           "schema": "cynic.source_lifecycle.v1",
           "sovereign_ssot": {
             "kind": "forgejo",
-            "api_url": "http://forgejo.synapse.cynic:3000",
+            "api_url": "http://forgejo.service.cynic:3000",
             "owner": "jeanterre13",
             "repo": "CYNIC",
             "token_env": "FORGEJO_TOKEN",
@@ -842,7 +842,7 @@
       "boot_persistence": true,
       "transports": {
         "ssh": {
-          "target": "cynic-agent-host.synapse.cynic",
+          "target": "cynic-agent-host.service.cynic",
           "trust": "ssh_trust_anchor"
         }
       },
@@ -883,7 +883,7 @@
       },
       "transports": {
         "ssh": {
-          "target": "forgejo.synapse.cynic",
+          "target": "forgejo.service.cynic",
           "port": 22,
           "principal": "forgejo",
           "trust": "ssh_trust_anchor",
@@ -892,7 +892,7 @@
             "principal": "forgejo",
             "credential_ref": "registry-machine-ssh-identity"
           },
-          "note": "The SSH principal is `forgejo`, not `git`. Verified 2026-09-28: `git@` is refused while `forgejo@` is accepted, so the repository transport is ssh://forgejo@forgejo.synapse.cynic:22/<owner>/<repo>.git. The host also answers to eleven DNS aliases (organ-forgejo, cynic-lxc-git, …); this target is the canonical one and the aliases are deliberately not copied here."
+          "note": "The SSH principal is `forgejo`, not `git`. Verified 2026-09-28: `git@` is refused while `forgejo@` is accepted, so the repository transport is ssh://forgejo@forgejo.service.cynic:22/<owner>/<repo>.git. The host also answers to eleven DNS aliases (organ-forgejo, cynic-lxc-git, …); this target is the canonical one and the aliases are deliberately not copied here."
         }
       }
     },
@@ -911,7 +911,7 @@
       "boot_persistence": true,
       "transports": {
         "ssh": {
-          "target": "headscale.synapse.cynic",
+          "target": "headscale.service.cynic",
           "trust": "ssh_trust_anchor"
         }
       },

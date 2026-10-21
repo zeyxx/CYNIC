@@ -2,7 +2,7 @@
 # CYNIC Synapse Mesh — Client WireGuard Nomade (Template Exemple)
 # ==============================================================================
 # Endpoint Public : 82.65.26.228:51820 (Fibre Domicile)
-# Réseau Privé     : 10.10.10.0/24 (synapse.cynic)
+# Réseau Privé     : 10.10.10.0/24 (service.cynic)
 # ==============================================================================
 
 [Interface]

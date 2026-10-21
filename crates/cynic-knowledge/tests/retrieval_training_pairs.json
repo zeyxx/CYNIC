@@ -419,7 +419,7 @@
           49
         ],
         "path": "docs/specs/checklist.md",
-        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`\n\n---"
+        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`\n\n---"
       },
       {
         "chunk_id": "3ac1b7cb1c8ec3a32e313ce93e5c69c0f6791ba3b5ffe124be27a7c6b24d9db5",
@@ -554,7 +554,7 @@
           227
         ],
         "path": "docs/specs/checklist.md",
-        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
+        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
       },
       {
         "chunk_id": "b86c51747e6c9b3499f89cbdd798b672ac8a9bfa01e7cd7a5db061352538a56e",
@@ -642,7 +642,7 @@
           49
         ],
         "path": "docs/specs/checklist.md",
-        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`\n\n---"
+        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`\n\n---"
       },
       {
         "chunk_id": "4af855dfd9aa8a407e3db422467b4c44d9ee51cf66e99f088899b46cdd60df81",
@@ -3454,7 +3454,7 @@
           49
         ],
         "path": "docs/specs/checklist.md",
-        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`\n\n---"
+        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`\n\n---"
       },
       {
         "chunk_id": "3ac1b7cb1c8ec3a32e313ce93e5c69c0f6791ba3b5ffe124be27a7c6b24d9db5",
@@ -3589,7 +3589,7 @@
           227
         ],
         "path": "docs/specs/checklist.md",
-        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
+        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
       },
       {
         "chunk_id": "b86c51747e6c9b3499f89cbdd798b672ac8a9bfa01e7cd7a5db061352538a56e",
@@ -3788,7 +3788,7 @@
           49
         ],
         "path": "docs/specs/checklist.md",
-        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`\n\n---"
+        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`\n\n---"
       },
       {
         "chunk_id": "3ac1b7cb1c8ec3a32e313ce93e5c69c0f6791ba3b5ffe124be27a7c6b24d9db5",
@@ -3923,7 +3923,7 @@
           227
         ],
         "path": "docs/specs/checklist.md",
-        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
+        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
       },
       {
         "chunk_id": "b86c51747e6c9b3499f89cbdd798b672ac8a9bfa01e7cd7a5db061352538a56e",
@@ -4267,7 +4267,7 @@
           49
         ],
         "path": "docs/specs/checklist.md",
-        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`\n\n---"
+        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`\n\n---"
       },
       {
         "chunk_id": "3ac1b7cb1c8ec3a32e313ce93e5c69c0f6791ba3b5ffe124be27a7c6b24d9db5",
@@ -4375,7 +4375,7 @@
           227
         ],
         "path": "docs/specs/checklist.md",
-        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
+        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
       },
       {
         "chunk_id": "b86c51747e6c9b3499f89cbdd798b672ac8a9bfa01e7cd7a5db061352538a56e",
@@ -13835,7 +13835,7 @@
           49
         ],
         "path": "docs/specs/checklist.md",
-        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git`\n\n---"
+        "text": "### SSOT\n\n- **Binary location:** `/usr/local/bin/cynic` (Linux), `/usr/local/bin/cynic` (macOS via brew)\n- **Repository path:** `/home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC` (canonical, case-sensitive)\n- **Builder:** `10.10.10.119` (build/test SSOT)\n- **Git remote:** `ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git`\n\n---"
       },
       {
         "chunk_id": "3ac1b7cb1c8ec3a32e313ce93e5c69c0f6791ba3b5ffe124be27a7c6b24d9db5",
@@ -13943,7 +13943,7 @@
           227
         ],
         "path": "docs/specs/checklist.md",
-        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
+        "text": "## 7. Session Recovery\n\nAfter crash or reboot:\n\n```bash\n# 1. Restore from origin\ngit clone ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git \\\n  /home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC\n\n# 2. Verify\ngit -C /home/user/Bureau/SolANA/asdf-forge/zeyxx/CYNIC log --oneline -1\n\n# 3. Resume tmux sessions\ntmux attach -t build\ntmux attach -t inference\n```\n\n---"
       },
       {
         "chunk_id": "b86c51747e6c9b3499f89cbdd798b672ac8a9bfa01e7cd7a5db061352538a56e",
@@ -18293,7 +18293,7 @@
           10
         ],
         "path": "contracts/relay-policy.json",
-        "text": "  \"topology\": {\n    \"sovereign_source\": \"Forgejo (ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git)\",\n    \"public_projection\": \"GitHub (https://github.com/zeyxx/CYNIC.git)\",\n    \"relationship\": \"relay mirror, not authority\",\n    \"reference\": \"infra/repo-remotes.json\"\n  },"
+        "text": "  \"topology\": {\n    \"sovereign_source\": \"Forgejo (ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git)\",\n    \"public_projection\": \"GitHub (https://github.com/zeyxx/CYNIC.git)\",\n    \"relationship\": \"relay mirror, not authority\",\n    \"reference\": \"infra/repo-remotes.json\"\n  },"
       },
       {
         "chunk_id": "d30ea28353ba369480ef91f099da5cc34ff0fec9530561ef935c704ede0cba67",

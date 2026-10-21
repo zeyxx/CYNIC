@@ -354,7 +354,7 @@ lab.smoke: lab.check ## Prove the lab registry drives N-case DNS and bootstrap p
 	@echo "==> generating DNS bundle from $(LAB_REGISTRY)"
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network dns bundle --registry $(LAB_REGISTRY) --output-dir "$$tmpdir/dns" > "$$tmpdir/dns-report.json"
 	@grep -R "labmesh.example" "$$tmpdir/dns" >/dev/null
-	@if grep -R "synapse.cynic" "$$tmpdir/dns" >/dev/null; then echo "lab DNS bundle leaked default synapse.cynic"; exit 1; fi
+	@if grep -R "synapse.cynic" "$$tmpdir/dns" >/dev/null; then echo "lab DNS bundle leaked the legacy zone"; exit 1; fi
 	@echo "==> checking bootstrap projection from $(LAB_REGISTRY)"
 	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap constellation --json --registry $(LAB_REGISTRY) > "$$tmpdir/bootstrap.json" || test "$$?" = "1"
 	@jq -e '.status == "bootstrap_required" and (.nodes | length == 3)' "$$tmpdir/bootstrap.json" >/dev/null
