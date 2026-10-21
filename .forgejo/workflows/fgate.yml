@@ -126,6 +126,11 @@ jobs:
 
   check_compile:
     name: Gate 2 Workspace Compilation
+    # Gate 0 publishes the compilation parallelism this runner can hold,
+    # decided by the CYNIC binary from the observed memory. Waiting for it
+    # is what makes the bound effective: a shard that starts before the
+    # decision is published would compile with an unbounded parallelism.
+    needs: [pool_eligibility]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -172,6 +177,11 @@ jobs:
 
   test_core_types:
     name: Gate 3 Core Types
+    # Gate 0 publishes the compilation parallelism this runner can hold,
+    # decided by the CYNIC binary from the observed memory. Waiting for it
+    # is what makes the bound effective: a shard that starts before the
+    # decision is published would compile with an unbounded parallelism.
+    needs: [pool_eligibility]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -218,6 +228,11 @@ jobs:
 
   test_knowledge:
     name: Gate 3 Knowledge
+    # Gate 0 publishes the compilation parallelism this runner can hold,
+    # decided by the CYNIC binary from the observed memory. Waiting for it
+    # is what makes the bound effective: a shard that starts before the
+    # decision is published would compile with an unbounded parallelism.
+    needs: [pool_eligibility]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -264,6 +279,11 @@ jobs:
 
   test_inference:
     name: Gate 3 Inference
+    # Gate 0 publishes the compilation parallelism this runner can hold,
+    # decided by the CYNIC binary from the observed memory. Waiting for it
+    # is what makes the bound effective: a shard that starts before the
+    # decision is published would compile with an unbounded parallelism.
+    needs: [pool_eligibility]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -310,6 +330,11 @@ jobs:
 
   test_canonical_paths:
     name: Gate 3 Canonical Paths
+    # Gate 0 publishes the compilation parallelism this runner can hold,
+    # decided by the CYNIC binary from the observed memory. Waiting for it
+    # is what makes the bound effective: a shard that starts before the
+    # decision is published would compile with an unbounded parallelism.
+    needs: [pool_eligibility]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
