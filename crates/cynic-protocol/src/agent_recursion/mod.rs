@@ -58,6 +58,11 @@ pub struct AgentDelegationEnvelope {
     pub schema: String,
     pub delegation_id: String,
     pub node_id: String,
+    /// Pool address: when set, any node holding this role may claim the
+    /// workload. Pool-addressed delegations leave `node_id` empty; setting
+    /// both is a validation violation (dual addressing).
+    #[serde(default)]
+    pub role: Option<String>,
     pub agent_id: String,
     pub parent_agent_id: Option<String>,
     pub depth: u16,
@@ -142,10 +147,20 @@ pub fn admit_child_delegation(
             "parent delegation schema is not supported",
         ));
     }
-    if child.node_id != parent.node_id {
+    let parent_pool_addressed = parent
+        .role
+        .as_deref()
+        .is_some_and(|role| !role.trim().is_empty());
+    if child.node_id != parent.node_id && !parent_pool_addressed {
         violations.push(violation(
             "node_boundary_crossed",
             "local recursion cannot cross a node boundary; use federation",
+        ));
+    }
+    if child.role.is_some() {
+        violations.push(violation(
+            "concrete_claim_must_name_node",
+            "child delegations execute on one node and must not carry a pool role",
         ));
     }
     if child.parent_agent_id.as_deref() != Some(parent.agent_id.as_str()) {
@@ -272,7 +287,6 @@ fn validate_delegation(envelope: &AgentDelegationEnvelope) -> Vec<AgentRecursion
     }
     for (field, value) in [
         ("delegation_id", envelope.delegation_id.as_str()),
-        ("node_id", envelope.node_id.as_str()),
         ("agent_id", envelope.agent_id.as_str()),
         ("objective", envelope.objective.as_str()),
     ] {
@@ -281,6 +295,30 @@ fn validate_delegation(envelope: &AgentDelegationEnvelope) -> Vec<AgentRecursion
                 "empty_required_field",
                 format!("{field} must not be empty"),
             ));
+        }
+    }
+    match envelope.role.as_deref() {
+        None => {
+            if envelope.node_id.trim().is_empty() {
+                violations.push(violation(
+                    "empty_required_field",
+                    "node_id must not be empty for node-addressed delegations",
+                ));
+            }
+        }
+        Some(role) => {
+            if role.trim().is_empty() {
+                violations.push(violation(
+                    "empty_required_field",
+                    "role must not be empty when set",
+                ));
+            }
+            if !envelope.node_id.trim().is_empty() {
+                violations.push(violation(
+                    "dual_addressing",
+                    "pool-addressed delegations must leave node_id empty",
+                ));
+            }
         }
     }
     if envelope.expected_proofs.is_empty()

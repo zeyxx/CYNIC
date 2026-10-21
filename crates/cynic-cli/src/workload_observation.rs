@@ -359,6 +359,7 @@ mod tests {
                 schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
                 delegation_id: "d1".to_string(),
                 node_id: "n1".to_string(),
+                role: None,
                 agent_id: "a1".to_string(),
                 parent_agent_id: None,
                 depth: 0,

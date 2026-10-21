@@ -94,7 +94,7 @@ pub async fn orchestrate_build_submission(
         }
     };
 
-    let envelope = match compose_build_agent_workload(request, &transport, workspace_root) {
+    let envelope = match compose_build_agent_workload(request, &transport, None, workspace_root) {
         Ok(env) => env,
         Err(blockers) => {
             return Ok(BuildSubmissionPlan {

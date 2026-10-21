@@ -373,6 +373,7 @@ mod tests {
             schema: "cynic.agent_delegation_envelope.v1".to_string(),
             delegation_id: "delegation-hermes-1".to_string(),
             node_id: "node-1".to_string(),
+            role: None,
             agent_id: "hermes-agent".to_string(),
             parent_agent_id: None,
             depth: 0,

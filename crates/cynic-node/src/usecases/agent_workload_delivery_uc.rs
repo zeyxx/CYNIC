@@ -343,6 +343,7 @@ mod tests {
         let envelope = compose_build_agent_workload(
             &request,
             "cynic-builder",
+            None,
             "/var/lib/cynic/source/workspaces",
         )
         .unwrap();

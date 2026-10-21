@@ -122,7 +122,7 @@ pub fn plan_build_workload_submission(
     }
 
     let transport = cynic_host::registry::resolve_build_runner_transport(Some(registry_path))?;
-    let envelope = compose_build_agent_workload(request, &transport.node_id, workspace_root)
+    let envelope = compose_build_agent_workload(request, &transport.node_id, None, workspace_root)
         .map_err(|blockers| blockers.join(","))?;
     let workload_admission = admit_agent_workload(&envelope);
     if !workload_admission.admitted() {

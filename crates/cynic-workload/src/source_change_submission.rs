@@ -287,6 +287,7 @@ mod tests {
                 schema: cynic_protocol::AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
                 delegation_id: "delegation-1".to_string(),
                 node_id: "node-1".to_string(),
+                role: None,
                 agent_id: "agent-1".to_string(),
                 parent_agent_id: None,
                 depth: 0,

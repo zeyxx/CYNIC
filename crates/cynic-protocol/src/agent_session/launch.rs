@@ -74,6 +74,7 @@ pub fn compose_root_agent_launch(
         schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
         delegation_id: format!("root:{}", launch.request_id),
         node_id: launch.node_id.clone(),
+        role: None,
         agent_id: launch.agent_id.clone(),
         parent_agent_id: None,
         depth: 0,

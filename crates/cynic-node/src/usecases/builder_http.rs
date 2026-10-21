@@ -211,6 +211,7 @@ async fn submit_workload(
     let mut envelope = compose_build_agent_workload(
         &request,
         &state.config.node_id,
+        None,
         &state.config.workspace_root,
     )
     .map_err(|blockers| {
@@ -586,6 +587,7 @@ async fn webhook_forgejo(
     let mut envelope = compose_build_agent_workload(
         &request,
         &state.config.node_id,
+        None,
         &state.config.workspace_root,
     )
     .map_err(|blockers| {
@@ -834,9 +836,11 @@ mod tests {
     fn identical_pushes_compose_identical_workload_ids() {
         let sha = "c".repeat(40);
         let first =
-            compose_build_agent_workload(&push_request(&sha), "node-1", "/tmp").expect("compose");
+            compose_build_agent_workload(&push_request(&sha), "node-1", None, "/tmp")
+                .expect("compose");
         let second =
-            compose_build_agent_workload(&push_request(&sha), "node-1", "/tmp").expect("compose");
+            compose_build_agent_workload(&push_request(&sha), "node-1", None, "/tmp")
+                .expect("compose");
         assert_eq!(first.workload_id, second.workload_id);
     }
 
@@ -961,7 +965,7 @@ mod tests {
         );
 
         let envelope =
-            cynic_build::compose_build_agent_workload(&request, "cynic-builder", "/tmp/wf")
+            cynic_build::compose_build_agent_workload(&request, "cynic-builder", None, "/tmp/wf")
                 .expect("webhook request composes a bounded workload");
         // Slice semantics changed deliberately: `make:check` composes the native
         // audit argv (vocabulary honesty), not the Makefile wrapper.

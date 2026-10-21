@@ -14,6 +14,7 @@ fn parent() -> AgentDelegationEnvelope {
         schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
         delegation_id: "root-task".to_string(),
         node_id: "node-a".to_string(),
+        role: None,
         agent_id: "agent-root".to_string(),
         parent_agent_id: None,
         depth: 0,
@@ -40,6 +41,7 @@ fn child() -> AgentDelegationEnvelope {
         schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
         delegation_id: "child-task".to_string(),
         node_id: "node-a".to_string(),
+        role: None,
         agent_id: "agent-child-1".to_string(),
         parent_agent_id: Some("agent-root".to_string()),
         depth: 1,
@@ -177,5 +179,59 @@ fn validate_evidence_refs_reports_invalid_entries() {
         violations
             .iter()
             .any(|violation| violation.code == "invalid_evidence_ref")
+    );
+}
+
+#[test]
+fn pool_addressed_delegation_validates_without_node() {
+    let mut pool = parent();
+    pool.node_id.clear();
+    pool.role = Some("build_runner".to_string());
+    let violations = validate_delegation(&pool);
+    assert!(violations.is_empty());
+}
+
+#[test]
+fn empty_role_and_dual_addressing_are_violations() {
+    let mut empty_role = parent();
+    empty_role.role = Some("  ".to_string());
+    let codes = validate_delegation(&empty_role)
+        .iter()
+        .map(|violation| violation.code.as_str())
+        .collect::<BTreeSet<_>>();
+    assert!(codes.contains("empty_required_field"));
+
+    let mut dual = parent();
+    dual.role = Some("build_runner".to_string());
+    let codes = validate_delegation(&dual)
+        .iter()
+        .map(|violation| violation.code.as_str())
+        .collect::<BTreeSet<_>>();
+    assert!(codes.contains("dual_addressing"));
+}
+
+#[test]
+fn pool_parent_admits_foreign_node_child() {
+    let mut pool_parent = parent();
+    pool_parent.node_id.clear();
+    pool_parent.role = Some("build_runner".to_string());
+    let mut child = child();
+    child.node_id = "node-b".to_string();
+    child.parent_agent_id = Some(pool_parent.agent_id.clone());
+    assert!(admit_child_delegation(&pool_parent, &child).admitted());
+}
+
+#[test]
+fn child_carrying_pool_role_is_denied() {
+    let mut child = child();
+    child.role = Some("build_runner".to_string());
+    let report = admit_child_delegation(&parent(), &child);
+    let AgentRecursionDecision::Deny { violations } = report.decision else {
+        panic!("child with pool role must be denied");
+    };
+    assert!(
+        violations
+            .iter()
+            .any(|violation| violation.code == "concrete_claim_must_name_node")
     );
 }

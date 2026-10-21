@@ -148,12 +148,23 @@ pub fn build_source_reference_from_workload(
 pub fn compose_build_agent_workload(
     request: &BuildAgentRequest,
     target_node_id: &str,
+    target_role: Option<&str>,
     workspace_root: &str,
 ) -> Result<AgentWorkloadEnvelope, Vec<String>> {
     let admission = admit_build_agent_request(request);
     let mut blockers = admission.blockers;
-    if target_node_id.trim().is_empty() {
-        blockers.push("build_agent_workload_target_node_missing".to_string());
+    let role = target_role.map(str::trim).filter(|role| !role.is_empty());
+    match role {
+        None => {
+            if target_node_id.trim().is_empty() {
+                blockers.push("build_agent_workload_target_node_missing".to_string());
+            }
+        }
+        Some(_) => {
+            if !target_node_id.trim().is_empty() {
+                blockers.push("build_agent_workload_target_dual_addressing".to_string());
+            }
+        }
     }
     if workspace_root.trim().is_empty() {
         blockers.push("build_agent_workload_directory_missing".to_string());
@@ -236,6 +247,7 @@ pub fn compose_build_agent_workload(
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
             delegation_id: format!("delegation-{short}"),
             node_id: target_node_id.to_string(),
+            role: role.map(str::to_string),
             agent_id: request.requested_by.clone(),
             parent_agent_id: None,
             depth: 0,
@@ -385,6 +397,7 @@ mod tests {
         let envelope = compose_build_agent_workload(
             &request,
             "cynic-builder",
+            None,
             "/var/lib/cynic/source/workspaces/build-test",
         )
         .unwrap();
@@ -578,12 +591,63 @@ mod tests {
         let envelope = compose_build_agent_workload(
             &request,
             "cynic-builder",
+            None,
             "/var/lib/cynic/source/workspaces/build-test",
         )
         .unwrap();
 
         assert_eq!(envelope.source_commit, Some(request.source_commit.clone()));
         assert_eq!(envelope.branch, Some("feature/scheduler-truths".to_string()));
+    }
+
+    fn pool_request(request_id: &str) -> BuildAgentRequest {
+        BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: request_id.to_string(),
+            requested_by: "pool-controller".to_string(),
+            source_commit: "c".repeat(40),
+            branch: None,
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
+                revision: "c".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
+            },
+            action: "cargo:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
+            evidence_refs: vec!["forgejo:refs/heads/pool@cccccccc".to_string()],
+        }
+    }
+
+    #[test]
+    fn compose_pool_role_leaves_node_empty() {
+        let request = pool_request("pool-1");
+        let envelope =
+            compose_build_agent_workload(&request, "", Some("build_runner"), "/tmp/pool-test")
+                .expect("pool-addressed compose");
+        assert_eq!(envelope.delegation.node_id, "");
+        assert_eq!(envelope.delegation.role.as_deref(), Some("build_runner"));
+        assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
+    }
+
+    #[test]
+    fn compose_rejects_dual_and_missing_targets() {
+        let request = pool_request("pool-2");
+        let dual = compose_build_agent_workload(
+            &request,
+            "cynic-builder",
+            Some("build_runner"),
+            "/tmp/pool-test",
+        );
+        assert!(dual.is_err());
+
+        let missing = compose_build_agent_workload(&request, "", None, "/tmp/pool-test");
+        assert!(missing.is_err());
     }
 
     #[test]
@@ -613,6 +677,7 @@ mod tests {
         let envelope = compose_build_agent_workload(
             &request,
             "cynic-builder",
+            None,
             "/var/lib/cynic/source/workspaces/build-test",
         )
         .unwrap();

@@ -96,6 +96,7 @@ pub fn admit_build_check(
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
             delegation_id: format!("delegation-{workload_id}"),
             node_id: node_id.to_string(),
+            role: None,
             agent_id: agent_id.to_string(),
             parent_agent_id: None,
             depth: 0,

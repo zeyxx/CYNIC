@@ -51,10 +51,20 @@ pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
 
 /// Order this node's build records FIFO per the queue policy. Pure mapping
 /// over durable records; the loop below only follows the returned order.
-pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) -> Vec<String> {
+/// A record is this node's when addressed to its `node_id` or to a pool
+/// role this node holds (`node_role`, e.g. `build_runner`).
+pub fn queue_ordered_ids(
+    records: &[DurableAgentWorkloadRecord],
+    node_id: &str,
+    node_role: &str,
+) -> Vec<String> {
     let candidates = records
         .iter()
-        .filter(|durable| durable.record.envelope.delegation.node_id == node_id)
+        .filter(|durable| {
+            let delegation = &durable.record.envelope.delegation;
+            delegation.node_id == node_id
+                || (!node_role.is_empty() && delegation.role.as_deref() == Some(node_role))
+        })
         .map(|durable| QueuedCandidate {
             workload_id: durable.record.envelope.workload_id.clone(),
             idempotency_key: durable.record.envelope.idempotency_key.clone(),
@@ -118,7 +128,7 @@ async fn run_iteration(
         return Ok(());
     }
     let durables = store.durable_records().map_err(|error| error.code)?;
-    for workload_id in queue_ordered_ids(&durables, &control.node_id) {
+    for workload_id in queue_ordered_ids(&durables, &control.node_id, &control.enrollment_role) {
         if shutdown.is_cancelled() {
             return Ok(());
         }
@@ -637,7 +647,7 @@ mod tests {
         .expect("admit older second");
 
         let durables = store.durable_records().expect("list records");
-        let ordered = queue_ordered_ids(&durables, "node-1");
+        let ordered = queue_ordered_ids(&durables, "node-1", "build_runner");
 
         assert_eq!(ordered.len(), 2);
         assert!(ordered[0].contains(&QA[..12]));
@@ -679,9 +689,41 @@ mod tests {
             .expect("complete first");
 
         let durables = store.durable_records().expect("list records");
-        let ordered = queue_ordered_ids(&durables, "node-1");
+        let ordered = queue_ordered_ids(&durables, "node-1", "build_runner");
 
         assert!(ordered.is_empty());
+    }
+
+    #[test]
+    fn queue_selects_pool_role_and_ignores_foreign_role() {
+        let store = queue_store();
+        let admitted = admit_build_check(
+            QA,
+            "cynic-host",
+            "cynic-builder",
+            "node-9",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit foreign node record");
+        let mut pooled = admitted.record.clone();
+        pooled.record.envelope.delegation.node_id.clear();
+        pooled.record.envelope.delegation.role = Some("build_runner".to_string());
+        store
+            .compare_and_swap(
+                &admitted.record.envelope.workload_id,
+                Some(admitted.revision),
+                &pooled,
+                150,
+            )
+            .expect("re-address record to pool role");
+
+        let durables = store.durable_records().expect("list records");
+        let holder = queue_ordered_ids(&durables, "node-1", "build_runner");
+        assert_eq!(holder.len(), 1);
+        let stranger = queue_ordered_ids(&durables, "node-1", "embedding_runner");
+        assert!(stranger.is_empty());
     }
 
     /// Regression: settlement proof persists reasons, timings, and stage

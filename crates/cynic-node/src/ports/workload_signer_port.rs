@@ -101,6 +101,7 @@ use cynic_protocol::{
                 schema: "cynic.agent_delegation_envelope.v1".to_string(),
                 delegation_id: "delegation-1".to_string(),
                 node_id: "builder-1".to_string(),
+                role: None,
                 agent_id: "runtime_publisher@dom".to_string(),
                 parent_agent_id: None,
                 depth: 0,

@@ -86,6 +86,7 @@ fn signed_build_grant_derivation_and_verification() {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
             delegation_id: format!("delegation-{workload_id}"),
             node_id: node_id.into(),
+            role: None,
             agent_id: "build-agent-1".into(),
             parent_agent_id: None,
             depth: 0,

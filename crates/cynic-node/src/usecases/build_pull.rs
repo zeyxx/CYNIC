@@ -289,6 +289,7 @@ mod tests {
                 schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
                 delegation_id: format!("delegation-{workload_id}"),
                 node_id: "builder-1".into(),
+                role: None,
                 agent_id: "build-agent-1".into(),
                 parent_agent_id: None,
                 depth: 0,

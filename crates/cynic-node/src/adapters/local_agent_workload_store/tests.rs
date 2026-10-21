@@ -54,6 +54,7 @@ fn record(workload_id: &str, idempotency_key: &str) -> AgentWorkloadRecord {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
             delegation_id: format!("delegation-{workload_id}"),
             node_id: "builder-1".into(),
+            role: None,
             agent_id: "build-agent-1".into(),
             parent_agent_id: None,
             depth: 0,
