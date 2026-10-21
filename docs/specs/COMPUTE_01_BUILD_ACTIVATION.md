@@ -83,13 +83,17 @@ From any machine that routes to the LAN (cortex works, verified
 
 ```sh
 curl -s -m 5 -o /dev/null -w '%{http_code}\n' http://192.168.0.25:9090/health
-cynic build pool eligibility   # labels + toolchain bricks
-cynic enroll status            # must qualify observed only now (4e088bc3)
+cynic discovery nodes        # registry read-back: the node must be listed
+cynic network shadow         # declared-vs-observed drift: must not flag the node
 ```
 
-Expected: `200`, eligibility passes, status `observed`. Paste all three
+Expected: `200`, node listed, no drift on the node. Paste all three
 outputs into #228. Only then flip `status` to `observed` in the
 registry: status follows observation, never precedes it.
+
+Note: `cynic build pool eligibility` and `cynic enroll status` do not
+exist in the tree (see gap 1 below); the three commands above are
+their honest equivalents today.
 
 ## 6. Pool confirmation
 
