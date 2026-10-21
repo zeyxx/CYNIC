@@ -246,12 +246,12 @@ pub fn agent_workload_delivery_available(delivery: &AgentWorkloadDelivery, now_m
 /// crash recovery). This is the decision the kernel `/node-control`
 /// router will serve once reintroduced in-tree; the transport is not
 /// this function's business.
-pub fn decide_claimable_deliveries(
-    deliveries: &[AgentWorkloadDelivery],
-    node_id: &str,
-    node_role: &str,
+pub fn decide_claimable_deliveries<'a>(
+    deliveries: &'a [AgentWorkloadDelivery],
+    node_id: &'a str,
+    node_role: &'a str,
     now_ms: u64,
-) -> Vec<&AgentWorkloadDelivery> {
+) -> Vec<&'a AgentWorkloadDelivery> {
     deliveries
         .iter()
         .filter(|delivery| {
