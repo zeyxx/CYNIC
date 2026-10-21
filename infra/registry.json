@@ -985,62 +985,6 @@
       ],
       "energy_profile": {
         "class": "always_on"
-      }
-    },
-    {
-      "id": "cynic-compute-01",
-      "name": "cynic-compute-01",
-      "aliases": [
-        "compute-01",
-        "trixie-apu"
-      ],
-      "role": "embedding_runner",
-      "host_family": "linux.debian.systemd",
-      "status": "observed",
-      "deploy_target": true,
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
-          "trust": "ssh_trust_anchor",
-          "principal": "titouan"
-        }
-      },
-      "network": {
-        "lan": "192.168.0.25",
-        "service": "192.168.0.25"
-      },
-      "observed_hardware": {
-        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
-        "operating_system": "Debian GNU/Linux 13 (trixie)",
-        "ram": "16 GB",
-        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
-      },
-      "services": [
-        {
-          "name": "embedding-server",
-          "artifact": "llama-server",
-          "scheme": "http",
-          "endpoint_host": "192.168.0.25",
-          "port": 8080,
-          "network_plane": "lan",
-          "unit": "cynic-embedding-node.service",
-          "supervisor": {
-            "provider": "systemd-user"
-          },
-          "health": {
-            "kind": "http",
-            "url": "http://192.168.0.25:8080/health"
-          },
-          "model": "embeddinggemma-2-Q8_0.gguf",
-          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
-          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
-          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
-          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
       },
       "observed_gpu_stack": {
         "gpu": "AMD Lucienne APU",
@@ -1065,6 +1009,40 @@
           "outcome": "compute01/cortex 0.001112 (was 0.002476), compute01/lxc 0.002479, cortex/lxc 0.002476; drift is state-dependent, range 1-2.5e-3"
         }
       ]
+    },
+    {
+      "id": "cynic-compute-01-build",
+      "name": "cynic-compute-01-build",
+      "aliases": ["compute-01-build"],
+      "role": "build_runner",
+      "host_family": "linux.debian.systemd",
+      "status": "planned",
+      "deploy_target": false,
+      "boot_persistence": false,
+      "build_function_of": "cynic-compute-01",
+      "note": "Build function not yet installed: no receiver on :9090, no toolchain observed, no enrollment. Pool health-check skips it until a receiver answers. Added 2026-10-20 (issue #221).",
+      "transports": {
+        "ssh": {
+          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
+          "trust": "ssh_trust_anchor",
+          "principal": "titouan"
+        }
+      },
+      "network": {
+        "lan": "192.168.0.25",
+        "service": "192.168.0.25"
+      },
+      "capabilities": {
+        "cpu_cores": 16,
+        "ram_gb": 16,
+        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+      },
+      "observed_hardware": {
+        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
+        "operating_system": "Debian GNU/Linux 13 (trixie)",
+        "ram": "16 GB",
+        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+      }
     }
   ],
   "fleet_desired": {

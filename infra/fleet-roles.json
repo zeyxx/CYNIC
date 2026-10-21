@@ -27,7 +27,7 @@
     },
     {
       "role": "build_runner",
-      "nodes": ["cynic-builder"],
+      "nodes": ["cynic-builder", "cynic-compute-01-build"],
       "node_status": "candidate",
       "expected_components": ["cynic", "cargo", "rustc"],
       "measured": {"cynic": "unknown", "note": "builder is proof SSOT for merges; version probe pending"}
@@ -41,7 +41,7 @@
     },
     {
       "role": "embedding_runner",
-      "nodes": ["cynic-lxc-embedding"],
+      "nodes": ["cynic-lxc-embedding", "cynic-compute-01"],
       "node_status": "observed",
       "expected_components": ["llama-server"],
       "measured": {"note": "lxc106 admin-unreachable from cortex 2026-10-15; flags unmeasurable, excluded from calibration cluster"}

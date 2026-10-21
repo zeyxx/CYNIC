@@ -16,6 +16,7 @@ pub mod adapters;
 pub mod build;
 pub mod build_artefact;
 pub mod builder_client;
+pub mod builder_pool;
 pub mod build_discovery;
 pub mod build_discovery_recipe;
 pub mod build_node;

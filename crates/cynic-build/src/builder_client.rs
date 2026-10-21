@@ -44,6 +44,42 @@ pub fn resolve_builder_url() -> Result<String, String> {
     Err("could not resolve builder URL dynamically from infra/registry.json or CYNIC_BUILDER_URL env".into())
 }
 
+/// Resolve the builder HTTP endpoint via the builder pool with health-check.
+///
+/// `CYNIC_BUILDER_URL` wins when set and non-empty (backward compat).
+/// Otherwise the registry is read, all `build_runner` nodes are health-checked
+/// via [`crate::builder_pool::resolve_builder_pool_with_health`], and the
+/// first healthy builder is selected via [`crate::builder_pool::select_healthy_builder`].
+///
+/// Fails closed when no builder is healthy — never guesses, never falls back
+/// to an unhealthy endpoint.
+pub fn resolve_builder_url_with_health() -> Result<String, String> {
+    if let Ok(env_url) = std::env::var("CYNIC_BUILDER_URL") {
+        if !env_url.trim().is_empty() {
+            return Ok(env_url);
+        }
+    }
+
+    let registry_path = std::path::Path::new("infra/registry.json");
+    if !registry_path.exists() {
+        return Err("could not resolve builder URL: infra/registry.json not found and CYNIC_BUILDER_URL not set".into());
+    }
+
+    let content = std::fs::read_to_string(registry_path)
+        .map_err(|e| format!("cannot read infra/registry.json: {e}"))?;
+    let reg: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("invalid infra/registry.json format: {e}"))?;
+
+    let pool = crate::builder_pool::resolve_builder_pool_with_health(&reg);
+    match crate::builder_pool::select_healthy_builder(&pool) {
+        Some(endpoint) => Ok(endpoint.url),
+        None => Err(
+            "could not resolve builder URL: no healthy build_runner in pool (all unhealthy or registry empty)"
+                .into(),
+        ),
+    }
+}
+
 /// Submit a build workload to the builder and optionally wait for proof.
 ///
 /// Posts the admission payload to `/workloads/submit`. When `wait` is
