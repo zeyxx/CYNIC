@@ -64,6 +64,18 @@ impl ArgvExecutionPort for LocalArgvExecutionAdapter {
         if request.timeout.is_zero() {
             return failure("execution timeout must be positive");
         }
+        // Deny-by-default: the same membrane as the synchronous runner.
+        // An argv the installed policy does not admit is refused before
+        // the process is spawned.
+        {
+            let argv: Vec<&str> = request.argv.iter().map(String::as_str).collect();
+            if let Some(detail) = crate::adapters::argv_runner::refuse_if_not_admitted(
+                &argv,
+                crate::adapters::argv_runner::local_host_role(),
+            ) {
+                return failure(&format!("argv refused by execution policy: {detail}"));
+            }
+        }
         let mut command = tokio::process::Command::new(&program);
         command
             .args(&request.argv[1..])
