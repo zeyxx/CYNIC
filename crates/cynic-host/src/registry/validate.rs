@@ -259,6 +259,7 @@ mod tests {
             services: vec![],
             network_links: vec![],
             source_workspace_layout: None,
+            retired_units: Vec::new(),
         }
     }
 
@@ -281,6 +282,7 @@ mod tests {
     fn detects_duplicate_node_ids() {
         let mut doc = minimal_doc();
         doc.nodes.push(RegistryNode {
+            retired_units: Vec::new(),
             name: Some("other".to_string()),
             id: Some("test-node".to_string()), // duplicate
             aliases: vec![],
@@ -305,6 +307,7 @@ mod tests {
     fn detects_duplicate_node_names() {
         let mut doc = minimal_doc();
         doc.nodes.push(RegistryNode {
+            retired_units: Vec::new(),
             name: Some("test-node".to_string()), // duplicate
             id: Some("other".to_string()),
             aliases: vec![],
@@ -329,6 +332,7 @@ mod tests {
     fn detects_node_without_identity() {
         let mut doc = minimal_doc();
         doc.nodes.push(RegistryNode {
+            retired_units: Vec::new(),
             name: None,
             id: None,
             aliases: vec![],

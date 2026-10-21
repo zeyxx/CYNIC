@@ -170,6 +170,7 @@ impl HostServicePort for StaticHostContractPort {
                 supervisor_provider: None,
                 health_kind: None,
             }],
+            retired_units: Vec::new(),
         }
     }
 }
@@ -223,6 +224,9 @@ impl HostCommandRunnerPort for FakeCommandRunner {
             }
             HostOperation::ServiceStart { unit } => {
                 format!("systemctl start {unit}")
+            }
+            HostOperation::ServiceRetire { unit } => {
+                format!("service retire {unit}")
             }
         };
         HostCommandResult {

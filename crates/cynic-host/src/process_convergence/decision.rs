@@ -153,7 +153,8 @@ mod tests {
                     supervisor_provider: Some("process-port".to_string()),
                     health_kind: Some("tcp".to_string()),
                 }],
-            },
+                retired_units: Vec::new(),
+            }
         }
     }
 

@@ -66,6 +66,8 @@ impl HostServicePort for BuildRunnerHostProfile {
             unit_dir: current_runtime_layout().service_unit_dir,
             // Empty until the resident node controller owns a supervisor-agnostic lifecycle.
             units: vec![],
+            // The registry is the authority for what a node retires.
+            retired_units: Vec::new(),
         }
     }
 }

@@ -688,6 +688,10 @@
           }
         }
       ],
+      "retired_units": [
+        "cynic-supervise-soak-node.service",
+        "cynic-supervise-watch-soak-node.service"
+      ],
       "energy_profile": {
         "class": "burst"
       },

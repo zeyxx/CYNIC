@@ -129,6 +129,7 @@ mod tests {
             network_policy: None,
             lifecycle: None,
             nodes: vec![RegistryNode {
+                retired_units: Vec::new(),
                 name: Some("test-node".to_string()),
                 id: None,
                 aliases: vec!["alias1".to_string()],

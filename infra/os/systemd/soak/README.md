@@ -157,3 +157,50 @@ observes and plans before it applies, and it refuses any path a live service
 executes (the live-service fence). The unit therefore needs no path list of
 its own — inventing one there would be a second, weaker authority for the
 same decision.
+
+## Retiring the stale system-scope pair
+
+The two units at `/etc/systemd/system/` were installed from the duplicate
+repository path (`infra/os/systemd/`, byte-identical to the file on the
+host, sha256 `cf8bdb0e…`). They execute a Cargo-cache binary that does
+not know the `supervise` verb, so the parent fails at every boot, and
+they are `enabled` — they come back on every reboot.
+
+Retiring them is a **native, bounded** operation, not a hand-run sudo:
+
+```
+cynic host service reconcile --apply
+```
+
+The envelope is exactly `--apply`; the target and the policy are
+registry-derived. The units to retire are declared in the registry, per
+node:
+
+```json
+"retired_units": [
+  "cynic-supervise-soak-node.service",
+  "cynic-supervise-watch-soak-node.service"
+]
+```
+
+so the registry stays the single authority for what a specific node
+runs. The operation then:
+
+1. `disable` — drops the boot activation symlink. A unit that is stopped
+   but still enabled comes back at the next reboot, which is exactly the
+   failure this ends.
+2. `stop` — ends the running instance.
+3. removes the unit file and any `<target>.wants/` link.
+
+The proof is the **absence** of the unit: the run reports success only
+when the unit is neither active nor enabled. A unit that is still running
+leaves the proof gate unsatisfied and the run is reported as a failure,
+not a success. A unit that was never installed is already retired —
+retiring is idempotent.
+
+The unit identifier is guarded: plain `*.service` only, no path, no
+leading `-` (which the service manager would read as an option), no
+shell metacharacter.
+
+The host registry (`/etc/cynic/registry.json`) is root-owned and is the
+operator's to install; the declaration above is the repository SSOT.

@@ -268,6 +268,8 @@ impl HostFamilyProfile {
             },
             unit_dir: self.service_unit_dir.clone(),
             units: self.service_units.clone(),
+            // The registry is the authority for what a node retires.
+            retired_units: Vec::new(),
         }
     }
 

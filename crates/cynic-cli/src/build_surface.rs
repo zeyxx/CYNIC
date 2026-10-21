@@ -20,7 +20,8 @@ pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWor
 
 use invoice::{invoice_for_commit, list_proofs};
 use pool::{
-    evaluate_label, evaluate_local_node, local_node_id, measure_pool_from_forgejo,
+    evaluate_label, evaluate_local_node, evaluate_runner_memory, local_node_id,
+    measure_pool_from_forgejo, render_memory,
     render_eligibility,
 };
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
@@ -33,6 +34,7 @@ use crate::workload_observation::{execute_list_workloads, execute_observe_worklo
 use archive::{archive_terminal_workloads, ArchiveReport};
 use artifact::{publish_artifact, pull_artifact, release_artifact};
 use forgejo::{execute_runner_token, execute_runs};
+use cynic_protocol::build_memory_capacity::MemoryCapacityDecision;
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -508,6 +510,24 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                         Ok(())
                     }
                     Err(error) => Err(error),
+                }
+            }
+            BuildPoolCommand::Memory { json } => {
+                let assessment = evaluate_runner_memory();
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&assessment)
+                            .map_err(|error| error.to_string())?
+                    );
+                } else {
+                    render_memory(&assessment);
+                }
+                // A refused or unknown budget is a FAILURE, not a warning:
+                // the caller must not start a build it cannot hold.
+                match assessment.decision {
+                    MemoryCapacityDecision::Proceed { .. } => Ok(()),
+                    _ => Err("runner memory capacity is not sufficient for a build".to_string()),
                 }
             }
             BuildPoolCommand::Metrics {
