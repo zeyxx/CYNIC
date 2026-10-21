@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use cynic_network::dns::{SERVICE_DNS_SERVICE_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME};
+use cynic_network::dns::{
+    SERVICE_DNS_DNSMASQ_SERVICE_UNIT, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
+    SERVICE_DNS_SERVICE_FILENAME,
+};
 use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,13 +77,26 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
         service_unit_dir: PathBuf::from("/etc/systemd/system"),
         dns_hosts_path: PathBuf::from(format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME)),
         dns_corefile_path: PathBuf::from("/etc/coredns/Corefile"),
-        dns_service_path: if PathBuf::from(format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
-            || PathBuf::from(format!("/lib/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
-        {
-            PathBuf::from(format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"))
-        } else {
-            PathBuf::from(format!("/etc/systemd/system/coredns-{SERVICE_DNS_SERVICE_FILENAME}"))
-        },
+        // The path the host actually carries decides. A dnsmasq host runs
+        // `cynic-dns-<stem>.service`; a CoreDNS host runs
+        // `coredns-<stem>.service`.
+        dns_service_path: [
+            SERVICE_DNS_DNSMASQ_SERVICE_UNIT,
+            SERVICE_DNS_SERVICE_FILENAME,
+        ]
+        .iter()
+        .find_map(|unit| {
+            let in_system = PathBuf::from(format!("/etc/systemd/system/{unit}"));
+            let in_lib = PathBuf::from(format!("/lib/systemd/system/{unit}"));
+            if in_system.exists() || in_lib.exists() {
+                Some(in_system)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| {
+            PathBuf::from(format!("/etc/systemd/system/{}", SERVICE_DNS_SERVICE_FILENAME))
+        }),
         resolved_dropin_path: PathBuf::from(format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}")),
         // Install bundles are durable, inspectable activation artifacts. `/tmp`
         // is suitable only when an explicit lab layout injects it.

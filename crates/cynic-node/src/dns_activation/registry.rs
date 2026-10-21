@@ -14,7 +14,10 @@ use crate::dns_contract::{
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
 
 use super::types::{DnsActivationFileSpec, DnsActivationSpec};
-use cynic_network::dns::{SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
+use cynic_network::dns::{
+    DEFAULT_DNS_ZONE, SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
+    dnsmasq_service_unit_for_zone,
+};
 
 pub(crate) fn resolve_dns_activation_spec(
     registry: &str,
@@ -56,11 +59,18 @@ pub(crate) fn resolve_dns_activation_spec(
     let provider_package = provider.selected_package.unwrap_or_default().to_string();
     let layout = current_runtime_layout();
     let capabilities = layout.capabilities();
+    // The unit name follows the zone the registry declares, not a second
+    // hardcoded spelling of it.
+    let zone = LocalRegistryAdapter::new(registry)
+        .fetch_network_policy_summary()
+        .ok()
+        .and_then(|summary| summary.service_dns_zone)
+        .unwrap_or_else(|| DEFAULT_DNS_ZONE.to_string());
     let (service_unit, config_name, service_name) = if provider_name == "dnsmasq" {
         (
-            format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            dnsmasq_service_unit_for_zone(&zone),
             "dnsmasq.conf".to_string(),
-            format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            dnsmasq_service_unit_for_zone(&zone),
         )
     } else {
         (

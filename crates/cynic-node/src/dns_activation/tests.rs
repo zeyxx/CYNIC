@@ -18,7 +18,7 @@ fn spec() -> DnsActivationSpec {
         provider: "coredns".to_string(),
         provider_package: "coredns".to_string(),
         provider_provenance_proved: true,
-        service_unit: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+        service_unit: SERVICE_DNS_SERVICE_FILENAME.to_string(),
         resolver_unit: "systemd-resolved.service".to_string(),
         service_manager_kind: "systemd".to_string(),
         service_manager_bin: "/test/systemctl".to_string(),

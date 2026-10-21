@@ -10,10 +10,66 @@ pub const COMPAT_DNS_ZONE: &str = "synapse.cynic";
 pub const SERVICE_DNS_HOSTS_FILENAME: &str = "service.hosts";
 pub const COMPAT_DNS_HOSTS_FILENAME: &str = "synapse.hosts";
 pub const SERVICE_DNS_COREFILE_FILENAME: &str = "Corefile";
-pub const SERVICE_DNS_SERVICE_FILENAME: &str = "coredns-synapse.service";
-pub const SERVICE_DNS_RESOLVED_DROPIN_FILENAME: &str = "cynic-synapse-dns.conf";
 pub const SERVICE_DNS_MANIFEST_FILENAME: &str = "manifest.json";
 pub const SERVICE_DNS_README_FILENAME: &str = "README.activation.md";
+
+/// The provider-agnostic stem of the DNS service unit for the canonical
+/// service zone: `service`.
+///
+/// The unit name is assembled by the caller, which knows the provider:
+/// `coredns-{stem}.service` on CoreDNS, `cynic-dns-{stem}.service` on
+/// dnsmasq. The stem therefore carries neither a provider prefix nor a
+/// `.service` suffix of its own — baking either into it produced
+/// `coredns-coredns-synapse.service.service`, a name no host carries.
+///
+/// The stem is the first label of the zone, so the unit name follows the
+/// registry rather than a second hardcoded spelling of it.
+pub const SERVICE_DNS_SERVICE_STEM: &str = "service";
+
+/// The CoreDNS-provider service unit filename for the canonical zone:
+/// `coredns-service.service`.
+pub const SERVICE_DNS_SERVICE_FILENAME: &str = "coredns-service.service";
+
+/// The dnsmasq-provider service unit name for the canonical zone:
+/// `cynic-dns-service.service`.
+pub const SERVICE_DNS_DNSMASQ_SERVICE_UNIT: &str = "cynic-dns-service.service";
+
+/// The systemd-resolved drop-in filename for the canonical service zone:
+/// `cynic-service-dns.conf`.
+pub const SERVICE_DNS_RESOLVED_DROPIN_FILENAME: &str = "cynic-service-dns.conf";
+
+/// The service unit stem, derived from the zone: `service.cynic` yields
+/// `service`.
+///
+/// A zone that is not a dotted name (`labmesh`) has no label to take, so
+/// the whole zone is used.
+pub fn service_stem_for_zone(zone: &str) -> String {
+    zone_label(zone).to_string()
+}
+
+/// The CoreDNS-provider unit filename, derived from the zone:
+/// `service.cynic` yields `coredns-service.service`.
+pub fn service_unit_filename_for_zone(zone: &str) -> String {
+    format!("coredns-{}.service", service_stem_for_zone(zone))
+}
+
+/// The dnsmasq-provider unit name, derived from the zone:
+/// `service.cynic` yields `cynic-dns-service.service`.
+pub fn dnsmasq_service_unit_for_zone(zone: &str) -> String {
+    format!("cynic-dns-{}.service", service_stem_for_zone(zone))
+}
+
+/// The systemd-resolved drop-in filename, derived from the zone:
+/// `service.cynic` yields `cynic-service-dns.conf`.
+pub fn resolved_dropin_filename_for_zone(zone: &str) -> String {
+    format!("cynic-{}-dns.conf", zone_label(zone))
+}
+
+/// The first label of a dotted zone name, or the whole name when it has no
+/// dot.
+fn zone_label(zone: &str) -> &str {
+    zone.split('.').next().unwrap_or(zone)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsHostRecord {

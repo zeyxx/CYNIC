@@ -223,7 +223,7 @@ impl HostFamilyProfile {
                 },
                 ServiceUnitPolicy {
                     service_id: "dns_service".to_string(),
-                    unit_name: format!("coredns-{}", SERVICE_DNS_SERVICE_FILENAME),
+                    unit_name: SERVICE_DNS_SERVICE_FILENAME.to_string(),
                     enable_on_boot: true,
                     restart_mode: "on-failure".to_string(),
                     source: "profile:alpine_openrc".to_string(),

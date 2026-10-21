@@ -40,6 +40,7 @@ pub(crate) use cynic_network::dns::{
     COMPAT_DNS_HOSTS_FILENAME, DEFAULT_DNS_ZONE, SERVICE_DNS_COREFILE_FILENAME,
     SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME, SERVICE_DNS_README_FILENAME,
     SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
+    dnsmasq_service_unit_for_zone, service_unit_filename_for_zone,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -517,7 +518,7 @@ fn dns_runtime_context_for_zone(
             SERVICE_DNS_SERVICE_FILENAME,
         ),
         DnsProviderKind::Dnsmasq => (
-            format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            dnsmasq_service_unit_for_zone(zone),
             observed
                 .observed_binaries
                 .get("dnsmasq")
@@ -532,9 +533,9 @@ fn dns_runtime_context_for_zone(
                 .join("dns/dnsmasq.conf")
                 .display()
                 .to_string(),
-            format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"),
+            format!("/etc/systemd/system/{}", dnsmasq_service_unit_for_zone(zone)),
             "dnsmasq.conf",
-            SERVICE_DNS_SERVICE_FILENAME,
+            dnsmasq_service_unit_for_zone(zone),
         ),
     };
     DnsRuntimeContext {
@@ -586,7 +587,7 @@ mod tests {
             service_manager_kind: "systemd".to_string(),
             service_manager_bin: "/usr/bin/systemctl".to_string(),
             service_enable_bin: "/usr/bin/systemctl".to_string(),
-            dns_service_unit: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            dns_service_unit: SERVICE_DNS_SERVICE_FILENAME.to_string(),
             resolved_unit: "systemd-resolved.service".to_string(),
             resolver_command: "/usr/bin/getent".to_string(),
             dns_binary_command: "/usr/bin/coredns".to_string(),
@@ -633,7 +634,7 @@ mod tests {
         let readme = dns_activation_readme_with_context(&context());
         assert!(unit.contains("/usr/bin/coredns -conf /etc/coredns/Corefile"));
         assert!(
-            readme.contains(format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME).as_str())
+            readme.contains(SERVICE_DNS_SERVICE_FILENAME)
         );
         assert!(readme.contains("storage.test.zone"));
     }

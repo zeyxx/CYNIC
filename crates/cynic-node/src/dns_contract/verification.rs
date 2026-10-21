@@ -19,7 +19,7 @@ fn context() -> DnsRuntimeContext {
         service_manager_kind: "systemd".to_string(),
         service_manager_bin: "/portable/bin/systemctl".to_string(),
         service_enable_bin: "/portable/bin/systemctl".to_string(),
-        dns_service_unit: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+        dns_service_unit: SERVICE_DNS_SERVICE_FILENAME.to_string(),
         resolved_unit: "systemd-resolved.service".to_string(),
         resolver_command: "/portable/bin/getent".to_string(),
         dns_binary_command: "/portable/bin/coredns".to_string(),
