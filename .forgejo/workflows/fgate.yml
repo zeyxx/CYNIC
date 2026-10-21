@@ -48,10 +48,15 @@ jobs:
           # directory. A missing or unreadable file means the decision was
           # not taken: the safe answer is ONE compilation at a time, never
           # the machine's core count.
-          if [ -r "$target_dir/gate-jobs" ]; then
-            jobs=$(cat "$target_dir/gate-jobs")
-          else
-            jobs=1
+          jobs=1
+          if [ -r "$target_dir/gate-jobs" ] && [ -r "$target_dir/gate-jobs-digest" ]; then
+            published_digest=$(cat "$target_dir/gate-jobs-digest")
+            head_digest="${GITHUB_SHA:-}"
+            if [ -n "$published_digest" ] && [ "$published_digest" = "$head_digest" ]; then
+              jobs=$(cat "$target_dir/gate-jobs")
+            else
+              echo "refusing the published parallelism: it was decided for another source"
+            fi
           fi
           case "$jobs" in
             ''|*[!0-9]*) jobs=1 ;;
@@ -92,7 +97,21 @@ jobs:
             "$CARGO_TARGET_DIR/release/cynic" build pool memory --json > "$target_dir/gate-jobs.json"
             jobs=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json'))['jobs'])")
             echo "$jobs" > "$target_dir/gate-jobs"
-            echo "published compilation parallelism: $jobs"
+            # The decision is tied to the source it was taken for. A shared
+            # build directory can serve a stale binary, and a stale decision
+            # applied to a fresh tree is a decision about the wrong code --
+            # a failure that is invisible because the mechanism works.
+            digest=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json')).get('source_digest') or '')")
+            # The binary stamps the digest of the tree it ran in. The CI
+            # checkout may be a merge ref, so the RUN's commit is the
+            # authority: a decision published for one commit must not be
+            # applied to another.
+            run_sha="${GITHUB_SHA:-}"
+            if [ -n "$run_sha" ]; then
+              digest="$run_sha"
+            fi
+            echo "$digest" > "$target_dir/gate-jobs-digest"
+            echo "published compilation parallelism: $jobs (source $digest)"
           else
             echo "no published decision yet: the first run compiles serially"
           fi
