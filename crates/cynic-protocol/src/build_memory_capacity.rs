@@ -91,6 +91,16 @@ pub struct MemoryCapacityAssessment {
     /// parallelism reads this field, which is present and `Some` exactly
     /// when the decision is `Proceed`, and `None` otherwise.
     pub jobs: Option<u32>,
+    /// The source the decision was taken FOR.
+    ///
+    /// A decision that cannot be tied to the code it decided about is a
+    /// decision about nothing. Measured: a shared build target directory
+    /// reused across gate runs let a stale binary answer for a changed
+    /// source, and the shards obeyed a decision about the wrong code
+    /// without any way to notice. The publisher records the digest of
+    /// the tree it observed; a consumer that has a different digest
+    /// refuses the decision instead of applying it.
+    pub source_digest: Option<String>,
 }
 
 /// Decide how many concurrent compilations the runner can hold.
@@ -162,6 +172,36 @@ pub fn decide_memory_capacity_with_cores(
         unit_rss_bytes,
         reserved_bytes,
         jobs,
+        source_digest: None,
+    }
+}
+
+/// Stamp the assessment with the digest of the source it was taken for.
+///
+/// The digest is what makes the decision verifiable by a consumer: a
+/// decision published for one tree and applied to another is a decision
+/// about the wrong code, and the failure is invisible because the
+/// mechanism works.
+pub fn stamp_source_digest(
+    mut assessment: MemoryCapacityAssessment,
+    source_digest: impl Into<String>,
+) -> MemoryCapacityAssessment {
+    assessment.source_digest = Some(source_digest.into());
+    assessment
+}
+
+/// Whether a stamped decision may be applied to a tree with this digest.
+///
+/// A decision with no digest was published by a publisher that does not
+/// know the rule; it is REFUSED rather than trusted, because the whole
+/// point of the digest is to make a stale answer detectable.
+pub fn decision_applies_to(
+    assessment: &MemoryCapacityAssessment,
+    source_digest: &str,
+) -> bool {
+    match assessment.source_digest.as_deref() {
+        Some(digest) => digest == source_digest,
+        None => false,
     }
 }
 
@@ -294,6 +334,36 @@ mod tests {
             None,
         );
         assert_eq!(by_memory.jobs, unknown_cores.jobs);
+    }
+
+    #[test]
+    fn a_decision_published_for_another_source_is_refused() {
+        let assessment = stamp_source_digest(
+            decide_memory_capacity(
+                Some(gib(4)),
+                DEFAULT_UNIT_RSS_BYTES,
+                DEFAULT_RESERVED_BYTES,
+            ),
+            "aaaa",
+        );
+        assert!(decision_applies_to(&assessment, "aaaa"));
+        assert!(
+            !decision_applies_to(&assessment, "bbbb"),
+            "a decision taken for another source must not be applied"
+        );
+    }
+
+    #[test]
+    fn an_unstamped_decision_is_refused() {
+        let assessment = decide_memory_capacity(
+            Some(gib(4)),
+            DEFAULT_UNIT_RSS_BYTES,
+            DEFAULT_RESERVED_BYTES,
+        );
+        assert!(
+            !decision_applies_to(&assessment, "aaaa"),
+            "a decision with no digest is a decision about nothing"
+        );
     }
 
     #[test]

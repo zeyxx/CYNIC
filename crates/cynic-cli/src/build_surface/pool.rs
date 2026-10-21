@@ -15,8 +15,8 @@ use cynic_host::domain::pool_eligibility::{
 };
 use cynic_host::domain::pool_metrics::measure_pool;
 use cynic_protocol::build_memory_capacity::{
-    decide_memory_capacity_with_cores, MemoryCapacityAssessment, MemoryCapacityDecision,
-    DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,
+    decide_memory_capacity_with_cores, stamp_source_digest, MemoryCapacityAssessment,
+    MemoryCapacityDecision, DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,
 };
 use cynic_lifecycle::LocalArgvRunner;
 use serde::Deserialize;
@@ -413,12 +413,41 @@ pub fn evaluate_runner_memory() -> MemoryCapacityAssessment {
         Ok(assessment) => Some(assessment.available_ram_bytes),
         Err(_) => None,
     };
-    decide_memory_capacity_with_cores(
+    let assessment = decide_memory_capacity_with_cores(
         available,
         DEFAULT_UNIT_RSS_BYTES,
         DEFAULT_RESERVED_BYTES,
         observed_core_count(),
-    )
+    );
+    // The decision is stamped with the source it was taken for: a shared
+    // build directory can serve a stale binary, and a stale decision
+    // applied to a fresh tree is a decision about the wrong code.
+    stamp_source_digest(assessment, observed_source_digest())
+}
+
+/// The digest of the source tree the decision was taken for.
+///
+/// Read from git when the tree is a checkout; an empty string when it is
+/// not, which the consumer treats as "no usable decision" rather than
+/// "a decision about anything".
+fn observed_source_digest() -> String {
+    // The CI run's commit is the authority: the checkout may sit on a
+    // merge ref whose HEAD is not the commit the run is about. A consumer
+    // compares the published digest with the run's own commit, so the
+    // publisher must stamp that same value.
+    if let Ok(sha) = std::env::var("GITHUB_SHA") {
+        let sha = sha.trim().to_string();
+        if !sha.is_empty() {
+            return sha;
+        }
+    }
+    std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .unwrap_or_default()
 }
 
 /// The number of usable cores, or `None` when it cannot be observed.

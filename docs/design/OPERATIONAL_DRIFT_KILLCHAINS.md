@@ -425,3 +425,46 @@ budget too. The shard count is a function of the machine, not a constant.
 **Fix.** Bound the concurrency of the gate to what the runner can hold,
 and treat exit 137 as a distinct, retryable outcome rather than a test
 failure. A job killed by the OOM killer must be re-run, not read.
+
+## Killchain 15 — a shared build target dir lets a stale binary answer for a fresh source
+
+**Condition.** The F-gate shards share one `CARGO_TARGET_DIR`
+(`{state-root}/build-targets/fgate`) and the runner reuses it across runs.
+`cargo build --release -p cynic-cli` then decides whether to rebuild from
+FILE TIMESTAMPS, not from content.
+
+**Evidence.** After the merge of PR #226 (`386f95e2`), the gate published
+a parallelism of 10 while the runner has 4 cores, and the core bound
+that was supposed to cap it at 4 was in the merged source. The binary in
+the shared target dir was dated 04:26 and the freshly checked-out
+source carried the bound:
+
+```
+grep -c 'observed_core_count' crates/cynic-cli/src/build_surface/pool.rs
+1                                  # the source HAS the bound
+strings $CARGO_TARGET_DIR/release/cynic | grep -c 'an_unobserved_core_count...'
+0                                  # the binary does NOT
+```
+
+**Why it matters beyond the number.** The gate now publishes a DECISION
+that the other shards obey. A decision produced by a stale binary is a
+decision about the wrong code, and the shards obey it without knowing:
+the failure is invisible, because the whole mechanism works — it just
+answers the wrong question.
+
+**The class.** A shared, reused build directory plus a timestamp-based
+rebuild decision is a cache that can serve a stale artifact for a
+changed source. The cache is correct; the invalidation is not. For a
+build cache that is merely an optimisation, the cost is a stale compile.
+For a cache that carries a DECISION, the cost is a wrong decision
+propagated to every consumer.
+
+**Fix.** The build that produces the binary a decision is read from must
+not trust the shared cache's timestamps. Options, in order of
+strength: publish the decision as a FRESH observation each run rather
+than reading a value that may predate the source; make the decision
+carry the source digest it was taken for, and refuse a decision whose
+digest does not match; or rebuild the binary from a clean target
+directory when the decision is published. The durable form is the
+digest: a decision that cannot be tied to the code it decided about is
+a decision about nothing.
