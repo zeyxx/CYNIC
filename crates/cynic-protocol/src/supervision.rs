@@ -71,6 +71,45 @@ pub fn service_supervisor_status(
     (status, active_count, degraded_count, unknown_count)
 }
 
+/// Closed set of supervision backends (contracts/supervisor.json/vocabulary.kinds).
+///
+/// L0 owns the kind vocabulary; each kind's execution stays in its adapter
+/// (node embedded child, inference local runtime, host service observation).
+/// New backends extend this enum AND the contract mapping together — never one alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum SupervisorKind {
+    SystemdSystem,
+    SystemdUser,
+    OpenRc,
+    Process,
+    Docker,
+    EmbeddedChild,
+}
+
+impl SupervisorKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SystemdSystem => "systemd-system",
+            Self::SystemdUser => "systemd-user",
+            Self::OpenRc => "openrc",
+            Self::Process => "process",
+            Self::Docker => "docker",
+            Self::EmbeddedChild => "embedded-child",
+        }
+    }
+
+    pub fn all() -> [Self; 6] {
+        [
+            Self::SystemdSystem,
+            Self::SystemdUser,
+            Self::OpenRc,
+            Self::Process,
+            Self::Docker,
+            Self::EmbeddedChild,
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +148,14 @@ mod tests {
         assert_eq!(active, 0);
         assert_eq!(degraded, 0);
         assert_eq!(unknown, 1);
+    }
+
+    #[test]
+    fn supervisor_kind_strings_are_distinct_contract_spellings() {
+        use std::collections::BTreeSet;
+        let strings: BTreeSet<_> = SupervisorKind::all().iter().map(|k| k.as_str()).collect();
+        assert_eq!(strings.len(), 6, "one distinct contract spelling per kind");
+        assert!(strings.contains("systemd-system"));
+        assert!(strings.contains("embedded-child"));
     }
 }

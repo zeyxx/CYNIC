@@ -1,0 +1,169 @@
+{
+  "schema": "cynic.supervisor.v1",
+  "status": "normative",
+  "purpose": "Sovereign process supervision: how a CYNIC principal keeps a supervised subject alive, stops it cleanly, and proves both. Continuous convergence at runtime — distinct from deploy-time activation (contracts/runtime-update.json), which is a bounded operator act.",
+  "authority": ["contracts/foundation.json", "contracts/observability-loop.json", "contracts/runtime-update.json"],
+  "outer_owner": {
+    "statement": "The host service manager (systemd, OpenRC) remains the outer lifecycle owner of CYNIC daemons and is never supervised by CYNIC itself. No supervisor-of-supervisors regress.",
+    "units": "infra/os/systemd/*.service"
+  },
+  "vocabulary": {
+    "role": "A named supervised responsibility (e.g. inference-backend, node-control). The unit of supervision; never a bare pid.",
+    "subject": "The process (or service unit) currently incarnating the role. Subjects are replaceable; roles persist.",
+    "supervisor_kind": "The backend executing spawn/stop/probe for the role. Closed set, measured from code:",
+    "kinds": [
+      "systemd-system",
+      "systemd-user",
+      "openrc",
+      "process",
+      "docker",
+      "embedded-child"
+    ],
+    "kind_observations": [
+      {
+        "kind": "systemd-system",
+        "witnesses": [
+          {
+            "file": "crates/cynic-host/src/service_supervisor_observation.rs",
+            "contains": ["\"systemd\"", "\"system\""]
+          }
+        ]
+      },
+      {
+        "kind": "systemd-user",
+        "witnesses": [
+          {
+            "file": "crates/cynic-host/src/service_supervisor_observation.rs",
+            "contains": ["\"systemd\"", "\"user\""]
+          },
+          {
+            "file": "crates/cynic-inference/src/adapters/local/process_supervisor.rs",
+            "contains": ["\"systemd-user\""]
+          }
+        ]
+      },
+      {
+        "kind": "openrc",
+        "witnesses": [
+          {
+            "file": "crates/cynic-host/src/service_supervisor_observation.rs",
+            "contains": ["\"openrc\""]
+          }
+        ]
+      },
+      {
+        "kind": "process",
+        "witnesses": [
+          {
+            "file": "crates/cynic-host/src/service_supervisor_observation.rs",
+            "contains": ["\"process_port\""]
+          },
+          {
+            "file": "crates/cynic-inference/src/adapters/local/process_supervisor.rs",
+            "contains": ["\"process\""]
+          },
+          {
+            "file": "crates/cynic-node/src/supervise.rs",
+            "contains": ["spawn_backend"]
+          }
+        ]
+      },
+      {
+        "kind": "docker",
+        "witnesses": [
+          {
+            "file": "crates/cynic-inference/src/adapters/local/process_supervisor.rs",
+            "contains": ["\"docker\""]
+          }
+        ]
+      },
+      {
+        "kind": "embedded-child",
+        "witnesses": [
+          {
+            "file": "crates/cynic-node/src/supervise.rs",
+            "contains": ["spawn_backend", "KillOnDrop"]
+          }
+        ]
+      }
+    ],
+    "exit_reason": {
+      "statement": "Pure domain verdict on why a subject ended.",
+      "canonical_home": "crates/cynic-node/src/domain/supervision.rs",
+      "type": "pub enum ExitReason",
+      "note": "Recorded decision (crates/cynic-node/tests/architecture_boundary.rs): the supervision outcome type lives in the node domain layer, not in L0. The protocol owns the kind vocabulary; the node owns the outcome.",
+      "variants": ["Shutdown", "Crashed", "Expired", "Mismatch", "ConfigChanged", "Fatal"]
+    },
+    "read_back": "A supervision claim is true only when an observation of the subject reports it. Exit code 0 of the supervising command is not proof."
+  },
+  "stop_ladder": {
+    "order": ["SIGTERM to the process group", "bounded grace period", "SIGKILL to the process group", "wait/reap"],
+    "rules": [
+      "Signal the process group, never the bare pid (Unix: group leader; Windows: JobObject).",
+      "KillOnDrop (or equivalent) is mandatory so no supervisor exit orphans a subject.",
+      "Every wait carries a hard timeout; every spawn carries a hard startup timeout.",
+      "Stdio of a supervised child is inherited, never piped without a draining reader (pipe-buffer deadlock)."
+    ],
+    "code_sources": [
+      "crates/cynic-node/src/supervise.rs/graceful_stop, spawn_backend (process-wrap, group leader, KillOnDrop)"
+    ]
+  },
+  "backoff": {
+    "policy": "Exponential backoff with min-uptime stability reset: a subject that lived longer than min_uptime resets the attempt counter; attempts past max_attempts stop the role as Fatal, never loop forever.",
+    "parameters": ["max_attempts", "initial_delay_secs", "max_delay_secs", "min_uptime_secs"],
+    "config_source": "crates/cynic-node/src/config/types.rs/RestartConfig, consumed by crates/cynic-node/src/supervise.rs/Backoff::from_config",
+    "rule": "Backoff sleep is cancellable by the shutdown signal; shutdown never waits out a delay."
+  },
+  "observation": {
+    "loop": "Every supervised role runs the contracts/observability-loop.json five stages: observation (probe the subject) -> evaluation (against desired state) -> action (bounded admit) -> proof (read-back) -> learning (thresholds).",
+    "evidence": "Observations are schema'd evidence (cynic-host ServiceSupervisorObservation pattern: subject, supervisor_kind, active/degraded/unknown counts). Unknown is an explicit state, never an absence of data.",
+    "surface": "Operator read-back exposes per-role supervision state (actively_supervised is true only when the selected supervisor's observation reports state=active). Precedent: crates/cynic-cli/src/operator_status.rs."
+  },
+  "restart_vs_supervise": {
+    "statement": "Deploy-time restart (runtime-update.json: restart declared units, probe health, roll back on failure) and runtime supervision (this contract: continuous keep-alive with backoff) share vocabulary but never share code paths.",
+    "deploy_restart": "Operator act, bounded, health-proven, rolled back. Executor: deployment pipeline.",
+    "runtime_supervision": "Continuous convergence, backoff-bounded, Fatal-terminating. Executor: the owning daemon or the host service manager.",
+    "prohibition": "No deploy pipeline step may delegate to a runtime backoff loop, and no supervision loop may switch releases."
+  },
+  "prohibitions": [
+    "No double-fork/daemonize: supervised subjects run in foreground under the supervisor (Type=simple semantics).",
+    "No sh -c / bash -c spawn: typed argv vectors only.",
+    "No supervisor without read-back: a role whose subject cannot be probed is reported unknown, never assumed active.",
+    "No unbounded restart: every loop ends in Fatal past max_attempts.",
+    "No pidfiles as liveness truth: a pidfile is inventory, liveness comes from observation.",
+    "No supervision of the outer owner: the host service manager is observed, never managed."
+  ],
+  "convergence_map": {
+    "note": "Fragments measured 2026-10-21 that this contract converges. Each row names the fragment and the clause that now owns its behavior.",
+    "rows": [
+      {
+        "fragment": "crates/cynic-protocol/src/supervision.rs (SupervisorKind, ServiceSupervisorObservation, service_supervisor_status)",
+        "clause": "vocabulary.kinds + observation.evidence; L0 owns the closed kind set and the pure status predicate, execution stays in adapters"
+      },
+      {
+        "fragment": "crates/cynic-node/src/supervise.rs (Backoff, spawn_backend, graceful_stop, spawn_with_retries)",
+        "clause": "stop_ladder + backoff; to be generalized from pub(crate) to the shared execution path without renaming behavior"
+      },
+      {
+        "fragment": "crates/cynic-node/src/runtime_supervision.rs + lifecycle.rs + domain/supervision.rs",
+        "clause": "vocabulary.exit_reason + runtime_supervision; the node-local incarnation of the loop"
+      },
+      {
+        "fragment": "crates/cynic-inference/src/adapters/local/process_supervisor.rs (InferenceSupervisorKind, ProcessLocalRuntime)",
+        "clause": "vocabulary.kinds + observation; the inference-local incarnation, converging onto the closed kind set"
+      },
+      {
+        "fragment": "crates/cynic-host/src/service_supervisor_observation.rs + process_convergence/ + agent_runtime/",
+        "clause": "observation.evidence + outer_owner; host-side observation of both managed subjects and external processes"
+      },
+      {
+        "fragment": "infra/os/systemd/*.service",
+        "clause": "outer_owner; the boundary this contract never crosses"
+      }
+    ]
+  },
+  "deferred": {
+    "cynic_supervise_surface": "A `cynic supervise` operator surface (converge/inspect a declared role) is the intended projection of this contract but is NOT specified here. Adding it is a separate slice: contract clause first, then pure types, then surface. No CLI verb may precede its clause.",
+    "shared_execution_crate": "Whether the generalized spawn/stop/backoff path lives in cynic-host, a dedicated crate, or stays duplicated per consumer is undecided and awaits the crate_justified measurement (consumers >= 2, distinct change schedule). No new crate is created by this contract."
+  }
+}
