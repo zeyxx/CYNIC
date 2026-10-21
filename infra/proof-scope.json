@@ -28,7 +28,8 @@
   },
   "cache_effectiveness_rule": {
     "statement": "Wrapper presence is not wrapper effectiveness.",
-    "proof": "after the release build, sccache --show-stats must report hits plus misses greater than zero; zero means the gate compiled cold and the step fails",
+    "proof": "when the wrapper is configured, sccache --show-stats must report hits plus misses greater than zero after the release build; zero means the gate compiled cold behind a configured wrapper and the step fails",
+    "absence": "an absent wrapper is not a failure: the host compiles cold, slow but correct. Whether a pool member must carry sccache is declared in infra/registry.json pool.required_tools and enforced by the eligibility verb, never by a shell step",
     "version_pin": "wrapper and fleet server stay on one version; skew fails the handshake silently"
   }
 }

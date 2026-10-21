@@ -122,11 +122,18 @@ jobs:
           set -eu
           # Wrapper presence is not wrapper effectiveness. A pinned wrapper
           # whose version skews from the server handshake-fails silently while
-          # builds still converge cold. This step fails when the cache served
-          # nothing: hits plus misses must exceed zero after the build above.
+          # builds still converge cold. When the wrapper is configured, this
+          # step fails if the cache served nothing: hits plus misses must
+          # exceed zero after the build above.
+          #
+          # An absent wrapper is NOT a failure: the host compiles cold, slow
+          # but correct. Required tools are declared in the registry
+          # (pool.required_tools) and enforced by the eligibility verb, never
+          # by this shell step — a shell re-derivation would be a second,
+          # drifting authority for a rule the registry owns.
           if ! command -v sccache >/dev/null 2>&1; then
-            echo "no compilation cache on this runner: the gate compiles cold"
-            exit 1
+            echo "no compilation cache on this runner: the gate compiles cold (registry decides if that is allowed)"
+            exit 0
           fi
           stats=$(sccache --show-stats 2>&1 || true)
           echo "$stats"
