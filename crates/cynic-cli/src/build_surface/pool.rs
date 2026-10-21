@@ -14,6 +14,10 @@ use cynic_host::domain::pool_eligibility::{
     ToolRequirement,
 };
 use cynic_host::domain::pool_metrics::measure_pool;
+use cynic_protocol::build_memory_capacity::{
+    decide_memory_capacity, MemoryCapacityAssessment, MemoryCapacityDecision,
+    DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,
+};
 use cynic_lifecycle::LocalArgvRunner;
 use serde::Deserialize;
 use std::fs;
@@ -33,6 +37,22 @@ pub(crate) enum BuildPoolCommand {
         /// Labels the runner advertises, as observed.
         #[arg(long, value_delimiter = ',', default_value = "")]
         observed_labels: Vec<String>,
+        /// Registry path (infra/registry.json).
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Decide how many concurrent compilations this runner can hold.
+    ///
+    /// The F-gate is sharded into several jobs that share one build target
+    /// directory, and the shard count is a function of the machine, not a
+    /// constant: when two shards compile the same dependency tree at the
+    /// same time, the kernel OOM-kills one of them and the CI reports the
+    /// kill as a test failure. This verb reads the runner's memory and
+    /// answers with the parallelism that memory can hold.
+    Memory {
         /// Registry path (infra/registry.json).
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
@@ -379,6 +399,55 @@ pub fn measure_pool_from_forgejo(
 }
 
 /// Render the verdict for the operator.
+/// Decide how many concurrent compilations this runner can hold.
+///
+/// The observation is the local capacity adapter; the decision is the
+/// pure predicate in `cynic-protocol`. An unobserved memory budget is
+/// REFUSED, never a silent default: a build that starts against an
+/// unknown budget dies with SIGKILL, and the CI reports that kill as a
+/// test failure.
+pub fn evaluate_runner_memory() -> MemoryCapacityAssessment {
+    use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
+    use cynic_protocol::capacity::LoadPolicy;
+
+    let adapter = LocalCapacityAdapter::new();
+    let available = match adapter.assess_capacity(&LoadPolicy::with_legacy_defaults("node-default"))
+    {
+        Ok(assessment) => Some(assessment.available_ram_bytes),
+        Err(_) => None,
+    };
+    decide_memory_capacity(
+        available,
+        DEFAULT_UNIT_RSS_BYTES,
+        DEFAULT_RESERVED_BYTES,
+    )
+}
+
+pub fn render_memory(assessment: &MemoryCapacityAssessment) {
+    match &assessment.decision {
+        MemoryCapacityDecision::Proceed {
+            jobs,
+            available_bytes,
+        } => {
+            println!("memory capacity: {jobs} concurrent compilation(s)");
+            println!("  available: {} bytes", available_bytes);
+            println!("  per unit:  {} bytes", assessment.unit_rss_bytes);
+            println!("  reserved:  {} bytes", assessment.reserved_bytes);
+        }
+        MemoryCapacityDecision::Refused {
+            available_bytes,
+            required_bytes,
+        } => {
+            println!("memory capacity: REFUSED");
+            println!("  available: {} bytes", available_bytes);
+            println!("  required:  {} bytes", required_bytes);
+        }
+        MemoryCapacityDecision::Unknown { reason } => {
+            println!("memory capacity: UNKNOWN ({reason})");
+        }
+    }
+}
+
 pub fn render_eligibility(report: &PoolEligibility) {
     println!("Pool eligibility: {}", report.node_id);
     println!(

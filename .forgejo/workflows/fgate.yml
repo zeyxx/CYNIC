@@ -43,8 +43,50 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Compilation parallelism, decided by the CYNIC binary from the
+          # observed memory and published by Gate 0 in the shared target
+          # directory. A missing or unreadable file means the decision was
+          # not taken: the safe answer is ONE compilation at a time, never
+          # the machine's core count.
+          if [ -r "$target_dir/gate-jobs" ]; then
+            jobs=$(cat "$target_dir/gate-jobs")
+          else
+            jobs=1
+          fi
+          case "$jobs" in
+            ''|*[!0-9]*) jobs=1 ;;
+          esac
+          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+          echo "compilation parallelism: $jobs"
           rustc --version
           cargo --version
+
+
+      - name: Publish the compilation parallelism this runner can hold
+        run: |
+          set -eu
+          # The gate is sharded into several jobs that share ONE build target
+          # directory, and the shard count is a function of the machine, not a
+          # constant. When two shards compile the same dependency tree at the
+          # same time, the kernel OOM-kills one of them and the CI reports the
+          # kill as a test failure: measured on builder-119 (8 GiB, 4 cores),
+          # a single rustc peaks at ~396 MiB, two concurrent compilations of
+          # cynic-cli crossed the physical RAM, and the failing job MOVED
+          # between two runs on a byte-identical tree.
+          #
+          # The CYNIC binary decides, from the observed memory, how many
+          # concurrent compilations fit. The decision is published in the
+          # shared target directory, which is where the shared build cache
+          # already lives, so the other shards read it.
+          if [ -x "$CARGO_TARGET_DIR/release/cynic" ]; then
+            "$CARGO_TARGET_DIR/release/cynic" build pool memory --json > "$target_dir/gate-jobs.json"
+            jobs=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json'))['decision']['jobs'])")
+            echo "$jobs" > "$target_dir/gate-jobs"
+            echo "published compilation parallelism: $jobs"
+          else
+            echo "no published decision yet: the first run compiles serially"
+          fi
 
       - name: Build the sovereign CLI
         run: cargo build --release -p cynic-cli
@@ -108,6 +150,22 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Compilation parallelism, decided by the CYNIC binary from the
+          # observed memory and published by Gate 0 in the shared target
+          # directory. A missing or unreadable file means the decision was
+          # not taken: the safe answer is ONE compilation at a time, never
+          # the machine's core count.
+          if [ -r "$target_dir/gate-jobs" ]; then
+            jobs=$(cat "$target_dir/gate-jobs")
+          else
+            jobs=1
+          fi
+          case "$jobs" in
+            ''|*[!0-9]*) jobs=1 ;;
+          esac
+          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+          echo "compilation parallelism: $jobs"
 
       - name: Check Workspace Compilation
         run: cargo check --workspace
@@ -138,6 +196,22 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Compilation parallelism, decided by the CYNIC binary from the
+          # observed memory and published by Gate 0 in the shared target
+          # directory. A missing or unreadable file means the decision was
+          # not taken: the safe answer is ONE compilation at a time, never
+          # the machine's core count.
+          if [ -r "$target_dir/gate-jobs" ]; then
+            jobs=$(cat "$target_dir/gate-jobs")
+          else
+            jobs=1
+          fi
+          case "$jobs" in
+            ''|*[!0-9]*) jobs=1 ;;
+          esac
+          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+          echo "compilation parallelism: $jobs"
 
       - name: Run Core Types Test Suite
         run: cargo test -p cynic-types
@@ -168,6 +242,22 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Compilation parallelism, decided by the CYNIC binary from the
+          # observed memory and published by Gate 0 in the shared target
+          # directory. A missing or unreadable file means the decision was
+          # not taken: the safe answer is ONE compilation at a time, never
+          # the machine's core count.
+          if [ -r "$target_dir/gate-jobs" ]; then
+            jobs=$(cat "$target_dir/gate-jobs")
+          else
+            jobs=1
+          fi
+          case "$jobs" in
+            ''|*[!0-9]*) jobs=1 ;;
+          esac
+          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+          echo "compilation parallelism: $jobs"
 
       - name: Run Knowledge Test Suite
         run: cargo test -p cynic-knowledge
@@ -198,6 +288,22 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Compilation parallelism, decided by the CYNIC binary from the
+          # observed memory and published by Gate 0 in the shared target
+          # directory. A missing or unreadable file means the decision was
+          # not taken: the safe answer is ONE compilation at a time, never
+          # the machine's core count.
+          if [ -r "$target_dir/gate-jobs" ]; then
+            jobs=$(cat "$target_dir/gate-jobs")
+          else
+            jobs=1
+          fi
+          case "$jobs" in
+            ''|*[!0-9]*) jobs=1 ;;
+          esac
+          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+          echo "compilation parallelism: $jobs"
 
       - name: Run Inference Test Suite
         run: cargo test -p cynic-inference
@@ -228,6 +334,22 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Compilation parallelism, decided by the CYNIC binary from the
+          # observed memory and published by Gate 0 in the shared target
+          # directory. A missing or unreadable file means the decision was
+          # not taken: the safe answer is ONE compilation at a time, never
+          # the machine's core count.
+          if [ -r "$target_dir/gate-jobs" ]; then
+            jobs=$(cat "$target_dir/gate-jobs")
+          else
+            jobs=1
+          fi
+          case "$jobs" in
+            ''|*[!0-9]*) jobs=1 ;;
+          esac
+          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+          echo "compilation parallelism: $jobs"
 
       - name: Run Canonical Paths Coherence Test
         run: cargo test -p cynic-cli --test canonical_paths_coherence
