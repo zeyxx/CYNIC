@@ -86,6 +86,13 @@ impl ArgvRunner {
     /// ```
     /// use cynic_host::adapters::argv_runner::ArgvRunner;
     ///
+    /// // Fail-closed: without an installed policy nothing is admitted,
+    /// // so nothing runs. The refusal names the missing authority.
+    /// let refused = ArgvRunner::run(&["echo", "hello"]);
+    /// assert!(refused.is_err());
+    ///
+    /// // With a policy that admits `echo`, the same argv runs.
+    /// cynic_protocol::argv_test_support::install_permissive_policy_for(&["echo"]);
     /// let output = ArgvRunner::run(&["echo", "hello"]).unwrap();
     /// assert!(output.success());
     /// assert_eq!(output.stdout.trim(), "hello");
@@ -216,6 +223,7 @@ mod tests {
 
     #[test]
     fn run_with_args_succeeds() {
+        install_test_policy();
         let output = ArgvRunner::run(&["echo", "hello", "world"]).unwrap();
         assert!(output.success());
         assert_eq!(output.stdout.trim(), "hello world");
@@ -223,6 +231,7 @@ mod tests {
 
     #[test]
     fn run_nonzero_exit_is_not_spawn_error() {
+        install_test_policy();
         let output = ArgvRunner::run(&["false"]).unwrap();
         assert!(!output.success());
         assert_eq!(output.exit_code, Some(1));
@@ -231,6 +240,7 @@ mod tests {
 
     #[test]
     fn run_missing_binary_is_spawn_error() {
+        install_test_policy();
         let result = ArgvRunner::run(&["this-binary-does-not-exist-12345"]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("spawn failed"));
@@ -238,6 +248,7 @@ mod tests {
 
     #[test]
     fn run_empty_argv_is_error() {
+        install_test_policy();
         let result = ArgvRunner::run(&[]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("empty argv"));
@@ -245,6 +256,7 @@ mod tests {
 
     #[test]
     fn run_with_limits_succeeds() {
+        install_test_policy();
         let limits = ResourceLimit::new()
             .with_max_memory_bytes(1024 * 1024 * 1024) // 1 GiB
             .with_max_cpu_cores(4.0);
@@ -255,6 +267,7 @@ mod tests {
 
     #[test]
     fn run_with_timeout_succeeds() {
+        install_test_policy();
         let output = ArgvRunner::run_with_limits(&["echo", "hello"], None, Some(5)).unwrap();
         assert!(output.success());
     }
