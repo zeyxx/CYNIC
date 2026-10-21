@@ -56,6 +56,8 @@ jobs:
               jobs=$(cat "$target_dir/gate-jobs")
             else
               echo "refusing the published parallelism: it was decided for another source"
+              echo "  published: $published_digest"
+              echo "  this run:  $head_digest"
             fi
           fi
           case "$jobs" in
@@ -69,7 +71,17 @@ jobs:
 
 
       - name: Build the sovereign CLI
-        run: cargo build --release -p cynic-cli
+        run: |
+          # The runner restores the checkout from its cache, and a restored
+          # file keeps an OLD mtime. Cargo decides whether to rebuild from
+          # FILE TIMESTAMPS, so a restored source that looks older than the
+          # build fingerprint is NOT rebuilt: the shared target directory
+          # then serves a binary that predates the source. Measured: the
+          # gate published a parallelism the merged source did not
+          # contain. Touching the sources makes the fingerprint truthful
+          # again, and the rebuild is correct rather than skipped.
+          find crates -name '*.rs' -exec touch {} +
+          cargo build --release -p cynic-cli
 
       - name: Publish the compilation parallelism this runner can hold
         run: |
@@ -101,17 +113,19 @@ jobs:
             # build directory can serve a stale binary, and a stale decision
             # applied to a fresh tree is a decision about the wrong code --
             # a failure that is invisible because the mechanism works.
+            # The digest is the one the BINARY stamped: the tree it was
+            # actually built from and ran in. A binary that predates the
+            # rule stamps nothing, and a decision with no digest is a
+            # decision about nothing — so it is NOT published, and the
+            # shards fall back to a single compilation.
             digest=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json')).get('source_digest') or '')")
-            # The binary stamps the digest of the tree it ran in. The CI
-            # checkout may be a merge ref, so the RUN's commit is the
-            # authority: a decision published for one commit must not be
-            # applied to another.
-            run_sha="${GITHUB_SHA:-}"
-            if [ -n "$run_sha" ]; then
-              digest="$run_sha"
+            if [ -n "$digest" ]; then
+              echo "$digest" > "$target_dir/gate-jobs-digest"
+              echo "published compilation parallelism: $jobs (source $digest)"
+            else
+              rm -f "$target_dir/gate-jobs" "$target_dir/gate-jobs-digest"
+              echo "the binary stamped no source digest: no parallelism is published"
             fi
-            echo "$digest" > "$target_dir/gate-jobs-digest"
-            echo "published compilation parallelism: $jobs (source $digest)"
           else
             echo "no published decision yet: the first run compiles serially"
           fi

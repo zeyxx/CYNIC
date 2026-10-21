@@ -431,6 +431,16 @@ pub fn evaluate_runner_memory() -> MemoryCapacityAssessment {
 /// not, which the consumer treats as "no usable decision" rather than
 /// "a decision about anything".
 fn observed_source_digest() -> String {
+    // The CI run's commit is the authority: the checkout may sit on a
+    // merge ref whose HEAD is not the commit the run is about. A consumer
+    // compares the published digest with the run's own commit, so the
+    // publisher must stamp that same value.
+    if let Ok(sha) = std::env::var("GITHUB_SHA") {
+        let sha = sha.trim().to_string();
+        if !sha.is_empty() {
+            return sha;
+        }
+    }
     std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
