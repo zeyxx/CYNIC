@@ -12,10 +12,11 @@ use cynic_protocol::{
 };
 
 use super::{
-    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, SETTLED_PARCEL_RECEIPT_SCHEMA,
+    AGENT_WORKLOAD_DELIVERY_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, SETTLED_PARCEL_RECEIPT_SCHEMA,
     acknowledge_agent_workload_cancellation, admit_agent_workload, admit_agent_workload_dispatch,
     admit_workload_action, admit_workload_mandate_binding, claim_agent_workload,
-    complete_agent_workload, consume_agent_workload_action,
+    complete_agent_workload, consume_agent_workload_action, delivery_addressed_to_node,
     finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
     request_agent_workload_cancellation, settle_parcel, settle_parcel_with_receipt,
 };
@@ -561,4 +562,68 @@ fn parcel_settlement_rejects_exceeded_budgets() {
         },
     };
     assert!(settle_parcel(&claimed, &guard(1), &time_overflow, 15).is_err());
+}
+
+fn addressed_delivery(
+    target_node_id: &str,
+    delegation_node_id: &str,
+    role: Option<&str>,
+) -> AgentWorkloadDelivery {
+    let mut envelope = test_envelope();
+    envelope.delegation.node_id = delegation_node_id.to_string();
+    envelope.delegation.role = role.map(str::to_string);
+    AgentWorkloadDelivery {
+        schema: AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
+        envelope,
+        target_node_id: target_node_id.to_string(),
+        submitted_by: "kernel".to_string(),
+        submitted_at_ms: 1_000,
+        status: AgentWorkloadDeliveryStatus::Pending,
+        accepted_at_ms: None,
+        accepted_by: None,
+        delivery_lease: None,
+        completion_evidence: Vec::new(),
+        evidence_refs: Vec::new(),
+    }
+}
+
+#[test]
+fn delivery_visible_to_named_node() {
+    let delivery = addressed_delivery("cynic-builder", "cynic-builder", None);
+    assert!(delivery_addressed_to_node(
+        &delivery,
+        "cynic-builder",
+        "build_runner"
+    ));
+    assert!(!delivery_addressed_to_node(
+        &delivery,
+        "other-node",
+        "build_runner"
+    ));
+}
+
+#[test]
+fn pool_delivery_visible_only_to_role_holder() {
+    let delivery = addressed_delivery("", "", Some("build_runner"));
+    assert!(delivery_addressed_to_node(
+        &delivery,
+        "any-node",
+        "build_runner"
+    ));
+    assert!(!delivery_addressed_to_node(
+        &delivery,
+        "any-node",
+        "embedding_runner"
+    ));
+    assert!(!delivery_addressed_to_node(&delivery, "any-node", ""));
+}
+
+#[test]
+fn mismatched_pool_delivery_is_not_visible() {
+    let delivery = addressed_delivery("cynic-builder", "", Some("build_runner"));
+    assert!(!delivery_addressed_to_node(
+        &delivery,
+        "any-node",
+        "build_runner"
+    ));
 }

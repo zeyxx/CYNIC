@@ -144,6 +144,7 @@ pub async fn start_tasks(
     let control_config = control.clone();
     let delivery_adapter = control_adapter.clone();
     let delivery_node_id = control_config.node_id.clone();
+    let delivery_node_role = control_config.enrollment_role.clone();
     let delivery_interval = Duration::from_secs(control_config.interval_secs);
     let delivery_store = LocalAgentWorkloadStore::new(
         control_config
@@ -237,6 +238,7 @@ pub async fn start_tasks(
         tasks.push(tokio::spawn(async move {
             usecases::agent_workload_delivery_uc::run_delivery_loop(
                 &delivery_node_id,
+                &delivery_node_role,
                 &delivery_consumer_instance_id,
                 delivery_lease_ttl_ms,
                 delivery_interval,

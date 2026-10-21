@@ -3,8 +3,11 @@ use cynic_workload::{
 };
 
 pub trait AgentWorkloadDeliveryPort: Send + Sync {
-    async fn pending_deliveries(&self, node_id: &str)
-    -> Result<Vec<AgentWorkloadDelivery>, String>;
+    async fn pending_deliveries(
+        &self,
+        node_id: &str,
+        node_role: &str,
+    ) -> Result<Vec<AgentWorkloadDelivery>, String>;
 
     async fn accept_delivery(
         &self,

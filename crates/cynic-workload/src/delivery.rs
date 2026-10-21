@@ -86,6 +86,24 @@ pub struct AgentWorkloadDelivery {
     pub evidence_refs: Vec<String>,
 }
 
+/// Delivery visibility: a delivery is addressed to this node when its target
+/// names the node, or when it is pool-addressed (empty target and node
+/// delegation) to a role this node holds. Mirrors the scheduler queue rule.
+pub fn delivery_addressed_to_node(
+    delivery: &AgentWorkloadDelivery,
+    node_id: &str,
+    node_role: &str,
+) -> bool {
+    if delivery.target_node_id == node_id {
+        return true;
+    }
+    let delegation = &delivery.envelope.delegation;
+    delivery.target_node_id.is_empty()
+        && delegation.node_id.is_empty()
+        && !node_role.is_empty()
+        && delegation.role.as_deref() == Some(node_role)
+}
+
 pub fn validate_agent_workload_delivery(delivery: &AgentWorkloadDelivery) -> Vec<String> {
     let mut violations = Vec::new();
     if delivery.schema != AGENT_WORKLOAD_DELIVERY_SCHEMA {

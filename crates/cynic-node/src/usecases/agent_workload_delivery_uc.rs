@@ -19,6 +19,7 @@ use crate::ports::{
 
 pub async fn reconcile_deliveries<D>(
     node_id: &str,
+    node_role: &str,
     consumer_instance_id: &str,
     lease_ttl_ms: u64,
     delivery_port: &D,
@@ -88,7 +89,7 @@ where
         }
         Err(error) => blockers.push(format!("durable_workload_scan_failed:{}", error.code)),
     }
-    let deliveries = match delivery_port.pending_deliveries(node_id).await {
+    let deliveries = match delivery_port.pending_deliveries(node_id, node_role).await {
         Ok(deliveries) => deliveries,
         Err(error) => {
             return serde_json::json!({
@@ -170,6 +171,7 @@ where
 
 pub async fn run_delivery_loop<D>(
     node_id: &str,
+    node_role: &str,
     consumer_instance_id: &str,
     lease_ttl_ms: u64,
     interval: Duration,
@@ -189,6 +191,7 @@ pub async fn run_delivery_loop<D>(
             _ = ticker.tick() => {
                 let report = reconcile_deliveries(
                     node_id,
+                    node_role,
                     consumer_instance_id,
                     lease_ttl_ms,
                     delivery_port,
@@ -295,6 +298,7 @@ mod tests {
         async fn pending_deliveries(
             &self,
             _node_id: &str,
+            _node_role: &str,
         ) -> Result<Vec<AgentWorkloadDelivery>, String> {
             Ok(self.pending.clone())
         }
@@ -381,6 +385,7 @@ mod tests {
 
         let report = reconcile_deliveries(
             "cynic-builder",
+            "build_runner",
             "builder-incarnation-a",
             10_000,
             &port,

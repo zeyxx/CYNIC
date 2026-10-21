@@ -391,6 +391,7 @@ impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
     async fn pending_deliveries(
         &self,
         node_id: &str,
+        node_role: &str,
     ) -> Result<Vec<AgentWorkloadDelivery>, String> {
         let path = format!("/node-control/{node_id}/agent-workloads");
         let response = self.execute(Method::GET, &path, Vec::new()).await?;
@@ -412,7 +413,9 @@ impl AgentWorkloadDeliveryPort for HttpNodeControlAdapter {
         }
         for delivery in &envelope.value {
             let violations = validate_agent_workload_delivery(delivery);
-            if !violations.is_empty() || delivery.target_node_id != node_id {
+            if !violations.is_empty()
+                || !cynic_workload::delivery_addressed_to_node(delivery, node_id, node_role)
+            {
                 return Err(format!(
                     "workload delivery is invalid: {}",
                     violations.join(",")
