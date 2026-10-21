@@ -87,11 +87,25 @@ impl PackageManagerKind {
         }
     }
 
+    /// The argv that QUERIES whether a package is installed.
+    ///
+    /// A package is not a binary: `which wireguard-tools` never finds
+    /// anything, because the package ships `wg`. The query must therefore
+    /// go to the package database, and it must ASK rather than SIMULATE:
+    /// `dpkg -s <pkg>` reports the status but exits non-zero for a
+    /// package that is not installed — and `apt -s <pkg>` is a
+    /// SIMULATION of the install, which fails for a package that IS
+    /// installed. Measured on builder-119: `apt -s wireguard-tools`
+    /// exits 100 while `dpkg-query -W -f='${Status}'` answers
+    /// `install ok installed`. The old form reported an installed
+    /// package as absent, which blocked the packages domain on a host
+    /// whose packages were all present.
     pub fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => vec![
-                layout.package_query_bin(),
-                "-s".to_string(),
+                layout.dpkg_query_bin(),
+                "-W".to_string(),
+                "-f=${Status}".to_string(),
                 package.to_string(),
             ],
             Self::Apk => vec![
@@ -484,6 +498,15 @@ impl HostRuntimeLayout {
         env_path("CYNIC_GETENT_BIN", "getent")
     }
 
+    /// The binary that answers "is this package installed?".
+    ///
+    /// `dpkg-query` is the query front-end; `dpkg` itself is the
+    /// low-level tool whose `-s` subcommand is a status report, not a
+    /// query that exits zero on a present package.
+    pub fn dpkg_query_bin(&self) -> String {
+        env_path("CYNIC_DPKG_QUERY_BIN", "dpkg-query")
+    }
+
     pub fn package_query_bin(&self) -> String {
         env_path(
             "CYNIC_PACKAGE_QUERY_BIN",
@@ -708,6 +731,42 @@ mod tests {
     use super::HostRuntimeLayout;
     use crate::domain::package_provenance::PackageProvenancePolicy;
     use crate::test_support::{EnvOverride, env_lock};
+
+    #[test]
+    fn the_apt_query_asks_the_package_database_and_does_not_simulate() {
+        use crate::runtime_layout::PackageManagerKind;
+
+        let layout = HostRuntimeLayout {
+            config_dir: "/etc/cynic".to_string(),
+            helper_dir: "/opt/cynic/libexec".to_string(),
+            sudoers_dir: "/opt/cynic/sudoers.d".to_string(),
+            service_unit_dir: "/etc/systemd/system".to_string(),
+            runtime_home_dir: "/var/lib/cynic".to_string(),
+            state_dir: "/var/lib/cynic".to_string(),
+            log_dir: "/var/log/cynic".to_string(),
+            host_exec_bundle_dir: "/tmp/cynic-host-exec".to_string(),
+            network_actuator_bundle_dir: "/tmp/cynic-network-actuator".to_string(),
+            dns_bundle_dir: "/tmp/cynic-service-dns".to_string(),
+            provider_fallback_bundle_dir: "/tmp/cynic-provider-fallback-hosts".to_string(),
+        };
+
+        let argv = PackageManagerKind::Apt.query_argv("wireguard-tools", &layout);
+        assert_eq!(
+            argv.first().map(String::as_str),
+            Some("dpkg-query"),
+            "the query must go to the package database front-end"
+        );
+        assert!(
+            argv.iter().any(|token| token == "-W"),
+            "the query must SELECT the package status, got {argv:?}"
+        );
+        assert!(
+            !argv.iter().any(|token| token == "-s" || token == "--simulate"),
+            "the query must not SIMULATE an install: `apt -s` fails for an \
+             installed package, which reports a present package as absent"
+        );
+        assert_eq!(argv.last().map(String::as_str), Some("wireguard-tools"));
+    }
 
     #[test]
     fn derives_helper_and_sudoers_paths_from_layout_roots() {

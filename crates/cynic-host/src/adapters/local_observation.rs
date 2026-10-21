@@ -16,7 +16,7 @@ use crate::ports::{
     PreOsPlatformObservationPort,
 };
 use crate::process_observation::{command_exit_success, command_stdout};
-use crate::runtime_layout::current_runtime_layout;
+use crate::runtime_layout::{current_runtime_layout, PackageManagerKind};
 use crate::service_supervisor_observation::observe_service_supervisor;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -384,6 +384,13 @@ impl HostServiceObservationPort for LocalHostObservationAdapter {
     }
 }
 
+/// Whether a package is installed, as the package database reports it.
+///
+/// The query goes to the package manager, never to `which`: a package
+/// is not a binary, so `which wireguard-tools` never finds anything
+/// even on a host where the package is installed. The `which` fallback
+/// is kept for the managers whose database is not queryable, and it is
+/// only consulted for a package whose name IS a binary.
 fn package_present(package: &str) -> bool {
     let layout = current_runtime_layout();
     let capabilities = layout.capabilities();
@@ -391,8 +398,15 @@ fn package_present(package: &str) -> bool {
         .package_manager
         .kind
         .query_argv(package, &layout);
-    command_exit_success(&argv[0], &string_args(&argv[1..])).unwrap_or(false)
-        || command_exit_success(&layout.which_bin(), &[package]).unwrap_or(false)
+    if command_exit_success(&argv[0], &string_args(&argv[1..])).unwrap_or(false) {
+        return true;
+    }
+    match capabilities.package_manager.kind {
+        PackageManagerKind::Unknown => {
+            command_exit_success(&layout.which_bin(), &[package]).unwrap_or(false)
+        }
+        _ => false,
+    }
 }
 
 fn string_args(args: &[String]) -> Vec<&str> {
