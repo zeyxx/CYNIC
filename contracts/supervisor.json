@@ -157,7 +157,7 @@
         "clause": "observation.evidence + outer_owner; host-side observation of both managed subjects and external processes"
       },
       {
-        "fragment": "infra/os/systemd/*.service",
+        "fragment": "infra/os/systemd/ (cynic-kernel.service, cynic-node.service, cynic-kernel-standby.service)",
         "clause": "outer_owner; the boundary this contract never crosses"
       }
     ]
