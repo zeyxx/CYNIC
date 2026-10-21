@@ -51,6 +51,15 @@ pub struct RegistryNode {
     pub substrate: Option<RegistryNodeSubstrate>,
     #[serde(default)]
     pub services: Vec<RegistryNodeService>,
+    /// Units this node must NOT run.
+    ///
+    /// Declared per node so the registry stays the single authority for
+    /// what a host runs. A unit lands here when a corrected one replaced
+    /// it and the stale copy must be removed from the host, not merely
+    /// ignored. Only units named here are ever disabled, stopped or
+    /// removed.
+    #[serde(default)]
+    pub retired_units: Vec<String>,
     #[serde(default)]
     pub network_links: Vec<RegistryNetworkLink>,
     #[serde(default)]

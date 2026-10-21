@@ -172,6 +172,8 @@ impl HostServicePort for StaticHostContractPort {
             }],
         }
     }
+                retired_units: Vec::new(),
+            
 }
 
 impl HostContractPort for StaticHostContractPort {

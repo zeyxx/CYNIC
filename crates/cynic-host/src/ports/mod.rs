@@ -101,6 +101,16 @@ pub enum HostOperation {
     ServiceStart {
         unit: String,
     },
+    /// Retire a unit this host must no longer run.
+    ///
+    /// Bounded by `ServicePolicy::retired_units`: a unit that is not
+    /// named there is never disabled, stopped or removed. The operation
+    /// is the destructive inverse of `ServiceEnableNow`, so it is a
+    /// separate variant rather than a flag: an admit/plan digest names
+    /// exactly which verbs it carries.
+    ServiceRetire {
+        unit: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

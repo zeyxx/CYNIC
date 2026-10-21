@@ -35,6 +35,7 @@ pub use validate::{
 pub use crate::registry::resolve::{
     resolve_build_runner_transport, resolve_current_host_direct_management_link,
     resolve_current_host_profile, resolve_current_host_profile_resolution,
+    resolve_registry_retired_units,
     resolve_current_registry_service_policy, resolve_framework_transport,
     resolve_host_direct_management_link, resolve_host_profile, resolve_host_profile_resolution,
     resolve_node_substrate_desired_state, resolve_node_substrate_targets,
@@ -781,8 +782,28 @@ pub mod resolve {
                 },
                 manager,
                 units,
+                retired_units: node.retired_units.clone(),
             }))
         }
+    }
+
+    /// Units the registry declares this node must NOT run.
+    ///
+    /// The registry is the single authority for what a host runs, so the
+    /// retirement list lives there and not in a hardcoded profile. A node
+    /// with no `retired_units` key retires nothing.
+    pub fn resolve_registry_retired_units(
+        node_name: &str,
+        registry_path: Option<&str>,
+    ) -> Result<Vec<String>, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let node = registry
+            .nodes
+            .iter()
+            .find(|node| node_matches(node, node_name))
+            .ok_or_else(|| format!("node not found in registry: {node_name}"))?;
+        Ok(node.retired_units.clone())
     }
 
     pub fn resolve_current_registry_service_policy(

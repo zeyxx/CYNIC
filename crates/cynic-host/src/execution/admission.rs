@@ -84,6 +84,14 @@ pub(crate) fn build_service_operation_plan(
             });
             proofs
         })
+        .chain(policy.retired_units.iter().map(|unit| RequiredProof {
+            // The proof of a retirement is the ABSENCE of the unit:
+            // an inactive, disabled unit with no unit file. It is the
+            // mirror image of the enable proof, and it is what makes the
+            // destructive operation observable instead of assumed.
+            gate: format!("unit_retired:{unit}"),
+            subject: target.clone(),
+        }))
         .collect();
 
     HostOperationPlan {

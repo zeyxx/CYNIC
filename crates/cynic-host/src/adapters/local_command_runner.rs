@@ -73,6 +73,7 @@ impl HostCommandRunnerPort for LocalHostCommandRunner {
             }
             HostOperation::ServiceEnableNow { unit } => enable_now_service(&capabilities, unit),
             HostOperation::ServiceStart { unit } => start_service(&capabilities, unit),
+            HostOperation::ServiceRetire { unit } => retire_service(&capabilities, unit),
         }
     }
 }
@@ -99,6 +100,97 @@ fn enable_now_service(
             &["enable", "--now", unit],
         ),
     }
+}
+
+/// Retire a unit: stop it, disable its boot activation, remove the
+/// activation symlink, and remove the unit file.
+///
+/// The order is deliberate. `disable` removes the boot activation
+/// symlink, `stop` ends the running instance, and only then is the file
+/// removed — removing the file first would leave systemd holding a unit
+/// it can no longer read, which reads as a unit that vanished rather
+/// than one that was retired.
+///
+/// A unit that is already absent is a SUCCESS, not an error: retiring
+/// is idempotent, and a host where the stale unit was never installed
+/// has already converged.
+fn retire_service(
+    capabilities: &crate::runtime_layout::HostCapabilities,
+    unit: &str,
+) -> HostCommandResult {
+    if !is_plain_service_unit(unit) {
+        return HostCommandResult {
+            command: format!("service retire {unit}"),
+            success: false,
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: format!("refusing to retire a non-plain unit identifier: {unit}"),
+        };
+    }
+    let manager = &capabilities.service_manager.command;
+    // 1. Remove the boot activation FIRST. `disable` drops the symlink
+    //    that makes the unit start at boot; a unit that is stopped but
+    //    still enabled comes back at the next reboot, which is exactly
+    //    the failure this operation exists to end.
+    let _ = run_command(manager, &["disable", unit]);
+    // 2. Stop the running instance. A unit that is not running answers
+    //    "inactive", which is the state we want; the command still fails
+    //    on some managers, so the state is read rather than assumed.
+    let _ = run_command(manager, &["stop", unit]);
+    // 3. Remove the unit file. The activation symlink under
+    //    `<target>.wants/` is a link INTO the unit directory, so
+    //    removing the file leaves a dangling link that `disable` has
+    //    normally already cleared; the link is removed defensively.
+    let layout = current_runtime_layout();
+    let unit_path = std::path::Path::new(&layout.service_unit_dir).join(unit);
+    let mut errors: Vec<String> = Vec::new();
+    if unit_path.exists() {
+        if let Err(error) = std::fs::remove_file(&unit_path) {
+            errors.push(format!("remove {}: {error}", unit_path.display()));
+        }
+    }
+    for target_dir in [
+        "default.target.wants".to_string(),
+        "multi-user.target.wants".to_string(),
+        "graphical.target.wants".to_string(),
+    ] {
+        let link = std::path::Path::new(&layout.service_unit_dir)
+            .join(&target_dir)
+            .join(unit);
+        if link.is_symlink() {
+            if let Err(error) = std::fs::remove_file(&link) {
+                errors.push(format!("remove {}: {error}", link.display()));
+            }
+        }
+    }
+    if !errors.is_empty() {
+        return HostCommandResult {
+            command: format!("service retire {unit}"),
+            success: false,
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: errors.join("; "),
+        };
+    }
+    HostCommandResult {
+        command: format!("service retire {unit}"),
+        success: true,
+        exit_code: Some(0),
+        stdout: String::new(),
+        stderr: String::new(),
+    }
+}
+
+/// A plain `*.service` unit identifier: no path, no flags, no shell.
+fn is_plain_service_unit(unit: &str) -> bool {
+    !unit.is_empty()
+        && unit.len() <= 128
+        && unit.ends_with(".service")
+        && unit
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' || c == '@')
+        && !unit.contains("..")
+        && !unit.contains('/')
 }
 
 fn start_service(

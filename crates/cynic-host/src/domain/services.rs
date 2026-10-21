@@ -40,6 +40,20 @@ pub struct ServicePolicy {
     pub manager: ServiceManagerKind,
     pub unit_dir: String,
     pub units: Vec<ServiceUnitPolicy>,
+    /// Units this host must NOT run.
+    ///
+    /// A unit lands here when it was installed from a superseded source
+    /// and a corrected one replaced it. The policy has no way to express
+    /// "stop running this" for a unit it does not declare, so the stale
+    /// copy kept starting at every boot. Measured: a soak unit
+    /// installed from a duplicated repository path executed a Cargo-cache
+    /// binary that did not know its verb, and failed at every boot while
+    /// the corrected copy ran in the user scope.
+    ///
+    /// The retire operation is bounded by this list: a unit that is not
+    /// named here is never disabled, stopped or removed.
+    #[serde(default)]
+    pub retired_units: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -330,6 +344,13 @@ impl ServicePolicy {
         if self.manager == ServiceManagerKind::Systemd {
             operations.push(HostOperation::ServiceManagerDaemonReload);
         }
+        // Retiring comes FIRST: a stale unit that keeps running while the
+        // replacement is installed is the state that hides the problem.
+        operations.extend(
+            self.retired_units
+                .iter()
+                .map(|unit| HostOperation::ServiceRetire { unit: unit.clone() }),
+        );
         operations.extend(self.units.iter().map(|unit| {
             if unit.enable_on_boot {
                 HostOperation::ServiceEnableNow {
@@ -541,7 +562,9 @@ mod tests {
             manager: ServiceManagerKind::OpenRc,
             unit_dir: "/etc/init.d".to_string(),
             units: vec![unit()],
-        };
+        }
+                retired_units: Vec::new(),
+            ;
 
         let plan = policy.activation_plan_with_context(&context());
         let rendered = plan
@@ -565,7 +588,9 @@ mod tests {
             manager: ServiceManagerKind::OpenRc,
             unit_dir: "/etc/init.d".to_string(),
             units: vec![unit()],
-        };
+        }
+                retired_units: Vec::new(),
+            ;
 
         let bundle = policy.bundle_with_context(&context());
         let rendered = bundle
@@ -587,7 +612,9 @@ mod tests {
             manager: ServiceManagerKind::Systemd,
             unit_dir: "/etc/systemd/system".to_string(),
             units: vec![unit()],
-        };
+        }
+                retired_units: Vec::new(),
+            ;
 
         let plan = policy.activation_plan_with_context(&context());
         let rendered = plan
@@ -612,7 +639,9 @@ mod tests {
             manager: ServiceManagerKind::OpenRc,
             unit_dir: "/etc/init.d".to_string(),
             units: vec![unit()],
-        };
+        }
+                retired_units: Vec::new(),
+            ;
 
         let report = policy.apply_report_with_context(true, &context());
         let rendered = report

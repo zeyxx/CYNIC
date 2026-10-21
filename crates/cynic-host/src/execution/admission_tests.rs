@@ -21,7 +21,9 @@ fn plan() -> HostOperationPlan {
                 supervisor_provider: Some("systemd".to_string()),
                 health_kind: Some("process".to_string()),
             }],
-        },
+        }
+                retired_units: Vec::new(),
+            ,
         "node-a",
     )
 }
