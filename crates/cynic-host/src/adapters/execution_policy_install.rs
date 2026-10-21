@@ -61,6 +61,18 @@ pub fn policy_from_catalog_path(path: &std::path::Path) -> Result<ExecutionPolic
     Ok(policy_from_catalog(&catalog))
 }
 
+/// Install the provider of the local host's role.
+///
+/// The port crate cannot read the registry, so the host supplies the
+/// role. A provider that is not installed resolves to the ordinary host
+/// role, so the structural refusals stay in force even when the host
+/// does not know its own role.
+pub fn install_role_provider() {
+    cynic_protocol::argv::install_role_provider(
+        crate::adapters::argv_runner::local_host_role,
+    );
+}
+
 /// Install the policy built from the catalogue at `path`.
 ///
 /// The first installation wins: the process-wide slot is write-once, so
@@ -69,7 +81,7 @@ pub fn install_policy_from_catalog_path(path: &std::path::Path) -> PolicyInstall
     match policy_from_catalog_path(path) {
         Ok(policy) => {
             let rules = policy.rules.len();
-            crate::adapters::argv_runner::install_policy(policy);
+            cynic_protocol::argv::install_execution_policy(policy);
             PolicyInstallation::Installed { rules }
         }
         Err(reason) => PolicyInstallation::Unavailable { reason },

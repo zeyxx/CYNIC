@@ -69,10 +69,9 @@ impl ArgvExecutionPort for LocalArgvExecutionAdapter {
         // the process is spawned.
         {
             let argv: Vec<&str> = request.argv.iter().map(String::as_str).collect();
-            if let Some(detail) = crate::adapters::argv_runner::refuse_if_not_admitted(
-                &argv,
-                crate::adapters::argv_runner::local_host_role(),
-            ) {
+            if let Some(detail) =
+                cynic_protocol::argv::refuse_if_not_admitted_here(&argv)
+            {
                 return failure(&format!("argv refused by execution policy: {detail}"));
             }
         }

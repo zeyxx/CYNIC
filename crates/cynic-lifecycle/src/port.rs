@@ -44,6 +44,18 @@ impl ArgvRunner for LocalArgvRunner {
                 spawn_error: Some("empty argv".into()),
             };
         }
+        // Deny-by-default: the membrane lives in the port crate, so
+        // this runner and the host runner judge the same argv the same
+        // way. Without an installed policy the runner observes only,
+        // which is the historical behaviour.
+        if let Some(detail) = cynic_protocol::argv::refuse_if_not_admitted_here(argv) {
+            return ArgvOutput {
+                exit_code: None,
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: Some(format!("argv refused by execution policy: {detail}")),
+            };
+        }
         match std::process::Command::new(argv[0])
             .args(&argv[1..])
             .output()

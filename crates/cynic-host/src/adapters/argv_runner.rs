@@ -24,7 +24,8 @@
 use std::process::Command;
 use std::sync::OnceLock;
 
-use cynic_protocol::execution_policy::{ExecutionDecision, ExecutionPolicy, HostRole};
+use cynic_protocol::argv::refuse_if_not_admitted_here;
+use cynic_protocol::execution_policy::HostRole;
 use cynic_protocol::resource_budget::ResourceLimit;
 
 /// Output of a successful argv execution.
@@ -65,41 +66,6 @@ pub struct ArgvRunner;
 pub fn local_host_role() -> HostRole {
     static ROLE: OnceLock<HostRole> = OnceLock::new();
     *ROLE.get_or_init(|| crate::adapters::local_host_role::local_host_role(None))
-}
-
-/// The deny-by-default policy installed for this process, when one is.
-///
-/// The policy is process-wide: an agent that holds a shell must not be
-/// able to widen the ruleset by calling another surface. When no policy
-/// is installed the runner observes — it reports the verdict and still
-/// runs, which is the historical behaviour and the reason the allowlist
-/// was never a membrane. Installing a policy turns the runner into one.
-static POLICY: OnceLock<ExecutionPolicy> = OnceLock::new();
-
-/// Install the process-wide execution policy.
-///
-/// The first installation wins: a later attempt to install a different
-/// policy is refused, so a caller cannot replace a narrow policy with a
-/// wide one. Returns the policy that is in force afterwards.
-pub fn install_policy(policy: ExecutionPolicy) -> ExecutionPolicy {
-    POLICY.get_or_init(|| policy).clone()
-}
-
-/// The installed policy, when one is.
-pub fn installed_policy() -> Option<&'static ExecutionPolicy> {
-    POLICY.get()
-}
-
-/// Refuse an argv that the installed policy does not admit.
-///
-/// Returns the refusal reason when the argv must not run. Without an
-/// installed policy there is no refusal: the runner observes only.
-pub fn refuse_if_not_admitted(argv: &[&str], role: HostRole) -> Option<String> {
-    let policy = POLICY.get()?;
-    match policy.decide(argv, role) {
-        ExecutionDecision::Allow { .. } => None,
-        ExecutionDecision::Refuse { detail, .. } => Some(detail),
-    }
 }
 
 impl ArgvRunner {
@@ -149,7 +115,7 @@ impl ArgvRunner {
         // Deny-by-default: when a policy is installed, an argv it does
         // not admit is refused before the process is spawned. There is
         // no "would deny but runs" path left.
-        if let Some(detail) = refuse_if_not_admitted(argv, local_host_role()) {
+        if let Some(detail) = refuse_if_not_admitted_here(argv) {
             return Err(format!("argv refused by execution policy: {detail}"));
         }
 

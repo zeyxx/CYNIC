@@ -136,6 +136,7 @@ fn install_execution_policy() {
     };
     use cynic_host::privilege::capability_catalog::catalog_path_from_env;
 
+    cynic_host::adapters::execution_policy_install::install_role_provider();
     let path = catalog_path_from_env();
     match install_policy_from_catalog_path(&path) {
         PolicyInstallation::Installed { rules } => {
