@@ -572,8 +572,8 @@ mod tests {
     // Canonical DNS filenames live in cynic_network; the tests reference them
     // unqualified (production code uses full paths).
     use cynic_network::dns::{
-        SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
-        SERVICE_DNS_SERVICE_FILENAME,
+        SERVICE_DNS_COREFILE_FILENAME, SERVICE_DNS_HOSTS_FILENAME,
+        SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
     };
 
     fn context() -> DnsRuntimeContext {
