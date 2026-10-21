@@ -143,9 +143,16 @@ fn install_execution_policy() {
             eprintln!("[cynic] execution policy installed: {rules} rules from {}", path.display());
         }
         PolicyInstallation::Unavailable { reason } => {
+            // The membrane is fail-closed: a process with no policy
+            // admits nothing. The command still runs, because the
+            // commands that matter here are read-only, but every spawn
+            // it attempts is refused with the reason. Saying "not
+            // installed" on stderr is not enough — the operator would
+            // have to notice a line to learn that the process is
+            // inert.
             eprintln!(
                 "[cynic] execution policy NOT installed ({reason}); \
-                 process spawning is unfiltered"
+                 every spawn is refused"
             );
         }
     }

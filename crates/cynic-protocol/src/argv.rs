@@ -124,14 +124,47 @@ pub fn local_host_role() -> crate::execution_policy::HostRole {
 
 /// Refuse an argv the installed policy does not admit.
 ///
-/// Returns the refusal detail when the argv must not run. Without an
-/// installed policy there is no refusal: the runner observes only, which
-/// is the historical behaviour.
+/// Returns the refusal detail when the argv must not run.
+///
+/// **Fail-closed.** An absent policy is itself a refusal. The previous
+/// behaviour returned `None` here, which meant the runner observed the
+/// argv and ran it anyway: a process whose catalogue could not be read
+/// was exactly the process that ran without a membrane. The catalogue
+/// is the declared authority; when it is missing there is nothing that
+/// admits the argv, so the argv is refused.
+///
+/// This is deliberately structural. A ruleset cannot re-open it, and
+/// neither can a missing catalogue, a wrong working directory, or a
+/// runner used as a library outside the CLI.
 pub fn refuse_if_not_admitted(
     argv: &[&str],
     role: crate::execution_policy::HostRole,
 ) -> Option<String> {
-    let policy = POLICY.get()?;
+    match POLICY.get() {
+        Some(policy) => refusal_from(policy, argv, role),
+        None => Some(NO_POLICY_REFUSAL.to_string()),
+    }
+}
+
+/// The refusal detail when no policy is installed.
+///
+/// The catalogue is the declared authority. When it is missing there is
+/// nothing that admits the argv, so the argv is refused. This constant
+/// is the single wording of that refusal, so the message a caller sees
+/// does not depend on where the policy was looked up.
+pub const NO_POLICY_REFUSAL: &str = "no execution policy is installed: nothing admits this argv";
+
+/// The pure decision over a known policy.
+///
+/// The global slot cannot be emptied, so the fail-closed behaviour is
+/// proven here rather than through the slot: this function takes the
+/// policy as an argument, and the wrapper above is the only place that
+/// reads the slot.
+fn refusal_from(
+    policy: &crate::execution_policy::ExecutionPolicy,
+    argv: &[&str],
+    role: crate::execution_policy::HostRole,
+) -> Option<String> {
     match policy.decide(argv, role) {
         crate::execution_policy::ExecutionDecision::Allow { .. } => None,
         crate::execution_policy::ExecutionDecision::Refuse { detail, .. } => Some(detail),
@@ -166,6 +199,35 @@ impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The membrane is fail-closed: an absent policy refuses. The
+    /// previous behaviour returned `None`, so a process whose catalogue
+    /// could not be read ran every argv unfiltered — which is exactly
+    /// the process that had no membrane.
+    #[test]
+    fn an_absent_policy_refuses_the_argv() {
+        let refusal = NO_POLICY_REFUSAL;
+        assert!(refusal.contains("no execution policy is installed"));
+        // The wrapper reads the global slot, so the pure decision is
+        // proven over a known policy and the wording of the absent case
+        // is proven here.
+        let policy = crate::execution_policy::ExecutionPolicy::default();
+        assert!(refusal_from(&policy, &["git", "status"], crate::execution_policy::HostRole::Host).is_some());
+    }
+
+    /// A declared rule admits, and the refusal disappears.
+    #[test]
+    fn a_declared_rule_admits_through_the_membrane() {
+        let mut policy = crate::execution_policy::ExecutionPolicy::new(vec![
+            crate::argv_allow::AllowRule {
+                program: "git".to_string(),
+                arg_prefix: Vec::new(),
+                reason: "declared".to_string(),
+            },
+        ]);
+        policy.build_roles = Vec::new();
+        assert!(refusal_from(&policy, &["git", "status"], crate::execution_policy::HostRole::Host).is_none());
+    }
 
     #[test]
     fn success_requires_zero_exit_and_no_spawn_error() {

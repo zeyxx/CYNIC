@@ -101,23 +101,51 @@ impl CapabilityView {
 
 /// Resolve the catalog path.
 ///
-/// Precedence: explicit env override, repo-relative default (developer
-/// checkouts), then the machine-wide `/etc/cynic/catalog.json` installed on
-/// hosts that run the privilege surface without a repo (e.g. the hypervisor).
-/// Fails closed only when the chosen file cannot be read.
+/// Precedence: explicit env override, the installed copy under the
+/// runtime config root, then the repository copy found by walking up
+/// from the working directory (developer checkouts).
+///
+/// The previous resolution tried the repository path RELATIVE to the
+/// working directory. An installed binary started from `/` therefore
+/// found no catalogue at all, and a process that cannot find its
+/// catalogue is a process with no membrane. The worktree copy is now
+/// located by walking up the ancestors, the way the registry is, and the
+/// installed copy is named by the runtime authority (`config_root`)
+/// rather than by a literal path.
+///
+/// The final fallback is the installed location, so the error message
+/// names where the catalogue is expected to be.
 pub fn catalog_path_from_env() -> PathBuf {
     if let Some(explicit) = std::env::var_os("CYNIC_CAPABILITY_CATALOG") {
         return PathBuf::from(explicit);
     }
-    let repo_default = PathBuf::from(DEFAULT_CATALOG_PATH);
-    if repo_default.is_file() {
-        return repo_default;
+    let installed = CynicPaths::system_config_dir().join(INSTALLED_CATALOG_RELATIVE_PATH);
+    if installed.is_file() {
+        return installed;
     }
-    let machine_default = PathBuf::from("/etc/cynic/catalog.json");
-    if machine_default.is_file() {
-        return machine_default;
+    if let Some(found) = find_catalog_in_ancestors() {
+        return found;
     }
-    repo_default
+    installed
+}
+
+/// The catalog path relative to the runtime config root.
+pub const INSTALLED_CATALOG_RELATIVE_PATH: &str = "capabilities/catalog.json";
+
+/// Find the repository catalogue by walking up from the working directory.
+///
+/// A developer checkout may be entered at any depth; the catalogue
+/// lives at the root of the tree. The walk mirrors the one the registry
+/// uses, so both authorities resolve the same way.
+fn find_catalog_in_ancestors() -> Option<PathBuf> {
+    let current = std::env::current_dir().ok()?;
+    for ancestor in current.ancestors() {
+        let candidate = ancestor.join(DEFAULT_CATALOG_PATH);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 /// Resolve the installed-set path.

@@ -51,8 +51,15 @@ pub fn observe_argv_verdict(argv: &[&str], rules: &[AllowRule]) -> ArgvVerdict {
             reason: "empty argv".to_string(),
         };
     }
+    // The program is matched on its base name. A catalogue declares a
+    // PROGRAMME, not a path: the same capability is invoked as
+    // `/usr/local/bin/cynic` from a systemd unit and as `cynic` from a
+    // working directory, and a comparison on the raw string would
+    // refuse the second while admitting the first. The prefix is
+    // compared on the arguments, which are not paths.
+    let base = base_name(program);
     for rule in rules {
-        if rule.program != program {
+        if base_name(&rule.program) != base {
             continue;
         }
         if argv.len() - 1 < rule.arg_prefix.len() {
@@ -72,6 +79,13 @@ pub fn observe_argv_verdict(argv: &[&str], rules: &[AllowRule]) -> ArgvVerdict {
     ArgvVerdict::WouldDeny {
         reason: format!("no rule admits program {program:?}"),
     }
+}
+
+/// The base name of a program path.
+///
+/// `/usr/local/bin/cynic` and `cynic` are the same programme.
+pub fn base_name(program: &str) -> &str {
+    program.rsplit('/').next().unwrap_or(program)
 }
 
 /// One observation line. Timestamping is the logger's job (I/O);
@@ -161,6 +175,26 @@ mod tests {
     fn bare_program_rule_admits_any_args() {
         let rules = vec![rule("df", &[])];
         assert!(observe_argv_verdict(&["df", "-k", "/"], &rules).admitted());
+    }
+
+    /// A catalogue declares a PROGRAMME, not a path. The same capability
+    /// is invoked as `/usr/local/bin/cynic` from a systemd unit and as
+    /// `cynic` from a working directory; both must be admitted by the
+    /// same rule.
+    #[test]
+    fn a_rule_matches_on_the_base_name_of_the_program() {
+        let rules = vec![rule("/usr/local/bin/cynic", &["host", "bridge", "install"])];
+        assert!(observe_argv_verdict(&["/usr/local/bin/cynic", "host", "bridge", "install"], &rules).admitted());
+        assert!(observe_argv_verdict(&["cynic", "host", "bridge", "install"], &rules).admitted());
+    }
+
+    /// The rule is matched on the base name in both directions: a bare
+    /// rule admits an absolute invocation, and an absolute rule admits a
+    /// bare invocation.
+    #[test]
+    fn a_bare_rule_admits_an_absolute_invocation() {
+        let rules = vec![rule("git", &[])];
+        assert!(observe_argv_verdict(&["/usr/bin/git", "status"], &rules).admitted());
     }
 
     #[test]
