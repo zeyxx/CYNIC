@@ -22,6 +22,11 @@ async fn bwrap_e2e_proves_network_pid_and_filesystem_isolation() {
         return;
     }
 
+    // The membrane is fail-closed: a test that really spawns has to
+    // install a policy that admits what it spawns. The slot is
+    // process-wide and write-once, so one call covers the whole test
+    // binary.
+    cynic_protocol::argv_test_support::install_permissive_policy_for(&["bwrap"]);
     let runner = Arc::new(LocalArgvRunner);
     let adapter = LocalBwrapSubstrateAdapter::new(runner);
 

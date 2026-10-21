@@ -180,8 +180,34 @@ impl ArgvRunner {
 mod tests {
     use super::*;
 
+    /// The membrane is fail-closed, so a test that really spawns has to
+    /// install a policy that admits what it spawns. The slot is
+    /// process-wide and write-once, so one call covers the whole test
+    /// binary.
+    fn install_test_policy() {
+        cynic_protocol::argv_test_support::install_permissive_policy_for(&[
+            "echo",
+            "false",
+            "getent",
+            "git",
+            "id",
+            "ls",
+            "nonexistent",
+            "nonexistent-command",
+            "ping",
+            "readlink",
+            "sha256sum",
+            "stat",
+            "this-binary-does-not-exist-12345",
+            "timeout",
+            "true",
+            "which",
+        ]);
+    }
+
     #[test]
     fn run_echo_succeeds() {
+        install_test_policy();
         let output = ArgvRunner::run(&["echo", "hello"]).unwrap();
         assert!(output.success());
         assert_eq!(output.stdout.trim(), "hello");

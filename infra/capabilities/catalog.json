@@ -641,6 +641,28 @@
       "purpose": "admit an SSH host key into the system trust store"
     },
     {
+      "id": "ssh-remote-observe",
+      "domain": "remote-exec",
+      "argv_template": [
+        "ssh"
+      ],
+      "params": [],
+      "requires_root": false,
+      "mandatory": false,
+      "purpose": "reach a declared fleet host to read its state"
+    },
+    {
+      "id": "bwrap-sandbox-substrate",
+      "domain": "host-tool",
+      "argv_template": [
+        "bwrap"
+      ],
+      "params": [],
+      "requires_root": false,
+      "mandatory": false,
+      "purpose": "run a bubblewrap sandbox as the isolation substrate"
+    },
+    {
       "id": "cynic-deps-observe",
       "domain": "host-tool",
       "argv_template": [
@@ -827,17 +849,6 @@
       "requires_root": false,
       "mandatory": false,
       "purpose": "locate a program on the path"
-    },
-    {
-      "id": "ssh-remote-observe",
-      "domain": "remote-exec",
-      "argv_template": [
-        "ssh"
-      ],
-      "params": [],
-      "requires_root": false,
-      "mandatory": false,
-      "purpose": "reach a declared fleet host to read its state"
     }
   ]
 }

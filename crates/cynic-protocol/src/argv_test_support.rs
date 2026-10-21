@@ -27,7 +27,8 @@ use crate::execution_policy::ExecutionPolicy;
 /// Install a policy that admits the given programs, and nothing else.
 ///
 /// The programs are matched on their base name, so `/usr/bin/git` and
-/// `git` are the same rule.
+/// `git` are the same rule. A test that spawns `/usr/bin/echo` declares
+/// `echo`.
 ///
 /// This does NOT open the structural refusals. A local build is still
 /// refused on a host that may not compile, and the `ssh` refusal still
@@ -44,14 +45,6 @@ pub fn install_permissive_policy_for(programs: &[&str]) -> usize {
     let count = rules.len();
     crate::argv::install_execution_policy(ExecutionPolicy::new(rules));
     count
-}
-
-/// Install a policy that admits the given programs, by base name.
-///
-/// A program is identified by its base name, so a test that spawns
-/// `/usr/bin/git` declares `git`.
-pub fn install_permissive_policy_for_base_names(programs: &[&str]) -> usize {
-    install_permissive_policy_for(programs)
 }
 
 #[cfg(test)]

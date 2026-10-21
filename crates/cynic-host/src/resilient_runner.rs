@@ -230,6 +230,31 @@ mod tests {
     use cynic_lifecycle::MapArgvRunner;
     use std::sync::Arc;
 
+    /// The membrane is fail-closed, so a test that really spawns has to
+    /// install a policy that admits what it spawns. The slot is
+    /// process-wide and write-once, so one call covers the whole test
+    /// binary.
+    fn install_test_policy() {
+        cynic_protocol::argv_test_support::install_permissive_policy_for(&[
+            "echo",
+            "false",
+            "getent",
+            "git",
+            "id",
+            "ls",
+            "nonexistent",
+            "nonexistent-command",
+            "ping",
+            "readlink",
+            "sha256sum",
+            "stat",
+            "this-binary-does-not-exist-12345",
+            "timeout",
+            "true",
+            "which",
+        ]);
+    }
+
     /// Fake runner: fails N times then succeeds.
     #[derive(Debug, Clone)]
     struct FlakyRunner {
@@ -260,6 +285,7 @@ mod tests {
 
     #[test]
     fn resilient_runner_succeeds_after_retry() {
+        install_test_policy();
         let fails = Arc::new(AtomicU64::new(0));
         let inner = FlakyRunner {
             fails: fails.clone(),
@@ -291,6 +317,7 @@ mod tests {
 
     #[test]
     fn resilient_runner_circuit_opens_on_repeated_failure() {
+        install_test_policy();
         let inner = MapArgvRunner { responses: vec![] };
         let runner = ResilientArgvRunner::new(
             inner,
@@ -321,6 +348,7 @@ mod tests {
 
     #[test]
     fn resilient_runner_fail_closed_when_open() {
+        install_test_policy();
         let inner = MapArgvRunner { responses: vec![] };
         let runner = ResilientArgvRunner::new(
             inner,
@@ -365,6 +393,7 @@ mod tests {
 
     #[test]
     fn resilient_runner_read_back_proof_in_stderr() {
+        install_test_policy();
         let inner = MapArgvRunner {
             responses: vec![(
                 vec!["ls".to_string()],
