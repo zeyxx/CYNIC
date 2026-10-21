@@ -162,8 +162,15 @@
       }
     ]
   },
+  "surface": {
+    "verb": "cynic daemon observe",
+    "status": "specified",
+    "shape": "Read-only. Resolves the local host profile (explicit --profile or registry-detected node), takes its desired_services() policy, runs observe_service_supervisor(\"local-host-substrate\", policy), emits the ServiceSupervisorObservation as JSON with --json.",
+    "chain": "ProfileArgs -> HostProfile::parse/resolve -> HostServicePort::desired_services -> observe_service_supervisor -> emit_json",
+    "code_home": "crates/cynic-cli/src/daemon_surface.rs/DaemonCommand::Observe",
+    "prohibitions": ["No mutation: observe never starts, stops, or restarts a subject.", "No profile invention: the policy comes from the resolved profile, never from CLI-constructed units."]
+  },
   "deferred": {
-    "cynic_supervise_surface": "A `cynic supervise` operator surface (converge/inspect a declared role) is the intended projection of this contract but is NOT specified here. Adding it is a separate slice: contract clause first, then pure types, then surface. No CLI verb may precede its clause.",
     "shared_execution_crate": "Whether the generalized spawn/stop/backoff path lives in cynic-host, a dedicated crate, or stays duplicated per consumer is undecided and awaits the crate_justified measurement (consumers >= 2, distinct change schedule). No new crate is created by this contract."
   }
 }

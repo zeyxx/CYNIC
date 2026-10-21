@@ -98,6 +98,34 @@ fn supervisor_kinds_match_protocol_vocabulary_in_both_directions() {
 }
 
 #[test]
+fn supervisor_surface_verb_exists_where_the_contract_names_it() {
+    let contract = contract();
+    let verb = contract["surface"]["verb"]
+        .as_str()
+        .expect("surface names a verb");
+    let code_home = contract["surface"]["code_home"]
+        .as_str()
+        .expect("surface names a code home");
+    // code_home is "path/To/File.rs/Enum::Arm".
+    let rs_end = code_home.find(".rs").expect("code home names a .rs file") + 3;
+    let file = &code_home[..rs_end];
+    let arm = code_home.rsplit("::").next().expect("code home has an arm");
+    let body = fs::read_to_string(workspace_root().join(file))
+        .unwrap_or_else(|e| panic!("surface code home missing {file}: {e}"));
+    assert!(
+        body.contains(arm),
+        "verb {verb}: {file} must declare the {arm} arm"
+    );
+    assert!(
+        body.contains("observe_service_supervisor"),
+        "verb {verb}: {file} must converge the host supervision observer, not invent one"
+    );
+    assert!(
+        body.contains("desired_services()"),
+        "verb {verb}: policy must come from the resolved profile, never from CLI-constructed units"
+    );
+}
+#[test]
 fn supervisor_exit_reason_lives_at_its_canonical_home() {
     let contract = contract();
     let home = contract["vocabulary"]["exit_reason"]["canonical_home"]
