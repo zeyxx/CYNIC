@@ -37,16 +37,20 @@
     }
   ],
   "external_projects": {
-    "root": "${HOME}/.cynic/external",
+    "production_root": "/var/lib/cynic/source/repositories/external",
+    "development_root": "${HOME}/.cynic/external",
     "derived_artifacts_root": "${HOME}/.cynic/projects",
-    "canonical_clone_rule": "One canonical clone per project slug under root. Clones live outside the CYNIC repository tree (no nested .git). Never duplicate a clone under ${HOME}, /tmp, or inside a CYNIC worktree.",
-    "registry": "infra/external-projects.json",
+    "tier_model": "serving_tier is the SSOT of the checkout root: 'served' -> production_root (service-owned, sudo-managed), 'dev' -> development_root (user-owned). roots.referential in infra/external-project-registry.json MUST equal f(serving_tier). CLI 'cynic external promote' migrates a project between tiers cleanly.",
+    "canonical_clone_rule": "One canonical clone per project slug, under the root determined by serving_tier. Clones live outside the CYNIC repository tree (no nested .git). Never duplicate a clone across roots.",
+    "registry": "infra/external-project-registry.json",
+    "legacy_seed": "infra/external-projects.json",
     "collaborators_registry": "infra/collaborators.json",
     "policy_schema": "contracts/external-project-policy.v1.json",
     "ports_schema": "contracts/external-project-ports.v1.json",
     "ownership_links": "infra/ownership-links.json",
     "default_mutation_policy": "read_only",
-    "default_sensitivity": "public"
+    "default_sensitivity": "public",
+    "default_serving_tier": "dev"
   },
   "coherence_contract": {
     "test": "crates/cynic-cli/tests/workspace_paths_coherence.rs",

@@ -310,3 +310,59 @@ Related: `infra/collaborators.json`, `infra/external-projects.json`,
 
 Worktree: `~/.cynic/worktrees/agent-hermes-aegis-consortium` on
 `agent/hermes/aegis-consortium` (from `origin/main` @ `19111bc`).
+
+## 10. Serving tier model (formalized 2026-10-21)
+
+The path divergence across onboarding eras (aegis-era `~/.cynic/external`,
+sollama58-era `~/.local/share/cynic/src/external`, gasdf-era
+`/var/lib/cynic/source/repositories/external`) is not noise: it encodes a real
+distinction that was never made explicit. This section formalizes it.
+
+### 10.1 The axis
+
+`serving_tier` is the SSOT of an external project's checkout root:
+
+- `served` — CYNIC deploys/serves it. Checkout lives in `production_root`
+  (`/var/lib/cynic/source/repositories/external/<slug>`, service-owned, sudo).
+- `dev` — observe + contribute (PR upstream), no deploy. Checkout lives in
+  `development_root` (`${HOME}/.cynic/external/<slug>`, user-owned).
+
+`roots.referential` in `infra/external-project-registry.json` MUST equal
+`f(serving_tier)` against the two roots declared in
+`infra/workspace-paths.json` (`external_projects.production_root` /
+`development_root`). Enforced by
+`crates/cynic-cli/tests/external_project_tier_coherence.rs`.
+
+`serving_tier` is orthogonal to `adoption_mode` (upstream relationship) and
+`mutation_policy` (write authority). Three axes, each declared once.
+
+### 10.2 Canonical roots (post-reconciliation)
+
+- `production_root` = `/var/lib/cynic/source/repositories/external` — served
+  projects only (gasdf, kora).
+- `development_root` = `${HOME}/.cynic/external` — all dev projects; the single
+  canonical dev root (retires `~/.local/share/cynic/src/external`).
+- `derived_artifacts_root` = `${HOME}/.cynic/projects`.
+
+### 10.3 Interconnection
+
+gasdf (relay prototype) and kora (relay substrate, json-rpc, operate-only) are
+interconnected: gasdf depends on kora. Both are `served`; deployment of gasdf
+requires kora available. Edge recorded in `infra/ownership-links.json`
+(`project-gasdf--project-kora`) with shared `evidence_ref: gasdf-rebuild-20261016`.
+
+### 10.4 Runtime promotion
+
+`cynic external promote <slug> --to <served|dev|contribute> --yes` migrates a
+project between tiers cleanly: moves the clone (SourcePort), updates registries,
+re-pins, updates ownership links, with read-back proof. Two distinct operations:
+`mutation_policy` promotion (observe→contribute, no move) vs `serving_tier`
+migration (dev→served, move + sudo).
+
+### 10.5 Registry consolidation
+
+The normative registry (`infra/external-project-registry.json`) now covers all
+9 governed projects (gasdf, kora served; trenchscanner, cultscreener, tokensage,
+holddex, aegisscan, aegis-core, ai-bus dev). The legacy seed
+(`infra/external-projects.json`) remains for aegisscan-era compatibility;
+`cynic audit external` will be repointed to the normative registry in Phase 2.

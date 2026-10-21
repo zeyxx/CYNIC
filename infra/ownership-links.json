@@ -102,6 +102,16 @@
       "notes": "Operator maintains build baseline on builder. Build green after Go/Node provisioning."
     },
     {
+      "link_id": "project-gasdf--project-kora",
+      "from": "project:gasdf",
+      "to": "project:kora",
+      "relation": "depends_on (relay substrate, json-rpc)",
+      "serving_tier_coupling": "both served; deployment of gasdf requires kora available",
+      "pow_metric": "evidence_ref_shared: gasdf-rebuild-20261016; kora surfaces: json-rpc; kora adoption: operate-only (no fork, no PR); kora tag: v2.0.5 @ cebb9046",
+      "friction_signal": "gasdf is the prototype, kora is the relay it operates on; coupled for deployment; pin baseline 86d917f differs from served HEAD 6538b4d7",
+      "notes": "Interconnection confirmed by shared evidence_ref gasdf-rebuild-20261016. gasdf served on /var/lib (branch agent/hermes/sender-phase0); kora served on /var/lib (tag v2.0.5)."
+    },
+    {
       "link_id": "op-titouan--toolchain-go",
       "from": "operator:titouan",
       "to": "toolchain:go",
@@ -123,6 +133,29 @@
     }
   ],
   "project_toolchains": [
+    {
+      "project_id": "gasdf",
+      "toolchains": [
+        "node",
+        "npm"
+      ],
+      "maintainer": "operator:titouan",
+      "maintenance_policy": "build_on_builder",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass on builder (npm ci + npm run build); served on /var/lib (branch agent/hermes/sender-phase0)"
+    },
+    {
+      "project_id": "kora",
+      "toolchains": [
+        "rust",
+        "cargo",
+        "go"
+      ],
+      "maintainer": "operator:titouan",
+      "maintenance_policy": "operate_only (no fork, no PR)",
+      "update_cadence": "on_demand",
+      "pow_metric": "tag v2.0.5 @ cebb9046; json-rpc surface; adoption: referent"
+    },
     {
       "project_id": "aegisscan",
       "toolchains": [
@@ -160,7 +193,8 @@
       "toolchain": "go",
       "projects": [
         "aegisscan",
-        "aegis-core"
+        "aegis-core",
+        "kora"
       ],
       "provisioned_by": "operator:titouan",
       "provisioned_at": "2026-10-18"
@@ -168,7 +202,8 @@
     {
       "toolchain": "node",
       "projects": [
-        "ai-bus"
+        "ai-bus",
+        "gasdf"
       ],
       "provisioned_by": "operator:titouan",
       "provisioned_at": "2026-10-18"
@@ -176,10 +211,27 @@
     {
       "toolchain": "npm",
       "projects": [
-        "ai-bus"
+        "ai-bus",
+        "gasdf"
       ],
       "provisioned_by": "operator:titouan",
       "provisioned_at": "2026-10-18"
+    },
+    {
+      "toolchain": "rust",
+      "projects": [
+        "kora"
+      ],
+      "provisioned_by": "operator:titouan",
+      "provisioned_at": "2026-10-16"
+    },
+    {
+      "toolchain": "cargo",
+      "projects": [
+        "kora"
+      ],
+      "provisioned_by": "operator:titouan",
+      "provisioned_at": "2026-10-16"
     }
   ],
   "rules": [
