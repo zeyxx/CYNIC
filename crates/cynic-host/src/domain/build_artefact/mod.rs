@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn a_checkout_with_foreign_owned_content_requires_privilege() {
         let line = "/var/lib/cynic/checkouts/aegis-consortium|sha1|1024|999:990|600|0|1";
-        let parsed = super::super::parse::parse_checkout_list(line, &[]);
+        let parsed = super::parse_checkout_list(line, &[]);
         assert_eq!(parsed.len(), 1);
         let entry = &parsed[0];
         assert!(entry.contains_foreign_owned);
@@ -160,7 +160,7 @@ mod tests {
     #[test]
     fn a_checkout_fully_owned_by_this_account_does_not_require_privilege() {
         let line = "/var/lib/cynic/checkouts/cynic-0fa0852b|sha2|1024|999:990|600|0|0";
-        let parsed = super::super::parse::parse_checkout_list(line, &[]);
+        let parsed = super::parse_checkout_list(line, &[]);
         assert_eq!(parsed.len(), 1);
         let entry = &parsed[0];
         assert!(!entry.contains_foreign_owned);
@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn a_line_without_the_foreign_field_still_parses() {
         let line = "/var/lib/cynic/checkouts/legacy|sha3|1024|0:0|600|0";
-        let parsed = super::super::parse::parse_checkout_list(line, &[]);
+        let parsed = super::parse_checkout_list(line, &[]);
         assert_eq!(parsed.len(), 1);
         let entry = &parsed[0];
         assert!(!entry.contains_foreign_owned);
