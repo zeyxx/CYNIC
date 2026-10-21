@@ -107,19 +107,33 @@ fn classify(program: &str, _relative_path: &str) -> &'static str {
         .unwrap_or(program)
         .to_ascii_lowercase();
     match base.as_str() {
-        // Remote execution: crosses a host/container boundary.
-        "ssh" | "ssh-keyscan" | "sudo" => "remote-exec",
-        // Package managers.
-        "cargo" | "apt" | "apt-get" | "npm" | "pnpm" | "yarn" => "package-manager",
-        // Provider-specific CLIs.
-        "curl" | "forgejo" | "gh" | "hermes" | "docker" | "kubectl" | "bwrap" => {
-            "provider-specific"
+        // Local build: a compilation tool. This is the class the
+        // deny-by-default policy refuses outside a build runner.
+        "cargo" | "rustc" | "rustup" | "make" | "cmake" | "ninja" | "cc" | "gcc" | "ld" => {
+            "local-build"
         }
+        // Remote execution: crosses a host or container boundary.
+        "ssh" | "ssh-keyscan" | "scp" | "rsync" | "sftp" | "sudo" => "remote-exec",
+        // Package managers.
+        "apt" | "apt-get" | "dpkg" | "npm" | "pnpm" | "yarn" | "pip" | "uv" => {
+            "package-manager"
+        }
+        // Provider-specific CLIs.
+        "curl" | "wget" | "forgejo" | "gh" | "hermes" | "docker" | "podman" | "kubectl"
+        | "bwrap" | "pct" | "qemu" => "provider-specific",
         // Observability / read-only inspection.
         "systemctl" | "journalctl" | "which" | "getent" | "id" | "ping" | "dmesg" | "wg"
-        | "grep" | "mkfifo" | "systemd-creds" | "kill" | "ssh-keygen" => "observability",
-        // Everything else is local build / host mutation tooling.
-        _ => "local-build",
+        | "grep" | "mkfifo" | "systemd-creds" | "kill" | "ssh-keygen" | "df" | "free"
+        | "ps" | "uptime" | "stat" => "observability",
+        // Version control: a transport, not a build.
+        "git" | "git-lfs" => "vcs",
+        // Host mutation tooling: changes the machine.
+        "chown" | "chmod" | "ln" | "mount" | "umount" | "useradd" | "usermod" | "tar" => {
+            "host-mutation"
+        }
+        // Everything else is unclassified: naming it honestly beats
+        // filing it under a class that hides it.
+        _ => "unclassified",
     }
 }
 

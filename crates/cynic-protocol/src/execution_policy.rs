@@ -265,7 +265,7 @@ pub fn remote_target(argv: &[&str]) -> Option<String> {
             // value that follows it only when the option takes one.
             continue;
         }
-        if arg == "host" || arg == "hostname" {
+        if *arg == "host" || *arg == "hostname" {
             continue;
         }
         return Some((*arg).to_string());
