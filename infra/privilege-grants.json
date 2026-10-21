@@ -2,9 +2,11 @@
   "schema": "cynic.privilege_grants.v1",
   "status": "normative",
   "purpose": "Desired-state registry of bounded privilege grants (sudoers) that agents may propose and only the human operator may install. An agent never applies a grant; it proposes exact file content, the operator reviews and installs, and this file records what SHOULD be present. Observed state comes from `sudo -l` read-back, never from this file.",
-  "authority": ["contracts/foundation.json"],
+  "authority": [
+    "contracts/foundation.json"
+  ],
   "proposal_convention": {
-    "rule": "Agent proposes the EXACT sudoers file content in a reviewable block plus a risk note (what breaks if abused, how to revoke). Operator installs by hand. Proposal and installation are two separate, individually explicit acts — never one gesture.",
+    "rule": "Agent proposes the EXACT sudoers file content in a reviewable block plus a risk note (what breaks if abused, how to revoke). Operator installs by hand. Proposal and installation are two separate, individually explicit acts \u2014 never one gesture.",
     "binding": "What the operator installs must equal what the agent proposed, verbatim. Any delta is a new proposal.",
     "revocation": "Delete the grant file on the node, remove the entry here. A grant absent from the node but present here is drift (node behind); a grant present on the node but absent here is unauthorized (report, do not silently adopt).",
     "read_back": "After install, `sudo -l -U <user>` on the node must show exactly the granted verbs. Record the check output reference (not the secret) in the entry."
@@ -17,15 +19,47 @@
       "file": "/etc/sudoers.d/cynic-deploy",
       "mode": "0440",
       "content": "cynic ALL=(root) NOPASSWD: /bin/systemctl restart cynic-node.service, /bin/systemctl is-active cynic-node.service, /usr/bin/systemctl restart cynic-node.service, /usr/bin/systemctl is-active cynic-node.service",
-      "permits": ["restart + active-state read-back of cynic-node.service only"],
-      "forbids": ["any other unit", "stop/start/enable/disable", "shell", "package or file writes"],
+      "permits": [
+        "restart + active-state read-back of cynic-node.service only"
+      ],
+      "forbids": [
+        "any other unit",
+        "stop/start/enable/disable",
+        "shell",
+        "package or file writes"
+      ],
       "purpose": "Runtime-update activation (contracts/runtime-update.json step 5) for canary deploys without per-deploy operator gesture.",
       "proposed_by": "hermes",
       "proposed_at": "2026-10-06",
       "status": "installed",
       "installed_at": "2026-10-07",
-      "read_back_ref": "operator-pasted read-back 2026-10-07: visudo -c parsed OK on all sudoers sources; `sudo -n /usr/bin/systemctl is-active cynic-node.service` returned active without password — amended grant (both systemctl paths) functional",
+      "read_back_ref": "operator-pasted read-back 2026-10-07: visudo -c parsed OK on all sudoers sources; `sudo -n /usr/bin/systemctl is-active cynic-node.service` returned active without password \u2014 amended grant (both systemctl paths) functional",
       "risk_note": "Abuse ceiling: restart loop of one already-public service (DoS of node supervision, self-healing via rollback design). No data access, no lateral movement: verbs are unit-scoped, no wildcards, no shell."
+    },
+    {
+      "id": "builder-soak-duplicate-retire",
+      "node": "cynic-builder",
+      "grantee_user": "cynic",
+      "file": "/etc/sudoers.d/cynic-soak-retire",
+      "mode": "0440",
+      "content": "cynic ALL=(root) NOPASSWD: /bin/systemctl disable cynic-supervise-soak-node.service, /bin/systemctl disable cynic-supervise-watch-soak-node.service, /usr/bin/systemctl disable cynic-supervise-soak-node.service, /usr/bin/systemctl disable cynic-supervise-watch-soak-node.service, /bin/systemctl stop cynic-supervise-soak-node.service, /bin/systemctl stop cynic-supervise-watch-soak-node.service, /usr/bin/systemctl stop cynic-supervise-soak-node.service, /usr/bin/systemctl stop cynic-supervise-watch-soak-node.service, /bin/systemctl is-active cynic-supervise-soak-node.service, /bin/systemctl is-active cynic-supervise-watch-soak-node.service, /usr/bin/systemctl is-active cynic-supervise-soak-node.service, /usr/bin/systemctl is-active cynic-supervise-watch-soak-node.service",
+      "permits": [
+        "disable + stop + active-state read-back of the two soak units only"
+      ],
+      "forbids": [
+        "any other unit",
+        "enable / start / mask / daemon-reload",
+        "shell",
+        "package or file writes",
+        "removal of the unit FILES (that needs a separate install grant)"
+      ],
+      "purpose": "Retire the two stale system-scope soak units on builder-119. They were installed from a duplicate repository path (infra/os/systemd/) that was byte-identical to the file on the host (sha256 cf8bdb0e...), and they execute a Cargo-cache binary that does not know the 'supervise' verb, so the parent fails at every boot. The corrected pair runs in the systemd USER scope (/var/lib/cynic/.config/systemd/user) and is active with NRestarts=0. This grant disables and stops the stale pair; it does NOT delete the unit files, which remain a separate operator act.",
+      "proposed_by": "hermes",
+      "proposed_at": "2026-10-21",
+      "status": "proposed",
+      "installed_at": null,
+      "read_back_ref": null,
+      "risk_note": "Abuse ceiling: an actor holding this grant can stop and disable exactly two named soak units, and read their active state. It cannot enable them, cannot start other units, cannot write files, and cannot obtain a shell. The soak is not a production role (its own README says so) and the user-scope pair already provides the function, so the availability ceiling is nil. Revoke by deleting /etc/sudoers.d/cynic-soak-retire."
     }
   ]
 }
