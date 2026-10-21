@@ -153,7 +153,8 @@ mod tests {
     #[test]
     fn supervisor_kind_strings_are_distinct_contract_spellings() {
         use std::collections::BTreeSet;
-        let strings: BTreeSet<_> = SupervisorKind::all().iter().map(|k| k.as_str()).collect();
+        let all = SupervisorKind::all();
+        let strings: BTreeSet<_> = all.iter().map(|k| k.as_str()).collect();
         assert_eq!(strings.len(), 6, "one distinct contract spelling per kind");
         assert!(strings.contains("systemd-system"));
         assert!(strings.contains("embedded-child"));

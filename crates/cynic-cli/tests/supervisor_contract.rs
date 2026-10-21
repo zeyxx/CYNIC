@@ -53,7 +53,8 @@ fn supervisor_kinds_match_protocol_vocabulary_in_both_directions() {
         .collect();
 
     // Code -> contract: every L0 variant has a contract spelling.
-    let code_strings: BTreeSet<&str> = SupervisorKind::all().iter().map(|k| k.as_str()).collect();
+    let all_kinds = SupervisorKind::all();
+    let code_strings: BTreeSet<&str> = all_kinds.iter().map(|k| k.as_str()).collect();
     let contract_set: BTreeSet<&str> = kinds.iter().copied().collect();
     assert_eq!(
         code_strings, contract_set,
