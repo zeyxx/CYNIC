@@ -171,6 +171,32 @@ fn is_capability_binary(program: &str, catalog: &BTreeSet<String>) -> bool {
     catalog.contains(base)
 }
 
+/// Whether a line belongs to a test module rather than production code.
+///
+/// A test asserts behaviour; it does not grant a capability. A spawn in a
+/// test is therefore not a surface that bypasses the membrane, and
+/// counting it as one would make the ledger report a risk that does not
+/// exist.
+fn is_test_surface(relative_path: &str, lines: &[&str], line_index: usize) -> bool {
+    // A file under a `tests/` directory is an integration test.
+    if relative_path.contains("/tests/") || relative_path.starts_with("tests/") {
+        return true;
+    }
+    // A `#[cfg(test)] mod tests` block: look backwards for the module
+    // header that opens the test section of the file.
+    for previous in lines[..line_index].iter().rev() {
+        let trimmed = previous.trim();
+        if trimmed.starts_with("#[cfg(test)]") {
+            return true;
+        }
+        // A new top-level item ends the test section.
+        if trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ") {
+            return false;
+        }
+    }
+    false
+}
+
 fn sort_surfaces(surfaces: &mut [Surface]) {
     surfaces.sort_by(|a, b| a.path.cmp(&b.path).then(a.line.cmp(&b.line)));
 }
@@ -211,12 +237,15 @@ fn main() {
             let program = extract_program(line).unwrap_or_else(|| "dynamic".to_string());
             let risk = classify(&program, &file.relative_path);
             let is_cap = is_capability_binary(&program, &catalog);
+            let all_lines: Vec<&str> = file.content.lines().collect();
+            let is_test = is_test_surface(&file.relative_path, &all_lines, i);
             surfaces.push(Surface {
                 path: file.relative_path.clone(),
                 line: i + 1,
                 program,
                 risk_class: risk.to_string(),
                 is_capability_binary: is_cap,
+                is_test,
             });
         }
     }
@@ -231,14 +260,19 @@ fn main() {
         "remote-exec",
         "self-exec",
     ];
+    let bypass_count = surfaces
+        .iter()
+        .filter(|s| s.is_capability_binary && !s.is_test)
+        .count();
+    let production_count = surfaces.iter().filter(|s| !s.is_test).count();
+    let test_count = surfaces.len() - production_count;
     let mut by_class: BTreeMap<String, usize> = BTreeMap::new();
-    for c in classes {
-        by_class.insert(c.to_string(), 0);
+    for class in classes {
+        by_class.insert(class.to_string(), 0);
     }
-    for s in &surfaces {
-        *by_class.entry(s.risk_class.clone()).or_insert(0) += 1;
+    for surface in surfaces.iter().filter(|s| !s.is_test) {
+        *by_class.entry(surface.risk_class.clone()).or_insert(0) += 1;
     }
-    let bypass_count = surfaces.iter().filter(|s| s.is_capability_binary).count();
 
     let mut document = String::new();
     document.push_str("{\n");
@@ -247,12 +281,13 @@ fn main() {
     let mut surface_lines: Vec<String> = Vec::new();
     for s in &surfaces {
         surface_lines.push(format!(
-            "    {{\"path\": \"{}\", \"line\": {}, \"program\": \"{}\", \"risk_class\": \"{}\", \"is_capability_binary\": {}}}",
+            "    {{\"path\": \"{}\", \"line\": {}, \"program\": \"{}\", \"risk_class\": \"{}\", \"is_capability_binary\": {}, \"is_test\": {}}}",
             escape_json(&s.path),
             s.line,
             escape_json(&s.program),
             escape_json(&s.risk_class),
-            s.is_capability_binary
+            s.is_capability_binary,
+            s.is_test
         ));
     }
     document.push_str(&surface_lines.join(",\n"));
@@ -266,18 +301,24 @@ fn main() {
     document.push_str(&class_lines.join(",\n"));
     document.push_str("\n    },\n");
     document.push_str(&format!(
-        "    \"capability_bypass_count\": {}\n",
+        "    \"capability_bypass_count\": {},\n",
         bypass_count
     ));
+    document.push_str(&format!(
+        "    \"production_surface_count\": {},\n",
+        production_count
+    ));
+    document.push_str(&format!("    \"test_surface_count\": {}\n", test_count));
     document.push_str("  }\n");
     document.push_str("}\n");
 
     let out = root.join("infra/capability-gap-ledger.json");
     fs::write(&out, document).expect("write the capability gap ledger");
     println!(
-        "wrote {} with {} surfaces and {} capability bypasses",
+        "wrote {} with {} production surfaces ({} test surfaces) and {} capability bypasses",
         out.display(),
-        surfaces.len(),
+        production_count,
+        test_count,
         bypass_count
     );
 }
@@ -342,6 +383,27 @@ mod tests {
         assert_eq!(surfaces[0].line, 1);
         assert_eq!(surfaces[1].line, 5);
         assert_eq!(surfaces[2].path, "b.rs");
+    }
+
+    #[test]
+    fn a_test_module_is_not_a_production_surface() {
+        let lines: Vec<&str> = vec![
+            "fn production() {",
+            "    let _ = Command::new(\"git\");",
+            "}",
+            "#[cfg(test)]",
+            "mod tests {",
+            "    fn helper() { let _ = Command::new(\"git\"); }",
+            "}",
+        ];
+        assert!(!is_test_surface("crates/x/src/a.rs", &lines, 1));
+        assert!(is_test_surface("crates/x/src/a.rs", &lines, 5));
+    }
+
+    #[test]
+    fn an_integration_test_file_is_not_a_production_surface() {
+        let lines: Vec<&str> = vec!["fn helper() { let _ = Command::new(\"git\"); }"];
+        assert!(is_test_surface("crates/x/tests/a.rs", &lines, 0));
     }
 
     #[test]
