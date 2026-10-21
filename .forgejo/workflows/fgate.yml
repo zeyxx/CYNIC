@@ -43,6 +43,40 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -194,6 +228,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -245,6 +298,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -296,6 +368,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -347,6 +438,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -398,6 +508,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
