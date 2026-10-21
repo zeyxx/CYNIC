@@ -182,6 +182,11 @@ fn retire_service(
 }
 
 /// A plain `*.service` unit identifier: no path, no flags, no shell.
+///
+/// The identifier is passed to the service manager as an argument, so a
+/// leading `-` would be read as an OPTION, not as a unit name: `--now`
+/// would change what the command means instead of naming a unit. The
+/// first character is therefore restricted to a letter or a digit.
 fn is_plain_service_unit(unit: &str) -> bool {
     !unit.is_empty()
         && unit.len() <= 128
@@ -191,6 +196,11 @@ fn is_plain_service_unit(unit: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' || c == '@')
         && !unit.contains("..")
         && !unit.contains('/')
+        && !unit.contains(' ')
+        && unit
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric())
 }
 
 fn start_service(
