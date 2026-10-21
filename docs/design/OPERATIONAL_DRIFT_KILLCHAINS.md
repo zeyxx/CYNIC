@@ -342,3 +342,44 @@ into a build directory.
 - Not a shell script. The retention engine, the GC command and the reclaim
   command already existed; the corrections are declarations and wiring, so
   the enforcement stays in CYNIC and observable through it.
+
+## Killchain 13 — the same unit, versioned twice, and the stale copy won
+
+**Condition.** The soak unit existed at two paths in the repository:
+`infra/os/systemd/cynic-supervise-soak-node.service` and
+`infra/os/systemd/soak/cynic-supervise-soak-node.service`. Both were
+versioned, both were live, and each was the source of truth for a different
+installation. The copy at the repository root carried
+`ExecStart=/var/lib/cynic/shared-target/debug/cynic`, `User=cynic`,
+`Group=cynic` and `WantedBy=multi-user.target`; the copy under `soak/`
+carried the corrected `ExecStart=/var/lib/cynic/bin/cynic` and the
+user-scope directives.
+
+**Evidence.** The installed file on builder-119 was byte-identical to the
+stale copy, which settles which one the host actually used:
+
+```
+sha256  /etc/systemd/system/cynic-supervise-soak-node.service
+        cf8bdb0e3475a83b7936f362a5f215e1655ba9e1d490ce38b19b601ae58d6938
+sha256  infra/os/systemd/cynic-supervise-soak-node.service       (stale copy)
+        cf8bdb0e3475a83b7936f362a5f215e1655ba9e1d490ce38b19b601ae58d6938
+sha256  infra/os/systemd/soak/cynic-supervise-soak-node.service  (authority)
+        a001bdb3c55285ff16e288a506a4568f41994a4bee1c4011ac65cead3f6ee6db
+```
+
+Both copies were born in the same commit (`2cd72973`, "version the soak
+units that only existed on the host"). The duplication was not a
+divergence: it was the same file written to two places, and every later
+fix had to be applied twice to be effective on the host.
+
+**Why it bit.** The fixes were applied to `soak/` and verified there. The
+host kept running the copy under `infra/os/systemd/`, so the corrected
+units looked correct in the repository and the service still failed at
+runtime. Reading the repository is not reading the host; the hash is what
+settles it.
+
+**The class.** A file that is versioned twice is a service with two
+definitions, and the one that wins is decided by which path somebody
+copied — not by which one is correct. Fix: one path, one authority. The
+stale copies are removed and the convergence map points at the surviving
+path.
