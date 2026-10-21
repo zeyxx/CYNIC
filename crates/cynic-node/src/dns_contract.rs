@@ -534,7 +534,7 @@ fn dns_runtime_context_for_zone(
                 .display()
                 .to_string(),
             format!("/etc/systemd/system/{}", dnsmasq_service_unit_for_zone(zone)),
-            "dnsmasq.conf",
+            "dnsmasq.conf".to_string(),
             dnsmasq_service_unit_for_zone(zone),
         ),
     };
