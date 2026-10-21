@@ -110,6 +110,75 @@ pub fn underlay_address(value: &serde_json::Value) -> Option<&str> {
         .filter(|address| !address.is_empty())
 }
 
+/// `serde_json::Value`. This is the same resolution order as [`plane_address`].
+pub fn plane_address_in_map<'a, K, V>(
+    addresses: &'a std::collections::BTreeMap<K, V>,
+    plane: &str,
+) -> Option<&'a str>
+where
+    K: AsRef<str> + Ord,
+    V: AsRef<str>,
+{
+    let canonical = canonical_plane_key(plane);
+    addresses
+        .iter()
+        .find(|(key, _)| canonical_plane_key(key.as_ref()) == canonical)
+        .map(|(_, value)| value.as_ref().trim())
+        .filter(|address| !address.is_empty())
+}
+
+/// Read the underlay / L2-adjacency address from a `BTreeMap`-shaped table.
+///
+/// `local` is not a plane (spec §5.1), so it is read directly and never
+/// through the plane alias map.
+pub fn underlay_address_in_map<'a, K, V>(
+    addresses: &'a std::collections::BTreeMap<K, V>,
+) -> Option<&'a str>
+where
+    K: AsRef<str> + Ord,
+    V: AsRef<str>,
+{
+    addresses
+        .iter()
+        .find(|(key, _)| key.as_ref() == UNDERLAY_KEY)
+        .map(|(_, value)| value.as_ref().trim())
+        .filter(|address| !address.is_empty())
+}
+
+/// [`plane_address_in_map`] across the canonical plane order, then underlay.
+pub fn best_plane_address_in_map<'a, K, V>(
+    addresses: &'a std::collections::BTreeMap<K, V>,
+) -> Option<&'a str>
+where
+    K: AsRef<str> + Ord,
+    V: AsRef<str>,
+{
+    for plane in CANONICAL_PLANE_KEYS {
+        if let Some(address) = plane_address_in_map(addresses, plane) {
+            return Some(address);
+        }
+    }
+    addresses
+        .iter()
+        .find(|(key, _)| key.as_ref() == UNDERLAY_KEY)
+        .map(|(_, value)| value.as_ref().trim())
+        .filter(|address| !address.is_empty())
+}
+
+/// Address on the first plane that declares one, canonical order, then underlay.
+///
+/// Mirrors the resolution order of `RegistryReservation::best_address` and
+/// `RegistryNodeNetwork::best_ip`, so a `serde_json` consumer and a typed
+/// consumer of the same registry agree on which address wins.
+pub fn best_plane_address(value: &serde_json::Value) -> Option<&str> {
+    for plane in CANONICAL_PLANE_KEYS {
+        if let Some(address) = plane_address(value, plane) {
+            return Some(address);
+        }
+    }
+    underlay_address(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
