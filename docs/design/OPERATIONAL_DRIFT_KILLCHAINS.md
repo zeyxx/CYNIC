@@ -383,3 +383,45 @@ definitions, and the one that wins is decided by which path somebody
 copied — not by which one is correct. Fix: one path, one authority. The
 stale copies are removed and the convergence map points at the surviving
 path.
+
+## Killchain 14 — the gate compiles the same workspace N times at once, and 8 GiB is not N times
+
+**Condition.** The F-gate is sharded into 7 jobs that all run on a single
+runner with a single `CARGO_TARGET_DIR`
+(`{state-root}/build-targets/fgate`). The workflow declares no
+concurrency limit. Two of the jobs — `Gate 3 Canonical Paths` and
+`Gate 3 Knowledge` — both build `cynic-cli` and its dependency tree, so
+when they start at the same moment the runner holds two concurrent
+compilations of the same workspace.
+
+**Evidence.** Run 1121 (`3efa52cb`) reported `Gate 1 Contract Validation`
+as `failure` while the runner's own log recorded
+`✅ Success - Main Validate Foundation & Infra JSON Contracts` and
+`🏁 Job succeeded` for that same job, and the same JSON validated
+cleanly on a manual re-run. Run 1122 (the same tree, empty commit) then
+moved the failure to `Gate 3 Canonical Paths`, with:
+
+```
+/var/lib/cynic/.cache/act/.../act/workflow/2.sh: line 2:
+  2093799 Killed   cargo test -p cynic-cli --test canonical_paths_coherence
+RUN exit status 137
+```
+
+Exit 137 is SIGKILL: the kernel OOM-killed the compiler, not a test
+failure. It is the first `137` in the runner's whole log, and the
+failing job moved between runs on an identical tree — the signature of a
+resource peak, not of a defect in the code under test.
+
+**Why it hides a real failure.** A job killed at 137 is reported by
+Forgejo exactly like a job whose assertion failed. A gate that reports
+`failure` for an infrastructure peak trains the reader to distrust the
+gate, and the next real failure gets discounted.
+
+**The class.** Sharding a gate across jobs removes the wall-clock cost of
+a monolithic build, but it multiplies the RESOURCE cost: every shard
+that shares a target directory and a machine must share its memory
+budget too. The shard count is a function of the machine, not a constant.
+
+**Fix.** Bound the concurrency of the gate to what the runner can hold,
+and treat exit 137 as a distinct, retryable outcome rather than a test
+failure. A job killed by the OOM killer must be re-run, not read.
