@@ -63,6 +63,9 @@ jobs:
           cargo --version
 
 
+      - name: Build the sovereign CLI
+        run: cargo build --release -p cynic-cli
+
       - name: Publish the compilation parallelism this runner can hold
         run: |
           set -eu
@@ -79,6 +82,12 @@ jobs:
           # concurrent compilations fit. The decision is published in the
           # shared target directory, which is where the shared build cache
           # already lives, so the other shards read it.
+          # Each `run:` block is its own shell: the variables of the
+          # toolchain step are not in scope here, so the shared directory
+          # is resolved again from the same source of truth.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
           if [ -x "$CARGO_TARGET_DIR/release/cynic" ]; then
             "$CARGO_TARGET_DIR/release/cynic" build pool memory --json > "$target_dir/gate-jobs.json"
             jobs=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json'))['jobs'])")
@@ -87,9 +96,6 @@ jobs:
           else
             echo "no published decision yet: the first run compiles serially"
           fi
-
-      - name: Build the sovereign CLI
-        run: cargo build --release -p cynic-cli
 
       - name: Verify pool eligibility for this label
         run: |
