@@ -4,7 +4,7 @@
 //!
 //! Before this module, 73 sites in CYNIC wrote JSONL files with:
 //!
-//! ```rust
+//! ```rust,ignore
 //! let mut file = OpenOptions::new().create(true).append(true).open(path)?;
 //! writeln!(file, "{line}")?;
 //! ```

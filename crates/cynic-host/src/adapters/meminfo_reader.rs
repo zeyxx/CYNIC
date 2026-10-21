@@ -4,7 +4,7 @@
 //!
 //! Before this module, 25 sites in CYNIC read `/proc/meminfo` independently:
 //!
-//! ```rust
+//! ```rust,ignore
 //! let raw = std::fs::read_to_string("/proc/meminfo")?;
 //! let report = parse_meminfo(&raw)?;
 //! ```

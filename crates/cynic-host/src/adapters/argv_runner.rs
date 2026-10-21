@@ -85,14 +85,22 @@ impl ArgvRunner {
     ///
     /// ```
     /// use cynic_host::adapters::argv_runner::ArgvRunner;
+    /// use cynic_protocol::{argv, argv_allow, execution_policy};
     ///
     /// // Fail-closed: without an installed policy nothing is admitted,
     /// // so nothing runs. The refusal names the missing authority.
     /// let refused = ArgvRunner::run(&["echo", "hello"]);
     /// assert!(refused.is_err());
     ///
-    /// // With a policy that admits `echo`, the same argv runs.
-    /// cynic_protocol::argv_test_support::install_permissive_policy_for(&["echo"]);
+    /// // With a policy that admits `echo`, the same argv runs. The policy
+    /// // is built inline here so the doctest does not depend on the test
+    /// // support module; unit and integration tests use that helper.
+    /// let rules = vec![argv_allow::AllowRule {
+    ///     program: "echo".to_string(),
+    ///     arg_prefix: Vec::new(),
+    ///     reason: "doctest: the doctest spawns echo".to_string(),
+    /// }];
+    /// argv::install_execution_policy(execution_policy::ExecutionPolicy::new(rules));
     /// let output = ArgvRunner::run(&["echo", "hello"]).unwrap();
     /// assert!(output.success());
     /// assert_eq!(output.stdout.trim(), "hello");
