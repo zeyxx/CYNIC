@@ -184,15 +184,22 @@ fn is_test_surface(relative_path: &str, lines: &[&str], line_index: usize) -> bo
     if relative_path.contains("/tests/") || relative_path.starts_with("tests/") {
         return true;
     }
-    // A `#[cfg(test)] mod tests` block: look backwards for the module
-    // header that opens the test section of the file.
+    // A `#[cfg(test)] mod tests` block. The attribute and the module
+    // header are adjacent, and the module header is what the scan meets
+    // first when it walks backwards, so the module header alone cannot
+    // end the search: only a module that is not a test module does.
     for previous in lines[..line_index].iter().rev() {
         let trimmed = previous.trim();
         if trimmed.starts_with("#[cfg(test)]") {
             return true;
         }
-        // A new top-level item ends the test section.
         if trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ") {
+            // `mod tests` is the test module itself: the walk has to
+            // continue to the attribute that guards it. Any other module
+            // ends the test section.
+            if trimmed.contains("tests") {
+                continue;
+            }
             return false;
         }
     }
