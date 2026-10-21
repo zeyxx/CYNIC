@@ -1003,6 +1003,7 @@ pub mod resolve {
                 services: vec![],
                 network_links: vec![],
                 source_workspace_layout: None,
+                retired_units: Vec::new(),
             }
         }
 

@@ -71,7 +71,7 @@ fn a_retirement_survives_admission() {
     let plan = plan_with_retirement();
     let admission = service_operation_policy_admission(&plan, "operator-a");
     let mut auth = authorization();
-    auth.preconditions = plan.preconditions.clone();
+    auth.satisfied_preconditions = plan.preconditions.clone();
     let admitted =
         admit_host_operation_plan(plan, admission, auth).expect("admitted retirement plan");
     assert!(

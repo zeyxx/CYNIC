@@ -225,6 +225,9 @@ impl HostCommandRunnerPort for FakeCommandRunner {
             HostOperation::ServiceStart { unit } => {
                 format!("systemctl start {unit}")
             }
+            HostOperation::ServiceRetire { unit } => {
+                format!("service retire {unit}")
+            }
         };
         HostCommandResult {
             command: command.clone(),

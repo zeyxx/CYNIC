@@ -295,6 +295,7 @@ mod tests {
             network_policy: None,
             lifecycle: None,
             nodes: vec![RegistryNode {
+                retired_units: Vec::new(),
                 name: Some("test-node".to_string()),
                 id: Some("test-node".to_string()),
                 aliases: vec![],
@@ -346,6 +347,7 @@ mod tests {
         let mut doc = minimal_doc();
         // Add node with duplicate ID
         doc.nodes.push(RegistryNode {
+            retired_units: Vec::new(),
             name: Some("other".to_string()),
             id: Some("test-node".to_string()), // duplicate
             aliases: vec![],
