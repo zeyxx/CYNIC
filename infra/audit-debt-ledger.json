@@ -33,7 +33,7 @@
       "PATH-001": 8,
       "PATH-002": 3,
       "PATH-004": 34,
-      "PROSE-001": 1,
+      "PROSE-001": 4,
       "RUN-001": 3,
       "SEC-001": 3
     }
@@ -1546,7 +1546,25 @@
       "severity": "warning"
     },
     {
-      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` \u2014 code must cite machine-readable authority (contract, Rust type, or test), never prose",
+      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` — code must cite machine-readable authority (contract, Rust type, or test), never prose",
+      "count": 1,
+      "rule": "PROSE-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PROSE-001-DANGLING-REF|docs/INDEX.md cites POOL_ELIGIBILITY.md, NETWORK_ENROLLMENT.md, BASE_ENROLLMENT.md — none present in the tree; docs must never be cited as authority for verbs that do not exist in code",
+      "count": 1,
+      "rule": "PROSE-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PROSE-001-GHOST-BIN|distribution procedure cites cynic-node-enroll — no such [[bin]] in the tree (crates/cynic-node declares one bin: cynic-node); enrollment tooling must exist before procedures cite it",
+      "count": 1,
+      "rule": "PROSE-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PROSE-001-GHOST-REF|distribution procedure cites references/ssh-node-enrollment.md — absent from the installed skill; skill references must resolve or be removed",
       "count": 1,
       "rule": "PROSE-001",
       "severity": "warning"

@@ -3,8 +3,11 @@
 Closes #228. Turns `cynic-compute-01-build` from `planned` into an
 `observed` pool member. Each step produces evidence; no step is skipped.
 
-Status model: `docs/design/BASE_ENROLLMENT.md` (base -> eligibility ->
-role) plus rule `4e088bc3` (`observed` requires probe evidence).
+Status model (PROSE-001: code and probes are authority, never docs):
+base identity first, then pool eligibility, then role — each gated on
+its own probe. `observed` requires probe evidence (rule `4e088bc3`);
+the pool health check is the executable gate
+(`crates/cynic-build/src/builder_pool.rs`).
 
 ## 0. Where this runs
 
@@ -54,8 +57,9 @@ sudo systemctl is-active <unit>
 
 ## 3. Enrollment (base layer)
 
-Base enrollment answers identity, reachability, accountability
-(`BASE_ENROLLMENT.md` section 0). Before touching the registry, prove
+Base enrollment answers three facts: which machine (stable id in
+`infra/registry.json`), how to reach it (declared transports), who
+vouches for it (dated stamp). Before touching the registry, prove
 the kernel handshake from compute-01:
 
 - Request a PreAuthKey for the machine, complete the handshake.
@@ -92,11 +96,25 @@ outputs into #228. Only then flip `status` to `observed` in the
 registry: status follows observation, never precedes it.
 
 Note: `cynic build pool eligibility` and `cynic enroll status` do not
-exist in the tree (see gap 1 below); the three commands above are
-their honest equivalents today.
+exist in the tree; the three commands above are their honest
+equivalents today (see Known gaps).
 
 ## 6. Pool confirmation
 
 `resolve_builder_pool_with_health` (`crates/cynic-build/src/builder_pool.rs`)
 lists the node as healthy. One submitted build routed to compute-01
 with its canonical gate report closes the loop and the issue.
+
+## Known gaps (structural, tracked in `infra/audit-debt-ledger.json`)
+
+- No `cynic build pool eligibility` verb: the health check lives in
+  `builder_pool.rs` only, with no CLI surface. Until one exists, the
+  curl probe above is the eligibility proof.
+- No `cynic enroll status` verb and no `cynic-node-enroll` binary: the
+  enrollment request/grant files exist on the builder but no in-tree
+  tool produces them. Until one exists, enrollment is a manual
+  kernel handshake, and `cynic discovery nodes` plus `cynic network
+  shadow` are the status read-backs.
+- No reference systemd unit in the tree (debt PATH-001), and the
+  working builder itself runs outside systemd. Persist units on both
+  machines after the manual launch proves the invocation.
