@@ -35,6 +35,7 @@ fn sorts_deterministically() {
             program: "x".to_string(),
             risk_class: "local-build".to_string(),
             is_capability_binary: false,
+            is_test: false,
         },
         Surface {
             path: "a.rs".to_string(),
@@ -42,6 +43,7 @@ fn sorts_deterministically() {
             program: "y".to_string(),
             risk_class: "local-build".to_string(),
             is_capability_binary: false,
+            is_test: false,
         },
         Surface {
             path: "a.rs".to_string(),
@@ -49,6 +51,7 @@ fn sorts_deterministically() {
             program: "z".to_string(),
             risk_class: "local-build".to_string(),
             is_capability_binary: false,
+            is_test: false,
         },
     ];
     sort_surfaces(&mut surfaces);
