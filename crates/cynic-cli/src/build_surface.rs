@@ -512,7 +512,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                     Err(error) => Err(error),
                 }
             }
-            BuildPoolCommand::Memory { registry, json } => {
+            BuildPoolCommand::Memory { json } => {
                 let assessment = evaluate_runner_memory();
                 if json {
                     println!(

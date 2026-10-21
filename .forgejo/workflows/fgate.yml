@@ -81,7 +81,7 @@ jobs:
           # already lives, so the other shards read it.
           if [ -x "$CARGO_TARGET_DIR/release/cynic" ]; then
             "$CARGO_TARGET_DIR/release/cynic" build pool memory --json > "$target_dir/gate-jobs.json"
-            jobs=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json'))['decision']['jobs'])")
+            jobs=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json'))['jobs'])")
             echo "$jobs" > "$target_dir/gate-jobs"
             echo "published compilation parallelism: $jobs"
           else

@@ -83,6 +83,14 @@ pub struct MemoryCapacityAssessment {
     pub unit_rss_bytes: u64,
     /// Bytes the estimate reserves for the runner itself.
     pub reserved_bytes: u64,
+    /// How many concurrent compilations are safe.
+    ///
+    /// This is the FLAT, stable projection of the decision: the enum
+    /// serializes as `{"proceed": {"jobs": N}}`, so a consumer reading
+    /// `decision.jobs` would find nothing. A caller that needs the
+    /// parallelism reads this field, which is present and `Some` exactly
+    /// when the decision is `Proceed`, and `None` otherwise.
+    pub jobs: Option<u32>,
 }
 
 /// Decide how many concurrent compilations the runner can hold.
@@ -121,12 +129,17 @@ pub fn decide_memory_capacity(
             }
         }
     };
+    let jobs = match &decision {
+        MemoryCapacityDecision::Proceed { jobs, .. } => Some(*jobs),
+        MemoryCapacityDecision::Refused { .. } | MemoryCapacityDecision::Unknown { .. } => None,
+    };
     MemoryCapacityAssessment {
         schema: MEMORY_CAPACITY_DECISION_SCHEMA,
         decision,
         available_bytes,
         unit_rss_bytes,
         reserved_bytes,
+        jobs,
     }
 }
 
@@ -192,6 +205,30 @@ mod tests {
             MemoryCapacityDecision::Proceed { jobs, .. } => assert_eq!(jobs, 1),
             other => panic!("expected proceed, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn the_flat_projection_carries_the_jobs_only_when_proceeding() {
+        let proceeding = decide_memory_capacity(
+            Some(gib(4)),
+            DEFAULT_UNIT_RSS_BYTES,
+            DEFAULT_RESERVED_BYTES,
+        );
+        assert!(proceeding.jobs.is_some(), "a proceed must expose its jobs");
+
+        let refused =
+            decide_memory_capacity(Some(gib(1)), DEFAULT_UNIT_RSS_BYTES, DEFAULT_RESERVED_BYTES);
+        assert!(
+            refused.jobs.is_none(),
+            "a refusal must not expose a parallelism"
+        );
+
+        let unknown =
+            decide_memory_capacity(None, DEFAULT_UNIT_RSS_BYTES, DEFAULT_RESERVED_BYTES);
+        assert!(
+            unknown.jobs.is_none(),
+            "an unknown budget must not expose a parallelism"
+        );
     }
 
     #[test]

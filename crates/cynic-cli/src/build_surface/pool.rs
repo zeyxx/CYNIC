@@ -53,9 +53,6 @@ pub(crate) enum BuildPoolCommand {
     /// kill as a test failure. This verb reads the runner's memory and
     /// answers with the parallelism that memory can hold.
     Memory {
-        /// Registry path (infra/registry.json).
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
