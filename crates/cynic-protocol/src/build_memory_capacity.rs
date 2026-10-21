@@ -108,6 +108,24 @@ pub fn decide_memory_capacity(
     unit_rss_bytes: u64,
     reserved_bytes: u64,
 ) -> MemoryCapacityAssessment {
+    decide_memory_capacity_with_cores(available_bytes, unit_rss_bytes, reserved_bytes, None)
+}
+
+/// Decide how many concurrent compilations fit, bounded by the core count.
+///
+/// The memory bound alone over-estimates on a small machine: 8 GiB with
+/// 512 MiB per unit yields ten, but the runner has four cores, so ten
+/// compilations would time-share four cores while holding ten times the
+/// memory. The parallelism is therefore the SMALLER of the memory bound
+/// and the core count: the machine can only run so many at once, and
+/// running more of them than it has cores costs memory without buying
+/// time.
+pub fn decide_memory_capacity_with_cores(
+    available_bytes: Option<u64>,
+    unit_rss_bytes: u64,
+    reserved_bytes: u64,
+    cores: Option<u32>,
+) -> MemoryCapacityAssessment {
     let decision = match available_bytes {
         None => MemoryCapacityDecision::Unknown {
             reason: "runner_memory_unobserved".to_string(),
@@ -121,7 +139,11 @@ pub fn decide_memory_capacity(
                 }
             } else {
                 let usable = bytes - reserved_bytes;
-                let jobs = (usable / unit_rss_bytes.max(1)).max(1);
+                let memory_bound = (usable / unit_rss_bytes.max(1)).max(1);
+                let jobs = match cores {
+                    Some(cores) if cores > 0 => memory_bound.min(cores as u64),
+                    _ => memory_bound,
+                };
                 MemoryCapacityDecision::Proceed {
                     jobs: jobs.min(u32::MAX as u64) as u32,
                     available_bytes: bytes,
@@ -229,6 +251,49 @@ mod tests {
             unknown.jobs.is_none(),
             "an unknown budget must not expose a parallelism"
         );
+    }
+
+    #[test]
+    fn the_core_count_bounds_the_memory_bound() {
+        // 8 GiB yields ten by memory alone, but the runner has four cores:
+        // ten compilations on four cores time-share the cores while
+        // holding ten times the memory.
+        let by_memory = decide_memory_capacity(
+            Some(6 * gib(1) + 300 * 1024 * 1024),
+            DEFAULT_UNIT_RSS_BYTES,
+            DEFAULT_RESERVED_BYTES,
+        );
+        let bounded = decide_memory_capacity_with_cores(
+            Some(6 * gib(1) + 300 * 1024 * 1024),
+            DEFAULT_UNIT_RSS_BYTES,
+            DEFAULT_RESERVED_BYTES,
+            Some(4),
+        );
+        let (memory_jobs, bounded_jobs) = match (by_memory.decision, bounded.decision) {
+            (
+                MemoryCapacityDecision::Proceed { jobs: a, .. },
+                MemoryCapacityDecision::Proceed { jobs: b, .. },
+            ) => (a, b),
+            other => panic!("expected proceed on both sides, got {other:?}"),
+        };
+        assert!(memory_jobs > bounded_jobs, "the memory bound alone is looser");
+        assert_eq!(bounded_jobs, 4, "the core count is the tighter bound");
+    }
+
+    #[test]
+    fn an_unobserved_core_count_leaves_the_memory_bound_alone() {
+        let by_memory = decide_memory_capacity(
+            Some(6 * gib(1) + 300 * 1024 * 1024),
+            DEFAULT_UNIT_RSS_BYTES,
+            DEFAULT_RESERVED_BYTES,
+        );
+        let unknown_cores = decide_memory_capacity_with_cores(
+            Some(6 * gib(1) + 300 * 1024 * 1024),
+            DEFAULT_UNIT_RSS_BYTES,
+            DEFAULT_RESERVED_BYTES,
+            None,
+        );
+        assert_eq!(by_memory.jobs, unknown_cores.jobs);
     }
 
     #[test]

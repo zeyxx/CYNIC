@@ -15,7 +15,7 @@ use cynic_host::domain::pool_eligibility::{
 };
 use cynic_host::domain::pool_metrics::measure_pool;
 use cynic_protocol::build_memory_capacity::{
-    decide_memory_capacity, MemoryCapacityAssessment, MemoryCapacityDecision,
+    decide_memory_capacity_with_cores, MemoryCapacityAssessment, MemoryCapacityDecision,
     DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,
 };
 use cynic_lifecycle::LocalArgvRunner;
@@ -413,11 +413,23 @@ pub fn evaluate_runner_memory() -> MemoryCapacityAssessment {
         Ok(assessment) => Some(assessment.available_ram_bytes),
         Err(_) => None,
     };
-    decide_memory_capacity(
+    decide_memory_capacity_with_cores(
         available,
         DEFAULT_UNIT_RSS_BYTES,
         DEFAULT_RESERVED_BYTES,
+        observed_core_count(),
     )
+}
+
+/// The number of usable cores, or `None` when it cannot be observed.
+///
+/// The parallelism is bounded by the cores as well as by the memory: a
+/// machine with four cores cannot run ten compilations at once, and
+/// trying only holds more memory than it buys time.
+fn observed_core_count() -> Option<u32> {
+    std::thread::available_parallelism()
+        .ok()
+        .map(|count| count.get() as u32)
 }
 
 pub fn render_memory(assessment: &MemoryCapacityAssessment) {
