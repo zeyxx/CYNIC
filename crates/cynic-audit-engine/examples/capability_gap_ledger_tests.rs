@@ -74,6 +74,16 @@ fn a_test_module_is_not_a_production_surface() {
 }
 
 #[test]
+fn a_standalone_test_file_is_not_a_production_surface() {
+    let lines = vec!["fn helper() { let _ = Command::new(\"git\"); }"];
+    assert!(is_test_surface(
+        "crates/x/src/policy_tests.rs",
+        &lines,
+        0
+    ));
+}
+
+#[test]
 fn an_integration_test_file_is_not_a_production_surface() {
     let lines: Vec<&str> = vec!["fn helper() { let _ = Command::new(\"git\"); }"];
     assert!(is_test_surface("crates/x/tests/a.rs", &lines, 0));
