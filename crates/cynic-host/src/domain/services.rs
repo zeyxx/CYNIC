@@ -562,9 +562,8 @@ mod tests {
             manager: ServiceManagerKind::OpenRc,
             unit_dir: "/etc/init.d".to_string(),
             units: vec![unit()],
-        }
-                retired_units: Vec::new(),
-            ;
+            retired_units: Vec::new(),
+        };
 
         let plan = policy.activation_plan_with_context(&context());
         let rendered = plan
@@ -588,9 +587,8 @@ mod tests {
             manager: ServiceManagerKind::OpenRc,
             unit_dir: "/etc/init.d".to_string(),
             units: vec![unit()],
-        }
-                retired_units: Vec::new(),
-            ;
+            retired_units: Vec::new(),
+        };
 
         let bundle = policy.bundle_with_context(&context());
         let rendered = bundle
@@ -612,9 +610,8 @@ mod tests {
             manager: ServiceManagerKind::Systemd,
             unit_dir: "/etc/systemd/system".to_string(),
             units: vec![unit()],
-        }
-                retired_units: Vec::new(),
-            ;
+            retired_units: Vec::new(),
+        };
 
         let plan = policy.activation_plan_with_context(&context());
         let rendered = plan
@@ -639,9 +636,8 @@ mod tests {
             manager: ServiceManagerKind::OpenRc,
             unit_dir: "/etc/init.d".to_string(),
             units: vec![unit()],
-        }
-                retired_units: Vec::new(),
-            ;
+            retired_units: Vec::new(),
+        };
 
         let report = policy.apply_report_with_context(true, &context());
         let rendered = report
@@ -653,5 +649,67 @@ mod tests {
 
         assert!(rendered.contains("/portable/bin/rc-update add cynic-node default"));
         assert!(rendered.contains("/portable/bin/rc-service cynic-node start"));
+    }
+
+    // ---- service retirement ------------------------------------------------
+    //
+    // The retirement operation is the destructive inverse of the enable
+    // operation, so it is bounded by an explicit list: a unit that is not
+    // named in `retired_units` is never disabled, stopped or removed.
+
+    #[test]
+    fn retired_units_produce_a_retire_operation() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::Systemd,
+            unit_dir: "/etc/systemd/system".to_string(),
+            units: vec![],
+            retired_units: vec!["stale.service".to_string()],
+        };
+
+        let operations = policy.apply_operations();
+        assert!(
+            operations
+                .iter()
+                .any(|op| matches!(op, crate::ports::HostOperation::ServiceRetire { unit } if unit == "stale.service")),
+            "the retired unit must produce a retire operation"
+        );
+    }
+
+    #[test]
+    fn a_policy_without_retired_units_retires_nothing() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::Systemd,
+            unit_dir: "/etc/systemd/system".to_string(),
+            units: vec![unit()],
+            retired_units: vec![],
+        };
+
+        let operations = policy.apply_operations();
+        assert!(
+            !operations
+                .iter()
+                .any(|op| matches!(op, crate::ports::HostOperation::ServiceRetire { .. })),
+            "an empty retirement list must not retire anything"
+        );
+    }
+
+    #[test]
+    fn retirement_is_bounded_to_the_named_units() {
+        let policy = ServicePolicy {
+            manager: ServiceManagerKind::Systemd,
+            unit_dir: "/etc/systemd/system".to_string(),
+            units: vec![unit()],
+            retired_units: vec!["stale.service".to_string()],
+        };
+
+        let retired: Vec<String> = policy
+            .apply_operations()
+            .iter()
+            .filter_map(|op| match op {
+                crate::ports::HostOperation::ServiceRetire { unit } => Some(unit.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(retired, vec!["stale.service".to_string()]);
     }
 }

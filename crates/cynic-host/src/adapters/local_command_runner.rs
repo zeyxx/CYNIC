@@ -344,3 +344,28 @@ pub(super) fn run_command(command: &str, args: &[&str]) -> HostCommandResult {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_plain_service_unit;
+
+    #[test]
+    fn a_plain_unit_identifier_is_accepted() {
+        assert!(is_plain_service_unit("cynic-supervise-soak-node.service"));
+        assert!(is_plain_service_unit("wg-quick@wg0.service"));
+    }
+
+    #[test]
+    fn a_unit_identifier_with_a_path_or_a_flag_is_refused() {
+        // A path could escape the unit directory.
+        assert!(!is_plain_service_unit("../../etc/passwd.service"));
+        assert!(!is_plain_service_unit("/etc/systemd/system/evil.service"));
+        // A flag or a space would be an argument injection.
+        assert!(!is_plain_service_unit("--now.service"));
+        assert!(!is_plain_service_unit("evil.service --force"));
+        assert!(!is_plain_service_unit("evil.service;rm -rf /"));
+        // A non-service unit is not a service.
+        assert!(!is_plain_service_unit("evil.timer"));
+        assert!(!is_plain_service_unit(""));
+    }
+}

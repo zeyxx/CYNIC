@@ -170,10 +170,9 @@ impl HostServicePort for StaticHostContractPort {
                 supervisor_provider: None,
                 health_kind: None,
             }],
+            retired_units: Vec::new(),
         }
     }
-                retired_units: Vec::new(),
-            
 }
 
 impl HostContractPort for StaticHostContractPort {

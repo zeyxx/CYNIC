@@ -21,11 +21,66 @@ fn plan() -> HostOperationPlan {
                 supervisor_provider: Some("systemd".to_string()),
                 health_kind: Some("process".to_string()),
             }],
-        }
-                retired_units: Vec::new(),
-            ,
+            retired_units: Vec::new(),
+        },
         "node-a",
     )
+}
+
+fn plan_with_retirement() -> HostOperationPlan {
+    build_service_operation_plan(
+        &ServicePolicy {
+            manager: ServiceManagerKind::Systemd,
+            unit_dir: "/etc/systemd/system".to_string(),
+            units: vec![ServiceUnitPolicy {
+                service_id: "cynic-node".to_string(),
+                unit_name: "cynic-node.service".to_string(),
+                enable_on_boot: true,
+                restart_mode: "on-failure".to_string(),
+                source: "registry".to_string(),
+                health_port: None,
+                process_name: Some("cynic-node".to_string()),
+                supervisor_provider: Some("systemd".to_string()),
+                health_kind: Some("process".to_string()),
+            }],
+            retired_units: vec!["cynic-supervise-soak-node.service".to_string()],
+        },
+        "node-a",
+    )
+}
+
+#[test]
+fn a_retired_unit_produces_a_retirement_proof_and_a_retire_operation() {
+    let plan = plan_with_retirement();
+    assert!(
+        plan.expected_proofs
+            .iter()
+            .any(|proof| proof.gate == "unit_retired:cynic-supervise-soak-node.service"),
+        "the retirement must be a named proof, not an assumption"
+    );
+    assert!(
+        plan.operations
+            .iter()
+            .any(|operation| matches!(operation, HostOperation::ServiceRetire { unit } if unit == "cynic-supervise-soak-node.service")),
+        "the retirement must be a planned operation"
+    );
+}
+
+#[test]
+fn a_retirement_survives_admission() {
+    let plan = plan_with_retirement();
+    let admission = service_operation_policy_admission(&plan, "operator-a");
+    let mut auth = authorization();
+    auth.preconditions = plan.preconditions.clone();
+    let admitted =
+        admit_host_operation_plan(plan, admission, auth).expect("admitted retirement plan");
+    assert!(
+        admitted
+            .operations()
+            .iter()
+            .any(|operation| matches!(operation.operation(), HostOperation::ServiceRetire { .. })),
+        "the retire operation must be admitted with the plan"
+    );
 }
 
 fn authorization() -> ExecutionAuthorization {
