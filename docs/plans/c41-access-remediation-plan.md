@@ -12,7 +12,7 @@
 - `id user` groups: `sudo`, `docker`, `cynic`, `cynic-agent` (plus adm, kvm, ollama, libvirt).
 - `/etc/cynic/registry.json`: `0664 user:user` (C1-1 holds).
 - `/etc/cynic/secrets/` (`2770 root:cynic`): fleet SSH **private** keys `agent-host-ssh`, `compute-01-ssh`, `headscale-ssh`, `laptop-ssh-authority` are owned `user:cynic 600` — the desktop user owns the fleet keys (C4-3 holds, worst case confirmed). Token files (`forgejo-token`, `domain.env`, `headscale-api-key`, `kernel-runtime.env`) are `root:cynic 640`, readable via the `cynic` group.
-- `claude-code` sudoers (129 bytes, 2026-03-13) not yet read; `cynic-firewall`, `cynic-host-exec`, `cynic-network-actuator` scope unconfirmed — read them during execution before narrowing.
+- `/etc/sudoers.d/claude-code` (129 bytes, 2026-03-13): NOPASSWD `/usr/bin/apt-get`, `/usr/bin/systemctl`, `/usr/bin/loginctl` — full `systemctl` is a root escalation alone (Step-2 read, 2026-10-22). `cynic-firewall` grants `user` `nft flush ruleset` (full firewall wipe); `cynic-host-exec` grants are scoped to user `cynic` with exact argv except bare `network-actuate` (C4-8); `cynic-network-actuator` grants are argv-exact. `visudo -c` flags `claude-code`, `cynic-firewall`, `cynic-tools` as wrong mode (not 0440), parse still OK.
 
 ## 2. Target state
 
@@ -45,3 +45,9 @@
 - Content of `temp-claude`, `claude-code`, `cynic-firewall`, `cynic-network-actuator` (read in Step 2).
 - Which agent flows break when `user` leaves group `cynic` (covered by Step 6 dry-runs).
 - Whether `hermes :8644` or `llama-server :8081` bind paths depend on the current groups (C0-9 neighbours, not silently absorbed here).
+
+## 6. Convergence debt (tracked here, NOT executed in this chantier)
+
+- Single-binary target (`cynic privilege exec` + `infra/capabilities/catalog.json` + `privilege_surface.rs`) is designed but not deployed: live sudoers and `/usr/local/libexec` still name `cynic-host-exec` and the orphan `cynic-network-actuator`.
+- This chantier only removes `temp-claude`/`cynic-tools` and narrows `claude-code`. It does NOT repoint the `cynic`/`cynic-host-exec`/`cynic-network-actuator` membranes to `cynic privilege exec`, and does NOT delete the orphan binary.
+- Orphan removal (`cynic-network-actuator`, sibling check `cynic-lxc-exec-bridge`) and helper fusion each need their own branch: deleting a `[[bin]]` is a four-surface commit (manifest + `runtime-basket.json` + test hints + design doc SUPERSEDED record). A half-removal here would leave dangling authorities that fail other gates.
