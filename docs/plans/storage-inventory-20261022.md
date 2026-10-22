@@ -71,6 +71,15 @@ live warm cache as noncanonical. Either declare `shared-target` canonical
 drain natively. Never `--apply` from a stale checkout again: the map must
 be current before the mutation.
 
+Follow-up 2026-10-22 (`7cc664b7`): `shared-target` unlisted as candidate
+(replaced by the real stray path `source/repositories/CYNIC/target`,
+absent = observes nothing); coherence test rewritten on the true
+invariant (declared `build-targets/fgate` pinned, writer migrates first).
+Check green, unknowns []; coherence 5/5. Side finding: the old submitter
+binary fails pool resolution against the fresh-main registry ("no healthy
+build_runner") — explicit `--builder-url` bypasses it; the submitter
+needs a registry-shape update next.
+
 ## Dictated next (authority-gated)
 
 1. Operator (root builder): install staged repo registry over
