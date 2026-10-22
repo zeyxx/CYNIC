@@ -872,6 +872,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-huggingface"
+version = "0.9.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cynic-host"
 version = "0.9.0"
 dependencies = [

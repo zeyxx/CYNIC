@@ -43,6 +43,7 @@ members = [
     "crates/cynic-tui",
     "crates/cynic-traces",
     "crates/cynic-knowledge",
+    "crates/cynic-huggingface",
 ]
 resolver = "2"
 
