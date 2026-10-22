@@ -17,6 +17,15 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 4. `infra/registry.json` (hosts, IPs, paths — never hardcode)
 5. `Cargo.toml` workspace & crates under `crates/` (census in `infra/crate-topology.json`)
 
+## Policy Chain
+
+- Applied entry: this file. Every agent reads it.
+- Citizen law: `docs/specs/agent-constitution.md` (scopes, budgets, admission, proof, non-amplification).
+- Role capabilities: `infra/agent-roles.json` (machine-read; enforced by Rust where loaded).
+- One statement, one home. Pointers, never copies.
+
+- **Facts dictate**: never ask the operator what data already decides; act, report the fact-to-action chain. Full routing: constitution §12.
+
 ## Invariants
 
 - **Bottom-Up over Top-Down**: Always observe, measure, and validate physical substrate reality (hardware, raw bytes, exit codes, machine receipts, AST) before introducing speculative, probabilistic, or higher-layer abstractions across all domains. No model or policy without an empirically verified baseline.
@@ -66,4 +75,4 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 ## Operator Readability
 
 - **Replies stay airy**: short sentences, one idea per line, lists over dense blocks, plain words (operator reads with compensated dyslexia).
-- **Shape follows task**: execution → changed / verified / left; explanation → one idea per line, then examples; choice → numbered options with (R); error → likely cause first, then numbered steps; plan → short steps, one question at a time.
+- **Shape follows task**: execution → changed / verified / left; explanation → one idea per line, then examples; sovereign choice → numbered options with (R); error → likely cause first, then numbered steps; plan → short steps, one question at a time.
