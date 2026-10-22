@@ -431,7 +431,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
                     "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
-                    "cynic coordination send --to <agent:id|role:r> --summary <140c> --body <text> [--priority 0-3] [--in-reply-to <msg>] [--json]",
+                    "cynic coordination send --to <agent:id|role:r> --summary <140c> --body <text> [--priority 0-3] [--in-reply-to <msg>] [--via <ssh-target>] [--json]",
                     "cynic coordination inbox [--unopened] [--full] [--limit <n>] [--log <path>] [--json]",
                     "cynic coordination ack <msg_id> [--state delivered|opened] [--json]",
                     "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
