@@ -84,7 +84,10 @@ needs a registry-shape update next.
 
 1. Operator (root builder): install staged repo registry over
    `/etc/cynic/registry.json` — un-stales the live map.
-2. Operator go: evict `layer0-base/` (bounded, with read-back), apply
-   planned checkout reclaim.
+2. Operator go: evict `layer0-base/` — PARTIAL 2026-10-22. Working tree
+   removed as cynic (1.7G -> 13M freed, read-back confirmed), but `.git`
+   is root-owned (Aug 22) and undeletable without root. Remainder needs
+   one root `rm -rf`. Lesson: check ownership BEFORE deleting, not after.
+   Apply planned checkout reclaim.
 3. Code: single canonical cache migration (writers off `shared-target`),
    `runner-job.log` rotation.
