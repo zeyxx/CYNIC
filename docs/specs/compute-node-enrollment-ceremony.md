@@ -94,3 +94,35 @@ cynic node enrollment-issue \
   while `kernel_url` is unreachable from the node (e.g. loopback with no
   local kernel). Until remote renewal exists, the grant TTL IS the service
   lifetime: set it deliberately, and watch `node enrollment-check`.
+
+## Role readiness (build_runner machine gate)
+
+Observed 2026-10-22 on compute-01: identity grant valid, service active,
+yet the node could never execute. Bare `cargo` resolved via ambient PATH
+to a root-owned symlink into an untraversable home
+(`/usr/local/bin/cargo -> /home/titouan/.cargo/bin/cargo`), surfacing as
+`build_execution_spawn:Permission denied (os error 13)`. Identity without
+capability is an enrolled node that cannot serve its role.
+
+Rule: role enrollment = identity grant + capability readiness proof.
+A build_runner grant MUST NOT issue or renew while the readiness gate
+is red.
+
+Run all checks as the node runtime user (e.g. `cynic`):
+
+1. Toolchain resolution: `command -v cargo` resolves to a file the
+   runtime user can execute. No dangling symlink, no untraversable parent.
+2. No PATH shadowing: every `cargo`/`rustc` hit earlier in PATH resolves
+   to the same working toolchain or is absent. A symlink into a private
+   home is a landmine — remove it.
+3. Workspace roots exist and are writable: `stable_workspace_root`,
+   `shared_target_root`, `source/workspaces` (paths from
+   `node-control.toml`).
+4. Sandbox matches reality: `sandbox_bwrap` true only if `bwrap` is
+   present AND unprivileged user namespaces are enabled.
+5. Version pinned: `cargo --version` matches the declared toolchain pin.
+
+Gate wiring (next slice): `node enrollment-check` reports
+`role_readiness` beside enrollment state; issuance refuses while red.
+Until wired, run the five checks by hand before every (re-)issuance and
+archive the output with the grant.
