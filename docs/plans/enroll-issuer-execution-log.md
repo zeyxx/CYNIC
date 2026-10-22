@@ -167,10 +167,11 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
   Live run on compute-01: 29ms, `enrollment_proven true`,
   `renewal_endpoint_reachable false` → `blocked`. The exact signal
   the outage was missing: service up today, renewal impossible.
+- PROVEN (builder): fix commit `b5caae0c` check completed, unknowns [];
+  `cargo test -p cynic-node-protocol node_enrollment` 17/17.
 - OPEN: GC inventory (processes, workload revisions, evidence store,
   binaries, identity backups, logs) — operator picks where to start.
-- NEXT (root on compute-01): `systemctl restart cynic-node`,
-  then hermes proves (:9090 + service prove).
+- OPEN: merge of `agent/hermes/enroll-issuer` (operator decision).
 
 ## Left for the operator (explicit, no implicit escalation)
 
