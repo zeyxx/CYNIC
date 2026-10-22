@@ -60,15 +60,19 @@ struct ObserveCliReport {
 
 /// Replace the snapshot for one runner id, preserving the others.
 pub fn upsert_snapshot(registry: &mut serde_json::Value, snap: &RunnerCapacitySnapshot) {
-    let empty = serde_json::Value::Array(Vec::new());
-    let snapshots = registry
+    let obj = registry
         .as_object_mut()
-        .and_then(|o| o.get_mut("snapshots"))
-        .unwrap_or(&mut serde_json::Value::Null);
-    if !snapshots.is_array() {
-        *snapshots = empty;
+        .expect("capacity registry is a JSON object");
+    if !obj.get("snapshots").is_some_and(|v| v.is_array()) {
+        obj.insert(
+            "snapshots".to_string(),
+            serde_json::Value::Array(Vec::new()),
+        );
     }
-    let arr = snapshots.as_array_mut().expect("snapshots is an array");
+    let arr = obj
+        .get_mut("snapshots")
+        .and_then(|v| v.as_array_mut())
+        .expect("snapshots is an array");
     arr.retain(|s| s.get("runner_id").and_then(|v| v.as_str()) != Some(snap.runner_id.as_str()));
     arr.push(serde_json::json!({
         "runner_id": snap.runner_id,
