@@ -209,6 +209,11 @@ pub trait ExternalSourcePort: Send + Sync {
     /// List branches on the remote.
     fn list_branches(&self, repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String>;
 
+    /// List collaborator handles with access to the remote (read-only).
+    /// Used by the collaborator watcher to diff observed access against the
+    /// declared registries. Never grants access, only reports it.
+    fn list_collaborators(&self, repo: &ExternalRepoRef) -> Result<Vec<String>, String>;
+
     /// Create a branch on the remote (requires branch_pr or higher policy).
     fn create_branch(
         &self,
@@ -624,6 +629,12 @@ mod tests {
                 &self,
                 _repo: &ExternalRepoRef,
             ) -> Result<Vec<ExternalBranch>, String> {
+                Ok(vec![])
+            }
+            fn list_collaborators(
+                &self,
+                _repo: &ExternalRepoRef,
+            ) -> Result<Vec<String>, String> {
                 Ok(vec![])
             }
             fn create_branch(

@@ -18,6 +18,10 @@ use std::process::ExitCode;
 use clap::Subcommand;
 use serde::{Deserialize, Serialize};
 
+use cynic_node::usecases::collaborator_watch_uc::diff_watch;
+use cynic_vcs::{ExternalProvider, ExternalRepoRef, ExternalSourcePort};
+use cynic_vcs_providers::{ForgejoExternalSourceAdapter, GitHubExternalSourceAdapter};
+
 use crate::{emit_json, fail, rust_source};
 
 #[derive(Subcommand)]
@@ -92,6 +96,24 @@ pub(crate) enum CollaboratorCommand {
         /// Path to the collaborators registry.
         #[arg(long)]
         registry: Option<String>,
+    },
+    /// Watch observed forge access against declared registries (read-only).
+    Watch {
+        /// Project slug; omit to watch every external project.
+        #[arg(long)]
+        project: Option<String>,
+        /// Forgejo base URL (required for Forgejo-hosted projects).
+        #[arg(long)]
+        forgejo_url: Option<String>,
+        /// GitHub token override.
+        #[arg(long)]
+        github_token: Option<String>,
+        /// Forgejo token override.
+        #[arg(long)]
+        forgejo_token: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -211,6 +233,19 @@ pub(crate) fn execute_collaborator(command: &CollaboratorCommand) -> ExitCode {
             note,
             *yes,
             registry.as_deref(),
+        ),
+        CollaboratorCommand::Watch {
+            project,
+            forgejo_url,
+            github_token,
+            forgejo_token,
+            json,
+        } => execute_watch(
+            project.as_deref(),
+            forgejo_url.as_deref(),
+            github_token.as_deref(),
+            forgejo_token.as_deref(),
+            *json,
         ),
     }
 }
@@ -626,6 +661,145 @@ fn execute_onboard(
         registry_path: registry_path.display().to_string(),
     };
     emit_json(&report, false)
+}
+
+#[derive(Debug, Serialize)]
+struct WatchCliReport {
+    schema: String,
+    projects: Vec<cynic_node::usecases::collaborator_watch_uc::WatchReport>,
+    drift_found: bool,
+}
+
+/// Read-only watch: compare forge access against declared registries.
+///
+/// Never mutates. Reads `infra/external-projects.json` and
+/// `infra/collaborators.json`, lists collaborators on each forge, and returns
+/// the pure diff with proposed signed gestures. Non-zero exit when drift is
+/// found so a cron can alert.
+#[allow(clippy::too_many_arguments)]
+fn execute_watch(
+    project: Option<&str>,
+    forgejo_url: Option<&str>,
+    github_token: Option<&str>,
+    forgejo_token: Option<&str>,
+    json: bool,
+) -> ExitCode {
+    let root = rust_source::workspace_root();
+    let collaborators_raw = match fs::read_to_string(root.join("infra/collaborators.json")) {
+        Ok(s) => s,
+        Err(e) => return fail(format!("cannot read collaborators registry: {e}")),
+    };
+    let projects_raw = match fs::read_to_string(root.join("infra/external-projects.json")) {
+        Ok(s) => s,
+        Err(e) => return fail(format!("cannot read external projects registry: {e}")),
+    };
+    let collaborators_value: serde_json::Value = match serde_json::from_str(&collaborators_raw) {
+        Ok(v) => v,
+        Err(e) => return fail(format!("invalid JSON in collaborators registry: {e}")),
+    };
+    let projects_value: serde_json::Value = match serde_json::from_str(&projects_raw) {
+        Ok(v) => v,
+        Err(e) => return fail(format!("invalid JSON in external projects registry: {e}")),
+    };
+
+    let fiches = parse_collaborators(&collaborators_value);
+    let fiche_ids: Vec<String> = fiches.iter().map(|c| c.collaborator_id.clone()).collect();
+    let fiche_handles: Vec<String> = fiches.iter().map(|c| c.github_handle.clone()).collect();
+    let projects = parse_projects(&projects_value);
+
+    let mut reports = Vec::new();
+    for p in &projects {
+        if let Some(wanted) = project {
+            if p.project_id != wanted {
+                continue;
+            }
+        }
+        let provider = if p.repo_url.contains("github.com") {
+            ExternalProvider::GitHub
+        } else if forgejo_url.is_some() {
+            ExternalProvider::Forgejo
+        } else {
+            return fail(format!(
+                "cannot determine provider for '{}' (use --forgejo-url for Forgejo projects)",
+                p.project_id
+            ));
+        };
+        let repo = ExternalRepoRef {
+            project_id: p.project_id.clone(),
+            remote_url: p.repo_url.clone(),
+            default_branch: p.default_branch.clone(),
+            provider,
+        };
+        let observed: Vec<String> = match repo.provider {
+            ExternalProvider::GitHub => {
+                let token = match github_token
+                    .map(|s| s.to_string())
+                    .or_else(|| cynic_secrets::env_var("github-token", "GITHUB_TOKEN"))
+                {
+                    Some(t) => t,
+                    None => return fail("GITHUB_TOKEN is required for GitHub projects".to_string()),
+                };
+                match GitHubExternalSourceAdapter::new("https://api.github.com".to_string(), token)
+                    .list_collaborators(&repo)
+                {
+                    Ok(h) => h,
+                    Err(e) => return fail(format!("watch '{}' failed: {e}", p.project_id)),
+                }
+            }
+            _ => {
+                let base = match forgejo_url {
+                    Some(url) => url.to_string(),
+                    None => {
+                        return fail("--forgejo-url is required for Forgejo projects".to_string())
+                    }
+                };
+                let token = match forgejo_token
+                    .map(|s| s.to_string())
+                    .or_else(|| cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"))
+                {
+                    Some(t) => t,
+                    None => return fail("FORGEJO_TOKEN is required for Forgejo projects".to_string()),
+                };
+                match ForgejoExternalSourceAdapter::new(base, token).list_collaborators(&repo) {
+                    Ok(h) => h,
+                    Err(e) => return fail(format!("watch '{}' failed: {e}", p.project_id)),
+                }
+            }
+        };
+        reports.push(diff_watch(
+            &p.project_id,
+            &observed,
+            &p.collaborator_ids,
+            &fiche_ids,
+            &fiche_handles,
+        ));
+    }
+
+    let drift_found = reports.iter().any(|r| !r.clean);
+    if json {
+        let report = WatchCliReport {
+            schema: "cynic.cli.collaborator_watch.v1".to_string(),
+            projects: reports,
+            drift_found,
+        };
+        emit_json(&report, drift_found)
+    } else {
+        for r in &reports {
+            if r.clean {
+                println!("{}: clean", r.project_id);
+            } else {
+                println!("{}: {} drift item(s)", r.project_id, r.drift.len());
+                for d in &r.drift {
+                    println!("  [{}] {} -> {} ({})", d.class, d.subject, d.proposed_gesture, d.reason);
+                }
+            }
+        }
+        if drift_found {
+            ExitCode::FAILURE
+        } else {
+            ExitCode::SUCCESS
+        }
+    }
 }
 
 fn parse_collaborators(value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::Collaborator> {

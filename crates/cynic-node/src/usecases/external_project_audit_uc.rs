@@ -194,6 +194,9 @@ mod tests {
         fn list_branches(&self, _repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
             Ok(vec![])
         }
+        fn list_collaborators(&self, _repo: &ExternalRepoRef) -> Result<Vec<String>, String> {
+            Ok(vec![])
+        }
         fn create_branch(
             &self,
             _repo: &ExternalRepoRef,
