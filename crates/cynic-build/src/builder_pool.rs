@@ -117,8 +117,36 @@ pub fn health_check(url: &str) -> bool {
 ///
 /// Returns None if no builder is healthy. Caller must handle the None case
 /// (fail closed, never guess).
+///
+/// Kept for single-builder callers and tests. The submit path prefers
+/// [`select_balanced_builder`] so a second healthy runner actually shares
+/// load instead of idling behind the first.
 pub fn select_healthy_builder(pool: &[BuilderEndpoint]) -> Option<BuilderEndpoint> {
     pool.iter().find(|b| b.healthy).cloned()
+}
+
+/// Pick one healthy builder, distributing load across all of them.
+///
+/// Collects the healthy endpoints, then selects by wall-clock nanoseconds
+/// modulo count — stateless, no client-side cursor to race between agents.
+/// One healthy builder behaves exactly like [`select_healthy_builder`];
+/// zero healthy returns None (fail closed).
+///
+/// The scheduler's own capacity gate remains the overload guard per node;
+/// this only spreads first contact.
+pub fn select_balanced_builder(pool: &[BuilderEndpoint]) -> Option<BuilderEndpoint> {
+    let healthy: Vec<&BuilderEndpoint> = pool.iter().filter(|b| b.healthy).collect();
+    if healthy.is_empty() {
+        return None;
+    }
+    if healthy.len() == 1 {
+        return Some(healthy[0].clone());
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos() as usize)
+        .unwrap_or(0);
+    Some(healthy[nanos % healthy.len()].clone())
 }
 
 /// Select the first builder from the pool that meets the given capability requirements.
@@ -238,6 +266,79 @@ mod tests {
         };
         mark_health(&mut ep, true);
         assert!(ep.healthy);
+    }
+
+    // ── select_balanced_builder tests ────────────────────────────────────
+
+    fn two_healthy_pool() -> Vec<BuilderEndpoint> {
+        vec![
+            BuilderEndpoint {
+                node_id: "b1".to_string(),
+                url: "http://a:9090".to_string(),
+                healthy: true,
+                capabilities: None,
+            },
+            BuilderEndpoint {
+                node_id: "b2".to_string(),
+                url: "http://b:9090".to_string(),
+                healthy: true,
+                capabilities: None,
+            },
+        ]
+    }
+
+    #[test]
+    fn balanced_none_when_all_unhealthy() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "b1".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: false,
+            capabilities: None,
+        }];
+        assert!(select_balanced_builder(&pool).is_none());
+    }
+
+    #[test]
+    fn balanced_single_healthy_is_deterministic() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "b2".to_string(),
+            url: "http://b:9090".to_string(),
+            healthy: true,
+            capabilities: None,
+        }];
+        let selected = select_balanced_builder(&pool);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("b2"));
+    }
+
+    #[test]
+    fn balanced_only_picks_healthy() {
+        let mut pool = two_healthy_pool();
+        pool[0].healthy = false;
+        for _ in 0..20 {
+            let selected = select_balanced_builder(&pool);
+            assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("b2"));
+        }
+    }
+
+    #[test]
+    fn balanced_spreads_across_healthy() {
+        let pool = two_healthy_pool();
+        let mut seen_b1 = false;
+        let mut seen_b2 = false;
+        for _ in 0..200 {
+            match select_balanced_builder(&pool).map(|s| s.node_id) {
+                Some(id) if id == "b1" => seen_b1 = true,
+                Some(id) if id == "b2" => seen_b2 = true,
+                other => panic!("unexpected selection: {other:?}"),
+            }
+            if seen_b1 && seen_b2 {
+                break;
+            }
+        }
+        assert!(
+            seen_b1 && seen_b2,
+            "both healthy builders must be selected over time"
+        );
     }
 
     // ── health_check tests ──────────────────────────────────────────────
