@@ -36,6 +36,7 @@
 | Observation → evaluation → action → proof | 0 alert rules; a 2-week crash loop (250k restarts) went unnoticed |
 
 **Highest risks, in order:**
+0. **(Added by the §N network/DevOps pass.)** The kernel's actual knowledge store is a SurrealDB **on cortex** (the faulty-RAM host), not CT103. It has been **corrupt since 2026-10-17** (SSTable checksum failures, third corruption on record) and has **no usable backup** (N-1, N-2, N-3).
 1. Compromising cortex `user` gives root on the whole fleet (C4-1, C4-2, C4-3).
 2. There is no backup of anything: no vzdump job and no SurrealDB dump. All storage sits on one 2.5" HDD (C0-1, C0-12, C5-2).
 3. Internet-facing services run on a hypervisor with no firewall (C0-2, C0-3, C0-10).
@@ -210,10 +211,53 @@ Overlay 10.20.0.0/24. Peers: 101 (10.20.0.2), 103 (10.20.0.4), 105 (10.20.0.5), 
 
 ---
 
+## N — Network & DevOps (emergent pass, 2026-10-22)
+
+### Trigger
+
+Opening this report's PR failed with `cynic source pr open` → `POST http://forgejo.synapse.cynic:3000/… failed (6)` (curl: could not resolve host). The name failure was traced bottom-up instead of being worked around.
+
+### Root cause of the name failure
+
+On **2026-10-21 03:55–03:57 CEST**, a Hermes session (`PWD=/tmp/cynic-workspaces/agent_hermes_synapse-eradication`) performed a **live DNS cutover on cortex as root**, through the `temp-claude` NOPASSWD grant (C4-1). `/var/log/auth.log` shows:
+
+1. `sudo bash ~/.hermes/cache/scratch/dns-live-bascule.sh`, then `dns-live-proof.sh` (three runs). **Both scripts no longer exist**: they were removed by the `hermes_scratch` GC surface. The executed mutation therefore has no surviving source.
+2. `systemctl restart systemd-resolved`. The `~synapse.cynic` routing domain was dropped; the old config was kept as `/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf.bak-ec2c58ec`.
+3. `sed -i` of the `cynic-dns-service` unit description and of the first line of `/etc/cynic/dns/service.hosts`; the dual-serve block in `/etc/cynic/dns/dnsmasq.conf` was removed (`.bak-ec2c58ec` kept). `ec2c58ec` is the main commit of the same minute.
+
+The consumers had not migrated first. `/usr/local/bin/cynic` on cortex embeds 12 `synapse.cynic` strings and 0 `service.cynic`, so `cynic source pr open` resolves `forgejo.synapse.cynic`, which now fails on cortex only.
+
+### Findings
+
+| ID | Sev | Finding | Evidence | Remediation |
+|---|---|---|---|---|
+| N-1 | 🔴 | **The kernel's knowledge store is corrupt.** The kernel does not use CT103. `/etc/cynic/storage.toml` points at `http://127.0.0.1:8000`, a **SurrealDB 3.0.3 on cortex** (`surreal.service`, `surrealkv:///home/user/.surrealdb/data`, 213 MiB). Since **2026-10-17 17:17**: 6,620 kernel errors `SSTable error: checksum verification failed for block at 45189021`, and 293,291 checksum/corrupt lines in the surreal journal. This is the **third** corruption on record (`data.corrupt.20260606_124414`, `data.bak_20260815`). Cortex is the host AGENTS.md marks as having faulty RAM. The registry's `storage_primary` (CT103) is not the store in use. | `journalctl -u cynic-kernel \| grep -c 'expire_stale failed'`; `journalctl -u surreal \| grep -ci checksum`; `grep url /etc/cynic/storage.toml` | Preserve first (see "Preservation status" below). Run `memtest86+` on cortex. Export what is still readable. Move the store to a host with sound RAM, CT103 per the registry, through a reviewed migration. |
+| N-2 | 🔴 | **The store has no usable backup.** `~/.surrealdb/backups/` stops at 2026-06-24, and its files are **83-byte gzips** (empty). | `ls -la ~/.surrealdb/backups` | Back up the store that is actually in use, not only CT103 (C5-2). Prove each backup with a restore. |
+| N-3 | 🔴 | **The store runs with unsafe settings.** The process runs as `user`, with its data under the operator's home and `-A` (all capabilities allowed). The **root password is weak and passed in argv**, so any local account can read it through `ps`. The kernel authenticates to it as `root`. | `ps -o user,args -p $(pgrep -f 'surreal start')` (do not paste the output) | Run it as a dedicated principal with data under `/var/lib/cynic`. Pass credentials through a file or the environment, never argv. Give the kernel a least-privilege DB user. Rotate the password. |
+| N-4 | 🔴 | **The DNS was cut over before its consumers migrated.** On cortex, three consumers still use `*.synapse.cynic`: `/usr/local/bin/cynic`, `/etc/systemd/system/cynic-kernel.service.d/90-storage.conf` (`SURREALDB_URL=http://organ-surrealdb.synapse.cynic:8000`, currently shadowed by `storage.toml` under an undocumented precedence), and the deployed `/etc/cynic/registry.json` (5 synapse names). | `strings /usr/local/bin/cynic \| grep -c synapse.cynic`; `grep -rl synapse /etc/cynic /etc/systemd/system` | Restore the `~synapse.cynic` compat zone on cortex until `make audit.deployed` is green on every host. Retire the old zone only after that. |
+| N-5 | 🟠 | **Four name sources, none generated from the registry.** (a) Cortex dnsmasq `127.0.0.1:1053` serves `service.cynic` only, and `service.hosts` is byte-identical to the 2026-09-01 `synapse.hosts` after the rename, despite its "Generated from infra/registry.json" header. It **lacks** headscale, embedding, compute-01 and relay. (b) pve system dnsmasq `:53` still serves `local=/synapse.cynic/` from `/etc/dnsmasq.d/synapse.conf`. (c) pve runs a second dnsmasq, `cynic-dns`, on `:1053` with `/etc/cynic/dns/dnsmasq-pve.conf`. (d) CT105 uses a **hand-edited `/etc/hosts`** mixing synapse and service names, commented "operator go 2026-10-14", with the Freebox (192.168.0.254) as resolver. | `resolvectl status`; `cat /etc/cynic/dns/service.hosts`; `/etc/dnsmasq.d/*` on pve; `/etc/hosts` on CT105 | Keep one projection: registry → zone file, rendered by `cynic-network` and deployed to every resolver, with its source SHA stamped in the header. Remove the hand-edited hosts entries. |
+| N-6 | 🟠 | **Internal names can leak, and some hosts cannot resolve them.** The pve DHCP hands out `dns-server=10.10.10.1,8.8.8.8`: `*.cynic` lookups can leak to Google, and a client that falls back to the secondary loses all internal names. CT107 resolves through the Freebox and **cannot resolve any internal name**. | `/etc/dnsmasq.d/10-dhcp.conf` on pve; `getent hosts forgejo.service.cynic` in CT107 | Drop `8.8.8.8`. Give every CT the internal resolver, which forwards to upstream. |
+| N-7 | 🟠 | **The DNS and the registry disagree.** `kernel.service.cynic` resolves to the phantom 10.10.10.100 everywhere (C0-4). `headscale.service.cynic` is reserved in the registry but does not resolve on cortex. No check ever compares the registry reservations with the resolvers. | `getent hosts kernel.service.cynic headscale.service.cynic` | Add an audit rule that resolves every reservation on every resolver and compares the answers with the registry. |
+| N-8 | 🟠 | **Agent root mutations leave no durable provenance.** The scripts executed as root lived in a GC-managed scratch area; only `auth.log` command lines remain. This contradicts "no mutation without read-back proof". | `auth.log` on 2026-10-21 03:55 | Require mutations to run from committed code or a persisted, hashed script, with the claim ID in the log. Exclude executed scripts from scratch GC until their claim is closed. |
+| N-9 | 🟡 | **The zone migration was started twice.** `6944a059` (2026-10-17, "dual-zone DNS bundle, canonical service plus synapse compat") planned to keep compat. The compat was removed on cortex four days later, while pve and the LXCs still serve and use synapse. | `git show -s 6944a059`; `.bak-ec2c58ec` files | Record the migration state machine (dual-serve → consumers converged → retire) in the network contract, and gate the retire step on `audit.deployed`. |
+
+### Preservation status of the corrupt store (N-1)
+
+- **Done.** A hot (online) copy of `/home/user/.surrealdb/data`, taken 2026-10-22 09:28 without stopping the service: `cortex-surrealkv-data-hot-20261022_092801.tar.gz` (70.9 MB, 20 entries), sha256 `69cbfadaff40716f61feeb59631dd3cdf7762320931d1786b0e2f102a314695f`. It sits in the auditor's session scratch directory **on cortex**, so it is **not yet off-host**. A hot copy of a live LSM store may itself be inconsistent; it preserves the on-disk state, it is not a verified backup.
+- **Not done (declined by the permission classifier).**
+  - A logical `surreal export`, which needs the DB credentials.
+  - The off-host transfer to `pve:/var/lib/vz/dump/cynic_archives/cortex-surreal/`.
+  
+  The operator must run both, or explicitly grant them.
+- **Deliberately not done.** A cold copy, which means stopping `surreal.service`. A corrupt store may fail to start again, which would take the kernel down. Stop it only inside a planned migration window.
+
+---
+
 ## 8. Remediation order (recommended)
 
 Each step is a separate scoped claim and branch (`agent/hermes/<finding-id>`), needs operator approval, and ends with read-back proof.
 
+0. **Kernel store preservation and diagnosis** — N-1, N-2, N-3: get the hot copy off-host, run a logical export, run memtest on cortex, then plan the store migration off cortex. Restore the synapse compat zone on cortex (N-4) so that the stale binaries keep working until step 6.
 1. **Access (cortex)** — C4-1, C4-3, C1-1: remove `temp-claude` and `cynic-tools`, remove `user` from `cynic` and `docker`, fix `/etc/cynic` ownership, rotate the exposed secrets. *Keep a root console open.*
 2. **Data safety** — C0-1, C5-2: vzdump jobs off `sda`, and the SurrealDB backup timer. Prove each with a restore.
 3. **Hypervisor exposure** — C0-2, C0-3, C0-10, C0-13: sshd hardening, pve-firewall on `wlp1s0`, retire `cynic-cloud-api`, fix the headscale vhost.
@@ -242,6 +286,12 @@ Each step is a separate scoped claim and branch (`agent/hermes/<finding-id>`), n
 - [ ] Prometheus has ≥ 1 rule group, an active Alertmanager, and every `cynic` target is `up`.
 - [ ] `infra_registry_validate` → `valid:true`; `network_ipam_check` → `coherent:true`.
 - [ ] Every deployed `/etc/cynic/registry.json` hash equals a committed version.
+- [ ] `journalctl -u cynic-kernel --since -1h | grep -c 'checksum verification failed'` returns 0.
+- [ ] The kernel's store runs on a non-cortex host, as a dedicated principal, with no credentials in argv.
+- [ ] A restore-tested backup of the kernel's actual store is < 26 h old.
+- [ ] Every registry reservation resolves identically on every resolver, and `kernel.service.cynic` is not a phantom.
+- [ ] The pve DHCP no longer hands out `8.8.8.8`; CT107 resolves `forgejo.service.cynic`.
+- [ ] No consumer embeds `synapse.cynic` before the compat zone is retired.
 
 ---
 
