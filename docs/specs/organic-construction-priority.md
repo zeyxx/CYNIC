@@ -95,3 +95,26 @@ Fixes:
 No new layer until the layer below reports green on its own data.
 `enrollment-check`, `service prove`, settlement unknowns are the gates —
 not prose, not intent.
+
+## Annex — layer-by-layer reading (code × emergences, 2026-10-22)
+
+The constitution orders L0 → L4, intent down, proof up.
+Code gives each layer its owner; today's emergences give each layer
+its color. Priority = lowest red layer first.
+
+- L0 pure protocol (cynic-protocol, cynic-node-protocol): GREEN.
+  Extended today, 17/17 tests. Priority: keep it pure, no I/O creep.
+- L1 host substrate (cynic-host, profiles, sandbox, supervision): RED.
+  Renewal endpoint unreachable by profile construction; spawn
+  `Permission denied` on compute-01; no process owner/reaper.
+  Priority 1 — nothing above is stable while this bleeds.
+- L2 domains (cynic-build, node use cases, enrollment): YELLOW-RED.
+  Ceremony works, but grant TTL was accidental; 3/16 builder failures
+  carry an exit code and no cause. Priority 2 — capture the why.
+- L3 orchestrators (scheduler, lifecycle, reconciliation): YELLOW.
+  Blocked states accumulate without recurrence counting or auto-propose.
+  Priority 3 — reconcile, don't just record.
+- L4 projections (CLI, MCP, TUI): GREEN.
+  `enrollment-check` and `prove` added today; MCP stays a projection.
+  Priority last — surfaces expose, they don't repair.
+
