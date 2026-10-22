@@ -29,8 +29,11 @@ fn now_unix_s() -> u64 {
 /// panicked on, and counts as unreachable.
 fn probe_renewal_endpoint(kernel_url: &str) -> (bool, Vec<String>) {
     let without_scheme = kernel_url
-        .split("://")
-        .next_back()
+        .strip_prefix("https://")
+        .or_else(|| kernel_url.strip_prefix("http://"))
+        .unwrap_or(kernel_url)
+        .split('/')
+        .next()
         .unwrap_or(kernel_url)
         .trim_end_matches('/');
     match without_scheme.parse::<SocketAddr>() {
