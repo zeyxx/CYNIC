@@ -640,9 +640,10 @@
         "noncanonical_cache_candidates": [
           {
             "base": "state_root",
-            "relative_path": "shared-target"
+            "relative_path": "source/repositories/CYNIC/target"
           }
         ],
+        "_noncanonical_note": "shared-target was listed here until 2026-10-22, when a reclaim from a stale checkout purged the live Forgejo-runner warm cache behind it. A path with an active writer is an asset, never a candidate. This entry names a real stray path (in-repo target dir); absent on disk it observes nothing. Re-list a path only after its writer migrates and the dir drains.",
         "bootstrap_containment": {
           "schema": "cynic.build_runner.bootstrap_containment.v1",
           "authority_class": "MachineEnrollment",
