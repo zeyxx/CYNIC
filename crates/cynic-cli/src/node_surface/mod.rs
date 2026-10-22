@@ -117,6 +117,14 @@ pub enum NodeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Bounded enrollment health: file read-back plus a 2s renewal probe.
+    /// Never hangs; an unreachable renewal endpoint is a blocker, not silence.
+    EnrollmentCheck {
+        #[arg(long, default_value = "/var/lib/cynic/node-control.toml")]
+        config: String,
+        #[arg(long)]
+        json: bool,
+    },
 
     // === Consensus ===
     /// Evaluate fleet epoch consensus and clock skew across cluster nodes.
@@ -418,6 +426,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         // === Identity ===
         NodeCommand::NodeIdentity { node_id, signing_key_path, apply, json } => {
             identity::execute_node_identity(&node_id, &signing_key_path, apply, json)
+        }
+        NodeCommand::EnrollmentCheck { config, json } => {
+            identity::execute_node_enrollment_check(&config, json)
         }
 
         // === Consensus ===

@@ -991,3 +991,121 @@ mod tests {
         }
     }
 }
+
+/// Bounded enrollment health summary for the `node enrollment-check` arm.
+///
+/// Pure (no I/O, no clock): the caller supplies the read-back fields, the
+/// renewal probe outcome, and now. A configured build scheduler with an
+/// unreachable renewal endpoint is a blocker, not a warning — the grant
+/// will lapse and the HTTP surface will go dark exactly as observed on
+/// cynic-compute-01 (loopback `kernel_url`, no local kernel).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeEnrollmentCheckSummary {
+    pub status: String,
+    pub enrollment_proven: bool,
+    pub grant_id: Option<String>,
+    pub grant_expires_at_unix_s: Option<u64>,
+    pub renewal_endpoint_reachable: bool,
+    pub blockers: Vec<String>,
+}
+
+pub fn summarize_node_enrollment_check(
+    enrollment_state: &SecurityEvidenceState,
+    grant_id: Option<String>,
+    grant_expires_at_unix_s: Option<u64>,
+    read_back_unknowns: &[String],
+    renewal_endpoint_reachable: bool,
+    build_scheduler_configured: bool,
+    now_unix_s: u64,
+) -> NodeEnrollmentCheckSummary {
+    let mut blockers: Vec<String> = read_back_unknowns.to_vec();
+    let proven = enrollment_state == &SecurityEvidenceState::Proven;
+    if !proven {
+        blockers.push("node_enrollment_not_proven".to_string());
+    }
+    if let Some(expires_at) = grant_expires_at_unix_s {
+        if now_unix_s >= expires_at {
+            blockers.push("node_enrollment_grant_expired".to_string());
+        }
+    }
+    if build_scheduler_configured && !renewal_endpoint_reachable {
+        blockers.push("node_enrollment_renewal_endpoint_unreachable".to_string());
+    }
+    blockers.sort();
+    blockers.dedup();
+    NodeEnrollmentCheckSummary {
+        status: if blockers.is_empty() {
+            "ready".to_string()
+        } else {
+            "blocked".to_string()
+        },
+        enrollment_proven: proven,
+        grant_id,
+        grant_expires_at_unix_s,
+        renewal_endpoint_reachable,
+        blockers,
+    }
+}
+
+#[cfg(test)]
+mod enrollment_check_tests {
+    use super::*;
+
+    fn summary(
+        proven: bool,
+        expires_at: Option<u64>,
+        reachable: bool,
+        scheduler: bool,
+        now: u64,
+    ) -> NodeEnrollmentCheckSummary {
+        summarize_node_enrollment_check(
+            if proven {
+                &SecurityEvidenceState::Proven
+            } else {
+                &SecurityEvidenceState::Absent
+            },
+            Some("grant:test".to_string()),
+            expires_at,
+            &[],
+            reachable,
+            scheduler,
+            now,
+        )
+    }
+
+    #[test]
+    fn ready_when_proven_fresh_and_renewal_reachable() {
+        let report = summary(true, Some(9_000), true, true, 5_000);
+        assert_eq!(report.status, "ready");
+        assert!(report.blockers.is_empty());
+    }
+
+    #[test]
+    fn expired_grant_blocks_even_when_proven() {
+        let report = summary(true, Some(4_000), true, true, 5_000);
+        assert_eq!(report.status, "blocked");
+        assert!(report.blockers.contains(&"node_enrollment_grant_expired".to_string()));
+    }
+
+    #[test]
+    fn unreachable_renewal_blocks_a_configured_scheduler() {
+        let report = summary(true, Some(9_000), false, true, 5_000);
+        assert_eq!(report.status, "blocked");
+        assert!(report
+            .blockers
+            .contains(&"node_enrollment_renewal_endpoint_unreachable".to_string()));
+    }
+
+    #[test]
+    fn unreachable_renewal_is_fine_without_a_scheduler() {
+        let report = summary(true, Some(9_000), false, false, 5_000);
+        assert_eq!(report.status, "ready");
+    }
+
+    #[test]
+    fn unproven_enrollment_blocks() {
+        let report = summary(false, None, true, false, 5_000);
+        assert_eq!(report.status, "blocked");
+        assert!(report.blockers.contains(&"node_enrollment_not_proven".to_string()));
+    }
+}

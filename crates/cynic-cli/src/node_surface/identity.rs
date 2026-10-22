@@ -20,6 +20,10 @@ pub(crate) fn execute_node_identity(
     )
 }
 
+pub(crate) fn execute_node_enrollment_check(config: &str, json: bool) -> ExitCode {
+    cynic_node::usecases::node_enrollment_check_uc::execute_node_enrollment_check(config, json)
+}
+
 /// Node identity arms: initialize/display the keypair, or observe/create the
 /// node-local identity record.
 #[derive(Subcommand)]
