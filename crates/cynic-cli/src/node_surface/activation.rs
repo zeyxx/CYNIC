@@ -15,7 +15,7 @@ use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_host::node_activation::NodeActivationPort;
 use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
 use cynic_node_protocol::{MachineEnrollmentAuthority, NodeEnrollmentRequest};
-use sha2::Digest;
+use sha2::{Digest, Sha256};
 
 fn default_key_path() -> PathBuf {
     CynicPaths::system_config_dir().join("node-identity.key")
@@ -456,7 +456,11 @@ pub(crate) fn execute_enrollment_issue(
             report.grant_id,
             report.node_id,
             report.role,
-            if require_token { "presented" } else { "operator-mediated" }
+            if require_token {
+                "presented"
+            } else {
+                "operator-mediated"
+            }
         );
         ExitCode::SUCCESS
     }
