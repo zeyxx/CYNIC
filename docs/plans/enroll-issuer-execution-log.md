@@ -149,6 +149,18 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
   operator must vault it; never in git.
 - NEXT (root on compute-01): `systemctl restart cynic-node`,
   then hermes proves (:9090 + service prove).
+- CORRECTION (honest): the g2 key pipeline used an unverified
+  `tail -c 32` extraction; its file later derived to the morning
+  pubkey — key lineage untrustworthy. g2 superseded, file kept as
+  `enrollment-authority-g1-recovered.key` (derives to morning pub;
+  operator decides vault or shred).
+- g3 ceremony VERIFIED end to end: openssl `-text` keygen, seed/pub
+  parsed (no tail games), re-derivation cross-check OK,
+  precomputed `sha256:93a54f3b…` == issued grant
+  `grant:7daa78d18ee0f64f` (+90d). Triple-match staged
+  (grant.request_id == request, key_id == sha256(.pub)).
+- NEXT (root on compute-01): `systemctl restart cynic-node`,
+  then hermes proves (:9090 + service prove).
 
 ## Left for the operator (explicit, no implicit escalation)
 
