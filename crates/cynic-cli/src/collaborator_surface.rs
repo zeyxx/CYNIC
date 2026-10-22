@@ -527,6 +527,46 @@ struct OnboardReport {
 /// Refuses without --yes, with a blank id/handle, or when the id already
 /// exists (use promote for trust changes). New entries always start at
 /// `observed` per doctrine — trust from evidence, never reputation.
+/// Pure admission for onboarding: validates the id/handle and builds the new
+/// `observed` entry, or explains the refusal. No file I/O — the surface
+/// reads the registry, calls this, then writes the returned entry.
+fn admit_onboard(
+    collaborators: &serde_json::Value,
+    collaborator_id: &str,
+    handle: &str,
+    display_name: Option<&str>,
+    projects: &[String],
+    note: &str,
+) -> Result<serde_json::Value, String> {
+    let collaborator_id = collaborator_id.trim();
+    let handle = handle.trim();
+    if collaborator_id.is_empty() || collaborator_id.chars().any(char::is_whitespace) {
+        return Err("collaborator_id must be a non-empty single token".to_string());
+    }
+    if handle.is_empty() {
+        return Err("github handle must not be empty".to_string());
+    }
+    let arr = collaborators
+        .get("collaborators")
+        .and_then(|x| x.as_array())
+        .ok_or_else(|| "collaborators registry has no collaborators array".to_string())?;
+    if arr.iter().any(|c| {
+        c.get("collaborator_id").and_then(|x| x.as_str()) == Some(collaborator_id)
+    }) {
+        return Err(format!(
+            "collaborator '{collaborator_id}' is already onboarded; use promote for trust changes"
+        ));
+    }
+    Ok(serde_json::json!({
+        "collaborator_id": collaborator_id,
+        "display_name": display_name.unwrap_or(collaborator_id),
+        "github_handle": handle,
+        "trust_level": "observed",
+        "projects": projects,
+        "notes": note,
+    }))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn execute_onboard(
     collaborator_id: &str,
@@ -572,32 +612,19 @@ fn execute_onboard(
         }
     };
 
-    let arr = match value
+    let entry = match admit_onboard(&value, collaborator_id, handle, display_name, projects, note) {
+        Ok(entry) => entry,
+        Err(reason) => return fail(reason),
+    };
+    match value
         .get_mut("collaborators")
         .and_then(|x| x.as_array_mut())
     {
-        Some(arr) => arr,
+        Some(arr) => arr.push(entry),
         None => {
             return fail("collaborators registry has no collaborators array".to_string());
         }
     };
-    if arr.iter().any(|c| {
-        c.get("collaborator_id").and_then(|x| x.as_str()) == Some(collaborator_id)
-    }) {
-        return fail(format!(
-            "collaborator '{collaborator_id}' is already onboarded; use promote for trust changes"
-        ));
-    }
-
-    let entry = serde_json::json!({
-        "collaborator_id": collaborator_id,
-        "display_name": display_name.unwrap_or(collaborator_id),
-        "github_handle": handle,
-        "trust_level": "observed",
-        "projects": projects,
-        "notes": note,
-    });
-    arr.push(entry);
 
     match serde_json::to_string_pretty(&value) {
         Ok(json) => {
@@ -751,5 +778,49 @@ fn tier_from_level(level: &str) -> u8 {
         "core" => 1,
         "trusted" => 2,
         _ => 3,
+    }
+}
+
+#[cfg(test)]
+mod onboard_tests {
+    use super::*;
+
+    fn empty_registry() -> serde_json::Value {
+        serde_json::json!({ "collaborators": [] })
+    }
+
+    fn registry_with(id: &str) -> serde_json::Value {
+        serde_json::json!({ "collaborators": [{ "collaborator_id": id }] })
+    }
+
+    #[test]
+    fn newcomer_is_admitted_at_observed() {
+        let entry = admit_onboard(&empty_registry(), "yansigit", "yansigit", None, &[], "")
+            .expect("newcomer must be admitted");
+        assert_eq!(entry["collaborator_id"], "yansigit");
+        assert_eq!(entry["trust_level"], "observed");
+        assert_eq!(entry["github_handle"], "yansigit");
+    }
+
+    #[test]
+    fn duplicate_id_is_refused() {
+        let err = admit_onboard(&registry_with("yansigit"), "yansigit", "yansigit", None, &[], "")
+            .expect_err("duplicate must be refused");
+        assert!(err.contains("already onboarded"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn blank_id_is_refused() {
+        assert!(admit_onboard(&empty_registry(), "   ", "yansigit", None, &[], "").is_err());
+    }
+
+    #[test]
+    fn spaced_id_is_refused() {
+        assert!(admit_onboard(&empty_registry(), "yan sigit", "yansigit", None, &[], "").is_err());
+    }
+
+    #[test]
+    fn blank_handle_is_refused() {
+        assert!(admit_onboard(&empty_registry(), "yansigit", "", None, &[], "").is_err());
     }
 }
