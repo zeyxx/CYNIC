@@ -83,6 +83,11 @@ struct GitHubCommit {
 }
 
 #[derive(Deserialize)]
+struct GitHubCollaborator {
+    login: String,
+}
+
+#[derive(Deserialize)]
 struct GitHubPullRequest {
     number: u64,
     html_url: String,
@@ -219,6 +224,33 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
                     }
                 })
                 .collect())
+        })
+    }
+
+    fn list_collaborators(&self, repo: &ExternalRepoRef) -> Result<Vec<String>, String> {
+        let (owner, repo_name) = self.parse_owner_repo(repo)?;
+        let url = self.api_url(&format!("/repos/{owner}/{repo_name}/collaborators?per_page=100"));
+        let token = self.token.clone();
+
+        Self::with_client(move |client| {
+            let resp = client
+                .get(&url)
+                .header("Authorization", format!("Bearer {token}"))
+                .header("Accept", "application/vnd.github+json")
+                .send()
+                .map_err(|e| format!("HTTP error: {e}"))?;
+
+            if resp.status() == reqwest::StatusCode::FORBIDDEN {
+                return Err("GitHub API forbids collaborator listing: token needs push access to the repo".to_string());
+            }
+            if !resp.status().is_success() {
+                return Err(format!("GitHub API error: {}", resp.status()));
+            }
+
+            let collaborators: Vec<GitHubCollaborator> =
+                resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+
+            Ok(collaborators.into_iter().map(|c| c.login).collect())
         })
     }
 

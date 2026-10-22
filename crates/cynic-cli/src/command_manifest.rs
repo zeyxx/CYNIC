@@ -134,6 +134,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator onboard <collaborator_id> --handle <gh> [--display-name <name>] [--project <slug>] [--note <text>] --yes [--registry <path>]",
+                    "cynic collaborator watch [--project <slug>] [--forgejo-url <url>] [--github-token <t>] [--forgejo-token <t>] [--json]",
                 ],
             },
             CommandDomain {
