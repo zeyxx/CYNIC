@@ -130,6 +130,11 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
+        /// Gate scope: full (default) or auto (classify the commit diff and
+        /// run only the gate the change deserves: narrowed cargo check,
+        /// local pytest, JSON validation, or nothing).
+        #[arg(long, default_value = "full")]
+        scope: String,
         /// Shared sccache dir on the runner (content-keyed compiler cache).
         /// Empty = no wrapper (current behavior).
         #[arg(long, default_value = "")]
@@ -502,6 +507,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             checkout_base,
             ssot_url,
             package,
+            scope,
             sccache_dir,
             proof_log,
             json,
@@ -516,6 +522,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             &checkout_base,
             &ssot_url,
             package,
+            &scope,
             &sccache_dir,
             proof_log.as_deref(),
             json,
