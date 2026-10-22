@@ -44,6 +44,33 @@ explicit unknowns, not debris-proven.
 - `/tmp`: `cynic-ext` 3.4G, `enroll-target` 2.8G, `enroll-proof` 1.9G,
   `rel-build` 1.2G — active proof surfaces, keep while proving.
 
+## Incident 2026-10-22 — reclaim purged the warm cache (recorded honestly)
+
+What I did: `cynic build reclaim --node cynic-builder --local --apply`
+from checkout `cynic-0419dd2d4132`, after a planned read showing 0 blockers.
+
+What it did: removed `shared-target/` (35G warm cargo cache) plus ~6 old
+checkouts. Disk 71% -> 51%.
+
+Why: the checkout I ran from carries a stale registry that lists
+`shared-target` as a noncanonical candidate. The plan followed that map.
+I knew shared-target was a runner asset and proceeded without verifying
+the plan excluded it. Three errors: stale map, no cross-check of the
+noncanonical list against the asset list, "0 blockers" mistaken for safe.
+
+Impact: no data loss. Caches and materializations only, all reproducible;
+workload records and settlements untouched. Cost: cold rebuilds (minutes
+vs seconds) until rewarm; possibly interrupted builds for agents working
+in the removed checkouts.
+
+`layer0-base/` eviction NOT performed — held, not compounded.
+
+Recurrence prevention (dictated): the registry must stop listing the
+live warm cache as noncanonical. Either declare `shared-target` canonical
+(where the runner actually writes) or migrate writers to `fgate`, then
+drain natively. Never `--apply` from a stale checkout again: the map must
+be current before the mutation.
+
 ## Dictated next (authority-gated)
 
 1. Operator (root builder): install staged repo registry over
