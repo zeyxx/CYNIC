@@ -117,6 +117,30 @@ pub fn decide_gate_scope(paths: &[&str]) -> GateScope {
     }
 }
 
+/// Closure cap: beyond this many crates the workspace check is cheaper
+/// than N narrowed ones (shared deps recompile anyway) — fall back to Full.
+pub const CLOSURE_CAP: usize = 6;
+
+/// Transitive consumers closure: every crate that (directly or indirectly)
+/// depends on a touched crate must re-prove — an API break hides there.
+/// `consumers_of` maps a crate to its direct consumers. Pure; the caller
+/// loads the topology (infra/crate-topology.json) and passes the lookup.
+pub fn expand_with_consumers(
+    packages: &[String],
+    consumers_of: &dyn Fn(&str) -> Vec<String>,
+) -> Vec<String> {
+    let mut seen: BTreeSet<String> = packages.iter().cloned().collect();
+    let mut stack: Vec<String> = packages.to_vec();
+    while let Some(next) = stack.pop() {
+        for consumer in consumers_of(&next) {
+            if seen.insert(consumer.clone()) {
+                stack.push(consumer);
+            }
+        }
+    }
+    seen.into_iter().collect()
+}
+
 /// Paths that never affect any gate: docs, comments, editor noise.
 fn is_ignorable(path: &str) -> bool {
     path.ends_with(".md")
@@ -193,6 +217,34 @@ mod tests {
             "apps/cynic-data/src/x.py",
         ]);
         assert!(matches!(scope, GateScope::Full { .. }));
+    }
+
+    #[test]
+    fn closure_covers_transitive_consumers() {
+        let consumers = |name: &str| match name {
+            "leaf" => vec!["mid".to_string()],
+            "mid" => vec!["top".to_string()],
+            _ => vec![],
+        };
+        assert_eq!(
+            expand_with_consumers(&["leaf".to_string()], &consumers),
+            vec![
+                "leaf".to_string(),
+                "mid".to_string(),
+                "top".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn closure_dedupes_diamonds() {
+        let consumers = |name: &str| match name {
+            "base" => vec!["left".to_string(), "right".to_string()],
+            "left" | "right" => vec!["top".to_string()],
+            _ => vec![],
+        };
+        let closed = expand_with_consumers(&["base".to_string()], &consumers);
+        assert_eq!(closed.len(), 4);
     }
 
     #[test]

@@ -70,10 +70,12 @@ pub fn decide_disk_capacity(
 
 /// Parse the available bytes from a `df -k` read-back of the checkout base.
 ///
-/// `df -k <path>` prints a header, then one line per filesystem. The fourth
-/// column is the available space in 1 KiB blocks. The line whose mount point
-/// is the queried path is the one that matters; when the path is not a mount
-/// point, the first filesystem is the one holding it.
+/// Two shapes are accepted, because the probe and the parser must agree:
+/// - full form (`df -k <path>`): header plus ≥5 columns; the fourth is the
+///   available space in 1 KiB blocks. The line whose mount point is the
+///   queried path wins; otherwise the first filesystem is the fallback.
+/// - single-column form (`df -k --output=avail <path>`): the only field
+///   after the header is the available KiB.
 ///
 /// A missing or unparsable line yields `None`: an unknown disk is not a
 /// measured disk.
@@ -81,6 +83,17 @@ pub fn parse_df_available_bytes(df_output: &str, query_path: &str) -> Option<u64
     let mut fallback: Option<u64> = None;
     for line in df_output.lines().skip(1) {
         let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.is_empty() {
+            continue;
+        }
+        if parts.len() == 1 {
+            if fallback.is_none() {
+                if let Ok(available_kb) = parts[0].parse::<u64>() {
+                    fallback = Some(available_kb * 1024);
+                }
+            }
+            continue;
+        }
         if parts.len() < 5 {
             continue;
         }
@@ -139,6 +152,15 @@ mod tests {
         let minimum = 4 * 1024 * 1024 * 1024;
         let assessment = decide_disk_capacity(Some(minimum), minimum);
         assert_eq!(assessment.decision, DiskCapacityDecision::Proceed);
+    }
+
+    #[test]
+    fn single_column_output_avail_parses() {
+        let df = "Avail\n88144916\n";
+        assert_eq!(
+            parse_df_available_bytes(df, "/var/lib/cynic"),
+            Some(88144916 * 1024)
+        );
     }
 
     #[test]
