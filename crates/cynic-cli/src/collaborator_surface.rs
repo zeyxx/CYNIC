@@ -70,6 +70,29 @@ pub(crate) enum CollaboratorCommand {
         #[arg(long)]
         registry: Option<String>,
     },
+    /// Onboard a new collaborator at observed trust (requires --yes).
+    Onboard {
+        /// Collaborator ID (e.g. "yansigit"). Must be unique in the registry.
+        collaborator_id: String,
+        /// GitHub handle.
+        #[arg(long)]
+        handle: String,
+        /// Display name (defaults to the collaborator ID).
+        #[arg(long)]
+        display_name: Option<String>,
+        /// Project slugs to attach (repeatable).
+        #[arg(long = "project")]
+        projects: Vec<String>,
+        /// Note recorded on the entry.
+        #[arg(long, default_value = "")]
+        note: String,
+        /// Explicit operator approval (human-in-the-loop).
+        #[arg(long)]
+        yes: bool,
+        /// Path to the collaborators registry.
+        #[arg(long)]
+        registry: Option<String>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -194,6 +217,23 @@ pub(crate) fn execute_collaborator(command: &CollaboratorCommand) -> ExitCode {
             operation,
             registry.as_deref(),
             false,
+        ),
+        CollaboratorCommand::Onboard {
+            collaborator_id,
+            handle,
+            display_name,
+            projects,
+            note,
+            yes,
+            registry,
+        } => execute_onboard(
+            collaborator_id,
+            handle,
+            display_name.as_deref(),
+            projects,
+            note,
+            *yes,
+            registry.as_deref(),
         ),
     }
 }
@@ -470,6 +510,118 @@ fn execute_promotion(
         }),
     };
     emit_json(&promotion_report, false)
+}
+
+#[derive(Debug, Serialize)]
+struct OnboardReport {
+    schema: String,
+    collaborator_id: String,
+    action: String,
+    trust_level: String,
+    admitted: bool,
+    registry_path: String,
+}
+
+/// One-click onboarding: append a new collaborator at observed trust.
+///
+/// Refuses without --yes, with a blank id/handle, or when the id already
+/// exists (use promote for trust changes). New entries always start at
+/// `observed` per doctrine — trust from evidence, never reputation.
+#[allow(clippy::too_many_arguments)]
+fn execute_onboard(
+    collaborator_id: &str,
+    handle: &str,
+    display_name: Option<&str>,
+    projects: &[String],
+    note: &str,
+    yes: bool,
+    registry: Option<&str>,
+) -> ExitCode {
+    if !yes {
+        eprintln!("Refusing to onboard without --yes flag");
+        return ExitCode::FAILURE;
+    }
+    let collaborator_id = collaborator_id.trim();
+    let handle = handle.trim();
+    if collaborator_id.is_empty() || collaborator_id.chars().any(char::is_whitespace) {
+        return fail("collaborator_id must be a non-empty single token".to_string());
+    }
+    if handle.is_empty() {
+        return fail("github handle must not be empty".to_string());
+    }
+
+    let root = rust_source::workspace_root();
+    let default_path = root.join("infra/collaborators.json");
+    let registry_path = registry
+        .map(PathBuf::from)
+        .unwrap_or(default_path);
+
+    let raw = match fs::read_to_string(&registry_path) {
+        Ok(s) => s,
+        Err(e) => {
+            return fail(format!(
+                "cannot read collaborators registry {}: {e}",
+                registry_path.display()
+            ));
+        }
+    };
+    let mut value: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(e) => {
+            return fail(format!("invalid JSON in collaborators registry: {e}"));
+        }
+    };
+
+    let arr = match value
+        .get_mut("collaborators")
+        .and_then(|x| x.as_array_mut())
+    {
+        Some(arr) => arr,
+        None => {
+            return fail("collaborators registry has no collaborators array".to_string());
+        }
+    };
+    if arr.iter().any(|c| {
+        c.get("collaborator_id").and_then(|x| x.as_str()) == Some(collaborator_id)
+    }) {
+        return fail(format!(
+            "collaborator '{collaborator_id}' is already onboarded; use promote for trust changes"
+        ));
+    }
+
+    let entry = serde_json::json!({
+        "collaborator_id": collaborator_id,
+        "display_name": display_name.unwrap_or(collaborator_id),
+        "github_handle": handle,
+        "trust_level": "observed",
+        "projects": projects,
+        "notes": note,
+    });
+    arr.push(entry);
+
+    match serde_json::to_string_pretty(&value) {
+        Ok(json) => {
+            if let Err(e) = fs::write(&registry_path, json) {
+                return fail(format!(
+                    "cannot write collaborators registry {}: {e}",
+                    registry_path.display()
+                ));
+            }
+        }
+        Err(e) => {
+            return fail(format!("serialization failed: {e}"));
+        }
+    }
+
+    let report = OnboardReport {
+        schema: "cynic.cli.collaborator_onboard.v1".to_string(),
+        collaborator_id: collaborator_id.to_string(),
+        action: "onboard".to_string(),
+        trust_level: "observed".to_string(),
+        admitted: true,
+        registry_path: registry_path.display().to_string(),
+    };
+    emit_json(&report, false)
 }
 
 fn parse_collaborators(value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::Collaborator> {

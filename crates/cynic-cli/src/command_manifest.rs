@@ -133,6 +133,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic collaborator status [--json] [--registry <path>]",
                     "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
+                    "cynic collaborator onboard <collaborator_id> --handle <gh> [--display-name <name>] [--project <slug>] [--note <text>] --yes [--registry <path>]",
                 ],
             },
             CommandDomain {
