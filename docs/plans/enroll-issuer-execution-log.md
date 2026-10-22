@@ -128,6 +128,17 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
   (sha256 `8146f5ea…`); live receiver PID 31374 untouched, :9090 ok.
 - NEXT (root on compute-01): install + reload + start the unit,
   then kill the nohup receiver, then `service prove`.
+- DONE (operator): unit installed, daemon-reload, enable --now.
+  `cynic-node.service` active (PID 58652), correct binary.
+- BLOCKED: `:9090` dark. Cause proven, not guessed: the enrollment
+  grant (`grant:acb2ce35c822c5c0`) expired (50-min TTL, now past
+  `expires_at_unix_s`). `decide_builder_activation` gates the HTTP
+  surface on a valid grant — deny-by-default working as designed.
+  The old nohup served only because activation was decided at its
+  startup, before expiry. Re-enrollment (fresh grant) required;
+  authority private key is not on compute-01 (public halves only).
+- Manual foreground run confirms: same binary+config, no listen,
+  zero output — unit file exonerated.
 
 ## Left for the operator (explicit, no implicit escalation)
 
