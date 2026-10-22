@@ -240,6 +240,14 @@
       "steady_state": "root stays offline on USB; issuance is operator-run with USB mounted; intermediates per zone thereafter"
     },
     {
+      "role": "NodeAgent",
+      "class": "MachineEnrollment",
+      "purpose": "compute-01_grant_issuance_renewal",
+      "holder": "/var/lib/cynic/identity/enrollment-authority-g3.key (0600 cynic:cynic, dir 0700; cert, grant, request 0644 public)",
+      "fingerprint": "sha256:93a54f3b00a379c21e9e5071709358fb17fe41a4b23650c6566613f8057c62e2",
+      "steady_state": "per-node authority lives where the renewal loop runs (compute-01); private key never leaves the node; fingerprint recorded, value never"
+    },
+    {
       "role": "PeerProjectService",
       "class": "SolanaFeePayerKey",
       "purpose": "sponsored_relay",
