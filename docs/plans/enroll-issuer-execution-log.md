@@ -189,3 +189,9 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
    the new per-node authority sidesteps the question for compute-01 only.
 4. `--check` hangs when the kernel is unreachable (no timeout on the
    workload-delivery pull) — robustness bug recorded, not fixed here.
+5. Toolchain resolution (2026-10-22, `bf2692dc`): `toolchain_bin_dir`
+   declared in scheduler config + spawn pre-flight
+   (`build_toolchain_unresolvable:<program>`). Check green, unknowns [];
+   targeted tests green (build_scheduler 44, tokio_build_execution 9,
+   execution_env 9). compute-01 config set; needs root restart +
+   `rm /usr/local/bin/cargo` (operator).
