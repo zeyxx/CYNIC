@@ -348,7 +348,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic build run --json",
                     "cynic build submit --json",
-                    "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
+                    "cynic build trigger --commit <sha> [--phase check|build|activate|test] [--package <pkg>] [--host <ssh>] [--runner <node>] [--scope full|auto] [--json]",
                     "cynic build pool eligibility [--node <id>] [--observed-labels a,b] [--json]",
                     "cynic build pool memory [--json]",
                     "cynic build proofs list [--commit <sha>] [--limit N] [--json]",
