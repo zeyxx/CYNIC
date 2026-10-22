@@ -75,10 +75,12 @@ Follow-up 2026-10-22 (`7cc664b7`): `shared-target` unlisted as candidate
 (replaced by the real stray path `source/repositories/CYNIC/target`,
 absent = observes nothing); coherence test rewritten on the true
 invariant (declared `build-targets/fgate` pinned, writer migrates first).
-Check green, unknowns []; coherence 5/5. Side finding: the old submitter
-binary fails pool resolution against the fresh-main registry ("no healthy
-build_runner") — explicit `--builder-url` bypasses it; the submitter
-needs a registry-shape update next.
+Check green, unknowns []; coherence 5/5. Side finding, CORRECTED:
+pool resolution re-tested with the same old binary against fresh main
+resolves fine (workload accepted, no `--builder-url`). The earlier
+"no healthy build_runner" was a transient `:9090` health flap, not a
+registry-shape drift — no submitter change needed. (One junk workload
+`build-2d79184` from the probe with a fabricated SHA; it fails closed.)
 
 ## Dictated next (authority-gated)
 
