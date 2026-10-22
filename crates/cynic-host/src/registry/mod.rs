@@ -361,6 +361,27 @@ pub mod resolve {
         resolve_role_transport(&path, &registry, role, "framework_target")
     }
 
+    /// The build runner's canonical build cache path, relative to the
+    /// state root, as the registry declares it.
+    ///
+    /// WHY A RESOLVER AND NOT A CONSTANT. The runner used to compile the
+    /// path in (`state_dir().join("shared-target")`) while the registry
+    /// declared another one (`build-targets/bootstrap`). The two claims
+    /// about the same machine disagreed, and the tooling that has to
+    /// RECLAIM the cache read the registry: it looked for a canonical
+    /// target that did not exist, found the real 30 Go of cache outside
+    /// the policy, and refused to act.
+    ///
+    /// A registry that does not declare the path is an explicit refusal.
+    /// A guess would put the runner and the governance on two different
+    /// caches again, which is the failure this replaces.
+    pub fn resolve_canonical_target_relative_path(
+        registry_path: Option<&str>,
+    ) -> Result<String, String> {
+        let path = resolve_registry_path(registry_path)?;
+        crate::domain::disk::build_runner::canonical_target_relative_path(&path)
+    }
+
     /// Resolve a runner by node id, name, or alias (e.g. a compat builder
     /// alongside the default `build_runner` role). Same transport checks as
     /// the role path; fails closed when the node or its SSH transport is

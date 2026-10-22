@@ -20,6 +20,71 @@ struct Node {
     build_lifecycle: Option<BuildLifecycle>,
 }
 
+/// The build cache path the registry declares, for the build runner.
+///
+/// WHY A RESOLVER AND NOT A CONSTANT. The runner used to compile the
+/// build cache path into itself (`state_dir().join("shared-target")`)
+/// while this registry declared another one (`build-targets/bootstrap`).
+/// Two claims about the same directory on the same machine, and they
+/// disagreed.
+///
+/// That divergence is not cosmetic. `cynic build reclaim` reads the
+/// registry to know what to reclaim, and refuses to touch the canonical
+/// profile when the canonical path does not exist:
+///
+/// ```text
+/// canonical_target_state: "missing"
+/// reclaim_profile_state: "missing"
+/// ```
+///
+/// So the 30 Go of real build cache sat outside the governance of the
+/// policy that exists to reclaim it, while the registry pointed at a
+/// directory that nothing had ever created.
+///
+/// WHY THE REGISTRY WINS. `infra/directory-tree.json` is the authority
+/// for the runtime tree, and it says the build target is
+/// `{state-root}/build-targets/<profile>`. A path in the code and a path
+/// in the registry that disagree are two claims about the same machine;
+/// the registry is the one that is read by the tooling that has to act
+/// on it.
+///
+/// The runner therefore asks the registry where the cache is, and a
+/// registry that cannot answer is an explicit refusal — never a guess.
+pub fn canonical_target_relative_path(registry_path: &Path) -> Result<String, String> {
+    let bytes = fs::read(registry_path)
+        .map_err(|error| format!("build_cache_registry_read_failed:{error}"))?;
+    let registry: Registry = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("build_cache_registry_decode_failed:{error}"))?;
+    let mut found: Vec<String> = Vec::new();
+    for node in registry.nodes.iter() {
+        if node.role.as_deref() != Some("build_runner") {
+            continue;
+        }
+        let Some(policy) = node.build_lifecycle.as_ref() else {
+            continue;
+        };
+        let path = policy.canonical_target_relative_path.trim();
+        if path.is_empty() {
+            continue;
+        }
+        if path.starts_with('/') {
+            return Err("canonical_target_not_relative".to_string());
+        }
+        if path
+            .split('/')
+            .any(|component| component == ".." || component.is_empty())
+        {
+            return Err("canonical_target_escapes_state_root".to_string());
+        }
+        found.push(path.to_string());
+    }
+    match found.as_slice() {
+        [] => Err("build_runner_canonical_target_undeclared".to_string()),
+        [path] => Ok(path.clone()),
+        _ => Err("build_runner_canonical_target_ambiguous".to_string()),
+    }
+}
+
 #[derive(Deserialize)]
 struct BuildLifecycle {
     schema: String,

@@ -199,6 +199,9 @@ impl SshBuildRunner {
         match phase {
             BuildPhase::Check => Ok("cargo:check"),
             BuildPhase::Build => Ok("cargo:build"),
+            // Test routes to the runner like check and build: the operator
+            // host never runs the suite itself (see BuildPhase::Test docs).
+            BuildPhase::Test => Ok("cargo:test"),
             // The trigger refuses to attempt activate: no build runs, so no
             // verdict on the commit can exist. Absence, not a blocked build.
             BuildPhase::Activate => Err(BuildError::ConfigurationRefused(

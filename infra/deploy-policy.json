@@ -6,29 +6,37 @@
     "name": "cynic",
     "source": "cargo build --release --bin cynic",
     "target_profile": "release",
-    "binary_locations_registry": "infra/binary-locations.json"
+    "binary_locations_registry": "infra/deploy-locations.json"
   },
-  "canary_order": ["builder", "cortex", "cynic-agent-host"],
+  "canary_order": [
+    "builder",
+    "cortex",
+    "cynic-agent-host"
+  ],
   "per_step_gates": {
     "health": [
       {
-        "name": "version_match",
-        "description": "Deployed binary reports the deployed commit SHA",
-        "command": "cynic --version",
-        "pass_condition": "output contains the deployed source SHA"
+        "name": "identity_match",
+        "description": "The deployed binary reports the deployed commit SHA (per-machine identity command from the locations registry)",
+        "command_source": "deploy_locations.machines[].readback.identity_command",
+        "pass_condition": "git_sha equals the deployed source commit exactly"
+      },
+      {
+        "name": "bytes_match",
+        "description": "The bytes on disk are the ones that were built (sha256 read-back)",
+        "command_source": "deploy_locations.machines[].readback.sha256_command",
+        "pass_condition": "sha256 equals the sha256 of the artifact that was staged"
       },
       {
         "name": "smoke",
-        "description": "Deployed binary answers a read-only probe through the real path",
-        "command": "cynic source status --json",
-        "pass_condition": "exit code 0 and valid JSON"
-      },
-      {
-        "name": "pid_cycled",
-        "description": "The service process actually restarted (PID changed)",
-        "pass_condition": "post-deploy PID differs from pre-deploy PID"
+        "description": "The deployed binary answers a read-only probe through the real path",
+        "command_source": "deploy_locations.machines[].readback.smoke_command",
+        "pass_condition": "exit code 0"
       }
-    ]
+    ],
+    "gates_removed": {
+      "pid_cycled": "Measured 2026-10-19: NO service consumes the cynic CLI on any of the three machines (the builder's cynic-node.service runs /var/lib/cynic/bin/cynic-node, a different binary; agent-host has no cynic unit; cortex is the operator workstation). A PID gate would assert a restart that never happens. The daemon restart belongs to the cynic-node release path, not to the CLI deploy."
+    }
   },
   "stop_before_swap": true,
   "backup": {
