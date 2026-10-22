@@ -35,6 +35,9 @@ pub enum FleetCommand {
     /// Observe every registry runner and record capacity snapshots (read-only
     /// on the runners; rewrites the local capacity registry).
     Observe {
+        /// SSH user for alias-form targets (user@host entries carry their own).
+        #[arg(long, default_value = "cynic")]
+        user: String,
         /// Emit JSON.
         #[arg(long)]
         json: bool,
@@ -43,7 +46,7 @@ pub enum FleetCommand {
 
 pub fn execute_fleet(cmd: &FleetCommand) -> ExitCode {
     match cmd {
-        FleetCommand::Observe { json } => execute_observe(*json),
+        FleetCommand::Observe { user, json } => execute_observe(user, *json),
     }
 }
 
@@ -88,7 +91,7 @@ fn now_unix_s() -> u64 {
 /// Never mutates runners. Rewrites `infra/fleet-capacity.json` with fresh
 /// snapshots. Non-zero exit when any runner is muted or degraded so a cron
 /// can alert.
-fn execute_observe(json: bool) -> ExitCode {
+fn execute_observe(default_user: &str, json: bool) -> ExitCode {
     let candidates = cynic_host::registry::resolve::list_runner_nodes(None).unwrap_or_default();
     if candidates.is_empty() {
         return fail("no runner nodes in the registry".to_string());
@@ -111,8 +114,9 @@ fn execute_observe(json: bool) -> ExitCode {
     let mut muted = Vec::new();
 
     for entry in &candidates {
-        let Some((user, probe_host)) = entry.ssh_target.split_once('@') else {
-            continue;
+        let (user, probe_host) = match entry.ssh_target.split_once('@') {
+            Some((u, h)) => (u.to_string(), h.to_string()),
+            None => (default_user.to_string(), entry.ssh_target.clone()),
         };
         let probe = cynic_node::cli_factory::ssh_build_runner(
             probe_host.to_string(),
