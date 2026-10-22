@@ -2,7 +2,7 @@
   "schema": "cynic.collaborators.v1",
   "status": "seed",
   "purpose": "SSOT registry of collaborators on CYNIC-governed external projects. Trust is observed and promoted, never assumed.",
-  "updated_at": "2026-10-18",
+  "updated_at": "2026-10-22",
   "collaborators": [
     {
       "collaborator_id": "titouan",
@@ -60,6 +60,36 @@
         "holdex"
       ],
       "notes": "Upstream author of the GCRtrd cult stack (TrenchScanner, cultscreener, TokenSage; holdex read-only). X: @gcrtrd. Starts at 'observed' per doctrine — trust from evidence, not reputation. Added 2026-10-19."
+    },
+    {
+      "collaborator_id": "yansigit",
+      "display_name": "SB Yoon",
+      "github_handle": "yansigit",
+      "trust_level": "observed",
+      "projects": [
+        "hermes-antigravity"
+      ],
+      "notes": "Merged PR #49 (expired-bearer refresh, CI green) via fork. Starts at 'observed' per doctrine. Added 2026-10-22."
+    },
+    {
+      "collaborator_id": "shilai-li",
+      "display_name": "Shilai Li",
+      "github_handle": "shilai-li",
+      "trust_level": "observed",
+      "projects": [
+        "hermes-antigravity"
+      ],
+      "notes": "Merged PR #6 (distinct account on new Google login). Starts at 'observed' per doctrine. Added 2026-10-22."
+    },
+    {
+      "collaborator_id": "oooosonuoooo",
+      "display_name": "Tuhin Das",
+      "github_handle": "oooosonuoooo",
+      "trust_level": "observed",
+      "projects": [
+        "hermes-antigravity"
+      ],
+      "notes": "Authored fix #8 (stale fallback model catalog); #7 closed as duplicate. Handle-name identity fused via GitHub API (oooosonuoooo = Tuhin Das) to avoid a double fiche. Starts at 'observed' per doctrine. Added 2026-10-22."
     }
   ],
   "trust_levels": [
