@@ -116,7 +116,18 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
 - Commit `774ad903` pushed; builder check submitted, awaiting proof.
 - PROVEN: builder check on `774ad903` completed, unknowns [];
   targeted `cargo test -p cynic-node-protocol node_service_unit` 5/5.
-- Remains: wire the build_runner profile unit declaration after proof.
+- DONE: build_runner profile declares the receiver unit
+  (commit `c0afd5cb`); builder check completed, unknowns [].
+- Nested CLI family (law): `cynic node service generate|prove`
+  (commit `bca277e0`); flat hyphenated arms removed.
+- Unit content rendered by the new binary
+  (digest `sha256:6d62e24e…`, `Restart=always`,
+  `WorkingDirectory=/var/lib/cynic`), staged at
+  `/var/lib/cynic/service-units/cynic-node.service` (digest match).
+- `/var/lib/cynic/bin/cynic-node` now == live `cynic-node-new`
+  (sha256 `8146f5ea…`); live receiver PID 31374 untouched, :9090 ok.
+- NEXT (root on compute-01): install + reload + start the unit,
+  then kill the nohup receiver, then `service prove`.
 
 ## Left for the operator (explicit, no implicit escalation)
 
