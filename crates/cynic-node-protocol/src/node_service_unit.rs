@@ -88,7 +88,7 @@ pub fn validate_service_unit_params(params: &NodeServiceUnitParams) -> Result<()
 pub fn render_service_unit(params: &NodeServiceUnitParams) -> Result<String, String> {
     validate_service_unit_params(params)?;
     Ok(format!(
-        "[Unit]\nDescription={description}\nAfter={after}\n\n[Service]\nType=simple\nUser={user}\nExecStart={binary} control --config {config}\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n",
+        "[Unit]\nDescription={description}\nAfter={after}\n\n[Service]\nType=simple\nUser={user}\nWorkingDirectory=/var/lib/cynic\nExecStart={binary} control --config {config}\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n",
         description = params.description,
         after = params.after_target,
         user = params.run_user,
