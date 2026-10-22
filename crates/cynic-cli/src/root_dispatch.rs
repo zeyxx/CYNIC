@@ -63,6 +63,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Collaborator { command } => {
             crate::collaborator_surface::execute_collaborator(&command)
         }
+        Command::Fleet { command } => crate::fleet_surface::execute_fleet(&command),
         Command::Chat {
             prompt,
             resume,

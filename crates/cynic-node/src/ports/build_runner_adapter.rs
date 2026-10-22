@@ -630,6 +630,56 @@ impl SshBuildRunner {
         cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
     }
 
+    /// State root reported by the runner itself (`cynic runtime paths
+    /// --json`). `None` on any failure — the caller records the unknown,
+    /// never a path.
+    pub fn probe_state_root(&self) -> Option<String> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "cynic",
+            "runtime",
+            "paths",
+            "--json",
+        ]);
+        if !out.success() {
+            return None;
+        }
+        parse_state_root(&out.stdout)
+    }
+
+    /// Free bytes available on the runner's checkout filesystem.
+    /// `None` on any failure — the caller records the unknown, never a number.
+    pub fn probe_disk_avail_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let paths = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "cynic",
+            "runtime",
+            "paths",
+            "--json",
+        ]);
+        if !paths.success() {
+            return None;
+        }
+        let state_root = parse_state_root(&paths.stdout)?;
+        let checkout_base = remote_cache_roots(&state_root).checkout_base;
+        let df = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "df",
+            "-k",
+            "--output=avail",
+            checkout_base.as_str(),
+        ]);
+        if !df.success() {
+            return None;
+        }
+        parse_df_available_bytes(&df.stdout, &checkout_base)
+    }
+
     /// Total RAM bytes from the same `free -b` probe. `None` on any
     /// failure — the caller records the unknown, never a number.
     pub fn probe_total_ram_bytes(&self) -> Option<u64> {
