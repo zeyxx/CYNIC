@@ -88,6 +88,36 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
 - `control --check` hangs when no kernel is reachable (no timeout on the
   workload-delivery pull). Robustness bug recorded, not fixed here.
 
+## E3 — source transport on compute-01 (closed)
+
+- Forgejo SSH is not exposed anywhere reachable (10.10.10.101:2222
+  closed, :22 is the host sshd, synapse .100 unreachable). SSH transport
+  is impossible today, not just undesired.
+- Durable path built instead: machine account `cynic-compute-01` +
+  `read:repository` scoped token (40 chars, created via admin API, stored
+  0600 on compute-01, source shredded). Collaborator `read` granted on the
+  private repo. Value never transited the agent session.
+- `transport_uri=http://10.10.10.101:3000/jeanterre13/CYNIC.git` with a
+  git credential helper. Mirror removed.
+- PROVEN: first HTTPS-transport build on compute-01
+  (`build-c9d6ec00`, completed, unknowns []).
+- Read-only deploy key `compute-01-readonly` registered in parallel
+  (id 2); dormant until Forgejo SSH exists.
+
+## E2 — declared service source (in progress)
+
+- Measured hole: `service-reconcile` owns lifecycle (enable/start) but
+  never authors unit content; `BuildRunnerHostProfile::desired_services`
+  declares zero units. The unit file was hand-written.
+- Fix: pure `node_service_unit` module in cynic-node-protocol (render +
+  drift, fail-closed validation) + `cynic node service generate/prove`
+  arms. Install stays operator/capability mediated. No new capability:
+  `service-reconcile` already covers the verb.
+- Commit `774ad903` pushed; builder check submitted, awaiting proof.
+- PROVEN: builder check on `774ad903` completed, unknowns [];
+  targeted `cargo test -p cynic-node-protocol node_service_unit` 5/5.
+- Remains: wire the build_runner profile unit declaration after proof.
+
 ## Left for the operator (explicit, no implicit escalation)
 
 1. Builder registry deploy (cynic cannot write root-owned
