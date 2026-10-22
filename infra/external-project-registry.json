@@ -252,6 +252,30 @@
     "referential": "${HOME}/.cynic/external/ai-bus",
     "state": "${HOME}/.cynic/projects/ai-bus"
    }
+  },
+  {
+   "slug": "hermes-antigravity",
+   "serving_tier": "dev",
+   "build_commands": [],
+   "test_commands": [
+    "python3 tools/run_tests.py"
+   ],
+   "pin": {
+    "file": "infra/external-pins.json",
+    "slug": "hermes-antigravity"
+   },
+   "ownership": {
+    "cynic_operator": "Titouan Corneloup",
+    "upstream_authority": "zeyxx (operator-owned upstream)",
+    "contribution_mode": "PR-based; operator merges (squash, green CI + review)"
+   },
+   "adoption_mode": "contributed",
+   "surfaces_declared": [],
+   "status": "observed",
+   "roots": {
+    "referential": "${HOME}/.cynic/external/hermes-antigravity",
+    "state": "${HOME}/.cynic/projects/hermes-antigravity"
+   }
   }
  ]
 }

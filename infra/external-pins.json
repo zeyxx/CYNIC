@@ -113,6 +113,15 @@
     "observed_at": "2026-10-21",
     "purpose": "Local Windows app: Claude Code CLI <-> Codex CLI over localhost MCP bus. Observed baseline.",
     "data_demanded": []
+  },
+  {
+    "slug": "hermes-antigravity",
+    "repo": "zeyxx/hermes-antigravity",
+    "url": "https://github.com/zeyxx/hermes-antigravity",
+    "sha": "4756d18fa23e22d91392013288cca399e329d5a3",
+    "observed_at": "2026-10-22",
+    "purpose": "Hermes model-provider plugin: Google Antigravity inference (Python stdlib suite 190/190). Operator-owned upstream; observed baseline.",
+    "data_demanded": []
   }
  ]
 }
