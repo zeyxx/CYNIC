@@ -13,10 +13,12 @@
 - Registered store host: CT103 (`storage_primary`, volume `storage_primary_artifacts` = `lxc/103:mp0`, per `infra/registry.json`). The kernel does NOT use it.
 - CT103 live (read-only via pve, 2026-10-22): `surrealdb` active; `cynic-node` still crash-looping (`activating`, NRestarts=261112, up from 250542 at audit time).
 - Repo already defines the target shape: `infra/os/systemd/surrealdb.service` (bind `0.0.0.0:8000`, data `/var/lib/cynic/.surrealdb/data`, `NoNewPrivileges`, `MemoryMax=4G`, no creds in argv) and `surrealdb-backup.{service,timer}` (daily, namespace `cynic` / database `v2`, size-verified, 7/14-day retention). Mismatch to resolve: live cortex uses database `main`, repo units use `v2`.
+- Config precedence is undocumented: `/etc/systemd/system/cynic-kernel.service.d/90-storage.conf` sets `SURREALDB_URL` (currently shadowed by `storage.toml` url). The cutover must name one winner and remove the shadow instead of stacking a third source.
+- Network exposure (C0-18): cortex SurrealDB binds loopback; the repo unit binds `0.0.0.0:8000`. On the flat service network that repeats the CT103 exposure finding. The CT103 store must bind the internal/wg address or loopback-behind-proxy, plus firewall, never bare `0.0.0.0` without a rule.
 
 ## 2. Target state
 
-- SurrealDB runs on CT103 as a dedicated principal, data under `/var/lib/cynic`, no credentials in argv (env/file), least-privilege DB user for the kernel.
+- SurrealDB runs on CT103 as a dedicated principal, data under `/var/lib/cynic`, no credentials in argv (env/file), least-privilege DB user for the kernel. It binds the internal/wg address (or loopback behind an explicit proxy) with a firewall rule — never bare `0.0.0.0` on the flat network (C0-18).
 - Kernel points at CT103 over the internal resolver; cortex SurrealDB retired only after the new store proves readable and backed up.
 - Daily logical backups of the store in use, each restore-tested; newest backup < 26h (exit criterion from the audit).
 - `kernel.service.cynic` resolves to the real store host; no consumer depends on the phantom 10.10.10.100.
@@ -27,18 +29,23 @@
   1. Operator runs logical `surreal export` of namespace `cynic` / database `main` from cortex (needs DB credentials; agent was declined).
   2. Operator copies the export plus the hot on-disk copy off-host to `pve:/var/lib/vz/dump/cynic_archives/cortex-surreal/`.
   3. Agent verifies read-only: file sizes > 100 bytes, gzip integrity, sha256 recorded. No stop of `surreal.service` (cold copy deliberately deferred: corrupt store may not restart).
+  Rollback: nothing to roll back (pure reads plus new files in an archive dir; delete the copies if the operator orders it).
 - Phase 1 — Stand up CT103 store:
-  1. Deploy repo `surrealdb.service` shape on CT103 through the release path (decide database name `main` vs `v2` first; kernel uses `main`).
-  2. Create least-privilege DB user for the kernel; rotate the weak root password; credentials via file/env, never argv.
-  3. Prove: health endpoint, kernel can authenticate with the new user, write/read round-trip of one test record then delete it.
+  1. Pre-checks (read-only, gate the rest): free disk on CT103 >= 3x the cortex export size; `surreal` binary max GLIBC <= CT103 glibc 2.36 (lesson C0-11 — never repeat the Ubuntu-24.04-build-on-Debian-12 failure); record both numbers in the execution log.
+  2. Deploy repo `surrealdb.service` shape on CT103 through the release path (decide database name `main` vs `v2` first; kernel uses `main`; bind internal/wg address + firewall, not bare `0.0.0.0`).
+  3. Create least-privilege DB user for the kernel; rotate the weak root password; credentials via file/env, never argv.
+  4. Prove: health endpoint, kernel can authenticate with the new user, write/read round-trip of one test record then delete it.
+  Rollback: stop the new unit, delete the test record scope; kernel still points at cortex, nothing else changed.
 - Phase 2 — Migrate readable data:
   1. Export what is still readable from cortex (tolerant export; record skipped ranges).
   2. Import into CT103; row-count comparison per table; diff report committed as evidence.
   3. Explicit unknown: rows under the corrupt SSTable block may be unrecoverable; that set must be enumerated, not hand-waved.
+  Rollback: drop the imported database scope on CT103 and re-export; kernel still points at cortex until Phase 3.
 - Phase 3 — Cut over and retire:
   1. Restore `~synapse.cynic` compat zone on cortex first (N-4 guard) so stale binaries keep resolving during the move.
-  2. Repoint kernel to CT103 in a planned window; monitor `checksum verification failed` = 0 for 1h and introspection non-zero coverage.
+  2. Resolve the config precedence explicitly: one of `storage.toml` url or `90-storage.conf` `SURREALDB_URL` wins; the loser is removed, not left shadowing. Repoint the winner at CT103 in a planned window; monitor `checksum verification failed` = 0 for 1h and introspection non-zero coverage.
   3. Stop cortex `surreal.service` only after CT103 backup + restore proof exists. Keep the preserved cortex copy until the operator releases it.
+  Rollback: flip the winning config value back to cortex url (one-line change, recorded SHA before/after); restart kernel; criterion: checksum failures return to the pre-cutover baseline, not zero — that proves the rollback, not the fix.
 
 ## 4. Backup fix (N-2, part of this chantier)
 
