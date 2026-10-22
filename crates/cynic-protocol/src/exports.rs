@@ -8,6 +8,7 @@ pub use crate::agent_coordination_continuity::*;
 pub use crate::agent_host_sandbox::*;
 pub use crate::agent_isolation::*;
 pub use crate::agent_mutation_gates::*;
+pub use crate::agent_question_routing::*;
 pub use crate::agent_recursion::*;
 pub use crate::agent_review::*;
 pub use crate::agent_session::{
