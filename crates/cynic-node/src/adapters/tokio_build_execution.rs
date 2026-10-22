@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
@@ -11,6 +12,43 @@ use cynic_sandbox::cargo::build_cargo_sandbox_argv;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioBuildExecution;
+
+/// Resolve a bare program name to an executable absolute path, mirroring
+/// the PATH lookup `Command` would perform — but failing closed with a
+/// precise unknown instead of a cryptic EACCES at spawn (observed
+/// 2026-10-22: bare `cargo` hit a root-owned symlink into an untraversable
+/// home; `metadata` on that candidate fails, so it resolves to nothing).
+///
+/// Lookup order matches the spawn below: the request `PATH` entry first,
+/// host `PATH` otherwise. A candidate must be a regular file with at
+/// least one execute bit; symlinks resolve through `metadata`, so a
+/// dangling link or an untraversable parent simply does not match.
+fn resolve_off_mode_program(
+    program: &str,
+    environment: &BTreeMap<String, String>,
+) -> Option<String> {
+    use std::os::unix::fs::PermissionsExt;
+    let is_executable_file = |path: &std::path::Path| {
+        std::fs::metadata(path)
+            .map(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    };
+    if program.contains('/') {
+        let path = std::path::Path::new(program);
+        return is_executable_file(path).then(|| program.to_string());
+    }
+    let path_env = environment
+        .get("PATH")
+        .cloned()
+        .or_else(|| std::env::var("PATH").ok())?;
+    path_env
+        .split(':')
+        .filter(|dir| !dir.is_empty())
+        .find_map(|dir| {
+            let candidate = std::path::Path::new(dir).join(program);
+            is_executable_file(&candidate).then(|| candidate.to_string_lossy().into_owned())
+        })
+}
 
 impl BuildExecutionPort for TokioBuildExecution {
     fn execute<'a>(
@@ -41,7 +79,15 @@ impl BuildExecutionPort for TokioBuildExecution {
             // via --setenv; the host environment never leaks inside.
             // Bare-metal (Off) preserves the historical direct spawn.
             let (program, arguments, inherit_host_env, observe_memory) = match &request.sandbox {
-                BuildSandboxMode::Off => (program.clone(), arguments.to_vec(), true, true),
+                BuildSandboxMode::Off => {
+                    let resolved = resolve_off_mode_program(program, &request.environment)
+                        .ok_or_else(|| {
+                            BuildExecutionError::Invalid(format!(
+                                "build_toolchain_unresolvable:{program}"
+                            ))
+                        })?;
+                    (resolved, arguments.to_vec(), true, true)
+                }
                 BuildSandboxMode::Bwrap(spec) => {
                     if let Err(error) = tokio::fs::create_dir_all(&spec.target_directory).await {
                         return Err(BuildExecutionError::Invalid(format!(
@@ -173,6 +219,54 @@ mod tests {
     #[test]
     fn missing_process_memory_is_explicitly_unknown() {
         assert_eq!(read_peak_rss_bytes(u32::MAX), None);
+    }
+
+    #[test]
+    fn resolver_accepts_an_executable_absolute_path() {
+        let empty: BTreeMap<String, String> = BTreeMap::new();
+        assert_eq!(
+            resolve_off_mode_program("/bin/sleep", &empty),
+            Some("/bin/sleep".to_string()),
+        );
+    }
+
+    #[test]
+    fn resolver_rejects_a_directory_as_program() {
+        let empty: BTreeMap<String, String> = BTreeMap::new();
+        assert_eq!(resolve_off_mode_program("/tmp", &empty), None);
+    }
+
+    #[test]
+    fn resolver_searches_request_path_first() {
+        let env: BTreeMap<String, String> = [("PATH".to_string(), "/nonexistent-dir".to_string())]
+            .into_iter()
+            .collect();
+        assert_eq!(
+            resolve_off_mode_program("definitely-not-a-binary", &env),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn off_mode_unresolvable_program_fails_closed_with_precise_code() {
+        let request = BuildExecutionRequest {
+            argv: vec!["definitely-not-a-cynic-binary".into(), "--version".into()],
+            working_directory: std::path::PathBuf::from("/tmp"),
+            environment: [("PATH".to_string(), "/nonexistent-path-dir".to_string())]
+                .into_iter()
+                .collect(),
+            timeout: Duration::from_secs(10),
+            sandbox: BuildSandboxMode::Off,
+        };
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let error = TokioBuildExecution
+            .execute(&request, &cancellation)
+            .await
+            .expect_err("unresolvable program must fail closed, not spawn");
+        assert!(
+            matches!(error, BuildExecutionError::Invalid(ref code) if code.starts_with("build_toolchain_unresolvable:")),
+            "expected precise unresolvable code, got {error:?}"
+        );
     }
 
     #[tokio::test]

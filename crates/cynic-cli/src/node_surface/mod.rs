@@ -15,6 +15,7 @@ pub mod source;
 pub mod storage;
 pub mod host;
 pub mod compute;
+pub mod service;
 
 
 use std::process::ExitCode;
@@ -76,6 +77,21 @@ pub enum NodeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Admit a NodeEnrollmentRequest and emit the signed enrollment grant (operator-held authority key).
+    EnrollmentIssue {
+        #[arg(long)]
+        request: String,
+        #[arg(long)]
+        authority: String,
+        #[arg(long)]
+        token_file: Option<String>,
+        #[arg(long)]
+        signing_key: String,
+        #[arg(long)]
+        output: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Audit host commits, divergence, and node health state.
     HostAudit {
         #[arg(long)]
@@ -98,6 +114,14 @@ pub enum NodeCommand {
         signing_key_path: String,
         #[arg(long)]
         apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Bounded enrollment health: file read-back plus a 2s renewal probe.
+    /// Never hangs; an unreachable renewal endpoint is a blocker, not silence.
+    EnrollmentCheck {
+        #[arg(long, default_value = "/var/lib/cynic/node-control.toml")]
+        config: String,
         #[arg(long)]
         json: bool,
     },
@@ -337,6 +361,52 @@ pub enum NodeCommand {
         #[arg(long)]
         json: bool,
     },
+
+    // === Service ===
+    /// Declared systemd unit for a node service (render/prove).
+    Service {
+        #[command(subcommand)]
+        command: NodeServiceCommand,
+    },
+}
+
+/// Node service arms: render the declared unit, or prove drift.
+#[derive(Subcommand)]
+pub enum NodeServiceCommand {
+    /// Render the declared systemd unit for a node service and stage it.
+    Generate {
+        #[arg(long, default_value = "cynic-node.service")]
+        unit_name: String,
+        #[arg(long, default_value = "CYNIC node receiver")]
+        description: String,
+        #[arg(long)]
+        binary: String,
+        #[arg(long)]
+        config: String,
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        #[arg(long)]
+        output: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Compare the installed unit file against the declared rendering.
+    Prove {
+        #[arg(long, default_value = "cynic-node.service")]
+        unit_name: String,
+        #[arg(long, default_value = "CYNIC node receiver")]
+        description: String,
+        #[arg(long)]
+        binary: String,
+        #[arg(long)]
+        config: String,
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        #[arg(long, default_value = "/etc/systemd/system")]
+        unit_dir: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Execute a unified node command.
@@ -349,12 +419,16 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::CsrCreate { node_id, role, key_path, json } => activation::execute_csr_create(node_id, role, key_path, json),
         NodeCommand::CertInspect { cert_path, json } => activation::execute_cert_inspect(cert_path, json),
         NodeCommand::CertVerify { kernel_pubkey_hex, cert_path, json } => activation::execute_cert_verify(kernel_pubkey_hex, cert_path, json),
+        NodeCommand::EnrollmentIssue { request, authority, token_file, signing_key, output, json } => activation::execute_enrollment_issue(request, authority, token_file, signing_key, output, json),
         NodeCommand::HostAudit { json, max_commits } => activation::execute_host_audit(json, max_commits),
         NodeCommand::Forensics { command } => crate::forensics_surface::execute_forensics(command),
 
         // === Identity ===
         NodeCommand::NodeIdentity { node_id, signing_key_path, apply, json } => {
             identity::execute_node_identity(&node_id, &signing_key_path, apply, json)
+        }
+        NodeCommand::EnrollmentCheck { config, json } => {
+            identity::execute_node_enrollment_check(&config, json)
         }
 
         // === Consensus ===
@@ -419,5 +493,43 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::SourceBootstrap { node, repository, source, revision, registry, state_root, agent_id, kernel_endpoint, apply, json: _ } => {
             source::execute_source_bootstrap(&node, &repository, &source, &revision, &registry, &state_root, &agent_id, &kernel_endpoint, apply).await
         }
+
+        // === Service ===
+        NodeCommand::Service { command } => match command {
+            NodeServiceCommand::Generate {
+                unit_name,
+                description,
+                binary,
+                config,
+                user,
+                output,
+                json,
+            } => service::execute_service_generate(
+                unit_name,
+                description,
+                binary,
+                config,
+                user,
+                output,
+                json,
+            ),
+            NodeServiceCommand::Prove {
+                unit_name,
+                description,
+                binary,
+                config,
+                user,
+                unit_dir,
+                json,
+            } => service::execute_service_prove(
+                unit_name,
+                description,
+                binary,
+                config,
+                user,
+                unit_dir,
+                json,
+            ),
+        },
     }
 }

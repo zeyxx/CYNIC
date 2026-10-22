@@ -12,7 +12,12 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use cynic_node_protocol::{NODE_ENROLLMENT_CERTIFICATE_SCHEMA, NodeCsr, NodeEnrollmentCertificate};
+use cynic_node_protocol::{
+    MachineEnrollmentAuthority, NODE_ENROLLMENT_CERTIFICATE_SCHEMA, NodeCsr,
+    NodeEnrollmentCertificate, NodeEnrollmentRequest, SignedNodeEnrollmentGrant,
+    admit_node_enrollment, build_node_enrollment_grant, node_enrollment_grant_signing_bytes,
+    validate_signed_node_enrollment_grant,
+};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 
@@ -227,6 +232,69 @@ impl NodeIdentityWorkflow {
         let cert: NodeEnrollmentCertificate = serde_json::from_slice(&bytes)?;
         Ok(cert)
     }
+
+    /// Issues a signed node enrollment grant for an admitted request.
+    ///
+    /// Runs the pure admission decision first; a blocked admission returns
+    /// its blockers without touching any key. The authority signing key is
+    /// loaded read-only from already-decoded bytes and is never generated
+    /// here. Pass an empty `presented_token_digest` with
+    /// `require_token = false` only for operator-mediated issuance, where
+    /// the authority holder vouches out of band (reported, never silent).
+    pub fn issue_signed_enrollment_grant(
+        &self,
+        request: &NodeEnrollmentRequest,
+        authority: &MachineEnrollmentAuthority,
+        presented_token_digest: &str,
+        require_token: bool,
+        authority_signing_key: &[u8],
+        now_unix_s: u64,
+    ) -> Result<SignedNodeEnrollmentGrant, CryptoError> {
+        let admission = admit_node_enrollment(
+            request,
+            authority,
+            presented_token_digest,
+            now_unix_s,
+            require_token,
+        );
+        if !admission.blockers.is_empty() {
+            return Err(CryptoError::OperationFailed(format!(
+                "enrollment admission blocked: {}",
+                admission.blockers.join(", ")
+            )));
+        }
+        let grant =
+            build_node_enrollment_grant(request, &admission, &authority.authority_id, now_unix_s);
+        let key_bytes: [u8; 32] = authority_signing_key.try_into().map_err(|_| {
+            CryptoError::InvalidKey("authority signing key is not 32 bytes".to_string())
+        })?;
+        let signing_key = SigningKey::from_bytes(&key_bytes);
+        let authority_key_id = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(signing_key.verifying_key().as_bytes()))
+        );
+        let mut signed = SignedNodeEnrollmentGrant {
+            schema: cynic_node_protocol::SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA.to_string(),
+            authority_key_id,
+            signature_namespace: cynic_node_protocol::NODE_ENROLLMENT_SIGNATURE_NAMESPACE
+                .to_string(),
+            grant,
+            signature_hex: String::new(),
+        };
+        let signing_bytes = node_enrollment_grant_signing_bytes(&signed).map_err(|error| {
+            CryptoError::OperationFailed(format!("grant signing bytes failed: {error}"))
+        })?;
+        let signature = self.crypto.sign(&signing_bytes, authority_signing_key)?;
+        signed.signature_hex = hex::encode(signature);
+        let violations = validate_signed_node_enrollment_grant(&signed);
+        if !violations.is_empty() {
+            return Err(CryptoError::OperationFailed(format!(
+                "issued grant is structurally invalid: {}",
+                violations.join(", ")
+            )));
+        }
+        Ok(signed)
+    }
 }
 
 #[cfg(test)]
@@ -390,6 +458,87 @@ mod tests {
             workflow
                 .verify_certificate(&cert, &kernel_public, now + 10)
                 .expect("verify")
+        );
+    }
+
+    fn enrollment_request_for(public_key: &[u8], now: u64) -> NodeEnrollmentRequest {
+        use sha2::{Digest, Sha256};
+        let public_key_hex = hex::encode(public_key);
+        let digest = format!("sha256:{}", hex::encode(Sha256::digest(public_key)));
+        NodeEnrollmentRequest {
+            schema: "cynic.node_enrollment_request.v1".to_string(),
+            request_id: "enroll:test-request".to_string(),
+            seed_id: "seed:test".to_string(),
+            node_id: "node-test-1".to_string(),
+            role: "build_runner".to_string(),
+            machine_identity_digest: digest,
+            machine_public_key_hex: public_key_hex,
+            nonce: "nonce-test".to_string(),
+            issued_at_unix_s: now,
+            expires_at_unix_s: now + 3_600,
+            requested_capabilities: vec!["node_control".to_string(), "build_runner".to_string()],
+        }
+    }
+
+    fn enrollment_authority_for(seed: &str, now: u64) -> MachineEnrollmentAuthority {
+        MachineEnrollmentAuthority {
+            authority_id: "authority:test".to_string(),
+            seed_id: seed.to_string(),
+            token_digest: String::new(),
+            expires_at_unix_s: now + 3_600,
+            renewal_authority_expires_at_unix_s: now + 86_400,
+            max_grant_ttl_s: 1_800,
+            allowed_roles: vec!["build_runner".to_string()],
+            allowed_capabilities: vec!["node_control".to_string(), "build_runner".to_string()],
+        }
+    }
+
+    #[test]
+    fn issued_grant_verifies_against_authority_key() {
+        let workflow = NodeIdentityWorkflow::default();
+        let provider = Ed25519Provider;
+        let (authority_secret, authority_public) = provider.generate_keypair().expect("keys");
+        let (node_secret, node_public) = provider.generate_keypair().expect("node keys");
+        let _ = node_secret;
+        let now = 1_700_000_000;
+        let request = enrollment_request_for(&node_public, now);
+        let authority = enrollment_authority_for(&request.seed_id, now);
+
+        let signed = workflow
+            .issue_signed_enrollment_grant(&request, &authority, "", false, &authority_secret, now)
+            .expect("issue grant");
+
+        assert_eq!(signed.grant.node_id, "node-test-1");
+        assert_eq!(signed.grant.role, "build_runner");
+        assert_eq!(signed.grant.expires_at_unix_s, now + 1_800);
+        let signing_bytes =
+            node_enrollment_grant_signing_bytes(&signed).expect("signing bytes");
+        let signature = hex::decode(&signed.signature_hex).expect("signature hex");
+        assert!(
+            provider
+                .verify(&signing_bytes, &signature, &authority_public)
+                .expect("verify")
+        );
+    }
+
+    #[test]
+    fn blocked_admission_returns_blockers_without_signing() {
+        let workflow = NodeIdentityWorkflow::default();
+        let provider = Ed25519Provider;
+        let (authority_secret, _) = provider.generate_keypair().expect("keys");
+        let (_, node_public) = provider.generate_keypair().expect("node keys");
+        let now = 1_700_000_000;
+        let mut request = enrollment_request_for(&node_public, now);
+        request.role = "forbidden_role".to_string();
+        let authority = enrollment_authority_for(&request.seed_id, now);
+
+        let error = workflow
+            .issue_signed_enrollment_grant(&request, &authority, "", false, &authority_secret, now)
+            .expect_err("must block");
+        let message = format!("{error:?}");
+        assert!(
+            message.contains("node_enrollment_role_not_allowed"),
+            "{message}"
         );
     }
 }
