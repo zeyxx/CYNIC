@@ -13,8 +13,11 @@ pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
 }
 
 /// Classify a commit's diff into the minimal gate (local `git diff`,
-/// read-only). Unresolvable diff fails open to Full: never skip silently.
-pub(crate) fn resolve_gate_scope(commit: &str) -> cynic_build::gate_scope::GateScope {
+/// read-only). Returns the scope plus the changed paths (for fmt checks).
+/// Unresolvable diff fails open to Full: never skip silently.
+pub(crate) fn resolve_gate_scope(
+    commit: &str,
+) -> (cynic_build::gate_scope::GateScope, Vec<String>) {
     use cynic_build::gate_scope::{GateScope, decide_gate_scope};
     let output = std::process::Command::new("git")
         .args(["diff", "--name-only", &format!("{commit}^"), commit])
@@ -23,12 +26,64 @@ pub(crate) fn resolve_gate_scope(commit: &str) -> cynic_build::gate_scope::GateS
         Ok(out) if out.status.success() => {
             let text = String::from_utf8_lossy(&out.stdout);
             let paths: Vec<&str> = text.lines().collect();
-            decide_gate_scope(&paths)
+            let owned: Vec<String> = paths.iter().map(|p| p.to_string()).collect();
+            (decide_gate_scope(&paths), owned)
         }
-        _ => GateScope::Full {
-            reason: "commit diff unresolvable locally".to_string(),
-        },
+        _ => (
+            GateScope::Full {
+                reason: "commit diff unresolvable locally".to_string(),
+            },
+            Vec::new(),
+        ),
     }
+}
+
+/// Format gate on the touched Rust files (standalone rustfmt, no cargo:
+/// instant, negligible RAM). Red blocks before any builder second burns.
+pub(crate) fn check_rustfmt(paths: &[String]) -> Result<(), String> {
+    let rs: Vec<&String> = paths
+        .iter()
+        .filter(|p| p.ends_with(".rs") && !p.contains("target/"))
+        .collect();
+    if rs.is_empty() {
+        return Ok(());
+    }
+    let status = std::process::Command::new("rustfmt")
+        .arg("--check")
+        .args(rs)
+        .status()
+        .map_err(|e| format!("rustfmt unavailable ({e}); format unchecked"))?;
+    if status.success() {
+        eprintln!("gate-scope: rustfmt clean on {} files", paths.len());
+        Ok(())
+    } else {
+        Err("rustfmt --check red: run rustfmt on the touched files".to_string())
+    }
+}
+
+/// Consumers lookup over infra/crate-topology.json (sibling of the
+/// registry file). Missing/unparsable topology fails open to Full.
+pub(crate) fn topology_consumers(
+    registry: &str,
+) -> Option<impl Fn(&str) -> Vec<String>> {
+    let path = std::path::Path::new(registry)
+        .parent()
+        .map(|parent| parent.join("crate-topology.json"))?;
+    let raw = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let crates = value.get("crates")?.as_object()?.clone();
+    Some(move |name: &str| {
+        crates
+            .get(name)
+            .and_then(|c| c.get("consumers"))
+            .and_then(|c| c.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
 }
 
 /// Run one apps/<suite> pytest tree locally (no builder dispatch).
@@ -156,23 +211,47 @@ pub(crate) fn trigger_build(
     match scope {
         "full" => {}
         "auto" => match resolve_gate_scope(commit) {
-            cynic_build::gate_scope::GateScope::Nothing { reason } => {
+            (cynic_build::gate_scope::GateScope::Nothing { reason }, _) => {
                 println!("gate-scope: nothing to prove ({reason})");
                 return Ok(());
             }
-            cynic_build::gate_scope::GateScope::PythonSuite { suite } => {
+            (cynic_build::gate_scope::GateScope::PythonSuite { suite }, _) => {
                 return run_python_suite(&suite);
             }
-            cynic_build::gate_scope::GateScope::ValidateOnly { files } => {
+            (cynic_build::gate_scope::GateScope::ValidateOnly { files }, _) => {
                 return validate_json_files(&files);
             }
-            cynic_build::gate_scope::GateScope::RustCheck { packages } => {
-                if package.is_none() && packages.len() == 1 {
-                    eprintln!("gate-scope: narrowing check to {}", packages[0]);
-                    package = Some(packages[0].clone());
+            (cynic_build::gate_scope::GateScope::RustCheck { packages }, paths) => {
+                check_rustfmt(&paths)?;
+                if package.is_none() {
+                    match topology_consumers(registry) {
+                        Some(consumers) => {
+                            let closed = cynic_build::gate_scope::expand_with_consumers(
+                                &packages, &consumers,
+                            );
+                            if closed.len() > cynic_build::gate_scope::CLOSURE_CAP {
+                                eprintln!(
+                                    "gate-scope: full (closure {} > cap {})",
+                                    closed.len(),
+                                    cynic_build::gate_scope::CLOSURE_CAP
+                                );
+                            } else {
+                                eprintln!("gate-scope: narrowing check to {}", closed.join(","));
+                                package = Some(closed.join(","));
+                            }
+                        }
+                        None => {
+                            if packages.len() == 1 {
+                                eprintln!("gate-scope: narrowing check to {}", packages[0]);
+                                package = Some(packages[0].clone());
+                            } else {
+                                eprintln!("gate-scope: full (no topology, multi-crate)");
+                            }
+                        }
+                    }
                 }
             }
-            cynic_build::gate_scope::GateScope::Full { reason } => {
+            (cynic_build::gate_scope::GateScope::Full { reason }, _) => {
                 eprintln!("gate-scope: full ({reason})");
             }
         },
