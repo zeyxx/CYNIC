@@ -11,9 +11,7 @@ use cynic_host::registry::resolve::resolve_source_transport_uri;
 
 use crate::adapters::ssh_build_proof::SshBuildProof;
 use crate::ports::build_proof_port::BuildProofPort;
-use crate::ports::build_runner_adapter::{
-    DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner, default_checkout_base,
-};
+use crate::ports::build_runner_adapter::{DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner};
 
 /// Resolve the SSH target for a build trigger.
 ///
@@ -39,33 +37,31 @@ pub fn resolve_runner_host(host: Option<&str>, registry: &str) -> Result<String,
 pub fn resolve_ssot_url(ssot_url: &str, registry: &str) -> Result<String, String> {
     match ssot_url.trim() {
         explicit if !explicit.is_empty() => Ok(explicit.to_string()),
-        _ => resolve_source_transport_uri(Some(registry), "cynic").map_err(|error| {
-            format!("build source unresolvable in registry {registry}: {error}")
-        }),
+        _ => resolve_source_transport_uri(Some(registry), "cynic")
+            .map_err(|error| format!("build source unresolvable in registry {registry}: {error}")),
     }
 }
 
 /// Construct the `SshBuildRunner` for a CLI build trigger.
 ///
-/// Applies the declared defaults for checkout base and SSOT URL, and
-/// normalizes the optional sccache dir. The command runner is always
-/// the local argv runner — the SSH hop happens inside the adapter.
+/// Applies the declared defaults for the SSOT URL and normalizes the
+/// optional sccache dir. The command runner is always the local argv runner
+/// — the SSH hop happens inside the adapter.
+///
+/// The checkout base and the cache roots are NOT resolved here: they belong
+/// to the runner, which reports them through `cynic runtime paths --json`.
 pub fn ssh_build_runner(
     host: String,
     user: String,
-    checkout_base: String,
     ssot_url: String,
     package: Option<String>,
     sccache_dir: String,
+    checkout_base: Option<String>,
+    minimum_available_bytes: Option<u64>,
 ) -> SshBuildRunner {
     SshBuildRunner {
         host,
         user,
-        checkout_base: if checkout_base.is_empty() {
-            default_checkout_base().display().to_string()
-        } else {
-            checkout_base
-        },
         ssot_url: if ssot_url.is_empty() {
             DEFAULT_SSOT_URL.to_string()
         } else {
@@ -77,11 +73,8 @@ pub fn ssh_build_runner(
         } else {
             Some(sccache_dir)
         },
-        // The build cache path is resolved from the registry at build
-        // time, so the runner and the reclaim policy always name the
-        // same directory. `None` means "ask the registry"; an explicit
-        // path is the operator's override.
-        target_dir: None,
+        checkout_base: checkout_base.filter(|value| !value.trim().is_empty()),
+        minimum_available_bytes,
         runner: Box::new(LocalCommandRunner),
     }
 }

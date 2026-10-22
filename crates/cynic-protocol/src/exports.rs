@@ -71,7 +71,7 @@ pub use crate::one_shot_capability::{
     ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability, OneShotCapabilityConsumption,
     OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus, authority_class,
 };
-pub use crate::organic_opportunity::*;
+pub use crate::candidate_opportunity::*;
 pub use crate::outcomes::*;
 pub use crate::policy::*;
 pub use crate::phi::*;
@@ -96,4 +96,6 @@ pub use crate::tasks::*;
 pub use crate::temporal::*;
 pub use crate::transport_security::*;
 pub use crate::vcs::*;
+pub use crate::vocabulary::*;
 pub use crate::workload_identity::*;
+pub use crate::workload_signature::*;

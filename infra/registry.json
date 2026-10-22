@@ -626,7 +626,7 @@
       "build_lifecycle": {
         "schema": "cynic.build_runner.resource_policy.v1",
         "minimum_available_bytes": 4294967296,
-        "canonical_target_relative_path": "shared-target",
+        "canonical_target_relative_path": "build-targets/fgate",
         "canonical_cache_reclaim": {
           "schema": "cynic.build_runner.cache_reclaim_policy.v1",
           "trigger": "available_bytes_below_minimum",
@@ -637,26 +637,10 @@
           ],
           "rollback_intent": "none_reproducible_build_cache_only"
         },
-        "ephemeral_retention": {
-          "schema": "cynic.build_runner.ephemeral_retention.v1",
-          "max_age_ms": 21600000,
-          "pressure_grace_ms": 1800000,
-          "scopes": [
-            {
-              "base": "state_root",
-              "relative_path": "checkouts",
-              "kind": "evidence_checkout"
-            }
-          ]
-        },
         "noncanonical_cache_candidates": [
           {
-            "base": "temporary_directory",
-            "relative_path": "cynic-cargo-targets"
-          },
-          {
             "base": "state_root",
-            "relative_path": "source/repositories/CYNIC/target"
+            "relative_path": "shared-target"
           }
         ],
         "bootstrap_containment": {
@@ -671,6 +655,18 @@
             "durable_workload_delivery_read_back",
             "machine_enrollment_without_operator_transport",
             "canonical_build_completion_read_back"
+          ]
+        },
+        "ephemeral_retention": {
+          "schema": "cynic.build_runner.ephemeral_retention.v1",
+          "max_age_ms": 43200000,
+          "pressure_grace_ms": 7200000,
+          "scopes": [
+            {
+              "base": "state_root",
+              "relative_path": "checkouts",
+              "kind": "evidence_checkout"
+            }
           ]
         }
       },
@@ -691,6 +687,10 @@
             "url": "http://10.10.10.119:9090/health"
           }
         }
+      ],
+      "retired_units": [
+        "cynic-supervise-soak-node.service",
+        "cynic-supervise-watch-soak-node.service"
       ],
       "energy_profile": {
         "class": "burst"
@@ -752,30 +752,47 @@
           {
             "name": "git",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "cargo",
             "min_version": "1.95.0",
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "rustc",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "node",
             "min_version": "22.0.0",
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "python3",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "pkg-config",
+            "min_version": null,
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "openssl",
+            "min_version": null,
+            "required": true,
+            "kind": "pkg_config"
           }
         ],
-        "note": "Builder-119 verified toolchain 2026-10-19: git, cargo 1.95.0, rustc, node v22.23.3, python3."
+        "note": "Builder-119 verified toolchain 2026-10-19: git, cargo 1.95.0, rustc, node v22.23.3, python3. Toolchain proof includes pkg-config modules (openssl / libssl-dev): openssl-sys needs the dev headers to build."
       }
     },
     {
@@ -1022,7 +1039,7 @@
       ],
       "role": "embedding_runner",
       "host_family": "linux.debian.systemd",
-      "status": "candidate",
+      "status": "observed",
       "deploy_target": true,
       "boot_persistence": true,
       "transports": {
@@ -1067,7 +1084,7 @@
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager.",
+      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager. | 2026-10-19: toolchain completed, promoted to cynic/build after capacity probe run #27 succeeded. Runner labels: cynic/build,cynic/linux,cynic/compute-01.",
       "enrollment": {
         "date": "2026-10-19",
         "enrolled_by": "hermes+cortex-nat",
@@ -1075,21 +1092,61 @@
       },
       "pool": {
         "labels": [
+          "cynic/build",
+          "cynic/linux",
           "cynic/compute-01"
         ],
         "required_tools": [
           {
             "name": "git",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "cargo",
+            "min_version": "1.95.0",
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "rustc",
+            "min_version": null,
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "node",
+            "min_version": "22.0.0",
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "cc",
+            "min_version": null,
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "python3",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "pkg-config",
+            "min_version": null,
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "openssl",
+            "min_version": null,
+            "required": true,
+            "kind": "pkg_config"
           }
         ],
-        "note": "Capacity probe only: no cargo/rustc/node yet, so it must not serve cynic/build. Probed 2026-10-19: git+python3 present, cargo/rustc/node missing."
+        "note": "Toolchain complete 2026-10-19: rustc/cargo 1.95.0, node v22.23.3, cc 14.2.0 (build-essential), python3. Capacity probe run #27 green: 12+8+0 tests passed, 416G free, 16 cores. Toolchain proof includes pkg-config modules (openssl / libssl-dev): openssl-sys needs the dev headers to build."
       }
     }
   ],

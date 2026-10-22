@@ -73,15 +73,13 @@ pub(crate) fn trigger_build(
     let host = match host.filter(|value| !value.trim().is_empty()) {
         Some(explicit) => explicit.to_string(),
         None => match runner.filter(|value| !value.trim().is_empty()) {
-            Some(named) => {
-                cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
-                    .into_iter()
-                    .find(|candidate| candidate.node_id == named)
-                    .map(|candidate| candidate.ssh_target)
-                    .ok_or_else(|| {
-                        format!("named runner {named} unresolvable in registry {registry}")
-                    })?
-            }
+            Some(named) => cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
+                .into_iter()
+                .find(|candidate| candidate.node_id == named)
+                .map(|candidate| candidate.ssh_target)
+                .ok_or_else(|| {
+                    format!("named runner {named} unresolvable in registry {registry}")
+                })?,
             None => cynic_node::cli_factory::resolve_runner_host(None, registry)?,
         },
     };
@@ -97,16 +95,24 @@ pub(crate) fn trigger_build(
         "online" => NetworkMode::Online,
         other => return Err(format!("invalid network mode: {other}")),
     };
+    // The pre-trigger disk gate reads its threshold from the registry, so
+    // the policy lives in one place and the code never hardcodes a floor.
+    // Resolved before `host` is moved into the runner.
+    let minimum_available_bytes =
+        cynic_host::registry::resolve::minimum_available_bytes_for_runner(Some(registry), &host)?;
     let runner = cynic_node::cli_factory::ssh_build_runner(
         host,
         user.to_string(),
-        checkout_base.to_string(),
         // Registry-driven source: an explicit --ssot-url wins, otherwise the
         // clone URI comes from source_workspace_layout.repositories. Never the
         // hardcoded default — the runner cannot resolve it.
         cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
-        package,
+        package.clone(),
         sccache_dir.to_string(),
+        // An explicit --checkout-base overrides the runner's own layout; the
+        // default is the runner's state root, read back from the runner.
+        Some(checkout_base.to_string()).filter(|value| !value.trim().is_empty()),
+        minimum_available_bytes,
     );
     let health = runner.observe_runner();
     if !health.reachable {
@@ -386,8 +392,7 @@ mod tests {
     #[test]
     fn package_warns_for_every_action_while_payload_is_dropped() {
         for action in ["check", "build", "build-release", "test"] {
-            let warning =
-                package_scope_warning(action, Some("cynic-cli")).expect("must warn");
+            let warning = package_scope_warning(action, Some("cynic-cli")).expect("must warn");
             assert!(warning.contains("cynic-cli"), "{action}: {warning}");
             assert!(warning.contains("ignored"), "{action}: {warning}");
         }

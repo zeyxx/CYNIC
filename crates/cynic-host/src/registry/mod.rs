@@ -35,6 +35,7 @@ pub use validate::{
 pub use crate::registry::resolve::{
     resolve_build_runner_transport, resolve_current_host_direct_management_link,
     resolve_current_host_profile, resolve_current_host_profile_resolution,
+    resolve_registry_retired_units,
     resolve_current_registry_service_policy, resolve_framework_transport,
     resolve_host_direct_management_link, resolve_host_profile, resolve_host_profile_resolution,
     resolve_node_substrate_desired_state, resolve_node_substrate_targets,
@@ -71,6 +72,55 @@ pub mod resolve {
             .map_err(|error| format!("failed to read registry {}: {error}", path.display()))?;
         serde_json::from_str(&raw)
             .map_err(|error| format!("failed to parse registry {}: {error}", path.display()))
+    }
+
+    /// Resolve the minimum free bytes a runner must have before a checkout
+    /// may be materialized on it.
+    ///
+    /// The threshold is declared per node in the registry under
+    /// `build_lifecycle.minimum_available_bytes`. `runner` may be a node id
+    /// or the runner's ssh target (host or `user@host`), because the CLI
+    /// resolves a runner to a host before the gate is armed.
+    ///
+    /// A node with no declared `build_lifecycle` yields `None`: the gate
+    /// stays off for it, and the absence is explicit rather than a silent
+    /// zero.
+    pub fn minimum_available_bytes_for_runner(
+        registry_path: Option<&str>,
+        runner: &str,
+    ) -> Result<Option<u64>, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let wanted = runner.trim();
+        if wanted.is_empty() {
+            return Ok(None);
+        }
+        for node in &registry.nodes {
+            let node_id = node
+                .id
+                .clone()
+                .or_else(|| node.name.clone())
+                .unwrap_or_default();
+            let ssh_target = node
+                .transports
+                .as_ref()
+                .and_then(|transports| transports.ssh.as_ref())
+                .and_then(|ssh| ssh.target.clone());
+            let matches = node_id == wanted
+                || ssh_target.as_deref() == Some(wanted)
+                || ssh_target
+                    .as_deref()
+                    .and_then(|target| target.split('@').next_back())
+                    == Some(wanted);
+            if matches {
+                return Ok(
+                    crate::domain::disk::build_runner::resolve_minimum_available_bytes(
+                        &path, &node_id,
+                    )?,
+                );
+            }
+        }
+        Ok(None)
     }
 
     pub fn resolve_node_substrate_targets(
@@ -753,8 +803,28 @@ pub mod resolve {
                 },
                 manager,
                 units,
+                retired_units: node.retired_units.clone(),
             }))
         }
+    }
+
+    /// Units the registry declares this node must NOT run.
+    ///
+    /// The registry is the single authority for what a host runs, so the
+    /// retirement list lives there and not in a hardcoded profile. A node
+    /// with no `retired_units` key retires nothing.
+    pub fn resolve_registry_retired_units(
+        node_name: &str,
+        registry_path: Option<&str>,
+    ) -> Result<Vec<String>, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let node = registry
+            .nodes
+            .iter()
+            .find(|node| node_matches(node, node_name))
+            .ok_or_else(|| format!("node not found in registry: {node_name}"))?;
+        Ok(node.retired_units.clone())
     }
 
     pub fn resolve_current_registry_service_policy(
@@ -954,6 +1024,7 @@ pub mod resolve {
                 services: vec![],
                 network_links: vec![],
                 source_workspace_layout: None,
+                retired_units: Vec::new(),
             }
         }
 
@@ -996,16 +1067,27 @@ pub mod resolve {
         fn the_value_that_caused_the_silent_fallback_is_rejected() {
             // windows.windows11 was live in the registry and resolved as a Linux
             // network node. It must now fail loudly instead.
-            let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
+            let node = node_with_family(
+                "laptop",
+                Some("workstation_portable"),
+                Some("windows.windows11"),
+            );
             assert!(!node_family_resolves_as_declared(&node));
             let error = reject_unresolvable_family(&node).expect_err("must be rejected");
             assert!(error.contains("windows.windows11"), "{error}");
-            assert!(error.contains("windows-service"), "must list valid values: {error}");
+            assert!(
+                error.contains("windows-service"),
+                "must list valid values: {error}"
+            );
         }
 
         #[test]
         fn the_rejection_message_names_the_consequence() {
-            let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
+            let node = node_with_family(
+                "laptop",
+                Some("workstation_portable"),
+                Some("windows.windows11"),
+            );
             let error = reject_unresolvable_family(&node).expect_err("must be rejected");
             assert!(error.contains("laptop"), "must name the node: {error}");
             assert!(
@@ -1024,7 +1106,11 @@ pub mod resolve {
 
         #[test]
         fn the_laptop_family_now_declared_in_the_registry_resolves_to_windows() {
-            let node = node_with_family("cynic-laptop-ax16pro", Some("workstation_portable"), Some("windows-service"));
+            let node = node_with_family(
+                "cynic-laptop-ax16pro",
+                Some("workstation_portable"),
+                Some("windows-service"),
+            );
             assert!(node_family_resolves_as_declared(&node));
             assert_eq!(profile_for_node(&node), HostProfile::WindowsNode);
         }
@@ -1034,7 +1120,11 @@ pub mod resolve {
             // This is the regression being prevented: record what the wildcard
             // produced so a future change to profile_for_node cannot silently
             // alter the substituted profile without this test noticing.
-            let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
+            let node = node_with_family(
+                "laptop",
+                Some("workstation_portable"),
+                Some("windows.windows11"),
+            );
             assert_eq!(profile_for_node(&node), HostProfile::NetworkNode);
         }
     }

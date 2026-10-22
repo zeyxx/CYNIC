@@ -5,9 +5,13 @@ use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 use crate::adapters::local_command_runner::LocalHostCommandRunner;
 use crate::adapters::local_observation::LocalHostObservationAdapter;
 use crate::host_exec_cli::io::emit_json;
-use crate::registry::{resolve_current_host_profile, resolve_current_host_profile_resolution};
+use crate::ports::HostServicePort;
+use crate::registry::{
+    resolve_current_host_profile, resolve_current_host_profile_resolution,
+    resolve_registry_retired_units,
+};
 use crate::usecases::{
-    execute_runtime_service_reconcile, observe_host_with_resolution,
+    execute_runtime_service_reconcile_with_policy, observe_host_with_resolution,
     service_apply_satisfied_preconditions,
 };
 
@@ -29,8 +33,20 @@ pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
         true,
         service_apply_satisfied_preconditions(&observed),
     );
-    let report = execute_runtime_service_reconcile(
-        &profile,
+    // The retirement list is registry-derived: it names the units this
+    // specific node must no longer run, and the registry is the single
+    // authority for what a host runs. A node that declares none retires
+    // nothing, and the plan is identical to the previous behaviour.
+    let hostname = observed
+        .host_resolution
+        .as_ref()
+        .map(|resolution| resolution.hostname_observed.clone())
+        .unwrap_or_default();
+    let retired_units = resolve_registry_retired_units(&hostname, None)?;
+    let mut policy = HostServicePort::desired_services(&profile);
+    policy.retired_units = retired_units;
+    let report = execute_runtime_service_reconcile_with_policy(
+        &policy,
         &observed,
         authorization,
         &LocalHostCommandRunner,

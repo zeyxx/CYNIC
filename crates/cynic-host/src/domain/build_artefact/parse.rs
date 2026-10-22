@@ -8,7 +8,7 @@ use cynic_build::build_artefact::{CheckoutEntry, DiskPressure};
 use cynic_protocol::disk::bytes_to_human;
 
 /// Parse `ls -1 <checkouts>` + `du -sb` + `stat` lines into CheckoutEntry.
-/// Each line: "<path>|<sha>|<size_bytes>|<uid>:<gid>|<mtime_secs>|<remote_exists 0/1>"
+/// Each line: "<path>|<sha>|<size_bytes>|<uid>:<gid>|<mtime_secs>|<remote_exists 0/1>|<foreign 0/1>"
 /// Pure, no FS touch.
 pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEntry> {
     let mut out = Vec::new();
@@ -21,6 +21,10 @@ pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEnt
         if parts.len() < 6 {
             continue;
         }
+        // Optional 7th field: the tree contains entries this account does
+        // not own. Absent means false, so a line from an older producer
+        // still parses.
+        let contains_foreign_owned = parts.get(6).map(|v| *v == "1").unwrap_or(false);
         let path = parts[0].to_string();
         let sha = parts[1].to_string();
         let size_bytes: u64 = parts[2].parse().unwrap_or(0);
@@ -54,7 +58,10 @@ pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEnt
             owner_uid: uid,
             owner_gid: gid,
             is_orphan,
-            is_root_owned: uid == 0,
+            // Privilege is required when the ROOT is root-owned, or when
+            // the CONTENT holds entries this account cannot remove.
+            is_root_owned: uid == 0 || contains_foreign_owned,
+            contains_foreign_owned,
             remote_exists: remote_flag,
         });
     }

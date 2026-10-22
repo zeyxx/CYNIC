@@ -4,18 +4,18 @@
 //!
 //! # Privacy & Minimisation Invariant
 //! Raw session prompts, tool arguments, and assistant responses are NEVER
-//! included in the emitted `OrganicOpportunity`. Only bucket identifiers,
+//! included in the emitted `CandidateOpportunity`. Only bucket identifiers,
 //! session occurrence counts, and content-addressed trace digests are retained.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::organic_opportunity::{
-    EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
-    OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
+use cynic_protocol::candidate_opportunity::{
+    EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
+    OpportunitySourceKind, CandidateOpportunity, SmallestNextStep,
 };
 
-use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
+use super::port::{CandidateOpportunityObserver, SourceObservationStatus};
 
 /// Configuration for session pattern observation.
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl SessionPatternObserver {
         session_hits: &[(String, String)], // (session_id, bucket_name)
         min_recurring_sessions: usize,
         _now_unix_s: u64,
-    ) -> Vec<OrganicOpportunity> {
+    ) -> Vec<CandidateOpportunity> {
         let mut bucket_sessions: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
         for (session_id, bucket) in session_hits {
             bucket_sessions
@@ -70,8 +70,8 @@ impl SessionPatternObserver {
                 }))
                 .unwrap_or_else(|_| format!("sha256:{}", bucket));
 
-                let opp = OrganicOpportunity {
-                    schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+                let opp = CandidateOpportunity {
+                    schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
                     opportunity_id: format!("opp:session_friction:{}", &digest[..16]),
                     scope: format!("session_friction/{}", bucket),
                     sources: vec![OpportunitySource {
@@ -145,7 +145,7 @@ impl SessionPatternObserver {
     }
 }
 
-impl OrganicOpportunityObserver for SessionPatternObserver {
+impl CandidateOpportunityObserver for SessionPatternObserver {
     fn observer_name(&self) -> &'static str {
         "session_pattern_observer"
     }
@@ -154,7 +154,7 @@ impl OrganicOpportunityObserver for SessionPatternObserver {
         OpportunitySourceKind::SessionTrace
     }
 
-    fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
+    fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>> {
         let hits = match Self::scan_traces_dir(&self.config.traces_dir) {
             Ok(h) => h,
             Err(reason) => {

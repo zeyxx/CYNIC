@@ -12,10 +12,9 @@ use chrono::{DateTime, Utc};
 
 use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
 use crate::domain::build_artefact::{
-    plan_build_artefacts, RetentionError, RetentionExecutor, RetentionItem,
-    RetentionItemExecution, RetentionObserver, RetentionObservation, RetentionPlan,
-    RetentionPlanner, RetentionPolicy, RetentionResult, RETENTION_OBSERVATION_SCHEMA,
-    RETENTION_RESULT_SCHEMA,
+    RETENTION_OBSERVATION_SCHEMA, RETENTION_RESULT_SCHEMA, RetentionError, RetentionExecutor,
+    RetentionItem, RetentionItemExecution, RetentionObservation, RetentionObserver, RetentionPlan,
+    RetentionPlanner, RetentionPolicy, RetentionResult, plan_build_artefacts,
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
@@ -53,6 +52,9 @@ impl LocalBuildArtefactAdapter {
         let filesystems = observe_filesystems();
         let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
+        // Paths a live unit executes from. A daemon running out of a
+        // reclaimable tree would be killed by the purge it triggered.
+        let unit_executables = crate::adapters::live_service_paths::observe_unit_executables();
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
         let total_checkout_human = bytes_to_human(total_checkout_bytes);
         // target/ size is rolled into checkouts for now - separate once builder exposes it
@@ -84,6 +86,12 @@ impl LocalBuildArtefactAdapter {
                 argv: vec![],
                 is_orphan: Some(co.is_orphan),
                 is_root_owned: Some(co.is_root_owned),
+                is_live_service_path: Some(
+                    crate::adapters::live_service_paths::is_live_service_path(
+                        std::path::Path::new(&co.path),
+                        &unit_executables,
+                    ),
+                ),
                 remote_exists: co.remote_exists,
                 sha: Some(co.sha.clone()),
                 branch: Some(co.branch.clone()),
@@ -250,8 +258,14 @@ fn observe_checkouts_raw(shallow: bool) -> (String, Vec<String>) {
         });
         let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
         let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
-        let line =
-            format!("{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}");
+        let foreign = if contains_foreign_owned_entries(&path, uid) {
+            "1"
+        } else {
+            "0"
+        };
+        let line = format!(
+            "{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}|{foreign}"
+        );
         lines.push(line);
     }
     (lines.join("\n"), remote_shas)
@@ -303,6 +317,42 @@ fn file_meta(path: &Path, shallow: bool) -> (u64, u32, u32, u64) {
             .unwrap_or_else(|| walk_size(path))
     };
     (size_bytes, uid, gid, mtime_secs)
+}
+
+/// True when the tree holds at least one entry this account does not own.
+///
+/// The ROOT's ownership is not enough: `rm` walks the whole tree and
+/// fails on the first entry it cannot remove, so a tree rooted in an
+/// owned directory can still be unremovable. Measured: two checkouts
+/// rooted `cynic:cynic` holding 9580 and 21 foreign-owned entries, both
+/// planned as removable without privilege and both failing at delete.
+///
+/// The scan is bounded: it stops at the first foreign entry, and it
+/// prunes `.git` — that directory is a known source of root-owned pack
+/// files written by a privileged git operation, and it is reported
+/// through the same path.
+fn contains_foreign_owned_entries(path: &Path, owner_uid: u32) -> bool {
+    let mut stack = vec![path.to_path_buf()];
+    while let Some(cur) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&cur) else {
+            continue;
+        };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.file_name().and_then(|n| n.to_str()) == Some(".git") {
+                continue;
+            }
+            if let Ok(m) = e.metadata() {
+                if m.uid() != owner_uid {
+                    return true;
+                }
+            }
+            if p.is_dir() && !p.is_symlink() {
+                stack.push(p);
+            }
+        }
+    }
+    false
 }
 
 fn walk_size(path: &Path) -> u64 {
@@ -399,6 +449,7 @@ mod tests {
                     argv: vec![],
                     is_orphan: Some(true),
                     is_root_owned: Some(false),
+                    is_live_service_path: None,
                     remote_exists: Some(false),
                     sha: Some("abc123".to_string()),
                     branch: Some("old-orphan".to_string()),
@@ -415,6 +466,7 @@ mod tests {
                     argv: vec![],
                     is_orphan: Some(false),
                     is_root_owned: Some(false),
+                    is_live_service_path: None,
                     remote_exists: Some(true),
                     sha: Some("live123".to_string()),
                     branch: Some("live".to_string()),
@@ -448,6 +500,7 @@ mod tests {
                 argv: vec![],
                 is_orphan: Some(orphan),
                 is_root_owned: Some(root),
+                is_live_service_path: None,
                 remote_exists: Some(!orphan),
                 sha: Some(id.to_string()),
                 branch: Some(id.to_string()),
@@ -474,8 +527,7 @@ mod tests {
         );
         assert_eq!(plan.items.len(), 3);
         assert_eq!(
-            plan.items[0].reason,
-            "orphan(no remote)+age 55h",
+            plan.items[0].reason, "orphan(no remote)+age 55h",
             "orphan+old reason string"
         );
         assert_eq!(
@@ -487,11 +539,7 @@ mod tests {
         for it in &plan.items {
             assert_eq!(
                 it.argv,
-                vec![
-                    "rm".to_string(),
-                    "-rf".to_string(),
-                    it.path.clone()
-                ],
+                vec!["rm".to_string(), "-rf".to_string(), it.path.clone()],
                 "argv rm -rf path"
             );
         }

@@ -140,6 +140,19 @@ pub struct SccacheConfig {
     /// exact binary.
     #[serde(default = "defaults::default_sccache_binary")]
     pub binary: String,
+    /// Upper bound on the cache size, in bytes.
+    ///
+    /// sccache prunes itself when it exceeds this bound. Without it the
+    /// cache can only grow, and a cache that has become the second-largest
+    /// directory on the builder is a disk incident waiting to happen: the
+    /// builder reached 92 % with 10.4 GiB of sccache next to 46.4 GiB of
+    /// per-SHA checkouts.
+    ///
+    /// The bound is emitted as `SCCACHE_CACHE_SIZE`, which sccache reads
+    /// directly. 8 GiB keeps a warm build warm (the measured warm build is
+    /// 96 s against 194 s cold) while capping the disk cost.
+    #[serde(default = "defaults::default_sccache_max_size_bytes")]
+    pub max_size_bytes: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -280,6 +293,12 @@ pub(crate) struct FederationConfig {
     pub(crate) node_public_key: Option<String>,
     pub(crate) queue_dir: Option<PathBuf>,
     pub(crate) kernel_ws_url: Option<String>,
+    pub(crate) signing_key_path: Option<PathBuf>,
+    pub(crate) signing_key_env: Option<String>,
+    /// Absolute path of the ML-DSA-44 workload signing key. When present,
+    /// the node signs every request twice (Ed25519 + ML-DSA-44) over the
+    /// same payload: the hybrid handshake.
+    pub(crate) pqc_signing_key_path: Option<PathBuf>,
 }
 
 impl Default for HealthConfig {

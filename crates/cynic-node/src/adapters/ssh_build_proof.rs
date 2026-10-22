@@ -12,7 +12,7 @@ use std::time::Instant;
 use crate::ports::build_proof_port::BuildProofPort;
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
-use crate::ports::build_runner_adapter::default_checkout_base;
+use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
 pub struct SshBuildProof {
     pub host: String,
@@ -37,12 +37,29 @@ impl SshBuildProof {
         format!("{}@{}", self.user, self.host)
     }
 
-    fn checkout_dir(&self, sha: &str) -> String {
-        format!(
-            "{}/cynic-{}",
-            default_checkout_base().display(),
-            &sha[..12.min(sha.len())]
-        )
+    /// Resolve the runner's own state root through its native command.
+    ///
+    /// The proof adapter runs on one host and builds on another. Resolving
+    /// the checkout path on the client produced a path the runner may not
+    /// own, and left the proof build without a warm target dir at all.
+    fn resolve_runner_roots(
+        &self,
+    ) -> Result<cynic_protocol::remote_cache_roots::RemoteCacheRoots, String> {
+        let (ok, stdout, stderr) = self.run_remote(&[
+            "cynic".to_string(),
+            "runtime".to_string(),
+            "paths".to_string(),
+            "--json".to_string(),
+        ])?;
+        if !ok {
+            return Err(format!(
+                "runner paths unresolvable: {}",
+                stderr.trim().lines().last().unwrap_or("no output")
+            ));
+        }
+        let state_root = parse_state_root(&stdout)
+            .ok_or_else(|| "runner paths payload carries no state root".to_string())?;
+        Ok(remote_cache_roots(&state_root))
     }
 
     fn run_remote(&self, argv: &[String]) -> Result<(bool, String, String), String> {
@@ -65,7 +82,12 @@ impl BuildProofPort for SshBuildProof {
     async fn prove(&self, request: &BuildProofRequest) -> Result<BuildProofReport, String> {
         let start = Instant::now();
         let sha = &request.source_commit;
-        let dir = self.checkout_dir(sha);
+        let roots = self.resolve_runner_roots()?;
+        let dir = format!(
+            "{}/cynic-{}",
+            roots.checkout_base,
+            &sha[..12.min(sha.len())]
+        );
         let package = request.package.as_deref();
 
         let (check_args, test_args) = match &request.phase {
@@ -75,6 +97,7 @@ impl BuildProofPort for SshBuildProof {
                     "RUST_MIN_STACK=8589934592".to_string(),
                     "CARGO_BUILD_JOBS=1".to_string(),
                     "CARGO_INCREMENTAL=0".to_string(),
+                    format!("CARGO_TARGET_DIR={}", roots.target_dir),
                     "cargo".to_string(),
                     "check".to_string(),
                     "--locked".to_string(),
@@ -98,6 +121,7 @@ impl BuildProofPort for SshBuildProof {
                     "RUST_MIN_STACK=8589934592".to_string(),
                     "CARGO_BUILD_JOBS=1".to_string(),
                     "CARGO_INCREMENTAL=0".to_string(),
+                    format!("CARGO_TARGET_DIR={}", roots.target_dir),
                     "cargo".to_string(),
                     "test".to_string(),
                     "--locked".to_string(),

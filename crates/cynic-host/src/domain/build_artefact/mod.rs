@@ -8,22 +8,30 @@
 pub mod parse;
 
 pub use cynic_protocol::retention::{
-    RetentionError, RetentionExecutor, RetentionItem, RetentionItemExecution, RetentionKind,
-    RetentionObserver, RetentionObservation, RetentionPlan, RetentionPlanner, RetentionPolicy,
-    RetentionResult, RetentionScope, RETENTION_OBSERVATION_SCHEMA, RETENTION_PLAN_SCHEMA,
-    RETENTION_RESULT_SCHEMA,
+    RETENTION_OBSERVATION_SCHEMA, RETENTION_PLAN_SCHEMA, RETENTION_RESULT_SCHEMA, RetentionError,
+    RetentionExecutor, RetentionItem, RetentionItemExecution, RetentionKind, RetentionObservation,
+    RetentionObserver, RetentionPlan, RetentionPlanner, RetentionPolicy, RetentionResult,
+    RetentionScope,
 };
 pub use parse::{parse_checkout_list, parse_df_pressure};
 
 /// Pure planner: orphan or old are reclaimable; root-owned is extra signal.
-/// Shared between local and remote adapters.
-pub fn plan_build_artefacts(
-    obs: &RetentionObservation,
-    policy: &RetentionPolicy,
-) -> RetentionPlan {
+///
+/// Under disk pressure the planner also reclaims the freshest artefacts:
+/// a full disk blocks every build, so waiting for the 48h TTL is not an
+/// option. The oldest are evicted first, and the `preserve_count` freshest
+/// are always kept so an in-flight build is never pulled from under itself.
+pub fn plan_build_artefacts(obs: &RetentionObservation, policy: &RetentionPolicy) -> RetentionPlan {
     let mut items = Vec::new();
     let mut total = 0u64;
+    let pressured = obs.pressure.as_ref().is_some_and(|p| p.is_pressured);
     for item in &obs.items {
+        // A live service executes from this path. Reclaiming it would delete
+        // the binary of a running daemon — the builder's soak daemon runs
+        // from inside the Cargo cache the policy is meant to reclaim.
+        if item.is_live_service_path == Some(true) {
+            continue;
+        }
         let mut reasons = Vec::new();
         if item.is_orphan == Some(true) {
             reasons.push("orphan(no remote)".to_string());
@@ -52,13 +60,10 @@ pub fn plan_build_artefacts(
             age: item.age,
             reason,
             requires_privilege: item.is_root_owned == Some(true),
-            argv: vec![
-                "rm".to_string(),
-                "-rf".to_string(),
-                item.path.clone(),
-            ],
+            argv: vec!["rm".to_string(), "-rf".to_string(), item.path.clone()],
             is_orphan: item.is_orphan,
             is_root_owned: item.is_root_owned,
+            is_live_service_path: item.is_live_service_path,
             remote_exists: item.remote_exists,
             sha: item.sha.clone(),
             branch: item.branch.clone(),
@@ -66,10 +71,296 @@ pub fn plan_build_artefacts(
             owner_gid: item.owner_gid,
         });
     }
+
+    // Disk pressure: the 48h TTL is a comfort rule, not a safety rule. A
+    // builder at 92% fails every build with ENOSPC, so the freshest
+    // artefacts are reclaimable too — oldest first, `preserve_count` freshest
+    // always kept.
+    if pressured {
+        let mut fresh: Vec<&RetentionItem> = obs
+            .items
+            .iter()
+            .filter(|item| {
+                item.is_orphan != Some(true)
+                    && item.is_live_service_path != Some(true)
+                    && !item
+                        .age
+                        .and_then(|a| policy.max_age.map(|max| a > max))
+                        .unwrap_or(false)
+            })
+            .collect();
+        // Oldest first: the least recently touched artefact is the most
+        // disposable. The `preserve_count` freshest are dropped from the
+        // tail so the newest survive.
+        fresh.sort_by(|a, b| b.age.cmp(&a.age));
+        let keep = policy.preserve_count.min(fresh.len());
+        let evictable = fresh.len() - keep;
+        for item in fresh.into_iter().take(evictable) {
+            if items.iter().any(|i| i.path == item.path) {
+                continue;
+            }
+            let age_label = item
+                .age
+                .map(|a| format!("{}h", a.as_secs() / 3600))
+                .unwrap_or_else(|| "?".to_string());
+            total += item.size_bytes;
+            items.push(RetentionItem {
+                id: item.id.clone(),
+                path: item.path.clone(),
+                size_bytes: item.size_bytes,
+                age: item.age,
+                reason: format!("disk-pressure(age {age_label})"),
+                requires_privilege: item.is_root_owned == Some(true),
+                argv: vec!["rm".to_string(), "-rf".to_string(), item.path.clone()],
+                is_orphan: item.is_orphan,
+                is_root_owned: item.is_root_owned,
+                is_live_service_path: item.is_live_service_path,
+                remote_exists: item.remote_exists,
+                sha: item.sha.clone(),
+                branch: item.branch.clone(),
+                owner_uid: item.owner_uid,
+                owner_gid: item.owner_gid,
+            });
+        }
+    }
+
     RetentionPlan {
         schema: cynic_protocol::retention::RETENTION_PLAN_SCHEMA.to_string(),
         items,
         total_reclaimable_bytes: total,
         policy_version: format!("{:?}", policy.kind),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A checkout rooted in an owned directory can still hold entries this
+    /// account cannot remove. The observation must mark it as
+    /// privilege-requiring BEFORE the plan claims it is reclaimable,
+    /// otherwise the delete fails on the first foreign entry and the run
+    /// ends PARTIAL.
+    ///
+    /// Measured on builder-119: two checkouts whose root was `cynic:cynic`
+    /// held 9580 and 21 foreign-owned entries, were planned as
+    /// `requires_privilege: false`, and both failed at `rm`.
+    #[test]
+    fn a_checkout_with_foreign_owned_content_requires_privilege() {
+        let line = "/var/lib/cynic/checkouts/aegis-consortium|sha1|1024|999:990|600|0|1";
+        let parsed = super::parse_checkout_list(line, &[]);
+        assert_eq!(parsed.len(), 1);
+        let entry = &parsed[0];
+        assert!(entry.contains_foreign_owned);
+        assert!(entry.is_root_owned);
+    }
+
+    /// The same tree without foreign-owned content is NOT privilege
+    /// requiring: the root is owned and everything under it is too.
+    #[test]
+    fn a_checkout_fully_owned_by_this_account_does_not_require_privilege() {
+        let line = "/var/lib/cynic/checkouts/cynic-0fa0852b|sha2|1024|999:990|600|0|0";
+        let parsed = super::parse_checkout_list(line, &[]);
+        assert_eq!(parsed.len(), 1);
+        let entry = &parsed[0];
+        assert!(!entry.contains_foreign_owned);
+        assert!(!entry.is_root_owned);
+    }
+
+    /// A line without the optional foreign field still parses: an older
+    /// producer must not break the observer.
+    #[test]
+    fn a_line_without_the_foreign_field_still_parses() {
+        let line = "/var/lib/cynic/checkouts/legacy|sha3|1024|0:0|600|0";
+        let parsed = super::parse_checkout_list(line, &[]);
+        assert_eq!(parsed.len(), 1);
+        let entry = &parsed[0];
+        assert!(!entry.contains_foreign_owned);
+        // uid 0 on the root still requires privilege.
+        assert!(entry.is_root_owned);
+    }
+    use std::time::Duration;
+
+    use cynic_protocol::retention::{PressureSignal, default_build_artefact_policy};
+
+    fn item(id: &str, age_secs: u64, orphan: bool) -> RetentionItem {
+        RetentionItem {
+            id: format!("checkout:{id}"),
+            path: format!("/var/lib/cynic/checkouts/{id}"),
+            size_bytes: 1000,
+            age: Some(Duration::from_secs(age_secs)),
+            reason: String::new(),
+            requires_privilege: false,
+            argv: vec![],
+            is_orphan: Some(orphan),
+            is_root_owned: Some(false),
+            is_live_service_path: None,
+            remote_exists: Some(!orphan),
+            sha: Some(id.to_string()),
+            branch: Some(id.to_string()),
+            owner_uid: Some(999),
+            owner_gid: Some(990),
+        }
+    }
+
+    /// An item that a live system unit executes from.
+    fn served_item(id: &str, age_secs: u64) -> RetentionItem {
+        let mut item = item(id, age_secs, true);
+        item.is_live_service_path = Some(true);
+        item
+    }
+
+    #[test]
+    fn a_path_a_live_service_executes_from_is_never_reclaimed() {
+        // The builder's soak daemon ran from inside the Cargo cache the
+        // policy was free to reclaim. Reclaiming it would delete the
+        // binary of a running service.
+        let served = served_item("served", 999_999);
+        let plan = plan_build_artefacts(
+            &observation(vec![served], false),
+            &default_build_artefact_policy(),
+        );
+        assert!(
+            plan.items.is_empty(),
+            "a live service path must not be reclaimed: {:?}",
+            plan.items
+        );
+    }
+
+    #[test]
+    fn disk_pressure_does_not_override_the_live_service_fence() {
+        // Under pressure the freshest artefacts become reclaimable — but a
+        // path a daemon executes from stays protected.
+        let served = served_item("served", 10);
+        let plan = plan_build_artefacts(
+            &observation(vec![served], true),
+            &default_build_artefact_policy(),
+        );
+        assert!(
+            plan.items.is_empty(),
+            "pressure must not reclaim a live service path: {:?}",
+            plan.items
+        );
+    }
+
+    fn observation(items: Vec<RetentionItem>, pressured: bool) -> RetentionObservation {
+        RetentionObservation {
+            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
+            timestamp: "2026-10-20T00:00:00Z".to_string(),
+            items,
+            total_reclaimable_bytes: 0,
+            pressure: Some(PressureSignal {
+                use_pct: if pressured { 92 } else { 20 },
+                avail_bytes: if pressured {
+                    1024 * 1024 * 1024
+                } else {
+                    100 * 1024 * 1024 * 1024
+                },
+                is_pressured: pressured,
+            }),
+        }
+    }
+
+    fn policy() -> RetentionPolicy {
+        cynic_protocol::retention::default_build_artefact_policy()
+    }
+
+    #[test]
+    fn without_pressure_the_freshest_checkouts_are_kept() {
+        let obs = observation(
+            vec![item("fresh", 3600, false), item("older", 7200, false)],
+            false,
+        );
+        let plan = plan_build_artefacts(&obs, &policy());
+        assert!(plan.items.is_empty(), "no pressure, no fresh eviction");
+    }
+
+    #[test]
+    fn under_pressure_the_stale_checkouts_are_reclaimable() {
+        let obs = observation(
+            vec![item("fresh", 3600, false), item("older", 7200, false)],
+            true,
+        );
+        let plan = plan_build_artefacts(&obs, &policy());
+        assert_eq!(
+            plan.items.len(),
+            1,
+            "the freshest is preserved, the older one is reclaimed"
+        );
+        assert!(plan.items[0].reason.starts_with("disk-pressure"));
+        assert_eq!(plan.total_reclaimable_bytes, 1000);
+    }
+
+    #[test]
+    fn pressure_evicts_the_oldest_first() {
+        let obs = observation(
+            vec![
+                item("freshest", 60, false),
+                item("oldest", 10_000, false),
+                item("middle", 5_000, false),
+            ],
+            true,
+        );
+        let plan = plan_build_artefacts(&obs, &policy());
+        let order: Vec<&str> = plan
+            .items
+            .iter()
+            .map(|i| i.path.rsplit('/').next().unwrap())
+            .collect();
+        assert_eq!(order[0], "oldest", "the oldest is evicted first");
+        assert_eq!(order[1], "middle", "then the middle one");
+        assert!(
+            !order.contains(&"freshest"),
+            "the freshest is preserved, not evicted"
+        );
+        assert_eq!(plan.items.len(), 2);
+    }
+
+    #[test]
+    fn preserve_count_keeps_the_freshest_under_pressure() {
+        let mut policy = policy();
+        policy.preserve_count = 1;
+        let obs = observation(
+            vec![
+                item("freshest", 60, false),
+                item("oldest", 10_000, false),
+                item("middle", 5_000, false),
+            ],
+            true,
+        );
+        let plan = plan_build_artefacts(&obs, &policy);
+        let paths: Vec<&str> = plan
+            .items
+            .iter()
+            .map(|i| i.path.rsplit('/').next().unwrap())
+            .collect();
+        assert_eq!(plan.items.len(), 2);
+        assert!(!paths.contains(&"freshest"), "the freshest is preserved");
+        assert!(paths.contains(&"oldest"));
+    }
+
+    #[test]
+    fn pressure_does_not_double_count_an_orphan() {
+        let obs = observation(vec![item("orphan", 3600, true)], true);
+        let plan = plan_build_artefacts(&obs, &policy());
+        assert_eq!(plan.items.len(), 1, "the orphan is reclaimed once");
+        assert_eq!(plan.items[0].reason, "orphan(no remote)");
+    }
+
+    #[test]
+    fn the_pressure_path_reuses_the_typed_rm_argv() {
+        let obs = observation(
+            vec![item("fresh", 3600, false), item("older", 7200, false)],
+            true,
+        );
+        let plan = plan_build_artefacts(&obs, &policy());
+        assert_eq!(
+            plan.items[0].argv,
+            vec![
+                "rm".to_string(),
+                "-rf".to_string(),
+                "/var/lib/cynic/checkouts/older".to_string()
+            ]
+        );
     }
 }

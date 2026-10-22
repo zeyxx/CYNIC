@@ -14,12 +14,14 @@ pub(super) fn default_max_attempts() -> u32 {
     5
 }
 
+/// Contract `lifecycle.restart.backoff.initial_seconds` (S5b adopts 5s).
 pub(super) fn default_initial_delay_secs() -> u64 {
-    2
+    5
 }
 
+/// Contract `lifecycle.restart.backoff.max_seconds` (S5b adopts 60s).
 pub(super) fn default_max_delay_secs() -> u64 {
-    120
+    60
 }
 
 pub(super) fn default_min_uptime_secs() -> u64 {
@@ -128,6 +130,15 @@ pub(super) fn default_sccache_cache_dir() -> std::path::PathBuf {
 
 pub(super) fn default_sccache_binary() -> String {
     "sccache".to_string()
+}
+
+/// Bound the sccache cache at 8 GiB.
+///
+/// The cache is the reason a warm build is 96 s instead of 194 s cold, so it
+/// stays. What must not happen is the unbounded case: 10.4 GiB of cache was
+/// observed on a builder that had already reached 92 % disk.
+pub(super) fn default_sccache_max_size_bytes() -> u64 {
+    8 * 1024 * 1024 * 1024
 }
 
 pub(super) fn default_watchdog_interval_secs() -> u64 {

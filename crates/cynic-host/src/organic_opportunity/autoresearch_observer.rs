@@ -6,12 +6,12 @@
 use std::path::PathBuf;
 
 use cynic_protocol::autoresearch::{AutoresearchReport, KeepDiscard, SkillCandidate};
-use cynic_protocol::organic_opportunity::{
-    EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
-    OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
+use cynic_protocol::candidate_opportunity::{
+    EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
+    OpportunitySourceKind, CandidateOpportunity, SmallestNextStep,
 };
 
-use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
+use super::port::{CandidateOpportunityObserver, SourceObservationStatus};
 
 /// Configuration for Autoresearch opportunity observation.
 #[derive(Debug, Clone)]
@@ -41,15 +41,15 @@ impl AutoresearchObserver {
     pub fn analyze_candidates(
         candidates: &[SkillCandidate],
         _now_unix_s: u64,
-    ) -> Vec<OrganicOpportunity> {
+    ) -> Vec<CandidateOpportunity> {
         let mut opportunities = Vec::new();
 
         for candidate in candidates {
             if candidate.decision == KeepDiscard::Keep {
                 let digest = candidate.digest();
 
-                let opp = OrganicOpportunity {
-                    schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+                let opp = CandidateOpportunity {
+                    schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
                     opportunity_id: format!(
                         "opp:skill_candidate:{}",
                         &digest[..16.min(digest.len())]
@@ -93,7 +93,7 @@ impl AutoresearchObserver {
     }
 
     /// Extract opportunities from an existing AutoresearchReport.
-    pub fn analyze_report(report: &AutoresearchReport) -> Vec<OrganicOpportunity> {
+    pub fn analyze_report(report: &AutoresearchReport) -> Vec<CandidateOpportunity> {
         let mut opportunities = Vec::new();
 
         for entry in &report.entries {
@@ -105,8 +105,8 @@ impl AutoresearchObserver {
                 }))
                 .unwrap_or_else(|_| format!("sha256:{}", entry.skill_id));
 
-                let opp = OrganicOpportunity {
-                    schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
+                let opp = CandidateOpportunity {
+                    schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
                     opportunity_id: format!("opp:skill_entry:{}", &digest[..16.min(digest.len())]),
                     scope: format!("skill/{}", entry.skill_id),
                     sources: vec![OpportunitySource {
@@ -139,7 +139,7 @@ impl AutoresearchObserver {
     }
 }
 
-impl OrganicOpportunityObserver for AutoresearchObserver {
+impl CandidateOpportunityObserver for AutoresearchObserver {
     fn observer_name(&self) -> &'static str {
         "autoresearch_observer"
     }
@@ -148,7 +148,7 @@ impl OrganicOpportunityObserver for AutoresearchObserver {
         OpportunitySourceKind::Autoresearch
     }
 
-    fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
+    fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>> {
         let path = &self.config.report_path;
         if !path.exists() {
             return SourceObservationStatus::Unavailable {

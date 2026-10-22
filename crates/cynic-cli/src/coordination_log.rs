@@ -18,6 +18,11 @@ pub const COORDINATION_ENTRY_SCHEMA: &str = "cynic.coordination_entry.v1";
 /// One fire-and-forget entry. `kind` is a free string by design (`debt`,
 /// `info`, `block`, `decision` are conventions, not an enum) so new kinds
 /// emerge without a schema migration.
+///
+/// Addressed messaging rides the same log: `to` + `msg_id` turn an entry
+/// into a message, and the receiver answers with a receipt ENTRY (a new
+/// line carrying `receipt`, never an in-place edit). All envelope fields
+/// are `#[serde(default)]`: old lines read unchanged.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CoordinationEntry {
     pub schema: String,
@@ -27,6 +32,41 @@ pub struct CoordinationEntry {
     pub body: String,
     #[serde(default)]
     pub refs: Vec<String>,
+    /// Addressee: `agent:<id>` or `role:<role>`. Absent = broadcast.
+    #[serde(default)]
+    pub to: Option<String>,
+    /// Sender-generated message id. Required when `to` is set.
+    #[serde(default)]
+    pub msg_id: Option<String>,
+    /// Causal thread pointer (the `msg_id` this answers).
+    #[serde(default)]
+    pub in_reply_to: Option<String>,
+    /// Triage priority 0-3 (default 1 when addressed, unused for broadcast).
+    #[serde(default)]
+    pub priority: Option<u8>,
+    /// One-line triage summary (<= 140 chars). Required when `to` is set.
+    #[serde(default)]
+    pub summary_1line: Option<String>,
+    /// Delivery receipt. Written ONLY by the receiver on a follow-up line;
+    /// a sender-set receipt is refused by `admit_addressed_append`.
+    #[serde(default)]
+    pub receipt: Option<MsgReceipt>,
+}
+
+/// Delivery receipt carried by a follow-up log line.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MsgReceipt {
+    pub by: String,
+    pub ts_unix_s: u64,
+    pub state: ReceiptState,
+}
+
+/// Monotonic receipt state: `delivered` -> `opened`, never backward.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReceiptState {
+    Delivered,
+    Opened,
 }
 
 impl CoordinationEntry {
@@ -38,8 +78,69 @@ impl CoordinationEntry {
             kind: kind.to_string(),
             body: body.to_string(),
             refs,
+            to: None,
+            msg_id: None,
+            in_reply_to: None,
+            priority: None,
+            summary_1line: None,
+            receipt: None,
         }
     }
+}
+
+/// Pure admission for an addressed append. Empty = admit.
+/// Rules: `to` requires `msg_id` + `summary_1line`; receipt must be absent
+/// (receipts arrive as separate lines from the receiver, never from the
+/// sender); priority above 3 is refused.
+pub fn admit_addressed_append(entry: &CoordinationEntry) -> Vec<String> {
+    let mut violations = Vec::new();
+    if entry.to.as_ref().is_some_and(|t| !t.trim().is_empty()) {
+        if entry.msg_id.as_ref().is_none_or(|m| m.trim().is_empty()) {
+            violations.push("addressed_append_msg_id_missing".to_string());
+        }
+        if entry
+            .summary_1line
+            .as_ref()
+            .is_none_or(|s| s.trim().is_empty())
+        {
+            violations.push("addressed_append_summary_missing".to_string());
+        }
+        if entry
+            .summary_1line
+            .as_ref()
+            .is_some_and(|s| s.chars().count() > 140)
+        {
+            violations.push("addressed_append_summary_too_long".to_string());
+        }
+        if entry.priority.is_some_and(|p| p > 3) {
+            violations.push("addressed_append_priority_out_of_range".to_string());
+        }
+    }
+    if entry.receipt.is_some() {
+        violations.push("addressed_append_sender_receipt_forbidden".to_string());
+    }
+    violations
+}
+
+/// Pure admission for a receipt transition. Empty = admit.
+/// The receipt author must be the addressee (or any agent for broadcast
+/// follow-ups); state must advance monotonically.
+pub fn admit_receipt(entry: &CoordinationEntry, by: &str) -> Vec<String> {
+    let mut violations = Vec::new();
+    match &entry.receipt {
+        None => violations.push("receipt_state_missing".to_string()),
+        Some(receipt) => {
+            if receipt.by.trim().is_empty() || by.trim().is_empty() {
+                violations.push("receipt_author_missing".to_string());
+            } else if receipt.by != by {
+                violations.push("receipt_author_mismatch".to_string());
+            }
+            if entry.msg_id.as_ref().is_none_or(|m| m.trim().is_empty()) {
+                violations.push("receipt_msg_id_missing".to_string());
+            }
+        }
+    }
+    violations
 }
 
 /// Resolve the log path: explicit `CYNIC_COORDINATION_LOG`, else the
@@ -207,5 +308,84 @@ mod tests {
             assert!(append_entry(&log, &entry).is_err());
         }
         assert!(!std::path::Path::new(&log).exists());
+    }
+
+    fn addressed(sender: &str, to: &str) -> CoordinationEntry {
+        let mut entry = CoordinationEntry::new(sender, "info", "full body here", vec![], 2);
+        entry.to = Some(to.to_string());
+        entry.msg_id = Some("msg-1".to_string());
+        entry.summary_1line = Some("one-line triage".to_string());
+        entry.priority = Some(1);
+        entry
+    }
+
+    #[test]
+    fn addressed_append_admits_complete_envelope() {
+        assert!(admit_addressed_append(&addressed("a", "agent:b")).is_empty());
+    }
+
+    #[test]
+    fn addressed_append_requires_msg_id_and_summary() {
+        let mut no_id = addressed("a", "agent:b");
+        no_id.msg_id = None;
+        assert!(admit_addressed_append(&no_id)
+            .contains(&"addressed_append_msg_id_missing".to_string()));
+        let mut no_summary = addressed("a", "agent:b");
+        no_summary.summary_1line = Some("   ".to_string());
+        assert!(admit_addressed_append(&no_summary)
+            .contains(&"addressed_append_summary_missing".to_string()));
+        let mut long_summary = addressed("a", "agent:b");
+        long_summary.summary_1line = Some("x".repeat(141));
+        assert!(admit_addressed_append(&long_summary)
+            .contains(&"addressed_append_summary_too_long".to_string()));
+        let mut bad_priority = addressed("a", "agent:b");
+        bad_priority.priority = Some(9);
+        assert!(admit_addressed_append(&bad_priority)
+            .contains(&"addressed_append_priority_out_of_range".to_string()));
+    }
+
+    #[test]
+    fn sender_set_receipt_is_refused() {
+        let mut entry = addressed("a", "agent:b");
+        entry.receipt = Some(MsgReceipt {
+            by: "a".to_string(),
+            ts_unix_s: 3,
+            state: ReceiptState::Delivered,
+        });
+        assert!(admit_addressed_append(&entry)
+            .contains(&"addressed_append_sender_receipt_forbidden".to_string()));
+    }
+
+    #[test]
+    fn receipt_admission_checks_author_and_msg_id() {
+        let mut entry = CoordinationEntry::new("b", "info", "ack", vec![], 3);
+        entry.msg_id = Some("msg-1".to_string());
+        entry.receipt = Some(MsgReceipt {
+            by: "b".to_string(),
+            ts_unix_s: 3,
+            state: ReceiptState::Opened,
+        });
+        assert!(admit_receipt(&entry, "b").is_empty());
+        assert!(admit_receipt(&entry, "c")
+            .contains(&"receipt_author_mismatch".to_string()));
+        let bare = CoordinationEntry::new("b", "info", "ack", vec![], 3);
+        assert!(admit_receipt(&bare, "b")
+            .contains(&"receipt_state_missing".to_string()));
+    }
+
+    #[test]
+    fn old_lines_without_envelope_still_read() {
+        let log = tmp_log("backward");
+        std::fs::write(
+            &log,
+            "{\"schema\":\"cynic.coordination_entry.v1\",\"ts_unix_s\":1,\"agent\":\"a\",\"kind\":\"debt\",\"body\":\"old\",\"refs\":[]}\n",
+        )
+        .expect("seed");
+        let (entries, skipped) = read_entries(&log, None, 0);
+        assert_eq!(skipped, 0);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].to, None);
+        assert_eq!(entries[0].receipt, None);
+        let _ = std::fs::remove_file(&log);
     }
 }

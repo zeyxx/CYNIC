@@ -20,6 +20,12 @@ pub const FLEET_BUILD_ARTEFACT_SCHEMA: &str = "cynic.fleet_build_artefact.v1";
 /// All call sites must use this constructor — no inline `48 * 3600`.
 pub const BUILD_ARTEFACT_MAX_AGE_SECS: u64 = 48 * 3600;
 
+/// Number of freshest build artefacts kept even under disk pressure.
+///
+/// The builder runs one job at a time, so one checkout is enough to keep a
+/// build in flight. Keeping more would defeat the pressure relief.
+pub const BUILD_ARTEFACT_PRESERVE_COUNT: usize = 1;
+
 /// Canonical build-artefact retention policy. Single construction site;
 /// the planner (`plan_build_artefacts`) reads `max_age` from here.
 pub fn default_build_artefact_policy() -> RetentionPolicy {
@@ -27,7 +33,7 @@ pub fn default_build_artefact_policy() -> RetentionPolicy {
         kind: RetentionKind::BuildArtefact,
         max_age: Some(Duration::from_secs(BUILD_ARTEFACT_MAX_AGE_SECS)),
         pressure_trigger: None,
-        preserve_count: 0,
+        preserve_count: BUILD_ARTEFACT_PRESERVE_COUNT,
         preserve_profiles: vec![],
         grace_period: None,
         scopes: vec![RetentionScope {
@@ -50,6 +56,15 @@ pub enum RetentionKind {
     Worktree,
     KnowledgeCache,
     ModelArtifact,
+    /// Ephemeral agent scratch: /tmp/cynic-*, hermes scratch dirs.
+    /// Measured 63G + 25G on operator 2026-10-19. TTL-gated, no claim.
+    TmpScratch,
+    /// Regenerable agent caches: huggingface, solana, uv, playwright.
+    /// Measured 20G on operator 2026-10-19. Prune via tool, never blind rm.
+    AgentCache,
+    /// Log bundles mined into evidence before eviction.
+    /// Measured /var/log 4G + journal 2G on operator 2026-10-19.
+    LogBundle,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,6 +109,14 @@ pub struct RetentionItem {
     // Domain-specific context (used by planner)
     pub is_orphan: Option<bool>,
     pub is_root_owned: Option<bool>,
+    /// True when a live system unit executes a binary from this path.
+    ///
+    /// A daemon running out of a reclaimable tree is a trap: the retention
+    /// policy would delete the binary of a running service. The builder's
+    /// soak daemon executed `/var/lib/cynic/shared-target/debug/cynic`,
+    /// inside the Cargo cache the policy was free to reclaim.
+    #[serde(default)]
+    pub is_live_service_path: Option<bool>,
     pub remote_exists: Option<bool>,
     pub sha: Option<String>,
     pub branch: Option<String>,
@@ -187,7 +210,6 @@ pub trait RetentionExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn retention_trio_traits_exist_and_are_grepable() {

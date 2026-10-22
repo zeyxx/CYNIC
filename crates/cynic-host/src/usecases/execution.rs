@@ -85,6 +85,27 @@ pub fn execute_runtime_service_reconcile(
     observer: &impl HostServiceObservationPort,
 ) -> HostApplyExecutionReport {
     let policy = port.desired_services();
+    execute_runtime_service_reconcile_with_policy(
+        &policy, observed, authorization, runner, observer,
+    )
+}
+
+/// Reconcile services against a policy that ALSO carries the units this
+/// host must retire.
+///
+/// The retirement list is registry-derived, so it cannot live in the
+/// profile: the profile is a static shape, the registry is the authority
+/// for what a specific node runs. The caller resolves both and passes the
+/// merged policy here, so the plan, the admission digest and the
+/// postflight proof all name the same set of units.
+pub fn execute_runtime_service_reconcile_with_policy(
+    policy: &ServicePolicy,
+    observed: &HostObservationReports,
+    authorization: ExecutionAuthorization,
+    runner: &impl HostCommandRunnerPort,
+    observer: &impl HostServiceObservationPort,
+) -> HostApplyExecutionReport {
+    let policy = policy.clone();
     let plan = build_service_operation_plan(&policy, execution_target(observed));
     let admission = runtime_service_operation_policy_admission(&plan, authorization.actor.clone());
     execute_service_apply_with_admission(
@@ -274,6 +295,25 @@ fn observed_service_proofs(
             }
         }
     }
+    for retired in &policy.retired_units {
+        // The proof of a retirement is the ABSENCE of the unit. The
+        // observed state confirms it in two ways: the unit is not listed
+        // at all (it was never installed, or the file is already gone),
+        // or it is listed and is neither active nor enabled. A unit that
+        // is still active or still enabled leaves the gate unsatisfied,
+        // and the run is reported as a failure rather than a success.
+        let still_present = observed
+            .units
+            .iter()
+            .find(|unit| &unit.unit_name == retired)
+            .is_some_and(|unit| unit.active || unit.enabled);
+        if !still_present {
+            proofs.push(RequiredProof {
+                gate: format!("unit_retired:{retired}"),
+                subject: target.to_string(),
+            });
+        }
+    }
     proofs
 }
 
@@ -285,6 +325,7 @@ fn rendered_service_operation(operation: &HostOperation) -> ExecutedHostCommand 
         HostOperation::ServiceManagerDaemonReload => "service_manager daemon-reload".to_string(),
         HostOperation::ServiceEnableNow { unit } => format!("service enable-now {unit}"),
         HostOperation::ServiceStart { unit } => format!("service start {unit}"),
+        HostOperation::ServiceRetire { unit } => format!("service retire {unit}"),
         HostOperation::WritePackageSourceProjection { .. }
         | HostOperation::InstallBootstrapPackages { .. }
         | HostOperation::EnsureSystemGroup { .. }

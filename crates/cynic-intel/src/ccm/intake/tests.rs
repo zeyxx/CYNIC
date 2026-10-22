@@ -230,7 +230,7 @@ fn slug_general_session_compliance_coalesces() {
 
 #[test]
 fn slug_general_non_tool_falls_back_to_words() {
-    let slug = semantic_slug("general", "The quick brown fox jumps over the lazy dog");
+    let slug = semantic_slug("general", "The quick brown fox jumps over the lazy hound");
     assert!(slug.starts_with("general:"), "got: {slug}");
     assert!(slug.contains("quick"), "got: {slug}");
 }

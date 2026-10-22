@@ -131,8 +131,8 @@ fn execute_build_runner_cache(
     let report = reconcile_build_cache_resources(
         &desired,
         apply,
-        &LocalBuildCacheAdapter,
-        &LocalBuildCacheAdapter,
+        &LocalBuildCacheAdapter::default(),
+        &LocalBuildCacheAdapter::default(),
     );
     if json {
         return emit_json(&report, report.status == "blocked");

@@ -1,0 +1,237 @@
+{
+  "schema": "cynic.supervisor_contract.v1",
+  "status": "normative",
+  "purpose": "Single authority for CYNIC-owned process supervision: roles, process model, lifecycle, signals, restart/backoff, health, privilege, observation, and hardware/OS portability. This document declares policy; it does not build, install, spawn, or execute anything.",
+  "authority": {
+    "declared_by": "this document",
+    "observed_by": [
+      "runtime process table",
+      "service manager read-back",
+      "health/read-back evidence",
+      "supervisor observation records"
+    ],
+    "order": [
+      "observed runtime state",
+      "contracts/foundation.json",
+      "contracts/pruning-policy.json",
+      "contracts/supervisor-contract.json",
+      "infra/runtime-basket.json",
+      "infra/registry.json",
+      "infra/capabilities/catalog.json",
+      "canonical Rust crates"
+    ],
+    "justification": "Supervision is a stable cross-crate boundary: it constrains runtime baskets, capability privilege, CLI surfaces, host adapters, and service-manager projections. It is not a broad contract forest; it is the one contract that keeps those surfaces from drifting."
+  },
+  "scope": {
+    "applies_to": [
+      "all CYNIC-owned long-running processes",
+      "child processes spawned by CYNIC-owned services",
+      "observation and bounded lifecycle actions over those processes"
+    ],
+    "excludes": [
+      "host OS boot and PID 1",
+      "unowned external processes",
+      "UX and product surfaces"
+    ]
+  },
+  "architecture": {
+    "ownership": "Supervision is one named responsibility with one owner. It is distinct from the operator CLI, domain logic, and protocol types.",
+    "pure_decision": "Supervision decisions such as admit, restart, drain, degrade, and observe are pure functions and data with zero I/O. Spawn, signal, socket, and filesystem effects belong to imperative-shell adapters.",
+    "single_binary": "CYNIC uses one canonical composition root. A role is selected by argv, not by shipping another binary.",
+    "foreground": "All CYNIC processes run foreground. SysV double-fork and self-daemonization are prohibited. The host supervisor, such as systemd, remains the outer lifecycle owner.",
+    "portability": "The architecture is OS/hardware-agnostic. OS-specific behavior is isolated behind cfg-gated adapters and typed platform boundaries. An OS is implemented only when a real use exists, but the architecture must not block future hosts."
+  },
+  "process_model": {
+    "parent": "The CYNIC supervisor is an explicit process, not an implicit side effect of an operator command.",
+    "child_roles": [
+      {
+        "id": "node",
+        "argv": ["daemon", "node"],
+        "audience": "service",
+        "restart": "on-failure",
+        "privilege": "cynic",
+        "health": ["process", "port", "service-manager"]
+      },
+      {
+        "id": "kernel",
+        "argv": ["daemon", "kernel"],
+        "audience": "service",
+        "restart": "on-failure",
+        "privilege": "cynic",
+        "health": ["process", "port", "service-manager"],
+        "note": "Kernel lifecycle is boot-sensitive; it may be supervised by the host supervisor before CYNIC-owned observation is available."
+      },
+      {
+        "id": "mcp",
+        "argv": ["mcp", "serve"],
+        "audience": "service",
+        "restart": "on-failure",
+        "privilege": "cynic",
+        "health": ["process"],
+        "note": "MCP remains a projection boundary. The supervisor must not add a Cargo dependency from cynic-mcp to any crate; spawning an existing projection binary is permitted only while that constitutional boundary stands."
+      },
+      {
+        "id": "inference",
+        "argv": ["supervise", "run", "--role", "inference"],
+        "audience": "service",
+        "restart": "on-failure",
+        "privilege": "cynic",
+        "health": ["process", "port"],
+        "note": "Local inference backend (llama-server). The backend argv after `--` is declared by deployment. Direct CLI spawn refuses while a parent holds this role (refuse-when-parented); the pidfile detach backend burns at the standalone-removal step."
+      }
+    ],
+    "stdin": "inherit or an explicit typed descriptor; never shell",
+    "stdout_stderr": "inherit or route to a durable log adapter; never interpreted as protocol",
+    "process_group": "Each child gets a process group where the platform supports it. Unix supervision must kill the process group, not only the direct child.",
+    "orphan_policy": "An orphaned CYNIC-owned child is adopted by identity or reaped by explicit read-back. It is never silently ignored."
+  },
+  "lifecycle": {
+    "states": [
+      "planned",
+      "starting",
+      "active",
+      "draining",
+      "stopped",
+      "failed",
+      "unknown"
+    ],
+    "transitions": [
+      {
+        "from": "planned",
+        "to": "starting",
+        "requires": "typed role, argv, privilege, and capability admission"
+      },
+      {
+        "from": "starting",
+        "to": "active",
+        "requires": "read-back that the process exists and, where declared, health passes"
+      },
+      {
+        "from": "active",
+        "to": "draining",
+        "requires": "stop signal or operator command"
+      },
+      {
+        "from": "draining",
+        "to": "stopped",
+        "requires": "bounded drain, flush, and exit read-back"
+      },
+      {
+        "from": "active",
+        "to": "failed",
+        "requires": "observed exit failure or health failure"
+      },
+      {
+        "from": "any",
+        "to": "unknown",
+        "requires": "missing or contradictory evidence; unknown is explicit, never fabricated as active"
+      }
+    ],
+    "signals": {
+      "stop": {
+        "signal": "SIGTERM",
+        "grace_seconds": 15,
+        "then": "SIGKILL"
+      },
+      "reload": {
+        "signal": "SIGHUP",
+        "requires": "typed configuration reload and post-reload read-back"
+      },
+      "kill": {
+        "signal": "SIGKILL",
+        "only_after": "stop grace deadline"
+      }
+    },
+    "restart": {
+      "policy": "on-failure",
+      "backoff": {
+        "initial_seconds": 5,
+        "multiplier": 2,
+        "max_seconds": 60,
+        "min_uptime_seconds": 10,
+        "reset_after_stable_uptime": true
+      }
+    },
+    "read_back": "Every start, stop, restart, and degrade action requires observed process state or health evidence. A successful exit code alone is not proof."
+  },
+  "health": {
+    "kinds": [
+      "process",
+      "port",
+      "socket",
+      "http",
+      "service-manager"
+    ],
+    "required_fields": [
+      "role_id",
+      "pid",
+      "state",
+      "last_read_back_at",
+      "evidence_id"
+    ],
+    "failure": "Unknown health is reported as unknown with residual unknowns. It is never coerced into active or stopped."
+  },
+  "privilege": {
+    "rule": "Privilege is per capability and per admitted argv, never per binary. A supervisor spawn must not widen privilege.",
+    "sudoers": "When installed, one generated membrane is preferred over ad-hoc bridge binaries. Shell execution is prohibited. The capability catalog remains the authority for privileged exec."
+  },
+  "observation": {
+    "schema": "cynic.supervisor_observation.v1",
+    "required_fields": [
+      "observed_at_unix_ms",
+      "role_id",
+      "state",
+      "restart_count",
+      "last_exit_reason",
+      "residual_unknowns"
+    ],
+    "journal": "Capability id, resolved argv, exit code, and evidence id are recorded around every process event so an interrupted action remains attributable."
+  },
+  "portability": {
+    "platform_gates": [
+      "cfg(unix)",
+      "cfg(target_os = \"linux\")",
+      "cfg(windows)"
+    ],
+    "forbidden_in_pure_core": [
+      "std::process::Command",
+      "tokio::spawn",
+      "sockets",
+      "OS syscalls",
+      "service-manager commands"
+    ],
+    "implementation_policy": "Build a host adapter only when a real use exists. The architecture must not block Linux, macOS, Windows, or future hardware, but no adapter is built speculatively."
+  },
+  "implementation_status": {
+    "current": "design_only",
+    "next_role": "node",
+    "phases": [
+      "normative contract",
+      "pure supervisor types in cynic-protocol",
+      "observation surface without mutation",
+      "bounded start/stop for node with read-back",
+      "rollback and residual-unknown proof",
+      "remaining roles"
+    ]
+  },
+  "open_decisions": [
+    {
+      "id": "parent_scope",
+      "question": "Should the CYNIC supervisor spawn existing daemon roles first, or absorb their internal child supervision immediately?",
+      "status": "open",
+      "recommendation": "spawn existing daemon roles first, then absorb internal supervision after proof"
+    },
+    {
+      "id": "host_supervisor_relationship",
+      "question": "Should systemd remain the outer supervisor, or should CYNIC replace it?",
+      "status": "open",
+      "recommendation": "systemd remains the outer supervisor; CYNIC owns CYNIC-owned children and observations"
+    }
+  ],
+  "ratification": {
+    "date": "2026-10-14",
+    "status": "normative",
+    "ratified_by": "operator",
+    "why": "The operator assumed the supervisor design for the sovereign OS direction and approved a contract-first migration. This contract is the single source before any supervisor code is written, so implementation cannot invent policy that has not been declared."
+  }
+}

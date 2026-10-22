@@ -2,11 +2,30 @@ use futures_util::Sink;
 use futures_util::sink::SinkExt;
 use futures_util::stream::StreamExt;
 use http::Request;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, info, warn};
 
+use crate::adapters::workload_request_signer::apply_signature_headers;
 use crate::websocket::{NodeMessage, WebSocketClient, WsReader, WsWriter};
+use cynic_protocol::workload_signature::HEADER_PUBLIC_KEY;
+
+/// Request path of the kernel WS URL ("ws://host:port/events/ws" -> "/events/ws").
+/// The kernel verifies the workload signature over this path.
+pub(super) fn handshake_path(kernel_url: &str) -> String {
+    if let Some(scheme_end) = kernel_url.find("://") {
+        let rest = &kernel_url[scheme_end + 3..];
+        if let Some(path_start) = rest.find('/') {
+            // The kernel signs the path only (the URI path, no query and no
+            // fragment). Including the query here would make every signed
+            // request unverifiable.
+            let path = &rest[path_start..];
+            let path = path.split(['?', '#']).next().unwrap_or(path);
+            return path.to_string();
+        }
+    }
+    "/events/ws".to_string()
+}
 
 impl WebSocketClient {
     pub async fn run(&self) -> Result<(), String> {
@@ -76,12 +95,33 @@ impl WebSocketClient {
         }
     }
 
-    fn build_request(&self) -> Result<Request<()>, String> {
-        Request::builder()
+    pub(super) fn build_request(&self) -> Result<Request<()>, String> {
+        let mut builder = Request::builder()
             .uri(&self.kernel_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("X-Node-Public-Key", &self.node_public_key)
-            .header("X-Node-Identity", &self.node_identity)
+            .header("X-Node-Identity", &self.node_identity);
+        if let Some(signer) = &self.signer {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| "system clock precedes unix epoch".to_string())?
+                .as_secs()
+                .to_string();
+            let path = handshake_path(&self.kernel_url);
+            let signature = signer.sign_request(&timestamp, "GET", &path, &[])?;
+            builder = apply_signature_headers(builder, &signature);
+            // The kernel resolves the signer from X-Node-Public-Key, but its
+            // REST middleware reads X-Cynic-Public-Key and rejects the
+            // request before the WebSocket handler runs. Both layers must
+            // see the same key — the one that actually signed.
+            builder = builder
+                .header(HEADER_PUBLIC_KEY, &signature.public_key_hex)
+                .header("X-Node-Public-Key", &signature.public_key_hex);
+        } else {
+            // Unsigned handshake: the configured public key is all the
+            // kernel can use to identify the node.
+            builder = builder.header("X-Node-Public-Key", &self.node_public_key);
+        }
+        builder
             .body(())
             .map_err(|error| format!("Failed to build WebSocket request: {error}"))
     }

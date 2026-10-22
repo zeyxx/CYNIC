@@ -418,7 +418,7 @@ mod tests {
             ("runtime_publisher", "RuntimeMachineIdentity"),
             ("schema_warden", "None"),
             ("surface_inspector", "None"),
-            ("metabolic_auditor", "None"),
+            ("throughput_auditor", "None"),
         ] {
             grants.push(SecretUseGrant {
                 role: role.to_string(),

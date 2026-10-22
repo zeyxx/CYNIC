@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn roles_declaring_none_consume_nothing() {
         let policy = derive_policy_from_declaration(&real_declaration());
-        for role in ["schema_warden", "surface_inspector", "metabolic_auditor"] {
+        for role in ["schema_warden", "surface_inspector", "throughput_auditor"] {
             let grant = policy
                 .grants
                 .iter()

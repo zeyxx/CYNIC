@@ -10,8 +10,10 @@ use crate::ports::build_runner::{
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
-use cynic_types::paths::CynicPaths;
-use std::path::{Path, PathBuf};
+use cynic_protocol::build_disk_capacity::{
+    DiskCapacityDecision, decide_disk_capacity, parse_df_available_bytes,
+};
+use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
 /// Minimal argv command runner (no shell composition).
 ///
@@ -126,8 +128,6 @@ fn observe_log_path() -> Option<String> {
 pub struct SshBuildRunner {
     pub host: String,
     pub user: String,
-    /// Base dir for per-SHA checkouts, e.g. `<state>/checkouts`.
-    pub checkout_base: String,
     /// Source of truth cloned when no checkout exists for the SHA.
     pub ssot_url: String,
     /// Optional single package scope (`cargo --package`). None = workspace.
@@ -137,216 +137,62 @@ pub struct SshBuildRunner {
     /// hash (profile/flags/rustc in key), so hits are byte-identical across
     /// SHAs — proof value unchanged.
     pub sccache_dir: Option<String>,
-    /// The build cache directory on the runner, resolved from the
-    /// registry's canonical target.
+    /// Explicit override of the checkout base on the runner.
     ///
-    /// WHY A FIELD AND NOT A CONSTANT. The path used to be compiled in
-    /// (`state_dir().join("shared-target")`) while the registry declared
-    /// another one. The tooling that reclaims the cache reads the
-    /// registry, so a compiled-in path put the real cache outside the
-    /// policy that governs it: the reclaim looked for a canonical target
-    /// that did not exist and refused to act.
+    /// `None` means the runner's own layout decides, which is the normal
+    /// case: the runner reports its state root through `cynic runtime paths
+    /// --json`. An explicit override stays supported for a runner whose
+    /// checkouts live outside its state root.
+    pub checkout_base: Option<String>,
+    /// Minimum free bytes the runner must have before a checkout may be
+    /// materialized. `None` means the gate is off.
     ///
-    /// `None` means the caller resolves it from the registry at build
-    /// time. `Some` is an explicit override, resolved against the state
-    /// root.
-    pub target_dir: Option<String>,
+    /// The ENOSPC incident of 2026-09-08 and the 92 % disk of 2026-10-20
+    /// share one cause: a checkout was materialized on a disk that could not
+    /// hold it. The gate reads the runner's free space before the clone and
+    /// refuses with an explicit verdict instead.
+    pub minimum_available_bytes: Option<u64>,
     pub runner: Box<dyn CommandRunner>,
 }
 
-/// Default checkout base on runner nodes.
-pub fn default_checkout_base() -> PathBuf {
-    CynicPaths::state_dir().join("checkouts")
-}
-/// Default shared sccache dir on runner nodes (created on first use).
-pub fn default_sccache_dir() -> PathBuf {
-    CynicPaths::state_dir().join("sccache")
-}
-/// Absolute sccache binary on runners (non-interactive SSH has no cargo/bin
-/// on PATH, so the wrapper must never rely on PATH resolution).
-pub fn default_sccache_bin() -> PathBuf {
-    CynicPaths::state_dir().join("bin/sccache")
-}
+// The shared-target / sccache path helpers that used to live here are gone.
+//
+// They resolved the cache roots on the CLIENT and shipped the result to the
+// runner as a hardcoded `CARGO_TARGET_DIR`. Two consequences, both observed:
+// a second cache convention (`shared-target`, 33 GiB) that the disk observer
+// never saw, and a target dir pointing at a path the runner does not own
+// whenever the two hosts did not share a layout (compute-01).
+//
+// The cache roots are now resolved on the runner itself, through
+// `cynic runtime paths --json`. See `cynic_protocol::remote_cache_roots`.
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
-
-/// The workspace member crates, read from the root manifest.
-///
-/// The manifest is the authority for membership — a hardcoded list would
-/// drift the moment a crate is added, and a missing crate in the list
-/// means its measured stack is not reserved.
-fn workspace_members() -> Vec<String> {
-    let Ok(manifest) = std::fs::read_to_string("Cargo.toml") else {
-        return Vec::new();
-    };
-    let mut members = Vec::new();
-    let mut in_members = false;
-    for line in manifest.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("members") {
-            in_members = true;
-            continue;
-        }
-        if in_members {
-            if trimmed.starts_with(']') {
-                break;
-            }
-            if let Some(start) = trimmed.find('"') {
-                if let Some(end) = trimmed[start + 1..].find('"') {
-                    let name = &trimmed[start + 1..start + 1 + end];
-                    if let Some(crate_name) = name.strip_prefix("crates/") {
-                        members.push(crate_name.to_string());
-                    }
-                }
-            }
-        }
-    }
-    members
-}
 
 impl SshBuildRunner {
     fn ssh_target(&self) -> String {
         format!("{}@{}", self.user, self.host)
     }
 
-    fn checkout_dir(&self, sha: &str) -> String {
-        format!("{}/cynic-{}", self.checkout_base, &sha[..12.min(sha.len())])
-    }
-
-    /// The cache mode for this build, from what the host actually looks like.
+    /// Resolve the cache roots on the runner itself.
     ///
-    /// The measurement is the count of OTHER sccache clients waiting on the
-    /// shared server: a client that has been waiting for minutes is a
-    /// client the server is not answering, and joining that queue is what
-    /// produces the `WouldBlock` panic.
-    ///
-    /// The count is read through the runner, so it is the HOST's state, not
-    /// a guess. A host that cannot be asked (no `ps`, no permission) is
-    /// treated as busy: a private cache is slower but never hangs.
-    fn resolve_cache_mode(
+    /// The runner is asked for its own state root with the native CYNIC
+    /// command (`cynic runtime paths --json`), so the build writes its
+    /// artifacts where the runner's layout says they belong, and the disk
+    /// observer sees them. A runner that cannot answer yields `None` and the
+    /// build is refused: a guessed path is how two cache conventions and 33
+    /// GiB of invisible cache appeared.
+    fn resolve_runner_cache_roots(
         &self,
-        shared_dir: &str,
-        sha: &str,
-    ) -> cynic_build::build::cache_isolation::CacheMode {
-        use cynic_build::build::cache_isolation::decide_cache_mode;
-        const BUSY_CLIENT_THRESHOLD: u32 = 2;
-        let agent_id = self.agent_id(sha);
-        match self.count_waiting_sccache_clients() {
-            Some(waiting) if waiting <= BUSY_CLIENT_THRESHOLD => {
-                decide_cache_mode(&agent_id, shared_dir, false)
-            }
-            // Busy host, or a host that could not be asked: go private.
-            _ => decide_cache_mode(&agent_id, shared_dir, true),
+        target: &str,
+    ) -> Option<cynic_protocol::remote_cache_roots::RemoteCacheRoots> {
+        let paths = self
+            .runner
+            .run(&["ssh", target, "cynic", "runtime", "paths", "--json"]);
+        if !paths.success() {
+            return None;
         }
-    }
-
-    /// The identity of this agent on the host, for a private cache path.
-    ///
-    /// The identity is the CHECKOUT this build works in, not the checkout
-    /// base: the base is the same for every agent on the host
-    /// (`.../checkouts`), so deriving the identity from it would give
-    /// every agent the same private cache and isolate nobody. The checkout
-    /// carries the commit (`cynic-<sha12>`), and two agents on two
-    /// branches have two checkouts.
-    ///
-    /// The SHA is not a perfect identity — two agents can work on the
-    /// same commit — but it is the identity the build actually has, and
-    /// the failure it prevents (two agents sharing one server) is worse
-    /// than the failure it leaves (two agents on one commit sharing one
-    /// private cache, which is only a cache miss).
-    fn agent_id(&self, sha: &str) -> String {
-        let short = &sha[..12.min(sha.len())];
-        let sanitized: String = short
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        if sanitized.is_empty() {
-            "default".to_string()
-        } else {
-            sanitized
-        }
-    }
-
-    /// How many sccache clients are waiting on the shared server.
-    ///
-    /// `None` when the host cannot be asked. The question is asked of the
-    /// host, over the same transport the build uses.
-    fn count_waiting_sccache_clients(&self) -> Option<u32> {
-        let argv: Vec<String> = vec![
-            "ssh".to_string(),
-            self.ssh_target(),
-            "pgrep".to_string(),
-            "-c".to_string(),
-            "-f".to_string(),
-            "sccache.*rustc".to_string(),
-        ];
-        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
-        let out = self.runner.run(&refs);
-        let count: u32 = out.stdout.trim().parse().ok()?;
-        Some(count)
-    }
-
-    /// The build cache directory on the runner.
-    ///
-    /// An explicit override wins. Otherwise the path is the registry's
-    /// declared canonical target, resolved against the state root.
-    ///
-    /// A registry that cannot answer is NOT a fallback to a compiled-in
-    /// path: it is a refusal. The whole point of resolving the path from
-    /// the registry is that the runner and the reclaim policy name the
-    /// SAME directory. A fallback would restore the divergence silently,
-    /// and the divergence is invisible until the disk fills.
-    fn resolve_target_dir(&self) -> Result<PathBuf, BuildError> {
-        if let Some(explicit) = self.target_dir.as_deref() {
-            let explicit = explicit.trim();
-            if !explicit.is_empty() {
-                return Ok(PathBuf::from(explicit));
-            }
-        }
-        match cynic_host::registry::resolve::resolve_canonical_target_relative_path(None) {
-            Ok(relative) => Ok(CynicPaths::state_dir().join(relative)),
-            Err(reason) => {
-                // The build cannot proceed against an undeclared cache:
-                // it would write to a directory the policy does not
-                // govern, and reclaim would never see it.
-                Err(BuildError::ConfigurationRefused(format!(
-                    "build cache path unresolvable from the registry: {reason}. \
-                     Declare build_lifecycle.canonical_target_relative_path for the \
-                     build_runner node, or pass an explicit target dir."
-                )))
-            }
-        }
-    }
-
-    /// The stack this build reserves, read from the toolchain registry.
-    ///
-    /// A package scope touches that package; a workspace build touches every
-    /// member, so it reserves the workspace maximum. The registry is the
-    /// authority: it records, per crate, the stack that crate's harness was
-    /// MEASURED to need. A registry that cannot be read falls back to the
-    /// 8 GiB the runner always used — the conservative direction, because
-    /// under-reserving is what causes a SIGSEGV in the middle of a build.
-    fn resolve_min_stack(&self, action: &str) -> u64 {
-        let registry_path = Path::new("infra/rust-toolchain.json");
-        let Ok(raw) = std::fs::read_to_string(registry_path) else {
-            return 8_589_934_592;
-        };
-        let Ok(registry) = cynic_build::build::stack_budget::ToolchainRegistry::parse(&raw) else {
-            return 8_589_934_592;
-        };
-        let crates = match self.package.as_deref() {
-            Some(package) => vec![package.to_string()],
-            None => workspace_members(),
-        };
-        let decided = cynic_build::build::stack_budget::decide_min_stack(&registry, &crates);
-        // A check build does not monomorphise like a test build: the 8 GiB
-        // was measured for the TEST harness. A check keeps the smaller
-        // reservation, which is what made checks cheap and reliable.
-        if action == "cargo:check" {
-            decided.min(1_073_741_824)
-        } else {
-            decided
-        }
+        let state_root = parse_state_root(&paths.stdout)?;
+        Some(remote_cache_roots(&state_root))
     }
 
     fn action_for_phase(phase: BuildPhase) -> Result<&'static str, BuildError> {
@@ -358,10 +204,6 @@ impl SshBuildRunner {
             BuildPhase::Activate => Err(BuildError::ConfigurationRefused(
                 "remote activate not supported by trigger phase 1".to_string(),
             )),
-            // The test proof runs on the runner, not on the operator host:
-            // the workstation is not a test machine and the builder is the
-            // build-and-test SSOT.
-            BuildPhase::Test => Ok("cargo:test"),
         }
     }
 
@@ -410,7 +252,6 @@ impl BuildRunnerPort for SshBuildRunner {
         trigger.validate()?;
         let action = Self::action_for_phase(trigger.phase)?;
         let sha = trigger.source_commit.clone();
-        let dir = self.checkout_dir(&sha);
         let target = self.ssh_target();
         let scope = self
             .package
@@ -438,6 +279,74 @@ impl BuildRunnerPort for SshBuildRunner {
                 None,
             ))
         };
+
+        // The paths below belong to the runner, not to this client. The
+        // runner reports its own layout; the client never assumes one.
+        let roots = match self.resolve_runner_cache_roots(&target) {
+            Some(roots) => roots,
+            None => {
+                return blocked(
+                    Some("runner_cache_roots".to_string()),
+                    "runner paths unresolvable: the runner did not report its state root"
+                        .to_string(),
+                );
+            }
+        };
+        let checkout_base = self
+            .checkout_base
+            .clone()
+            .unwrap_or_else(|| roots.checkout_base.clone());
+        let dir = format!("{}/cynic-{}", checkout_base, &sha[..12.min(sha.len())]);
+
+        // Step 0: the runner's disk must be able to hold the checkout.
+        //
+        // This is the pre-trigger gate. Materializing a checkout on a disk
+        // that cannot hold it produces an ENOSPC failure mid-fetch, which
+        // reads to the operator like a broken toolchain and is not one. The
+        // gate reads the runner's free space first and refuses with an
+        // explicit verdict when the disk cannot hold the build.
+        //
+        // The gate is fail-closed: an unobservable disk is not a free disk.
+        if let Some(minimum) = self.minimum_available_bytes {
+            let df = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "df",
+                "-k",
+                "--output=avail",
+                checkout_base.as_str(),
+            ]);
+            if let Some(e) = &df.spawn_error {
+                return Err(BuildError::RunnerUnreachable(e.clone()));
+            }
+            let available = if df.success() {
+                parse_df_available_bytes(&df.stdout, &checkout_base)
+            } else {
+                None
+            };
+            let assessment = decide_disk_capacity(available, minimum);
+            match assessment.decision {
+                DiskCapacityDecision::Proceed => {}
+                DiskCapacityDecision::Refused {
+                    available_bytes,
+                    minimum_bytes,
+                } => {
+                    return blocked(
+                        Some("runner_disk_capacity".to_string()),
+                        format!(
+                            "runner disk below minimum: {available_bytes} bytes available, \
+                             {minimum_bytes} required"
+                        ),
+                    );
+                }
+                DiskCapacityDecision::Unknown { reason } => {
+                    return blocked(
+                        Some("runner_disk_capacity".to_string()),
+                        format!("runner disk capacity unobserved: {reason}"),
+                    );
+                }
+            }
+        }
 
         // Step 1: ensure a checkout exists for the SHA.
         let probe = self.runner.run(&[
@@ -535,112 +444,29 @@ impl BuildRunnerPort for SshBuildRunner {
         if trigger.network_mode == NetworkMode::Offline {
             cargo.push("--offline".to_string());
         }
-        // The test phase compiles every crate's test harness, so a single
-        // broken initializer anywhere in the workspace stops the whole run
-        // at the first error. `cargo test` compiles and runs in one pass, so
-        // the debt is found one crate per round trip. `cargo check --tests
-        // --keep-going` compiles every harness and reports every broken
-        // crate at once, so the operator sees the whole list in one proof.
+        // The cache roots belong to the runner, not to this client.
         //
-        // A test proof that finds one debt per round trip is a test proof
-        // that takes a day to converge.
-        let is_test_phase = action == "cargo:test";
-        if is_test_phase {
-            cargo.push("--no-fail-fast".to_string());
-        }
-        // The stack reservation is PER CRATE, not per workspace.
-        //
-        // The runner used to reserve 8 GiB for every rustc thread of the
-        // whole workspace, while `infra/rust-toolchain.json` records a
-        // `min_stack` for only 6 of the 48 crates. On 2026-10-19 that
-        // produced a commit of 366 Go against a 16.5 Go quota (22x over),
-        // and the kernel refused a compiler thread with `WouldBlock` — a
-        // failure that looks like a flake and is not one.
-        //
-        // The reservation is now the MAXIMUM over the crates the build
-        // actually touches, read from the registry. A workspace build still
-        // reserves 8 GiB (it touches cynic-node), but a scoped build of
-        // small crates reserves only what they need.
-        let min_stack = self.resolve_min_stack(action);
-        // The build cache path comes from the registry, not from a
-        // literal compiled into the runner. The reclaim tooling reads the
-        // registry to know what to reclaim, so a compiled-in path put the
-        // real cache outside the policy that governs it.
-        let target_dir = self.resolve_target_dir()?;
+        // Resolving them here sent the client's own state root to a host
+        // that may not share it: on compute-01 the real cache lives under
+        // /home/titouan/.local/share/cynic, while the client would have sent
+        // /var/lib/cynic/shared-target. Two conventions then coexisted, and
+        // 33 GiB of cache was invisible to the disk observer.
         let mut argv: Vec<String> = vec![
             "ssh".to_string(),
             target,
             "env".to_string(),
-            format!("RUST_MIN_STACK={min_stack}"),
+            "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!("CARGO_TARGET_DIR={}", target_dir.display()),
+            format!("CARGO_TARGET_DIR={}", roots.target_dir),
         ];
-        if let Some(dir) = self.sccache_dir.as_deref() {
-            // The sccache SERVER is unique to the whole machine: agents that
-            // set a different SCCACHE_DIR still connect to the same server
-            // process. Under load that server loses threads, its clients
-            // pile up unanswered, and `cargo` reads the silence as a failed
-            // fork — the `WouldBlock` panic.
-            //
-            // So the isolation is per agent when the host is busy, and
-            // shared when it is quiet. The decision is the host's, not the
-            // build's.
-            let cache_mode = self.resolve_cache_mode(dir, &sha);
-            argv.extend(
-                cynic_build::build::cache_isolation::cache_env(
-                    &cache_mode,
-                    &default_sccache_bin().display().to_string(),
-                )
-                .into_iter()
-                .map(|(key, value)| format!("{key}={value}")),
-            );
+        if self.sccache_dir.is_some() {
+            argv.push(format!("RUSTC_WRAPPER={}", roots.sccache_bin));
+            argv.push(format!("SCCACHE_DIR={}", roots.sccache_dir));
         }
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
         let cpu_before = sample_builder_cpu(&self.runner, refs[1]);
-        // The test phase compiles the harnesses first, with `--keep-going`,
-        // so every broken crate is reported in one pass instead of one per
-        // round trip. A failing compile here IS the verdict: the tests could
-        // not even be built, so running them would prove nothing.
-        if is_test_phase {
-            let mut harness_argv = argv.clone();
-            // Replace `test` with `check --tests` in the cargo argv tail.
-            // `--no-fail-fast` belongs to `cargo test` only; `cargo check`
-            // rejects it, so the harness compile drops it.
-            if let Some(position) = harness_argv.iter().position(|word| word == "test") {
-                harness_argv[position] = "check".to_string();
-                harness_argv.retain(|word| word != "--no-fail-fast");
-                harness_argv.push("--tests".to_string());
-                harness_argv.push("--keep-going".to_string());
-            }
-            let harness_refs: Vec<&str> = harness_argv.iter().map(String::as_str).collect();
-            let harness_out = self.runner.run(&harness_refs);
-            if let Some(e) = &harness_out.spawn_error {
-                return Err(BuildError::RunnerUnreachable(e.clone()));
-            }
-            if !harness_out.success() {
-                let duration_ms = started.elapsed().as_millis() as u64;
-                let cpu_ms = match (cpu_before, sample_builder_cpu(&self.runner, refs[1])) {
-                    (Some(before), Some(after)) => cpu_ms_between(before, after),
-                    _ => None,
-                };
-                return Ok(self.proof(
-                    &sha,
-                    action,
-                    &scope,
-                    BuildVerdict::Blocked {
-                        broken_layer: Some(scope.clone()),
-                        reason: format!(
-                            "test harness compilation failed: {}",
-                            build_evidence(&harness_out.stderr)
-                        ),
-                    },
-                    duration_ms,
-                    cpu_ms,
-                ));
-            }
-        }
         let out = self.runner.run(&refs);
         let duration_ms = started.elapsed().as_millis() as u64;
         if let Some(e) = &out.spawn_error {
@@ -654,24 +480,13 @@ impl BuildRunnerPort for SshBuildRunner {
             // The build ran and failed. That is a verdict, not an error: it
             // carries the layer that broke, the wall time it burned, and the
             // compiler output that says why.
-            //
-            // A test run puts the DETAIL on stdout, not stderr: the failing
-            // assertion, the diff, the panic message. Reading only stderr
-            // gives "test failed, to rerun pass `-p X`" and nothing else, so
-            // the operator knows a test broke but not which or why. The
-            // evidence therefore carries both streams for a test action.
-            let evidence = if is_test_phase {
-                test_evidence(&out.stdout, &out.stderr)
-            } else {
-                build_evidence(&out.stderr)
-            };
             return Ok(self.proof(
                 &sha,
                 action,
                 &scope,
                 BuildVerdict::Blocked {
                     broken_layer: Some(scope.clone()),
-                    reason: format!("remote build failed: {evidence}"),
+                    reason: format!("remote build failed: {}", build_evidence(&out.stderr)),
                 },
                 duration_ms,
                 cpu_ms,
@@ -701,16 +516,17 @@ impl BuildRunnerPort for SshBuildRunner {
         } else {
             "unknown".to_string()
         };
-        let warm = self
-            .runner
-            .run(&[
-                "ssh",
-                target.as_str(),
-                "test",
-                "-d",
-                self.checkout_base.as_str(),
-            ])
-            .success();
+        // The cache root is the runner's own; ask the runner for it rather
+        // than testing a path this client assumed.
+        let warm = match self.resolve_runner_cache_roots(&target) {
+            Some(roots) => {
+                let base = self.checkout_base.clone().unwrap_or(roots.checkout_base);
+                self.runner
+                    .run(&["ssh", target.as_str(), "test", "-d", base.as_str()])
+                    .success()
+            }
+            None => false,
+        };
         let version = self
             .runner
             .run(&["ssh", target.as_str(), "cynic", "version", "--json"]);
@@ -856,140 +672,6 @@ fn build_evidence(stderr: &str) -> String {
     trimmed[cut..].trim().to_string()
 }
 
-/// The actionable part of a failed TEST run.
-///
-/// WHY A SEPARATE EVIDENCE. `build_evidence` keeps the first error block,
-/// which is right for a compilation: one broken crate, one error. A test run
-/// is different — `--no-fail-fast` reports MANY failing targets, each with
-/// its own assertion, and the first block says nothing about the others. The
-/// operator needs the whole list: which test broke, and why.
-///
-/// THE TWO STREAMS ARE NOT INTERLEAVABLE. Cargo writes the test NAMES and
-/// the `---- <name> stdout ----` headers on stdout, and the PANIC MESSAGES
-/// on stderr. Concatenating them (`stdout.lines().chain(stderr.lines())`)
-/// puts every panic BEFORE every header, so a parser that expects a
-/// header followed by its panic finds nothing: the header comes after its
-/// own assertion, and the evidence ends up as a list of "Running
-/// tests/..." lines with no reason attached.
-///
-/// So the streams are read SEPARATELY: stdout gives the failing test
-/// names, stderr gives the assertions, and the two are joined by name.
-/// A failing test that has no matching panic in stderr keeps its name, so
-/// the evidence still says WHAT failed even when the reason is elsewhere.
-///
-/// The evidence keeps every failing target and its assertion, bounded by
-/// a larger limit because a test run's detail is the deliverable.
-fn test_evidence(stdout: &str, stderr: &str) -> String {
-    const LIMIT: usize = 8192;
-    let mut out = String::new();
-
-    // The failing test names, from stdout: `test <name> ... FAILED` and the
-    // `---- <name> stdout ----` headers.
-    let mut failed_names: Vec<String> = Vec::new();
-    for line in stdout.lines() {
-        let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("---- ") {
-            let name = rest
-                .strip_suffix(" stdout ----")
-                .or_else(|| rest.strip_suffix(" output ----"))
-                .unwrap_or(rest);
-            if !name.is_empty() && !failed_names.iter().any(|n| n == name) {
-                failed_names.push(name.to_string());
-            }
-            continue;
-        }
-        if let Some(rest) = trimmed.strip_prefix("test ") {
-            if rest.ends_with(" ... FAILED") {
-                let name = rest.trim_end_matches(" ... FAILED").trim();
-                if !name.is_empty() && !failed_names.iter().any(|n| n == name) {
-                    failed_names.push(name.to_string());
-                }
-            }
-        }
-    }
-
-    // The assertions, from BOTH streams.
-    //
-    // libtest prints the panic on the stream it was given, and which one
-    // that is depends on how the test binary is wired: a test run shows
-    // the panic on stdout (`---- <name> stdout ----` followed by the
-    // panic), while a cargo-level failure shows it on stderr. So both
-    // streams are scanned for panics, and the stdout is scanned for the
-    // `---- <name> stdout ----` headers that name the failing test.
-    let mut assertions: Vec<String> = Vec::new();
-    let mut current: Vec<&str> = Vec::new();
-    for line in stdout.lines().chain(stderr.lines()) {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("thread '") && trimmed.contains("panicked at") {
-            if !current.is_empty() {
-                assertions.push(current.join("\n"));
-                current.clear();
-            }
-            current.push(line);
-            continue;
-        }
-        if !current.is_empty() {
-            // The panic continues with the assertion and the values. A
-            // blank line ends the block; a `note:` line belongs to it.
-            if trimmed.is_empty() {
-                assertions.push(current.join("\n"));
-                current.clear();
-                continue;
-            }
-            current.push(line);
-        }
-    }
-    if !current.is_empty() {
-        assertions.push(current.join("\n"));
-    }
-
-    if failed_names.is_empty() && assertions.is_empty() {
-        // No structured failure: the tail is the best available evidence.
-        let combined = format!("{stdout}\n{stderr}");
-        let trimmed = combined.trim();
-        let cut = trimmed.len().saturating_sub(LIMIT);
-        let cut = (cut..trimmed.len())
-            .find(|i| trimmed.is_char_boundary(*i))
-            .unwrap_or(trimmed.len());
-        let tail = trimmed[cut..].trim().to_string();
-        if tail.is_empty() {
-            // Nothing readable anywhere. The evidence still has to say
-            // something: an empty reason reaches the operator as
-            // "remote build failed: " with nothing after it.
-            return "the test run produced no readable output".to_string();
-        }
-        return tail;
-    }
-
-    for name in &failed_names {
-        if !out.is_empty() {
-            out.push('\n');
-        }
-        out.push_str("FAILED ");
-        out.push_str(name);
-        if out.len() > LIMIT {
-            break;
-        }
-    }
-    for assertion in &assertions {
-        if !out.is_empty() {
-            out.push('\n');
-        }
-        out.push_str(assertion);
-        if out.len() > LIMIT {
-            break;
-        }
-    }
-    if out.is_empty() {
-        // The run produced nothing readable. The evidence must still say
-        // something: an empty string would reach the operator as
-        // "remote build failed: " with nothing after it, which is a
-        // mystery rather than a verdict.
-        out.push_str("the test run produced no readable output");
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1010,6 +692,9 @@ mod tests {
     struct FakeRunner {
         script: Arc<Mutex<Script>>,
     }
+
+    /// The state root the fake runner reports for its own layout.
+    const FAKE_STATE_ROOT: &str = "/var/lib/cynic";
 
     impl FakeRunner {
         fn with(responses: Vec<CommandOutput>) -> Self {
@@ -1032,6 +717,19 @@ mod tests {
             script
                 .log
                 .push(argv.iter().map(|arg| (*arg).to_string()).collect());
+            // The runner's own layout is answered by argv, not by position:
+            // it is read at a different point in the sequence than the
+            // scripted responses assume.
+            let args: Vec<&str> = argv.to_vec();
+            if args.iter().any(|arg| *arg == "paths") && args.iter().any(|arg| *arg == "--json") {
+                return CommandOutput {
+                    exit_code: Some(0),
+                    stdout: format!(
+                        "{{\"schema\":\"cynic.runtime_paths.v1\",\"state_root\":\"{FAKE_STATE_ROOT}\"}}"
+                    ),
+                    ..Default::default()
+                };
+            }
             script.responses.pop_front().unwrap_or_default()
         }
     }
@@ -1057,14 +755,11 @@ mod tests {
         let runner = SshBuildRunner {
             host: "runner-1".into(),
             user: "cynic".into(),
-            checkout_base: "/var/lib/cynic/checkouts".into(),
             ssot_url: "ssh://example/CYNIC.git".into(),
             package: Some("cynic-host".into()),
             sccache_dir: None,
-            // The build cache path is resolved from the registry at build
-            // time. The fake runner never reaches the network, so the
-            // tests that assert on the argv pass an explicit path.
-            target_dir: Some("/var/lib/cynic/shared-target".into()),
+            checkout_base: None,
+            minimum_available_bytes: None,
             runner: Box::new(fake),
         };
         (runner, handle)
@@ -1076,6 +771,141 @@ mod tests {
             phase: BuildPhase::Check,
             network_mode: NetworkMode::Offline,
         }
+    }
+
+    /// The df read-back the pre-trigger gate consumes.
+    fn df_with_available_kb(available_kb: u64) -> String {
+        format!(
+            "Filesystem     1K-blocks     Used Available Use% Mounted on\n\
+             /dev/sda1      100000000  50000000  {available_kb}  50% /var/lib/cynic\n"
+        )
+    }
+
+    #[test]
+    fn a_runner_below_the_disk_minimum_is_refused_before_any_clone() {
+        let commit = "b".repeat(40);
+        // The gate is armed at 4 GiB; the runner reports 1 GiB free.
+        let fake = FakeRunner::with(vec![ok(&df_with_available_kb(1024 * 1024))]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("the gate refuses with a verdict, not an error");
+
+        assert_eq!(
+            proof.status,
+            PipelineStatus::Blocked,
+            "a full disk must block, not converge: {:?}",
+            proof.verdict_reason
+        );
+        assert!(
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("runner disk below minimum"),
+            "the reason must name the disk: {:?}",
+            proof.verdict_reason
+        );
+        let logged = handle.argv_log();
+        let cloned = logged
+            .iter()
+            .any(|argv| argv.iter().any(|arg| arg == "clone"));
+        assert!(
+            !cloned,
+            "the checkout must never be materialized on a disk that cannot hold it: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn an_unobservable_disk_blocks_instead_of_proceeding() {
+        let commit = "c".repeat(40);
+        // df fails: the disk state is unknown. Unknown is not free.
+        let fake = FakeRunner::with(vec![fail("df: cannot read table")]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("the gate refuses with a verdict, not an error");
+
+        assert_eq!(
+            proof.status,
+            PipelineStatus::Blocked,
+            "an unknown disk must block: {:?}",
+            proof.verdict_reason
+        );
+        assert!(
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("unobserved"),
+            "the reason must name the unknown: {:?}",
+            proof.verdict_reason
+        );
+        let logged = handle.argv_log();
+        assert!(
+            !logged
+                .iter()
+                .any(|argv| argv.iter().any(|arg| arg == "clone")),
+            "no clone on an unobserved disk: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn a_runner_with_room_proceeds_to_the_checkout() {
+        let commit = "d".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(&df_with_available_kb(64 * 1024 * 1024)),
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds when the disk has room");
+
+        let logged = handle.argv_log();
+        assert!(
+            logged.iter().any(|argv| argv.iter().any(|arg| arg == "df")),
+            "the gate must read the disk: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn the_gate_is_off_when_no_threshold_is_declared() {
+        let commit = "e".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+
+        let logged = handle.argv_log();
+        assert!(
+            !logged.iter().any(|argv| argv.iter().any(|arg| arg == "df")),
+            "an undeclared threshold must not invent a gate: {logged:?}"
+        );
     }
 
     #[test]
@@ -1134,7 +964,7 @@ mod tests {
         // Busy jiffies 250-150 = 100 at 100 Hz = 1000 ms of builder CPU.
         assert_eq!(proof.cpu_ms, Some(1000));
         let log = handle.argv_log();
-        assert_eq!(log.len(), 8);
+        assert_eq!(log.len(), 9);
         assert!(log.iter().all(|argv| argv[0] == "ssh"));
         assert!(
             log.iter()
@@ -1146,7 +976,19 @@ mod tests {
             .expect("cargo argv logged")
             .join(" ");
         assert!(cargo.contains("cargo check"));
-        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
+        // The target dir comes from the RUNNER's own layout, read back
+        // through `cynic runtime paths --json`. The old assertion pinned
+        // the client's convention (`shared-target`), which is the bug:
+        // it wrote to a path the runner may not own and that the disk
+        // observer never saw.
+        assert!(
+            cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/build-targets/fgate"),
+            "the cargo target dir must be the runner's own: {cargo}"
+        );
+        assert!(
+            !cargo.contains("shared-target"),
+            "the orphaned second cache convention must be gone: {cargo}"
+        );
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
@@ -1172,10 +1014,16 @@ mod tests {
             .expect("trigger succeeds");
         assert_eq!(proof.status, PipelineStatus::Converged);
         let log = handle.argv_log();
-        assert_eq!(log.len(), 9);
-        assert!(log[1].contains(&"git".to_string()));
-        assert!(log[1].contains(&"clone".to_string()));
-        assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
+        assert_eq!(log.len(), 10);
+        // log[0] is the runner path probe (`cynic runtime paths --json`);
+        // the clone follows it.
+        assert!(
+            log[0].iter().any(|arg| arg == "paths"),
+            "the runner layout is read first: {log:?}"
+        );
+        assert!(log[2].contains(&"git".to_string()));
+        assert!(log[2].contains(&"clone".to_string()));
+        assert!(log[2].contains(&"ssh://example/CYNIC.git".to_string()));
     }
 
     #[test]
@@ -1196,7 +1044,7 @@ mod tests {
             .trigger(&check_trigger(&commit))
             .expect("matching read-back is authoritative");
         assert_eq!(proof.status, PipelineStatus::Converged);
-        assert_eq!(handle.argv_log().len(), 8);
+        assert_eq!(handle.argv_log().len(), 9);
     }
 
     #[test]
@@ -1379,116 +1227,6 @@ mod tests {
             "the git fatal survives: {evidence}"
         );
         assert!(evidence.len() <= 2048, "bounded: {}", evidence.len());
-    }
-
-    #[test]
-    fn test_evidence_keeps_every_failing_target() {
-        // A test run reports MANY failures. The first block alone says nothing
-        // about the others, so the evidence must carry them all.
-        let stdout = "running 3 tests\n\
-test a ... ok\n\
-test b ... FAILED\n\
-\n\
-failures:\n\
-\n\
----- b stdout ----\n\
-thread 'b' panicked at src/lib.rs:10:9:\n\
-assertion `left == right` failed\n\
-  left: 1\n\
- right: 2\n\
-\n\
-     Running tests/second.rs\n\
-test c ... FAILED\n\
-\n\
-failures:\n\
-\n\
----- c stdout ----\n\
-thread 'c' panicked at src/other.rs:3:5:\n\
-assertion failed: c is broken\n\
-\n\
-test result: FAILED. 1 passed; 2 failed\n";
-        let evidence = test_evidence(stdout, "");
-        assert!(
-            evidence.contains("FAILED b"),
-            "the first failure survives: {evidence}"
-        );
-        assert!(
-            evidence.contains("FAILED c"),
-            "the second failure survives too: {evidence}"
-        );
-        assert!(
-            evidence.contains("c is broken"),
-            "the assertion text survives: {evidence}"
-        );
-        assert!(evidence.len() <= 8192, "bounded: {}", evidence.len());
-    }
-
-    #[test]
-    fn test_evidence_reads_the_panic_where_libtest_prints_it() {
-        // The REAL shape of a failing test, measured on the builder: the
-        // test names AND the panic are on stdout, and stderr only carries
-        // the cargo-level summary. A parser that expects the panic on
-        // stderr finds nothing, and the proof degenerates into a list of
-        // "Running tests/..." lines with no reason attached.
-        let stdout = "running 7 tests\n\
-        test each_declared_path_detector_fires_on_a_tree_that_owes_one ... ok\n\
-        test the_live_workspace_carries_no_undeclared_path_divergence ... FAILED\n\
-        \n\
-        failures:\n\
-        \n\
-        ---- the_live_workspace_carries_no_undeclared_path_divergence stdout ----\n\
-        \n\
-        thread 'the_live_workspace_carries_no_undeclared_path_divergence' (770636) panicked at crates/cynic-audit-engine/tests/path_reference_audit.rs:506:9:\n\
-        a path divergence the gate has never seen\n\
-        note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\
-        \n\
-        test result: FAILED. 6 passed; 1 failed\n";
-        let stderr = "error: test failed, to rerun pass `-p cynic-audit-engine --test path_reference_audit`\n";
-        let evidence = test_evidence(stdout, stderr);
-        assert!(
-            evidence.contains(
-                "the_live_workspace_carries_no_undeclared_path_divergence"
-            ),
-            "the failing test is named: {evidence}"
-        );
-        assert!(
-            evidence.contains("a path divergence the gate has never seen"),
-            "the assertion text survives: {evidence}"
-        );
-    }
-
-    #[test]
-    fn test_evidence_keeps_a_failure_whose_reason_is_only_on_stderr() {
-        // The inverse shape: cargo-level failures print the reason on
-        // stderr. Both streams are scanned, so the reason is found
-        // wherever it is.
-        let stdout = "error: test failed, to rerun pass `-p cynic-build --test workload_build_integration`\n";
-        let stderr = "thread 'accepted_delivery_requires_content_addressed_durable_read_back' panicked at crates/cynic-build/tests/workload_build_integration.rs:288:10:\ncalled `Result::unwrap()` on an `Err` value: [\"build_agent_request_action_not_allowed\"]\n";
-        let evidence = test_evidence(stdout, stderr);
-        assert!(
-            evidence.contains("build_agent_request_action_not_allowed"),
-            "the reason survives: {evidence}"
-        );
-    }
-
-    #[test]
-    fn test_evidence_falls_back_to_the_tail_without_failures() {
-        // No structured failure (a linker abort, a panic before the harness
-        // printed its report): the tail is the only evidence.
-        let stdout = "some noise\n".repeat(200);
-        let stderr = "fatal: aborting the test binary\n";
-        let evidence = test_evidence(&stdout, stderr);
-        assert!(
-            evidence.contains("aborting the test binary"),
-            "the fatal survives: {evidence}"
-        );
-    }
-
-    #[test]
-    fn test_evidence_survives_an_empty_run() {
-        // A run that produced nothing must still say something, not crash.
-        let evidence = test_evidence("", "");
-        assert!(!evidence.is_empty(), "the evidence is never empty");
     }
 
     #[test]

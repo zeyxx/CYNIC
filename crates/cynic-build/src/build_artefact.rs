@@ -25,7 +25,21 @@ pub struct CheckoutEntry {
     pub owner_uid: u32,
     pub owner_gid: u32,
     pub is_orphan: bool,
+    /// True when removing this tree needs privilege.
+    ///
+    /// It is NOT enough for the tree ROOT to be root-owned: a root owned
+    /// by this account can still contain entries owned by root or by a
+    /// foreign uid, and `rm` fails on the first of them. Measured: two
+    /// checkouts whose root was `cynic:cynic` held 9580 and 21
+    /// foreign-owned entries, were planned as not needing privilege, and
+    /// then failed to delete. The flag therefore covers the CONTENT.
     pub is_root_owned: bool,
+    /// True when the tree contains entries this account does not own.
+    ///
+    /// The observation carries it so the plan can mark the item as
+    /// privilege-requiring before the delete is attempted, instead of
+    /// discovering it as a partial failure.
+    pub contains_foreign_owned: bool,
     pub remote_exists: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

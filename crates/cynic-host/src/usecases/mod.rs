@@ -17,6 +17,7 @@ pub use command_context::HostCommandContext;
 pub(crate) use execution::execute_service_apply_with_admission;
 pub use execution::{
     execute_admitted_service_apply, execute_host_apply, execute_runtime_service_reconcile,
+    execute_runtime_service_reconcile_with_policy,
     service_apply_satisfied_preconditions,
 };
 pub use planning::{

@@ -19,7 +19,11 @@ pub(crate) use pool::BuildPoolCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
-use pool::{evaluate_local_node, local_node_id, render_eligibility};
+use pool::{
+    evaluate_label, evaluate_local_node, evaluate_runner_memory, local_node_id,
+    measure_pool_from_forgejo, render_memory,
+    render_eligibility,
+};
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
     list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
@@ -30,6 +34,7 @@ use crate::workload_observation::{execute_list_workloads, execute_observe_worklo
 use archive::{archive_terminal_workloads, ArchiveReport};
 use artifact::{publish_artifact, pull_artifact, release_artifact};
 use forgejo::{execute_runner_token, execute_runs};
+use cynic_protocol::build_memory_capacity::MemoryCapacityDecision;
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -524,12 +529,21 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         BuildCommand::Pool { command } => match command {
             BuildPoolCommand::Eligibility {
                 node,
+                label,
                 observed_labels,
                 registry,
                 json,
             } => {
-                let node_id = node.unwrap_or_else(|| local_node_id());
-                match evaluate_local_node(&registry, &node_id, &observed_labels) {
+                // A runner knows the label it serves, not its registry id.
+                let outcome = match (&label, &node) {
+                    (Some(label), _) => evaluate_label(&registry, label, &observed_labels),
+                    (None, Some(node)) => evaluate_local_node(&registry, node, &observed_labels),
+                    (None, None) => {
+                        let node_id = local_node_id();
+                        evaluate_local_node(&registry, &node_id, &observed_labels)
+                    }
+                };
+                match outcome {
                     Ok(report) => {
                         if json {
                             println!(
@@ -544,6 +558,32 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                     }
                     Err(error) => Err(error),
                 }
+            }
+            BuildPoolCommand::Memory { json } => {
+                let assessment = evaluate_runner_memory();
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&assessment)
+                            .map_err(|error| error.to_string())?
+                    );
+                } else {
+                    render_memory(&assessment);
+                }
+                // A refused or unknown budget is a FAILURE, not a warning:
+                // the caller must not start a build it cannot hold.
+                match assessment.decision {
+                    MemoryCapacityDecision::Proceed { .. } => Ok(()),
+                    _ => Err("runner memory capacity is not sufficient for a build".to_string()),
+                }
+            }
+            BuildPoolCommand::Metrics {
+                label,
+                limit,
+                registry,
+                json,
+            } => {
+                measure_pool_from_forgejo(std::path::Path::new("."), &registry, &label, limit, json)
             }
         },
         BuildCommand::Proofs { command } => match command {

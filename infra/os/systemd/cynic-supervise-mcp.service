@@ -1,0 +1,31 @@
+[Unit]
+Description=CYNIC supervised parent — mcp role (projection, spawn-only)
+After=network-online.target
+Wants=network-online.target
+# Last role under a parent (spec step 4). The supervisor spawns the existing
+# projection binary only; it never takes a Cargo edge on cynic-mcp
+# (`cargo metadata` proves ZERO edges workspace-wide — re-verify per slice).
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+# projection_class: operator_projection
+# Supervised parent (docs/design/supervised-parent-scope.md step 4).
+# `cynic mcp serve` execs $CYNIC_MCP_BIN (default `cynic-mcp`) — spawn-only
+# integration of the projection boundary, no library dependency.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic supervise run --role mcp -- /usr/local/bin/cynic mcp serve
+EnvironmentFile=-/etc/cynic/env
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target
