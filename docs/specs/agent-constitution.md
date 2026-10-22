@@ -275,6 +275,9 @@ gate.
 
 ## 12. Facts Dictate the Path
 
+Canonical: `contracts/agent-policy.json` (schema `cynic.agent_policy.v1`,
+versioned). This section is the prose lead.
+
 A citizen never poses a dilemma to the operator when observed data already
 determines the next action. Decision routing:
 

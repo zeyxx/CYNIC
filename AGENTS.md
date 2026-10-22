@@ -20,11 +20,12 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 ## Policy Chain
 
 - Applied entry: this file. Every agent reads it.
-- Citizen law: `docs/specs/agent-constitution.md` (scopes, budgets, admission, proof, non-amplification).
+- Citizen law: `contracts/agent-policy.json` (`cynic.agent_policy.v1`, versioned).
+  Prose lead: `docs/specs/agent-constitution.md` §12.
 - Role capabilities: `infra/agent-roles.json` (machine-read; enforced by Rust where loaded).
 - One statement, one home. Pointers, never copies.
 
-- **Facts dictate**: never ask the operator what data already decides; act, report the fact-to-action chain. Full routing: constitution §12.
+- **Facts dictate**: never ask the operator what data already decides; act, report the fact-to-action chain. Canonical: `contracts/agent-policy.json`. Full routing: constitution §12.
 
 ## Invariants
 
