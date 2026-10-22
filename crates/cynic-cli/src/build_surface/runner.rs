@@ -12,6 +12,37 @@ pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
     cynic_build::resolve_builder_url_with_health()
 }
 
+/// Median duration over the last 20 converged proofs for (node, action)
+/// in a proof-log text, with the sample count. Malformed lines are
+/// skipped (a corrupt log line must not poison placement). No history
+/// is (None, 0): unexplored, never instant.
+pub(crate) fn proof_median_ms(log_text: &str, node: &str, action: &str) -> (Option<u64>, usize) {
+    let mut durations: Vec<u64> = log_text
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|record| {
+            record.get("node").and_then(|v| v.as_str()) == Some(node)
+                && record.get("action").and_then(|v| v.as_str()) == Some(action)
+                && record.get("status").and_then(|v| v.as_str()) == Some("converged")
+        })
+        .filter_map(|record| record.get("duration_ms").and_then(|v| v.as_u64()))
+        .collect();
+    // Most-recent-first: the log appends, so the tail is the freshest.
+    durations.reverse();
+    durations.truncate(20);
+    let samples = durations.len();
+    if samples == 0 {
+        return (None, 0);
+    }
+    durations.sort_unstable();
+    let median = if samples % 2 == 1 {
+        durations[samples / 2]
+    } else {
+        (durations[samples / 2 - 1] + durations[samples / 2]) / 2
+    };
+    (Some(median), samples)
+}
+
 pub(crate) fn submit_build(
     commit: &str,
     package: Option<&str>,
@@ -64,6 +95,8 @@ pub(crate) fn trigger_build(
     proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
+    let auto_route = host.as_ref().is_none_or(|v| v.trim().is_empty())
+        && runner.as_ref().is_none_or(|v| v.trim().is_empty());
     let host = match host.filter(|value| !value.trim().is_empty()) {
         Some(explicit) => explicit.to_string(),
         None => match runner.filter(|value| !value.trim().is_empty()) {
@@ -94,7 +127,7 @@ pub(crate) fn trigger_build(
     // Resolved before `host` is moved into the runner.
     let minimum_available_bytes =
         cynic_host::registry::resolve::minimum_available_bytes_for_runner(Some(registry), &host)?;
-    let runner = cynic_node::cli_factory::ssh_build_runner(
+    let mut runner = cynic_node::cli_factory::ssh_build_runner(
         host,
         user.to_string(),
         // Registry-driven source: an explicit --ssot-url wins, otherwise the
@@ -123,33 +156,49 @@ pub(crate) fn trigger_build(
         // a check, lighter than a release build.
         BuildPhase::Test => "rust_test",
     };
+    let action_name = match phase {
+        BuildPhase::Check => "cargo:check",
+        BuildPhase::Build => "cargo:build",
+        BuildPhase::Activate => "cargo:build",
+        BuildPhase::Test => "cargo:test",
+    };
+    let policy_raw = std::path::Path::new(registry)
+        .parent()
+        .map(|parent| parent.join("compute-policy.json"))
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+    let floor_gb = policy_raw
+        .as_ref()
+        .and_then(|policy| policy.get("task_classes"))
+        .and_then(|classes| classes.get(task_class))
+        .and_then(|class| class.get("floor"))
+        .and_then(|floor| floor.get("free_gb"))
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0);
+    let floor_bytes = (floor_gb * 1024.0 * 1024.0 * 1024.0) as u64;
+    let (lambda, mu_ms) = policy_raw
+        .as_ref()
+        .and_then(|policy| policy.get("placement"))
+        .map(|placement| {
+            (
+                placement
+                    .get("lambda")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0),
+                placement.get("mu_ms").and_then(|v| v.as_u64()).unwrap_or(60_000),
+            )
+        })
+        .unwrap_or((0.0, 60_000));
     match runner.probe_free_ram_bytes() {
         Some(available) => {
-            let policy_path = std::path::Path::new(registry)
-                .parent()
-                .map(|parent| parent.join("compute-policy.json"));
-            if let Some(path) = policy_path {
-                if let Ok(raw) = std::fs::read_to_string(&path) {
-                    if let Ok(policy) = serde_json::from_str::<serde_json::Value>(&raw) {
-                        let floor_gb = policy
-                            .get("task_classes")
-                            .and_then(|classes| classes.get(task_class))
-                            .and_then(|class| class.get("floor"))
-                            .and_then(|floor| floor.get("free_gb"))
-                            .and_then(|value| value.as_f64())
-                            .unwrap_or(0.0);
-                        let floor_bytes = (floor_gb * 1024.0 * 1024.0 * 1024.0) as u64;
-                        if available < floor_bytes {
-                            return Err(format!(
-                                "runner {} below {} floor: {:.2} GB free < {:.2} GB required",
-                                health.node_id,
-                                task_class,
-                                available as f64 / 1_073_741_824.0,
-                                floor_gb
-                            ));
-                        }
-                    }
-                }
+            if available < floor_bytes {
+                return Err(format!(
+                    "runner {} below {} floor: {:.2} GB free < {:.2} GB required",
+                    health.node_id,
+                    task_class,
+                    available as f64 / 1_073_741_824.0,
+                    floor_gb
+                ));
             }
         }
         None => {
@@ -157,6 +206,92 @@ pub(crate) fn trigger_build(
                 "warning: runner {} capacity unmeasurable (unknown, not zero)",
                 health.node_id
             );
+        }
+    }
+    // Least-cost placement across every registry runner (cynic-build
+    // place_build). Explicit --host/--runner wins: placement only reroutes
+    // the registry default. Probes are live; durations are medians from
+    // the local proof log; queue depth is unobserved here (0).
+    if auto_route {
+        let log_text = match proof_log {
+            Some(explicit) => std::fs::read_to_string(explicit).unwrap_or_default(),
+            None => crate::build_proof_log::default_proof_log_path()
+                .and_then(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
+                .unwrap_or_default(),
+        };
+        let candidates =
+            cynic_host::registry::resolve::list_runner_nodes(Some(registry)).unwrap_or_default();
+        if !candidates.is_empty() {
+            let mut snapshots = Vec::new();
+            for entry in &candidates {
+                let Some((user, probe_host)) = entry.ssh_target.split_once('@') else {
+                    continue;
+                };
+                let probe = cynic_node::cli_factory::ssh_build_runner(
+                    probe_host.to_string(),
+                    user.to_string(),
+                    cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)
+                        .unwrap_or_default(),
+                    package.clone(),
+                    sccache_dir.to_string(),
+                    Some(checkout_base.to_string()).filter(|value| !value.trim().is_empty()),
+                    minimum_available_bytes,
+                );
+                let (median_ms, samples) =
+                    proof_median_ms(&log_text, &entry.node_id, action_name);
+                snapshots.push(cynic_build::RunnerSnapshot {
+                    node_id: entry.node_id.clone(),
+                    free_ram_bytes: probe.probe_free_ram_bytes(),
+                    total_ram_bytes: probe.probe_total_ram_bytes(),
+                    queued_ms: 0,
+                    median_ms,
+                    samples,
+                    agent_in_flight: 0,
+                });
+            }
+            let decision = cynic_build::place_build(
+                task_class,
+                floor_bytes,
+                lambda,
+                mu_ms,
+                snapshots,
+            );
+            for rank in &decision.ranked {
+                eprintln!(
+                    "placement: {} capable={} score_ms={:?} {}",
+                    rank.node_id,
+                    rank.capable,
+                    rank.score_ms,
+                    rank.reasons.join(",")
+                );
+            }
+            if let Some(chosen) = decision.chosen.as_deref() {
+                if chosen != health.node_id {
+                    let target = candidates
+                        .iter()
+                        .find(|entry| entry.node_id == chosen)
+                        .map(|entry| entry.ssh_target.clone())
+                        .unwrap_or_default();
+                    if let Some((user, new_host)) = target.split_once('@') {
+                        eprintln!("placement: rerouting {} -> {chosen}", health.node_id);
+                        runner = cynic_node::cli_factory::ssh_build_runner(
+                            new_host.to_string(),
+                            user.to_string(),
+                            cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)
+                                .unwrap_or_default(),
+                            package.clone(),
+                            sccache_dir.to_string(),
+                            Some(checkout_base.to_string())
+                                .filter(|value| !value.trim().is_empty()),
+                            minimum_available_bytes,
+                        );
+                    }
+                }
+            } else {
+                return Err(format!(
+                    "placement: no capable runner for {task_class} at floor {floor_bytes} bytes"
+                ));
+            }
         }
     }
     let log_path = match proof_log {
@@ -392,5 +527,38 @@ mod tests {
         let scoped = ["--package", "cynic-host"];
         assert!(scoped.contains(&"--package"));
         assert!(scoped.contains(&"cynic-host"));
+    }
+
+    fn proof_line(node: &str, action: &str, status: &str, ms: u64) -> String {
+        serde_json::json!({
+            "node": node,
+            "action": action,
+            "status": status,
+            "duration_ms": ms,
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn median_ignores_other_nodes_actions_and_failures() {
+        let log = [
+            proof_line("builder", "cargo:check", "converged", 30_000),
+            proof_line("other", "cargo:check", "converged", 1),
+            proof_line("builder", "cargo:build", "converged", 2),
+            proof_line("builder", "cargo:check", "blocked", 3),
+            "not json at all".to_string(),
+            proof_line("builder", "cargo:check", "converged", 50_000),
+            proof_line("builder", "cargo:check", "converged", 40_000),
+        ]
+        .join("\n");
+        assert_eq!(
+            proof_median_ms(&log, "builder", "cargo:check"),
+            (Some(40_000), 3)
+        );
+    }
+
+    #[test]
+    fn no_history_is_unexplored_never_zero() {
+        assert_eq!(proof_median_ms("", "builder", "cargo:check"), (None, 0));
     }
 }
