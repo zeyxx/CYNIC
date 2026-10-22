@@ -195,3 +195,11 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
    targeted tests green (build_scheduler 44, tokio_build_execution 9,
    execution_env 9). compute-01 config set; needs root restart +
    `rm /usr/local/bin/cargo` (operator).
+6. PROVEN ON compute-01 (2026-10-22 evening): after reboot + root restart
+   with the `bf2692dc` release binary, workload `build-f13df40` (check of
+   the fix commit itself) completed on `cynic-compute-01`: `cargo check`
+   exit 0, stable workspace `build-workspaces-stable/debug`, toolchain
+   resolved via the declared dir (no stale symlink, no pre-flight trip),
+   unknowns []. Settlement file withheld by design
+   (`forbidden_until_kernel_poh_read_back` — kernel unreachable); the
+   completion envelope + execution provenance evidence carry the proof.
