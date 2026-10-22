@@ -15,6 +15,7 @@ pub mod source;
 pub mod storage;
 pub mod host;
 pub mod compute;
+pub mod service;
 
 
 use std::process::ExitCode;
@@ -352,6 +353,42 @@ pub enum NodeCommand {
         #[arg(long)]
         json: bool,
     },
+
+    // === Service ===
+    /// Render the declared systemd unit for a node service and stage it.
+    ServiceGenerate {
+        #[arg(long, default_value = "cynic-node.service")]
+        unit_name: String,
+        #[arg(long, default_value = "CYNIC node receiver")]
+        description: String,
+        #[arg(long)]
+        binary: String,
+        #[arg(long)]
+        config: String,
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        #[arg(long)]
+        output: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Compare the installed unit file against the declared rendering.
+    ServiceProve {
+        #[arg(long, default_value = "cynic-node.service")]
+        unit_name: String,
+        #[arg(long, default_value = "CYNIC node receiver")]
+        description: String,
+        #[arg(long)]
+        binary: String,
+        #[arg(long)]
+        config: String,
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        #[arg(long, default_value = "/etc/systemd/system")]
+        unit_dir: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Execute a unified node command.
@@ -435,5 +472,41 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::SourceBootstrap { node, repository, source, revision, registry, state_root, agent_id, kernel_endpoint, apply, json: _ } => {
             source::execute_source_bootstrap(&node, &repository, &source, &revision, &registry, &state_root, &agent_id, &kernel_endpoint, apply).await
         }
+
+        // === Service ===
+        NodeCommand::ServiceGenerate {
+            unit_name,
+            description,
+            binary,
+            config,
+            user,
+            output,
+            json,
+        } => service::execute_service_generate(
+            unit_name,
+            description,
+            binary,
+            config,
+            user,
+            output,
+            json,
+        ),
+        NodeCommand::ServiceProve {
+            unit_name,
+            description,
+            binary,
+            config,
+            user,
+            unit_dir,
+            json,
+        } => service::execute_service_prove(
+            unit_name,
+            description,
+            binary,
+            config,
+            user,
+            unit_dir,
+            json,
+        ),
     }
 }
