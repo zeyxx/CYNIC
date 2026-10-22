@@ -428,6 +428,43 @@ pub fn validate_signed_node_enrollment_grant(signed: &SignedNodeEnrollmentGrant)
     violations
 }
 
+/// Builds the unsigned enrollment grant body for an admitted request.
+///
+/// Pure constructor: `admission` must come from `admit_node_enrollment`.
+/// The caller signs `node_enrollment_grant_signing_bytes` over the returned
+/// `SignedNodeEnrollmentGrant` shell. The grant id is deterministic per
+/// (request, authority, issued-at) so re-issuance is idempotent.
+pub fn build_node_enrollment_grant(
+    request: &NodeEnrollmentRequest,
+    admission: &NodeEnrollmentAdmission,
+    authority_id: &str,
+    now_unix_s: u64,
+) -> NodeEnrollmentGrant {
+    use sha2::{Digest, Sha256};
+    let grant_id_digest = Sha256::digest(
+        format!(
+            "{}:{}:{}:{now_unix_s}",
+            request.request_id, request.node_id, authority_id
+        )
+        .as_bytes(),
+    );
+    NodeEnrollmentGrant {
+        schema: NODE_ENROLLMENT_GRANT_SCHEMA.to_string(),
+        grant_id: format!("grant:{}", &hex::encode(grant_id_digest)[..16]),
+        authority_id: authority_id.to_string(),
+        request_id: request.request_id.clone(),
+        seed_id: request.seed_id.clone(),
+        node_id: request.node_id.clone(),
+        role: request.role.clone(),
+        machine_identity_digest: request.machine_identity_digest.clone(),
+        generation: 1,
+        issued_at_unix_s: now_unix_s,
+        expires_at_unix_s: admission.grant_expires_at_unix_s.unwrap_or(now_unix_s),
+        granted_capabilities: admission.granted_capabilities.clone(),
+        evidence_refs: Vec::new(),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeEnrollmentObservation {
     pub schema: String,
@@ -718,6 +755,29 @@ mod tests {
             allowed_roles: vec!["build_runner".to_string()],
             allowed_capabilities: vec!["build.execute".to_string(), "proof.publish".to_string()],
         }
+    }
+
+    #[test]
+    fn built_grant_copies_admission_and_is_deterministic() {
+        let request = request();
+        let authority = authority();
+        let digest = authority.token_digest.clone();
+        let admission = admit_node_enrollment(&request, &authority, &digest, 120, true);
+        assert!(
+            admission.blockers.is_empty(),
+            "{}",
+            admission.blockers.join(",")
+        );
+        let first = build_node_enrollment_grant(&request, &admission, &authority.authority_id, 120);
+        let second =
+            build_node_enrollment_grant(&request, &admission, &authority.authority_id, 120);
+        assert_eq!(first, second);
+        assert_eq!(first.schema, NODE_ENROLLMENT_GRANT_SCHEMA);
+        assert!(first.grant_id.starts_with("grant:"));
+        assert_eq!(first.expires_at_unix_s, 145);
+        assert_eq!(first.granted_capabilities, request.requested_capabilities);
+        assert_eq!(first.generation, 1);
+        assert_eq!(first.request_id, request.request_id);
     }
 
     #[test]

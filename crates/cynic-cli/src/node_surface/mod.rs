@@ -76,6 +76,21 @@ pub enum NodeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Admit a NodeEnrollmentRequest and emit the signed enrollment grant (operator-held authority key).
+    EnrollmentIssue {
+        #[arg(long)]
+        request: String,
+        #[arg(long)]
+        authority: String,
+        #[arg(long)]
+        token_file: Option<String>,
+        #[arg(long)]
+        signing_key: String,
+        #[arg(long)]
+        output: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Audit host commits, divergence, and node health state.
     HostAudit {
         #[arg(long)]
@@ -349,6 +364,7 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::CsrCreate { node_id, role, key_path, json } => activation::execute_csr_create(node_id, role, key_path, json),
         NodeCommand::CertInspect { cert_path, json } => activation::execute_cert_inspect(cert_path, json),
         NodeCommand::CertVerify { kernel_pubkey_hex, cert_path, json } => activation::execute_cert_verify(kernel_pubkey_hex, cert_path, json),
+        NodeCommand::EnrollmentIssue { request, authority, token_file, signing_key, output, json } => activation::execute_enrollment_issue(request, authority, token_file, signing_key, output, json),
         NodeCommand::HostAudit { json, max_commits } => activation::execute_host_audit(json, max_commits),
         NodeCommand::Forensics { command } => crate::forensics_surface::execute_forensics(command),
 

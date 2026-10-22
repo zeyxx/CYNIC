@@ -14,6 +14,8 @@ use cynic_types::paths::CynicPaths;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_host::node_activation::NodeActivationPort;
 use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
+use cynic_node_protocol::{MachineEnrollmentAuthority, NodeEnrollmentRequest};
+use sha2::Digest;
 
 fn default_key_path() -> PathBuf {
     CynicPaths::system_config_dir().join("node-identity.key")
@@ -306,5 +308,156 @@ pub(crate) fn execute_host_audit(json: bool, max_commits: usize) -> ExitCode {
     match crate::node_host_audit::build_node_host_audit(max_commits) {
         Ok(report) => crate::emit_json(&report, false),
         Err(error) => crate::fail(error),
+    }
+}
+
+#[derive(Serialize)]
+struct EnrollmentIssueReport {
+    schema: &'static str,
+    status: &'static str,
+    grant_id: String,
+    node_id: String,
+    role: String,
+    granted_capabilities: Vec<String>,
+    authority_key_id: String,
+    expires_at_unix_s: u64,
+    require_token: bool,
+    output_path: Option<String>,
+}
+
+fn read_input_file(path: &str) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|error| format!("cannot read {path}: {error}"))
+}
+
+/// Admit a `NodeEnrollmentRequest` and emit the signed enrollment grant.
+///
+/// The authority signing key file holds hex-encoded raw bytes and is loaded
+/// read-only: this surface never generates keys. Without `--token-file` the
+/// grant is issued with `require_token = false`, which is only legitimate
+/// for operator-mediated issuance where the authority holder vouches out of
+/// band; the report always states which mode was used.
+pub(crate) fn execute_enrollment_issue(
+    request: String,
+    authority: String,
+    token_file: Option<String>,
+    signing_key: String,
+    output: Option<String>,
+    json: bool,
+) -> ExitCode {
+    let request_bytes = match read_input_file(&request) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let enrollment_request: NodeEnrollmentRequest = match serde_json::from_slice(&request_bytes) {
+        Ok(request) => request,
+        Err(error) => {
+            eprintln!("invalid enrollment request {}: {error}", request);
+            return ExitCode::FAILURE;
+        }
+    };
+    let authority_bytes = match read_input_file(&authority) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let enrollment_authority: MachineEnrollmentAuthority =
+        match serde_json::from_slice(&authority_bytes) {
+            Ok(authority) => authority,
+            Err(error) => {
+                eprintln!("invalid enrollment authority {}: {error}", authority);
+                return ExitCode::FAILURE;
+            }
+        };
+    let (presented_token_digest, require_token) = match token_file {
+        Some(path) => {
+            let token = match read_input_file(&path) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let digest = format!(
+                "sha256:{}",
+                hex::encode(Sha256::digest(
+                    String::from_utf8_lossy(&token).trim().as_bytes()
+                ))
+            );
+            (digest, true)
+        }
+        None => (String::new(), false),
+    };
+    let key_bytes = match read_input_file(&signing_key) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let key_hex = String::from_utf8_lossy(&key_bytes);
+    let authority_key = match hex::decode(key_hex.trim()) {
+        Ok(key) if key.len() == 32 => key,
+        _ => {
+            eprintln!("invalid authority signing key {signing_key}: expected 64 hex chars");
+            return ExitCode::FAILURE;
+        }
+    };
+    let workflow = NodeIdentityWorkflow::default();
+    let now = current_unix_s();
+    let signed = match workflow.issue_signed_enrollment_grant(
+        &enrollment_request,
+        &enrollment_authority,
+        &presented_token_digest,
+        require_token,
+        &authority_key,
+        now,
+    ) {
+        Ok(signed) => signed,
+        Err(error) => {
+            eprintln!("enrollment issuance failed: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Some(path) = output.clone() {
+        let json_bytes = match serde_json::to_vec_pretty(&signed) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                eprintln!("cannot encode grant: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        if let Err(error) = std::fs::write(&path, json_bytes) {
+            eprintln!("cannot write grant to {path}: {error}");
+            return ExitCode::FAILURE;
+        }
+    }
+    let report = EnrollmentIssueReport {
+        schema: "cynic.node_enrollment.issue.report.v1",
+        status: "issued",
+        grant_id: signed.grant.grant_id.clone(),
+        node_id: signed.grant.node_id.clone(),
+        role: signed.grant.role.clone(),
+        granted_capabilities: signed.grant.granted_capabilities.clone(),
+        authority_key_id: signed.authority_key_id.clone(),
+        expires_at_unix_s: signed.grant.expires_at_unix_s,
+        require_token,
+        output_path: output,
+    };
+    if json {
+        crate::cli_json::emit_pretty_json(&report)
+    } else {
+        println!(
+            "ISSUED: grant {} for {} (role: {}, token: {})",
+            report.grant_id,
+            report.node_id,
+            report.role,
+            if require_token { "presented" } else { "operator-mediated" }
+        );
+        ExitCode::SUCCESS
     }
 }
