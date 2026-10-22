@@ -461,7 +461,10 @@ pub fn build_node_enrollment_grant(
         issued_at_unix_s: now_unix_s,
         expires_at_unix_s: admission.grant_expires_at_unix_s.unwrap_or(now_unix_s),
         granted_capabilities: admission.granted_capabilities.clone(),
-        evidence_refs: Vec::new(),
+        evidence_refs: vec![
+            format!("enrollment-request:{}", request.request_id),
+            format!("enrollment-authority:{authority_id}"),
+        ],
     }
 }
 
@@ -778,6 +781,7 @@ mod tests {
         assert_eq!(first.granted_capabilities, request.requested_capabilities);
         assert_eq!(first.generation, 1);
         assert_eq!(first.request_id, request.request_id);
+        assert_eq!(first.evidence_refs.len(), 2);
     }
 
     #[test]
