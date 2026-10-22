@@ -76,11 +76,15 @@ fn the_canonical_target_resolves_from_the_registry() {
 }
 
 #[test]
-fn the_canonical_target_is_the_directory_the_runner_uses() {
-    // The runner resolves the cache against the state root. The registry
-    // path is RELATIVE to that same root, so the two are comparable once
-    // joined. This is the assertion that would have caught the
-    // divergence: the runner used one directory, the policy another.
+fn the_canonical_target_is_a_governed_build_targets_profile() {
+    // 2026-10-22: `shared-target` was the Forgejo-runner warm cache until
+    // a reclaim from a stale checkout purged it behind its active writer.
+    // Writers now resolve under `build-targets/<profile>` (scheduler) and
+    // `build-targets/fgate` (gate flow); the registry declares the gate
+    // profile canonical. There is no single "runner directory" anymore, so
+    // this test pins the declared intent instead of a discovery: change
+    // the pin below only when the declared canonical moves — and migrate
+    // the writer first.
     let node = build_runner_node();
     let declared = node
         .pointer("/build_lifecycle/canonical_target_relative_path")
@@ -94,8 +98,8 @@ fn the_canonical_target_is_the_directory_the_runner_uses() {
     );
     assert_eq!(
         from_registry,
-        state_root.join("shared-target"),
-        "the registry's canonical target is the directory the runner writes to"
+        state_root.join("build-targets/fgate"),
+        "the registry's canonical target is the declared gate cache; move it deliberately, with the writer"
     );
 }
 
