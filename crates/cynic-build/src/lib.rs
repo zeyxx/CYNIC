@@ -58,6 +58,7 @@ pub use deploy::*;
 pub use deploy_uc::*;
 pub use external_build::*;
 pub use external_build_uc::*;
+pub use place::*;
 pub use harness::*;
 pub use harness_authority::*;
 pub use ports::{BuildCommandOutput, BuildRunner, FilesystemPort, IdentityPort};
