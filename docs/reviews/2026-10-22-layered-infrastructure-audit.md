@@ -239,7 +239,17 @@ The consumers had not migrated first. `/usr/local/bin/cynic` on cortex embeds 12
 
 **Prior history.** `data.corrupt.20260606_124414` is one earlier corruption, named as such. `data.bak_20260815` is a directory swapped aside on 2026-08-15 23:17; no commit or document records why, so it is **not** counted as a corruption.
 
-**Cause open.** The faulty RAM has been removed per the operator: `dmidecode` shows 2 × 8 GB, `DIMM 1` populated on each channel, and the kernel log has 0 MCE/EDAC lines since boot. RAM is therefore not the presumed cause. Candidates to test: unclean stop, a SurrealKV 3.0.3 defect, disk.
+**Most likely cause: latent corruption written by the old RAM.**
+
+- *The RAM change is dated by Prometheus,* from `node_memory_MemTotal_bytes`:
+  - 27.3 GiB until 2026-10-11 23:40;
+  - 7.1 GiB during the night of the swap;
+  - 13.5 GiB since 2026-10-12 00:40.
+  - This matches the kernel lines `Memory: …/29247880K` on 2026-10-04 and 2026-10-11 in `/var/log/syslog*`, and the reboot burst of 2026-10-11 23:58 → 2026-10-12 01:00 in `last -x`.
+- *The current hardware is clean:* `dmidecode` shows 2 × 8 GB, and the kernel log has 0 MCE/EDAC lines.
+- *The failing block predates the swap.* It sits at offset 45,189,021. Only three SSTables are that large: `…0002.sst` (2026-09-11), `…0003.sst` (2026-09-23) and `…0004.sst` (2026-10-08). All three were written with the old RAM.
+- *An unclean stop is unlikely to explain it.* SSTables are immutable once flushed, so an unclean stop does not corrupt them.
+- *Not verified:* which of the three tables holds the block.
 
 The registry's `storage_primary` (CT103) is not the store in use. | `journalctl -u cynic-kernel \| grep -c 'expire_stale failed'`; `journalctl -u surreal \| grep -ci checksum`; `journalctl --list-boots`; `uptime -s`; `grep url /etc/cynic/storage.toml` | Preserve first (see "Preservation status" below). Export what is still readable. Establish the cause (the surreal journal from before 2026-10-17 is gone, so check `/home/user/.surrealdb` file mtimes and SMART on cortex `sda`). Move the store to its registered host through a reviewed migration. |
 | N-2 | 🔴 | **The store has no usable backup.** `~/.surrealdb/backups/` stops at 2026-06-24, and its files are **83-byte gzips** (empty). | `ls -la ~/.surrealdb/backups` | Back up the store that is actually in use, not only CT103 (C5-2). Prove each backup with a restore. |
@@ -369,7 +379,7 @@ Method: each finding was matched against commit messages and against `docs/`, `c
 
 | Fact | Document | Runtime |
 |---|---|---|
-| RAM | `AGENTS.md:7` "faulty RAM"; `docs/specs/checklist.md` §8 "RAM Instability Mitigation" and §9 "cortex — RAM unstable". The same text is copied into `crates/cynic-knowledge/tests/retrieval_training_pairs.json`, so **the stale fact is also in the RAG training set**. | Faulty modules removed per the operator. `dmidecode`: 2 × 8 GB, 0 MCE/EDAC. *This audit wrongly attributed N-1 to RAM on the strength of `AGENTS.md`; that has been corrected.* |
+| RAM | `AGENTS.md:7` "faulty RAM"; `docs/specs/checklist.md` §8 "RAM Instability Mitigation" and §9 "cortex — RAM unstable". The same text is copied into `crates/cynic-knowledge/tests/retrieval_training_pairs.json`, so **the stale fact is also in the RAG training set**. | Faulty modules removed 2026-10-11/12 (Prometheus `node_memory_MemTotal_bytes` 27.3 → 13.5 GiB; reboot burst in `last -x`). `dmidecode`: 2 × 8 GB, 0 MCE/EDAC. *This audit wrongly attributed N-1 to RAM on the strength of `AGENTS.md`; that has been corrected.* |
 | C4-4 relay | `docs/design/relay-107-migration.md` (2026-10-17): "Status: Proposed. Parallel-run". | Mainnet is already on CT107: `gasdf-kora-mainnet`, `gasdf-relay` and `gasdf-facilitator` are inactive on cortex. Cortex still runs `gasdf-kora-devnet` on `0.0.0.0:14000`. Registry not updated (C0-5). |
 | Builder retention | `docs/specs/checklist.md` §12 (2026-10-14): `checkouts` 40 G → 29 G. | 2 G now. Two root-only purges are still "PENDING ROOT". |
 
