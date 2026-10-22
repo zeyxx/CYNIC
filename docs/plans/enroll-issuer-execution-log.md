@@ -139,6 +139,16 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
   authority private key is not on compute-01 (public halves only).
 - Manual foreground run confirms: same binary+config, no listen,
   zero output — unit file exonerated.
+- RE-EMISSION DONE (operator-authorized, new ceremony g2):
+  continuity proven (sha256(machine_pubkey)==identity digest);
+  new ed25519 authority `…-authority-g2`
+  (`sha256:0aa377d3…`), grant `grant:c72032cebe79467a`,
+  14 caps, expires +90d. Old files kept as `.bak-20261022`.
+  Authority private key ONLY at
+  `/var/lib/cynic/identity/enrollment-authority-g2.key` (600) —
+  operator must vault it; never in git.
+- NEXT (root on compute-01): `systemctl restart cynic-node`,
+  then hermes proves (:9090 + service prove).
 
 ## Left for the operator (explicit, no implicit escalation)
 
