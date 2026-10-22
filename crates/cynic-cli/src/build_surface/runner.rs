@@ -12,6 +12,62 @@ pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
     cynic_build::resolve_builder_url_with_health()
 }
 
+/// Classify a commit's diff into the minimal gate (local `git diff`,
+/// read-only). Unresolvable diff fails open to Full: never skip silently.
+pub(crate) fn resolve_gate_scope(commit: &str) -> cynic_build::gate_scope::GateScope {
+    use cynic_build::gate_scope::{GateScope, decide_gate_scope};
+    let output = std::process::Command::new("git")
+        .args(["diff", "--name-only", &format!("{commit}^"), commit])
+        .output();
+    match output {
+        Ok(out) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let paths: Vec<&str> = text.lines().collect();
+            decide_gate_scope(&paths)
+        }
+        _ => GateScope::Full {
+            reason: "commit diff unresolvable locally".to_string(),
+        },
+    }
+}
+
+/// Run one apps/<suite> pytest tree locally (no builder dispatch).
+/// Uses the same ephemeral runner as the data contracts (uvx).
+pub(crate) fn run_python_suite(suite: &str) -> Result<(), String> {
+    eprintln!("gate-scope: python suite {suite} (local, no builder dispatch)");
+    let status = std::process::Command::new("uvx")
+        .args([
+            "--with",
+            "pytest",
+            "python",
+            "-m",
+            "pytest",
+            &format!("apps/{suite}/tests/"),
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ])
+        .status()
+        .map_err(|e| format!("pytest runner unavailable: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("python suite {suite} failed"))
+    }
+}
+
+/// Changed JSON files are still well-formed. No compile, no tests.
+pub(crate) fn validate_json_files(files: &[String]) -> Result<(), String> {
+    for file in files {
+        let raw =
+            std::fs::read_to_string(file).map_err(|e| format!("{file} unreadable: {e}"))?;
+        serde_json::from_str::<serde_json::Value>(&raw)
+            .map_err(|e| format!("{file} invalid JSON: {e}"))?;
+        eprintln!("gate-scope: valid {file}");
+    }
+    Ok(())
+}
+
 /// Median duration over the last 20 converged proofs for (node, action)
 /// in a proof-log text, with the sample count. Malformed lines are
 /// skipped (a corrupt log line must not poison placement). No history
@@ -91,10 +147,37 @@ pub(crate) fn trigger_build(
     checkout_base: &str,
     ssot_url: &str,
     package: Option<String>,
+    scope: &str,
     sccache_dir: &str,
     proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
+    let mut package = package;
+    match scope {
+        "full" => {}
+        "auto" => match resolve_gate_scope(commit) {
+            cynic_build::gate_scope::GateScope::Nothing { reason } => {
+                println!("gate-scope: nothing to prove ({reason})");
+                return Ok(());
+            }
+            cynic_build::gate_scope::GateScope::PythonSuite { suite } => {
+                return run_python_suite(&suite);
+            }
+            cynic_build::gate_scope::GateScope::ValidateOnly { files } => {
+                return validate_json_files(&files);
+            }
+            cynic_build::gate_scope::GateScope::RustCheck { packages } => {
+                if package.is_none() && packages.len() == 1 {
+                    eprintln!("gate-scope: narrowing check to {}", packages[0]);
+                    package = Some(packages[0].clone());
+                }
+            }
+            cynic_build::gate_scope::GateScope::Full { reason } => {
+                eprintln!("gate-scope: full ({reason})");
+            }
+        },
+        other => return Err(format!("invalid gate scope: {other} (full|auto)")),
+    }
     let auto_route = host.as_ref().is_none_or(|v| v.trim().is_empty())
         && runner.as_ref().is_none_or(|v| v.trim().is_empty());
     let host = match host.filter(|value| !value.trim().is_empty()) {

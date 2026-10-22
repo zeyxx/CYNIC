@@ -2,7 +2,7 @@
   "schema": "cynic.risk_matrix.v1",
   "status": "seed",
   "purpose": "Dynamic risk matrix for CYNIC-governed external projects. Scores each project across five risk factors (language, secrets, network, build, trust tier) using a weighted sum. Recompute composite_risk_score whenever any factor level changes. JSON only; no code.",
-  "updated_at": "2026-10-18",
+  "updated_at": "2026-10-22",
   "risk_factors": [
     {
       "factor_id": "language",
@@ -73,10 +73,10 @@
     "dynamic": true,
     "recompute_on": ["language", "secrets", "network", "build", "trust_tier"],
     "risk_bands": [
-      { "band": "low", "min_score": 1.0, "max_score": 2.0, "action": "observe; standard review cadence." },
-      { "band": "medium", "min_score": 2.01, "max_score": 3.0, "action": "review before any port wiring or mutation." },
-      { "band": "high", "min_score": 3.01, "max_score": 4.0, "action": "require read-back proof and operator approval before use." },
-      { "band": "critical", "min_score": 4.01, "max_score": 5.0, "action": "quarantine or restrict to read-only observation." }
+      { "band": "low", "min_score": 1.0, "max_score": 2.0, "action": "observe; standard review cadence. Quorum: 1 signature (operator go suffices).", "quorum": 1 },
+      { "band": "medium", "min_score": 2.01, "max_score": 3.0, "action": "review before any port wiring or mutation. Quorum: 2 signatures.", "quorum": 2 },
+      { "band": "high", "min_score": 3.01, "max_score": 4.0, "action": "require read-back proof and operator approval before use. Quorum: 3 signatures.", "quorum": 3 },
+      { "band": "critical", "min_score": 4.01, "max_score": 5.0, "action": "quarantine or restrict to read-only observation. No use quorum; lifting quarantine requires 3 signatures.", "quorum": 0 }
     ]
   },
   "projects": [
@@ -231,6 +231,7 @@
     "Higher score means higher risk. 1 = lowest, 5 = highest.",
     "Risk band thresholds: low <=2.0, medium 2.01-3.0, high 3.01-4.0, critical >=4.01.",
     "No mutation or port wiring for projects in high/critical band without read-back proof and operator approval.",
+    "Quorum by band: low = 1 signature (operator go suffices), medium = 2, high = 3; a signature is an operator go or an independent green proof/review. Critical admits no use quorum; lifting quarantine requires 3 signatures.",
     "Quarantined projects (holdex) remain read-only observation only.",
     "Secrets never enter CYNIC repo or prompts; CYNIC holds references only."
   ]
