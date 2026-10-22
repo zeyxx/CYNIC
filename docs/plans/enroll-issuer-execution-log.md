@@ -63,6 +63,31 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
 - Stray `/etc/cynic/enrollment-authority.pub` on builder (staged by an
   earlier throwaway enroll run, trust root of a destroyed key) deleted.
 
+## E2E proof (both paths completed, zero unknowns)
+
+- Default pool path: `cynic build submit --action check` (branch head)
+  resolved via `infra/registry.json` pool and completed ON BUILDER
+  (`build-7b69a1f2`, status completed, unknowns []).
+  Note: the pool returns the first healthy builder; the builder entry
+  resolves via its own registry, so compute-01 is failover while the
+  builder is healthy. Ordering behavior, not a bug.
+- Direct path: same submit with `--builder-url http://192.168.0.25:9090`
+  completed ON COMPUTE-01 (`build-b2169803`, cargo check, 150 s wall,
+  `build_grant_read_back` + `build_execution_provenance`, unknowns []).
+  First sovereign build executed outside the builder.
+- Source transport: compute-01 has no Forgejo SSH key and no synapse DNS;
+  HTTPS git needs auth. Workaround proven: bare mirror cloned on builder,
+  copied to compute-01, `transport_uri=file://` mirror, scheduler clones
+  locally. A deploy key for compute-01 (operator decision) would remove
+  the mirror detour.
+- Sandboxing: `sandbox_bwrap=true` (default) fails spawn with EACCES on
+  compute-01 (unprivileged user; root cause not isolated today).
+  `sandbox_bwrap=false` (direct spawn, historical mode) works. The unit
+  file stages the working config; re-enabling bwrap needs a dedicated
+  session with userns diagnostics.
+- `control --check` hangs when no kernel is reachable (no timeout on the
+  workload-delivery pull). Robustness bug recorded, not fixed here.
+
 ## Left for the operator (explicit, no implicit escalation)
 
 1. Builder registry deploy (cynic cannot write root-owned
