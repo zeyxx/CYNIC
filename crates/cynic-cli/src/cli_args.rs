@@ -156,6 +156,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::collaborator_surface::CollaboratorCommand,
     },
+    /// Fleet supervision: observe runner capacity, record supervised state.
+    Fleet {
+        #[command(subcommand)]
+        command: crate::fleet_surface::FleetCommand,
+    },
     /// Fire-and-forget agent coordination log.
     Coordination {
         #[command(subcommand)]
