@@ -1049,6 +1049,7 @@ mod tests {
             max_rss_cap_mb: None,
             sccache: None,
             sccache_measured_hit_rate: None,
+            toolchain_bin_dir: None,
         };
         (control, scheduler)
     }

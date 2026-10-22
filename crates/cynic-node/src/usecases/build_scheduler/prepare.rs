@@ -162,6 +162,7 @@ pub(super) async fn prepare(
     environment.extend(build_execution_env(
         scheduler,
         &claimed.record.envelope.action.argv,
+        std::env::var("PATH").ok().as_deref(),
     ));
     source_provenance.extend([
         consumed.record_digest.clone(),
@@ -206,8 +207,18 @@ pub(super) async fn prepare(
 pub(super) fn build_execution_env(
     scheduler: &BuildSchedulerConfig,
     argv: &[String],
+    host_path: Option<&str>,
 ) -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();
+    if let Some(dir) = scheduler.toolchain_bin_dir.as_ref() {
+        // Deterministic toolchain resolution: the declared dir wins over
+        // ambient PATH (observed 2026-10-22: bare `cargo` resolved to a
+        // root-owned symlink into an untraversable home, surfacing as a
+        // cryptic EACCES at spawn). Prepend, never replace: the child
+        // still needs system tools (cc, git, sh) behind the toolchain.
+        let base = host_path.unwrap_or("/usr/bin:/bin");
+        env.insert("PATH".into(), format!("{}:{base}", dir.to_string_lossy()));
+    }
     if let Some(root) = scheduler.shared_target_root.as_ref() {
         // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
         // instead of recompiling cold in a throwaway directory.
@@ -626,7 +637,7 @@ mod tests {
             ..scheduler_config()
         };
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert_eq!(
             env.get("CARGO_TARGET_DIR"),
             Some(&"/var/lib/cynic/build-targets/debug".to_string()),
@@ -642,7 +653,7 @@ mod tests {
             "precondition: shared_target_root must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert!(
             !env.contains_key("CARGO_TARGET_DIR"),
             "CARGO_TARGET_DIR must NOT be set when shared_target_root is absent"
@@ -656,7 +667,7 @@ mod tests {
         let mut scheduler = scheduler_config();
         scheduler.build_jobs = Some(4);
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert_eq!(
             env.get("CARGO_BUILD_JOBS"),
             Some(&"4".to_string()),
@@ -672,7 +683,7 @@ mod tests {
             "precondition: build_jobs must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert!(
             !env.contains_key("CARGO_BUILD_JOBS"),
             "CARGO_BUILD_JOBS must NOT be set when build_jobs is absent"
@@ -690,7 +701,7 @@ mod tests {
             max_size_bytes: 8 * 1024 * 1024 * 1024,
         });
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert_eq!(
             env.get("RUSTC_WRAPPER"),
             Some(&"sccache".to_string()),
@@ -717,7 +728,7 @@ mod tests {
             max_size_bytes: 8 * 1024 * 1024 * 1024,
         });
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert_eq!(
             env.get("RUSTC_WRAPPER"),
             Some(&"/usr/local/bin/sccache".to_string()),
@@ -733,7 +744,7 @@ mod tests {
             "precondition: sccache stanza must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
         assert!(
             !env.contains_key("RUSTC_WRAPPER"),
             "RUSTC_WRAPPER must NOT be set when the sccache stanza is absent"
@@ -745,6 +756,34 @@ mod tests {
         assert!(
             !env.contains_key("SCCACHE_DIR"),
             "SCCACHE_DIR must NOT be set when the sccache stanza is absent"
+        );
+    }
+
+    #[test]
+    fn execution_env_prepends_declared_toolchain_dir_to_path() {
+        let mut scheduler = scheduler_config();
+        scheduler.toolchain_bin_dir = Some(PathBuf::from("/var/lib/cynic/.cargo/bin"));
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        assert_eq!(
+            env.get("PATH"),
+            Some(&"/var/lib/cynic/.cargo/bin:/usr/bin:/bin".to_string()),
+            "declared toolchain dir must win over ambient PATH, system tools preserved behind it"
+        );
+    }
+
+    #[test]
+    fn execution_env_leaves_path_alone_without_declared_toolchain_dir() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.toolchain_bin_dir.is_none(),
+            "precondition: toolchain_bin_dir must be absent"
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        assert!(
+            !env.contains_key("PATH"),
+            "PATH must NOT be set when toolchain_bin_dir is absent (ambient resolution preserved)"
         );
     }
 
@@ -764,6 +803,7 @@ mod tests {
             max_rss_cap_mb: None,
             sccache: None,
             sccache_measured_hit_rate: None,
+            toolchain_bin_dir: None,
         }
     }
 
