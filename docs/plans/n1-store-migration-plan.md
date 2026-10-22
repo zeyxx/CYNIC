@@ -42,7 +42,7 @@
   3. Explicit unknown: rows under the corrupt SSTable block may be unrecoverable; that set must be enumerated, not hand-waved.
   Rollback: drop the imported database scope on CT103 and re-export; kernel still points at cortex until Phase 3.
 - Phase 3 — Cut over and retire:
-  1. Restore `~synapse.cynic` compat zone on cortex first (N-4 guard) so stale binaries keep resolving during the move.
+  1. Restore `~synapse.cynic` compat zone on cortex first (N-4 guard) so stale binaries keep resolving during the move. DONE 2026-10-22 ~11:05 CEST: restored `synapse.hosts` from `.bak-ec2c58ec`, dual-serve `addn-hosts` line appended to `dnsmasq.conf`, compat routing conf restored, `cynic-dns-service` + `systemd-resolved` restarted. Proof: `getent hosts forgejo.synapse.cynic` = 10.10.10.101, `forgejo.service.cynic` unchanged. Side effect measured: `cynic source pr list` as `user` now fails HTTP 404 (unauthenticated, token unreadable post-hardening) instead of DNS curl-6 — blocked on agent read path (c41 step 6), not on DNS.
   2. Resolve the config precedence explicitly: one of `storage.toml` url or `90-storage.conf` `SURREALDB_URL` wins; the loser is removed, not left shadowing. Repoint the winner at CT103 in a planned window; monitor `checksum verification failed` = 0 for 1h and introspection non-zero coverage.
   3. Stop cortex `surreal.service` only after CT103 backup + restore proof exists. Keep the preserved cortex copy until the operator releases it.
   Rollback: flip the winning config value back to cortex url (one-line change, recorded SHA before/after); restart kernel; criterion: checksum failures return to the pre-cutover baseline, not zero — that proves the rollback, not the fix.
