@@ -2,7 +2,7 @@
   "schema": "cynic.collaborators.v1",
   "status": "seed",
   "purpose": "SSOT registry of collaborators on CYNIC-governed external projects. Trust is observed and promoted, never assumed.",
-  "updated_at": "2026-10-18",
+  "updated_at": "2026-10-22",
   "collaborators": [
     {
       "collaborator_id": "titouan",
@@ -14,7 +14,9 @@
         "cynic",
         "aegisscan",
         "aegis-core",
-        "ai-bus"
+        "ai-bus",
+        "gasdf",
+        "hermes-antigravity"
       ],
       "owns": [
         "cynic"
@@ -24,7 +26,7 @@
         "external-project-governance"
       ],
       "pow_metric": "commits, reviews, attestations, build/test proofs, deployment receipts",
-      "notes": "Human sovereign of CYNIC. Owner of CYNIC repo. Collaborator on Aegis consortium. Maintainer of builder toolchains and external project governance. Trust level 'core' (not 'observed') \u2014 operator is the constituent, not a guest."
+      "notes": "Human sovereign of CYNIC. Owner of CYNIC repo. Collaborator on Aegis consortium. Maintainer of builder toolchains and external project governance. Trust level 'core' (not 'observed') — operator is the constituent, not a guest. Fused with 'zeyxx' fiche 2026-10-22 (same human; zeyxx entry removed, gasdf folded into projects)."
     },
     {
       "collaborator_id": "robinho100",
@@ -39,16 +41,6 @@
       "notes": "Seed collaborator. Owns the three Aegis consortium repositories. Trust starts at 'observed'; promotion requires proof (mirrors CYNIC office/capability model in infra/registry.json)."
     },
     {
-      "collaborator_id": "zeyxx",
-      "display_name": "Titouan Corneloup",
-      "github_handle": "zeyxx",
-      "trust_level": "core",
-      "projects": [
-        "gasdf"
-      ],
-      "notes": "Human operator: constituent + maintainer, owns CYNIC and the GASdf product repo. Core by doctrine (external-project-governance §4), not by inference. Relay-107 operator, 2026-10-18 ingress closure approvals."
-    },
-    {
       "collaborator_id": "sollama58",
       "display_name": "GCRtrd",
       "github_handle": "sollama58",
@@ -57,9 +49,39 @@
         "trenchscanner",
         "cultscreener",
         "tokensage",
-        "holddex"
+        "holdex"
       ],
-      "notes": "Upstream author of the GCRtrd cult stack (TrenchScanner, cultscreener, TokenSage; holddex read-only). X: @gcrtrd. Starts at 'observed' per doctrine — trust from evidence, not reputation. Added 2026-10-19."
+      "notes": "Upstream author of the GCRtrd cult stack (TrenchScanner, cultscreener, TokenSage; holdex read-only). X: @gcrtrd. Starts at 'observed' per doctrine — trust from evidence, not reputation. Added 2026-10-19."
+    },
+    {
+      "collaborator_id": "yansigit",
+      "display_name": "SB Yoon",
+      "github_handle": "yansigit",
+      "trust_level": "observed",
+      "projects": [
+        "hermes-antigravity"
+      ],
+      "notes": "Merged PR #49 (expired-bearer refresh, CI green) via fork. Starts at 'observed' per doctrine. Added 2026-10-22."
+    },
+    {
+      "collaborator_id": "shilai-li",
+      "display_name": "Shilai Li",
+      "github_handle": "shilai-li",
+      "trust_level": "observed",
+      "projects": [
+        "hermes-antigravity"
+      ],
+      "notes": "Merged PR #6 (distinct account on new Google login). Starts at 'observed' per doctrine. Added 2026-10-22."
+    },
+    {
+      "collaborator_id": "oooosonuoooo",
+      "display_name": "Tuhin Das",
+      "github_handle": "oooosonuoooo",
+      "trust_level": "observed",
+      "projects": [
+        "hermes-antigravity"
+      ],
+      "notes": "Authored fix #8 (stale fallback model catalog); #7 closed as duplicate. Handle-name identity fused via GitHub API (oooosonuoooo = Tuhin Das) to avoid a double fiche. Starts at 'observed' per doctrine. Added 2026-10-22."
     }
   ],
   "trust_levels": [

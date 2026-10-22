@@ -3,8 +3,8 @@
   "status": "normative",
   "purpose": "Pinned third-party OSS checkouts used by CYNIC. Checkouts live outside git under directory-tree source/repositories/external; this file pins exact SHAs so data demands cite file:line of a frozen pin, never live GitHub.",
   "checkout_layout": {
-    "installed": "/var/lib/cynic/source/repositories/external/<slug>",
-    "dev_fallback": "~/.local/share/cynic/src/external/<slug>",
+    "installed": "/var/lib/cynic/source/repositories/external/<slug> (served tier only)",
+    "development": "${HOME}/.cynic/external/<slug> (dev tier)",
     "snapshots": "/var/lib/cynic/source/snapshots/external/<slug>-<sha>.tar",
     "rule": "Read-only checkouts at pinned SHA. No git requests in loops; refresh only by explicit pin bump with new observed_at."
   },
@@ -86,6 +86,42 @@
         "Token gate tiers (K-score thresholds, min 40) — src/services/token-gate.js, ARCHITECTURE.md Token Gating",
         "Constants and limits (MTU 1232, max accounts, Jito tip 0.0002 SOL) — TODO.md, src/constants.js"
       ]
-    }
-  ]
+    },
+  {
+    "slug": "aegisscan",
+    "repo": "Robinho100/aegisscan",
+    "url": "https://github.com/Robinho100/aegisscan",
+    "sha": "8758ad3ca1ec44b156342a5deb3635832d9e36ef",
+    "observed_at": "2026-10-21",
+    "purpose": "Aegis consortium pentest engine (local-first, modular). Observed baseline; read-only until promoted.",
+    "data_demanded": []
+  },
+  {
+    "slug": "aegis-core",
+    "repo": "Robinho100/aegis-core",
+    "url": "https://github.com/Robinho100/aegis-core",
+    "sha": "d82ca40715b80d64bd7bcf6407bcf373438f11ab",
+    "observed_at": "2026-10-21",
+    "purpose": "Sanitized collaboration source (refusal by construction). Read-only observation + build/test only, never deploy.",
+    "data_demanded": []
+  },
+  {
+    "slug": "ai-bus",
+    "repo": "Robinho100/ai-bus",
+    "url": "https://github.com/Robinho100/ai-bus",
+    "sha": "dd87232d852250634d2e28b67285c8c2fec1a1f3",
+    "observed_at": "2026-10-21",
+    "purpose": "Local Windows app: Claude Code CLI <-> Codex CLI over localhost MCP bus. Observed baseline.",
+    "data_demanded": []
+  },
+  {
+    "slug": "hermes-antigravity",
+    "repo": "zeyxx/hermes-antigravity",
+    "url": "https://github.com/zeyxx/hermes-antigravity",
+    "sha": "4756d18fa23e22d91392013288cca399e329d5a3",
+    "observed_at": "2026-10-22",
+    "purpose": "Hermes model-provider plugin: Google Antigravity inference (Python stdlib suite 190/190). Operator-owned upstream; observed baseline.",
+    "data_demanded": []
+  }
+ ]
 }

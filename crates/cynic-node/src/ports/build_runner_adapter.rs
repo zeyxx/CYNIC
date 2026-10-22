@@ -199,6 +199,9 @@ impl SshBuildRunner {
         match phase {
             BuildPhase::Check => Ok("cargo:check"),
             BuildPhase::Build => Ok("cargo:build"),
+            // Test routes to the runner like check and build: the operator
+            // host never runs the suite itself (see BuildPhase::Test docs).
+            BuildPhase::Test => Ok("cargo:test"),
             // The trigger refuses to attempt activate: no build runs, so no
             // verdict on the commit can exist. Absence, not a blocked build.
             BuildPhase::Activate => Err(BuildError::ConfigurationRefused(
@@ -245,6 +248,12 @@ impl SshBuildRunner {
             verdict_reason: verdict.reason().map(str::to_string),
         }
     }
+}
+
+/// Actions whose gate is the library target only. Check-like actions prove
+/// the lib; test/build prove every target (lib, bins, integration tests).
+fn is_lib_only_action(action: &str) -> bool {
+    matches!(action, "cargo:check" | "cargo:clippy")
 }
 
 impl BuildRunnerPort for SshBuildRunner {
@@ -436,9 +445,15 @@ impl BuildRunnerPort for SshBuildRunner {
         cargo.push("--manifest-path".to_string());
         cargo.push(format!("{dir}/Cargo.toml"));
         if let Some(package) = self.package.as_deref() {
-            cargo.push("--package".to_string());
-            cargo.push(package.to_string());
-            cargo.push("--lib".to_string());
+            // Comma-separated narrows to several crates (repeated -p);
+            // a single name keeps today's exact argv.
+            for pkg in package.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+                cargo.push("--package".to_string());
+                cargo.push(pkg.to_string());
+            }
+            if is_lib_only_action(action) {
+                cargo.push("--lib".to_string());
+            }
         }
         cargo.push("--locked".to_string());
         if trigger.network_mode == NetworkMode::Offline {
@@ -557,6 +572,17 @@ impl SshBuildRunner {
             return None;
         }
         cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
+    }
+
+    /// Total RAM bytes from the same `free -b` probe. `None` on any
+    /// failure — the caller records the unknown, never a number.
+    pub fn probe_total_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        if !out.success() {
+            return None;
+        }
+        cynic_protocol::capacity::parse_mem_total_bytes(&out.stdout)
     }
 }
 
@@ -992,6 +1018,43 @@ mod tests {
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
+    }
+
+    #[test]
+    fn test_phase_narrows_packages_without_lib_restriction() {
+        let commit = "c".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("test result: ok"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.package = Some("cynic-host,cynic-cli".to_string());
+        let trigger = BuildTrigger {
+            source_commit: commit.clone(),
+            phase: BuildPhase::Test,
+            network_mode: NetworkMode::Offline,
+        };
+        runner.trigger(&trigger).expect("trigger succeeds");
+        let cargo = handle
+            .argv_log()
+            .iter()
+            .find(|argv| argv.iter().any(|arg| arg == "cargo"))
+            .expect("cargo argv logged")
+            .join(" ");
+        assert!(cargo.contains("cargo test"), "{cargo}");
+        assert!(cargo.contains("--package cynic-host"), "{cargo}");
+        assert!(cargo.contains("--package cynic-cli"), "{cargo}");
+        assert!(
+            !cargo.contains("--lib"),
+            "test proves every target, not just the lib: {cargo}"
+        );
     }
 
     #[test]

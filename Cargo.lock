@@ -793,6 +793,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-discovery-host"
+version = "0.9.0"
+dependencies = [
+ "cynic-build",
+ "cynic-discovery",
+ "cynic-host",
+ "serde",
+]
+
+[[package]]
 name = "cynic-domain-ops"
 version = "0.9.0"
 dependencies = [
@@ -858,6 +868,15 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "cynic-huggingface"
+version = "0.9.0"
+dependencies = [
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

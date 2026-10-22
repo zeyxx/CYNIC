@@ -4,7 +4,8 @@ mod reconcile;
 mod types;
 
 pub use policy::{
-    load_build_cache_desired_state, reconcile_build_cache, resolve_minimum_available_bytes,
+    canonical_target_relative_path, load_build_cache_desired_state, reconcile_build_cache,
+    resolve_minimum_available_bytes,
 };
 pub use port::{BuildCacheMutationPort, BuildCacheObservationPort};
 pub use reconcile::reconcile_build_cache_resources;

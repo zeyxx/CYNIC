@@ -35,3 +35,8 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 - **Technical substrate**: 100% English (code, tests, docstrings, commits, schemas).
 - **Operator dialogue**: 100% French.
+
+## Operator Readability
+
+- **Replies stay airy**: short sentences, one idea per line, lists over dense blocks, plain words (operator reads with compensated dyslexia).
+- **Shape follows task**: execution → changed / verified / left; explanation → one idea per line, then examples; choice → numbered options with (R); error → likely cause first, then numbered steps; plan → short steps, one question at a time.

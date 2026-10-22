@@ -74,6 +74,7 @@ fn portable_command_context() -> HostCommandContext {
         },
         packages: PackageCommandContext {
             package_query_bin: "/portable/bin/dpkg".to_string(),
+            dpkg_query_bin: "/portable/bin/dpkg-query".to_string(),
             package_install_bin: "/portable/bin/apt-get".to_string(),
             apk_bin: "/portable/bin/apk".to_string(),
             dnf_bin: "/portable/bin/dnf".to_string(),

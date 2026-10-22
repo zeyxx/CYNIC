@@ -70,6 +70,29 @@ pub(crate) enum CollaboratorCommand {
         #[arg(long)]
         registry: Option<String>,
     },
+    /// Onboard a new collaborator at observed trust (requires --yes).
+    Onboard {
+        /// Collaborator ID (e.g. "yansigit"). Must be unique in the registry.
+        collaborator_id: String,
+        /// GitHub handle.
+        #[arg(long)]
+        handle: String,
+        /// Display name (defaults to the collaborator ID).
+        #[arg(long)]
+        display_name: Option<String>,
+        /// Project slugs to attach (repeatable).
+        #[arg(long = "project")]
+        projects: Vec<String>,
+        /// Note recorded on the entry.
+        #[arg(long, default_value = "")]
+        note: String,
+        /// Explicit operator approval (human-in-the-loop).
+        #[arg(long)]
+        yes: bool,
+        /// Path to the collaborators registry.
+        #[arg(long)]
+        registry: Option<String>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -194,6 +217,23 @@ pub(crate) fn execute_collaborator(command: &CollaboratorCommand) -> ExitCode {
             operation,
             registry.as_deref(),
             false,
+        ),
+        CollaboratorCommand::Onboard {
+            collaborator_id,
+            handle,
+            display_name,
+            projects,
+            note,
+            yes,
+            registry,
+        } => execute_onboard(
+            collaborator_id,
+            handle,
+            display_name.as_deref(),
+            projects,
+            note,
+            *yes,
+            registry.as_deref(),
         ),
     }
 }
@@ -472,6 +512,145 @@ fn execute_promotion(
     emit_json(&promotion_report, false)
 }
 
+#[derive(Debug, Serialize)]
+struct OnboardReport {
+    schema: String,
+    collaborator_id: String,
+    action: String,
+    trust_level: String,
+    admitted: bool,
+    registry_path: String,
+}
+
+/// One-click onboarding: append a new collaborator at observed trust.
+///
+/// Refuses without --yes, with a blank id/handle, or when the id already
+/// exists (use promote for trust changes). New entries always start at
+/// `observed` per doctrine — trust from evidence, never reputation.
+/// Pure admission for onboarding: validates the id/handle and builds the new
+/// `observed` entry, or explains the refusal. No file I/O — the surface
+/// reads the registry, calls this, then writes the returned entry.
+fn admit_onboard(
+    collaborators: &serde_json::Value,
+    collaborator_id: &str,
+    handle: &str,
+    display_name: Option<&str>,
+    projects: &[String],
+    note: &str,
+) -> Result<serde_json::Value, String> {
+    let collaborator_id = collaborator_id.trim();
+    let handle = handle.trim();
+    if collaborator_id.is_empty() || collaborator_id.chars().any(char::is_whitespace) {
+        return Err("collaborator_id must be a non-empty single token".to_string());
+    }
+    if handle.is_empty() {
+        return Err("github handle must not be empty".to_string());
+    }
+    let arr = collaborators
+        .get("collaborators")
+        .and_then(|x| x.as_array())
+        .ok_or_else(|| "collaborators registry has no collaborators array".to_string())?;
+    if arr.iter().any(|c| {
+        c.get("collaborator_id").and_then(|x| x.as_str()) == Some(collaborator_id)
+    }) {
+        return Err(format!(
+            "collaborator '{collaborator_id}' is already onboarded; use promote for trust changes"
+        ));
+    }
+    Ok(serde_json::json!({
+        "collaborator_id": collaborator_id,
+        "display_name": display_name.unwrap_or(collaborator_id),
+        "github_handle": handle,
+        "trust_level": "observed",
+        "projects": projects,
+        "notes": note,
+    }))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_onboard(
+    collaborator_id: &str,
+    handle: &str,
+    display_name: Option<&str>,
+    projects: &[String],
+    note: &str,
+    yes: bool,
+    registry: Option<&str>,
+) -> ExitCode {
+    if !yes {
+        eprintln!("Refusing to onboard without --yes flag");
+        return ExitCode::FAILURE;
+    }
+    let collaborator_id = collaborator_id.trim();
+    let handle = handle.trim();
+    if collaborator_id.is_empty() || collaborator_id.chars().any(char::is_whitespace) {
+        return fail("collaborator_id must be a non-empty single token".to_string());
+    }
+    if handle.is_empty() {
+        return fail("github handle must not be empty".to_string());
+    }
+
+    let root = rust_source::workspace_root();
+    let default_path = root.join("infra/collaborators.json");
+    let registry_path = registry
+        .map(PathBuf::from)
+        .unwrap_or(default_path);
+
+    let raw = match fs::read_to_string(&registry_path) {
+        Ok(s) => s,
+        Err(e) => {
+            return fail(format!(
+                "cannot read collaborators registry {}: {e}",
+                registry_path.display()
+            ));
+        }
+    };
+    let mut value: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(e) => {
+            return fail(format!("invalid JSON in collaborators registry: {e}"));
+        }
+    };
+
+    let entry = match admit_onboard(&value, collaborator_id, handle, display_name, projects, note) {
+        Ok(entry) => entry,
+        Err(reason) => return fail(reason),
+    };
+    match value
+        .get_mut("collaborators")
+        .and_then(|x| x.as_array_mut())
+    {
+        Some(arr) => arr.push(entry),
+        None => {
+            return fail("collaborators registry has no collaborators array".to_string());
+        }
+    };
+
+    match serde_json::to_string_pretty(&value) {
+        Ok(json) => {
+            if let Err(e) = fs::write(&registry_path, json) {
+                return fail(format!(
+                    "cannot write collaborators registry {}: {e}",
+                    registry_path.display()
+                ));
+            }
+        }
+        Err(e) => {
+            return fail(format!("serialization failed: {e}"));
+        }
+    }
+
+    let report = OnboardReport {
+        schema: "cynic.cli.collaborator_onboard.v1".to_string(),
+        collaborator_id: collaborator_id.to_string(),
+        action: "onboard".to_string(),
+        trust_level: "observed".to_string(),
+        admitted: true,
+        registry_path: registry_path.display().to_string(),
+    };
+    emit_json(&report, false)
+}
+
 fn parse_collaborators(value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::Collaborator> {
     value
         .get("collaborators")
@@ -599,5 +778,49 @@ fn tier_from_level(level: &str) -> u8 {
         "core" => 1,
         "trusted" => 2,
         _ => 3,
+    }
+}
+
+#[cfg(test)]
+mod onboard_tests {
+    use super::*;
+
+    fn empty_registry() -> serde_json::Value {
+        serde_json::json!({ "collaborators": [] })
+    }
+
+    fn registry_with(id: &str) -> serde_json::Value {
+        serde_json::json!({ "collaborators": [{ "collaborator_id": id }] })
+    }
+
+    #[test]
+    fn newcomer_is_admitted_at_observed() {
+        let entry = admit_onboard(&empty_registry(), "yansigit", "yansigit", None, &[], "")
+            .expect("newcomer must be admitted");
+        assert_eq!(entry["collaborator_id"], "yansigit");
+        assert_eq!(entry["trust_level"], "observed");
+        assert_eq!(entry["github_handle"], "yansigit");
+    }
+
+    #[test]
+    fn duplicate_id_is_refused() {
+        let err = admit_onboard(&registry_with("yansigit"), "yansigit", "yansigit", None, &[], "")
+            .expect_err("duplicate must be refused");
+        assert!(err.contains("already onboarded"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn blank_id_is_refused() {
+        assert!(admit_onboard(&empty_registry(), "   ", "yansigit", None, &[], "").is_err());
+    }
+
+    #[test]
+    fn spaced_id_is_refused() {
+        assert!(admit_onboard(&empty_registry(), "yan sigit", "yansigit", None, &[], "").is_err());
+    }
+
+    #[test]
+    fn blank_handle_is_refused() {
+        assert!(admit_onboard(&empty_registry(), "yansigit", "", None, &[], "").is_err());
     }
 }
