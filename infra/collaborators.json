@@ -14,7 +14,9 @@
         "cynic",
         "aegisscan",
         "aegis-core",
-        "ai-bus"
+        "ai-bus",
+        "gasdf",
+        "hermes-antigravity"
       ],
       "owns": [
         "cynic"
@@ -24,7 +26,7 @@
         "external-project-governance"
       ],
       "pow_metric": "commits, reviews, attestations, build/test proofs, deployment receipts",
-      "notes": "Human sovereign of CYNIC. Owner of CYNIC repo. Collaborator on Aegis consortium. Maintainer of builder toolchains and external project governance. Trust level 'core' (not 'observed') \u2014 operator is the constituent, not a guest."
+      "notes": "Human sovereign of CYNIC. Owner of CYNIC repo. Collaborator on Aegis consortium. Maintainer of builder toolchains and external project governance. Trust level 'core' (not 'observed') — operator is the constituent, not a guest. Fused with 'zeyxx' fiche 2026-10-22 (same human; zeyxx entry removed, gasdf folded into projects)."
     },
     {
       "collaborator_id": "robinho100",
@@ -37,16 +39,6 @@
         "ai-bus"
       ],
       "notes": "Seed collaborator. Owns the three Aegis consortium repositories. Trust starts at 'observed'; promotion requires proof (mirrors CYNIC office/capability model in infra/registry.json)."
-    },
-    {
-      "collaborator_id": "zeyxx",
-      "display_name": "Titouan Corneloup",
-      "github_handle": "zeyxx",
-      "trust_level": "core",
-      "projects": [
-        "gasdf"
-      ],
-      "notes": "Human operator: constituent + maintainer, owns CYNIC and the GASdf product repo. Core by doctrine (external-project-governance §4), not by inference. Relay-107 operator, 2026-10-18 ingress closure approvals."
     },
     {
       "collaborator_id": "sollama58",
