@@ -1,9 +1,14 @@
 //! Drift gate: external pins are the single SHA source, the project
 //! registry references them by slug, and state roots stay canonical.
 //!
-//! Fails closed on: missing pin, SHA duplicated outside pins, state root
-//! outside `/var/lib/cynic/projects/`, or `projects/` missing from the
-//! directory tree.
+//! Fails closed on: missing pin, SHA duplicated outside pins, roots that
+//! disagree with the serving tier (referential != f(serving_tier)), or
+//! `projects/` missing from the directory tree.
+//!
+//! The tier rule is the SSOT (infra/workspace-paths.json `external_projects`
+//! + serving_tier model): served projects live under /var/lib/cynic/...,
+//! dev projects under ${HOME}/.cynic/.... A hardcoded /var/lib prefix here
+//! would contradict the tier test for every dev project.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -27,6 +32,14 @@ fn read_json(relative: &str) -> serde_json::Value {
 fn read_text(relative: &str) -> String {
     fs::read_to_string(repo_root().join(relative))
         .unwrap_or_else(|err| panic!("failed to read {relative}: {err}"))
+}
+
+fn expand_home(s: &str) -> String {
+    if let Some(rest) = s.strip_prefix("${HOME}") {
+        format!("{}{}", std::env::var("HOME").unwrap_or_default(), rest)
+    } else {
+        s.to_string()
+    }
 }
 
 #[test]
@@ -82,20 +95,44 @@ fn project_state_roots_stay_canonical() {
         "directory-tree.json must declare the projects/ pattern"
     );
 
+    let paths = read_json("infra/workspace-paths.json");
+    let ext = &paths["external_projects"];
+    let production_root = ext["production_root"].as_str().expect("production_root");
+    let development_root = expand_home(ext["development_root"].as_str().expect("development_root"));
+    let derived_artifacts_root = expand_home(
+        ext["derived_artifacts_root"]
+            .as_str()
+            .expect("derived_artifacts_root"),
+    );
+
     let projects = registry["projects"].as_array().expect("projects array");
     for project in projects {
         let slug = project["slug"].as_str().expect("project slug");
+        let tier = project["serving_tier"]
+            .as_str()
+            .unwrap_or_else(|| panic!("project {slug} is missing serving_tier"));
         let roots = &project["roots"];
         if let Some(state) = roots.get("state").and_then(|s| s.as_str()) {
+            let state_root = match tier {
+                "served" => "/var/lib/cynic/projects/",
+                "dev" => derived_artifacts_root.as_str(),
+                _ => panic!("invalid tier {tier} for {slug}"),
+            };
             assert!(
-                state.starts_with("/var/lib/cynic/projects/"),
-                "project {slug} state root must live under /var/lib/cynic/projects/"
+                expand_home(state).starts_with(state_root),
+                "project {slug} state root ({state}) disagrees with serving_tier={tier}"
             );
         }
         if let Some(referential) = roots.get("referential").and_then(|s| s.as_str()) {
-            assert!(
-                referential.starts_with("/var/lib/cynic/source/repositories/external/"),
-                "project {slug} referential must live under source/repositories/external/"
+            let expected = match tier {
+                "served" => format!("{production_root}/{slug}"),
+                "dev" => format!("{development_root}/{slug}"),
+                _ => panic!("invalid tier {tier} for {slug}"),
+            };
+            assert_eq!(
+                expand_home(referential),
+                expected,
+                "project {slug} referential ({referential}) != f(serving_tier={tier})"
             );
         }
     }
