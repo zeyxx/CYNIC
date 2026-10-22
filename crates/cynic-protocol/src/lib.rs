@@ -31,6 +31,7 @@ pub mod capability_responsibility;
 pub mod build_disk_capacity;
 pub mod build_memory_capacity;
 pub mod remote_cache_roots;
+pub mod runner_capacity;
 pub mod capacity;
 pub mod cleanup;
 pub mod build_latency;
