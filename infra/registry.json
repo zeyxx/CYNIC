@@ -1084,7 +1084,7 @@
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager. | 2026-10-19: toolchain completed, promoted to cynic/build after capacity probe run #27 succeeded. Runner labels: cynic/build,cynic/linux,cynic/compute-01.",
+      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager. | 2026-10-19: toolchain completed, promoted to cynic/build after capacity probe run #27 succeeded. Runner labels: cynic/build,cynic/linux,cynic/compute-01. | 2026-10-21: no sccache on host; gate proves engagement only when a wrapper is present, cold compile tolerated until pool.required_tools decides.",
       "enrollment": {
         "date": "2026-10-19",
         "enrolled_by": "hermes+cortex-nat",

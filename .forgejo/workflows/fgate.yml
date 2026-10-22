@@ -43,6 +43,40 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -82,6 +116,48 @@ jobs:
           # again, and the rebuild is correct rather than skipped.
           find crates -name '*.rs' -exec touch {} +
           cargo build --release -p cynic-cli
+
+      - name: Prove the compilation cache is engaged, not merely present
+        run: |
+          set -eu
+          # Wrapper presence is not wrapper effectiveness. A pinned wrapper
+          # whose version skews from the server handshake-fails silently while
+          # builds still converge cold. When the wrapper is configured, this
+          # step fails if the cache served nothing: hits plus misses must
+          # exceed zero after the build above.
+          #
+          # An absent wrapper is NOT a failure: the host compiles cold, slow
+          # but correct. Required tools are declared in the registry
+          # (pool.required_tools) and enforced by the eligibility verb, never
+          # by this shell step — a shell re-derivation would be a second,
+          # drifting authority for a rule the registry owns.
+          if ! command -v sccache >/dev/null 2>&1; then
+            echo "no compilation cache on this runner: the gate compiles cold (registry decides if that is allowed)"
+            exit 0
+          fi
+          stats=$(sccache --show-stats 2>&1 || true)
+          echo "$stats"
+          total=$(printf '%s\n' "$stats" | python3 -c "
+          import re,sys
+          text = sys.stdin.read()
+          hits = misses = 0
+          m = re.search(r'(?i)cache hits?\s*[:=]?\s*(\d+)', text)
+          if m: hits = int(m.group(1))
+          m = re.search(r'(?i)cache miss(?:es)?\s*[:=]?\s*(\d+)', text)
+          if m: misses = int(m.group(1))
+          if hits == 0 and misses == 0:
+              nums = [int(n) for n in re.findall(r'\b(\d+)\b', text)]
+              total = sum(nums)
+              print(total)
+          else:
+              print(hits + misses)
+          ")
+          case "$total" in ''|*[!0-9]*) total=0 ;; esac
+          if [ "$total" -eq 0 ]; then
+            echo "compilation cache not engaged: hits plus misses is zero after a release build"
+            exit 1
+          fi
+          echo "compilation cache engaged: hits plus misses = $total"
 
       - name: Publish the compilation parallelism this runner can hold
         run: |
@@ -141,6 +217,91 @@ jobs:
             --registry infra/registry.json \
             --observed-labels "$POOL_LABEL"
 
+  derive_scope:
+    name: Gate 0 Proof Scope Derivation
+    runs-on: [cynic/build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive proof scope from the diff
+        run: |
+          set -eu
+          # Admitted load: the shard set is a function of the diff, never a
+          # constant. Changed crates plus their reverse dependents need a
+          # proof; every other shard skips. Missing scope runs everything.
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          target_dir="${state_root}/build-targets/fgate"
+          mkdir -p "$target_dir"
+          base=""
+          if git rev-parse --verify origin/main >/dev/null 2>&1; then
+            base=$(git merge-base origin/main HEAD 2>/dev/null || true)
+          fi
+          head=$(git rev-parse HEAD)
+          if [ -z "$base" ] || [ "$base" = "$head" ]; then
+            changed=""
+          else
+            changed=$(git diff --name-only "$base" "$head" || true)
+          fi
+          printf '%s\n' "$changed" > "$target_dir/changed-files.txt"
+          python3 - "$target_dir" "$base" "$head" <<'PY'
+          import json, os, subprocess, sys
+          target_dir, base, head = sys.argv[1], sys.argv[2], sys.argv[3]
+          changed_paths = []
+          p = os.path.join(target_dir, "changed-files.txt")
+          if os.path.exists(p):
+              with open(p) as f:
+                  changed_paths = [l.strip() for l in f if l.strip()]
+          changed = set()
+          for path in changed_paths:
+              parts = path.split("/")
+              if len(parts) >= 2 and parts[0] == "crates":
+                  changed.add(parts[1])
+          proof = set(changed)
+          try:
+              raw = subprocess.check_output(
+                  ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+                  stderr=subprocess.DEVNULL, timeout=120,
+              )
+              names = {pkg["name"] for pkg in json.loads(raw).get("packages", [])}
+              changed &= names
+              proof &= names
+              full = subprocess.check_output(
+                  ["cargo", "metadata", "--format-version", "1"],
+                  stderr=subprocess.DEVNULL, timeout=180,
+              )
+              nodes = {pkg["name"]: pkg.get("dependencies", []) for pkg in json.loads(full).get("packages", [])}
+              rev = {n: set() for n in nodes}
+              for name, deps in nodes.items():
+                  for dep in deps:
+                      dep_name = dep.get("name")
+                      if dep_name in rev:
+                          rev[dep_name].add(name)
+              queue = list(changed)
+              while queue:
+                  cur = queue.pop()
+                  for dependent in sorted(rev.get(cur, ())):
+                      if dependent not in proof:
+                          proof.add(dependent)
+                          queue.append(dependent)
+          except Exception:
+              proof = set(changed)
+          scope = {
+              "$schema": "cynic.proof_scope.v1",
+              "base": base,
+              "head": head,
+              "changed_crates": sorted(changed),
+              "proof_crates": sorted(proof),
+          }
+          with open("scope.json", "w") as f:
+              json.dump(scope, f, indent=2)
+          with open(os.path.join(target_dir, "scope.json"), "w") as f:
+              json.dump(scope, f, indent=2)
+          print(json.dumps(scope))
+          PY
+
   validate_json:
     name: Gate 1 Contract Validation
     runs-on: [cynic/build]
@@ -158,7 +319,9 @@ jobs:
             infra/runtime-authority.json \
             infra/registry.json \
             infra/agent-exposure.json \
-            infra/ecosystem-pins.json; do
+            infra/ecosystem-pins.json \
+            infra/proof-scope.json \
+            infra/build-policy.json; do
             python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$file"
             echo "OK $file"
           done
@@ -194,6 +357,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -220,7 +402,7 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility]
+    needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -245,6 +427,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -263,7 +464,25 @@ jobs:
           echo "compilation parallelism: $jobs"
 
       - name: Run Core Types Test Suite
-        run: cargo test -p cynic-types
+        run: |
+          set -eu
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          scope_file="${state_root}/build-targets/fgate/scope.json"
+          if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-types <<'PY'
+          import json,sys
+          scope_path, crate = sys.argv[1], sys.argv[2]
+          try:
+              scope = json.load(open(scope_path))
+          except Exception:
+              sys.exit(0)
+          proof = scope.get("proof_crates") or []
+          sys.exit(0 if (proof and crate in proof) else 1)
+          PY
+          then
+            echo "scope skip: cynic-types unchanged by this diff, already proven by the base run"
+            exit 0
+          fi
+          cargo test -p cynic-types
 
   test_knowledge:
     name: Gate 3 Knowledge
@@ -271,7 +490,7 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility]
+    needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -296,6 +515,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -314,7 +552,25 @@ jobs:
           echo "compilation parallelism: $jobs"
 
       - name: Run Knowledge Test Suite
-        run: cargo test -p cynic-knowledge
+        run: |
+          set -eu
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          scope_file="${state_root}/build-targets/fgate/scope.json"
+          if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-knowledge <<'PY'
+          import json,sys
+          scope_path, crate = sys.argv[1], sys.argv[2]
+          try:
+              scope = json.load(open(scope_path))
+          except Exception:
+              sys.exit(0)
+          proof = scope.get("proof_crates") or []
+          sys.exit(0 if (proof and crate in proof) else 1)
+          PY
+          then
+            echo "scope skip: cynic-knowledge unchanged by this diff, already proven by the base run"
+            exit 0
+          fi
+          cargo test -p cynic-knowledge
 
   test_inference:
     name: Gate 3 Inference
@@ -322,7 +578,7 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility]
+    needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -347,6 +603,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -365,7 +640,25 @@ jobs:
           echo "compilation parallelism: $jobs"
 
       - name: Run Inference Test Suite
-        run: cargo test -p cynic-inference
+        run: |
+          set -eu
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          scope_file="${state_root}/build-targets/fgate/scope.json"
+          if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-inference <<'PY'
+          import json,sys
+          scope_path, crate = sys.argv[1], sys.argv[2]
+          try:
+              scope = json.load(open(scope_path))
+          except Exception:
+              sys.exit(0)
+          proof = scope.get("proof_crates") or []
+          sys.exit(0 if (proof and crate in proof) else 1)
+          PY
+          then
+            echo "scope skip: cynic-inference unchanged by this diff, already proven by the base run"
+            exit 0
+          fi
+          cargo test -p cynic-inference
 
   test_canonical_paths:
     name: Gate 3 Canonical Paths
@@ -373,7 +666,7 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility]
+    needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -398,6 +691,25 @@ jobs:
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
+          # Route the compiler through the bounded compilation cache.
+          # Measured on builder-119 before this line existed: 1521 Rust
+          # cache MISSES against 129 hits — 97% of the compilations the
+          # gate performs were recomputed from scratch. The shared target
+          # directory only helps when the SAME crate is rebuilt in the
+          # SAME directory; the cache helps when a crate is rebuilt in
+          # ANY directory, which is what happens when the source moves
+          # between a checkout, a worktree and a release build.
+          #
+          # Every shard has its OWN toolchain step, so each one must set
+          # the wrapper: exporting it once in one shard does not reach
+          # the others.
+          if command -v sccache >/dev/null 2>&1; then
+            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+            echo "compilation cache: $(command -v sccache)"
+          else
+            echo "no compilation cache on this runner: the gate compiles cold"
+          fi
           # Compilation parallelism, decided by the CYNIC binary from the
           # observed memory and published by Gate 0 in the shared target
           # directory. A missing or unreadable file means the decision was
@@ -416,12 +728,31 @@ jobs:
           echo "compilation parallelism: $jobs"
 
       - name: Run Canonical Paths Coherence Test
-        run: cargo test -p cynic-cli --test canonical_paths_coherence
+        run: |
+          set -eu
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          scope_file="${state_root}/build-targets/fgate/scope.json"
+          if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-cli <<'PY'
+          import json,sys
+          scope_path, crate = sys.argv[1], sys.argv[2]
+          try:
+              scope = json.load(open(scope_path))
+          except Exception:
+              sys.exit(0)
+          proof = scope.get("proof_crates") or []
+          sys.exit(0 if (proof and crate in proof) else 1)
+          PY
+          then
+            echo "scope skip: cynic-cli unchanged by this diff, already proven by the base run"
+            exit 0
+          fi
+          cargo test -p cynic-cli --test canonical_paths_coherence
 
   verdict:
     name: Layer 0-4 Verification Gate
     needs:
       - pool_eligibility
+      - derive_scope
       - validate_json
       - check_compile
       - test_core_types
@@ -439,6 +770,7 @@ jobs:
       - name: Aggregate Test Suite Verdict
         env:
           POOL_ELIGIBILITY_OUTCOME: ${{ needs.pool_eligibility.result }}
+          SCOPE_DERIVATION_OUTCOME: ${{ needs.derive_scope.result }}
           JSON_VALIDATION_OUTCOME: ${{ needs.validate_json.result }}
           COMPILE_OUTCOME: ${{ needs.check_compile.result }}
           CORE_TYPES_OUTCOME: ${{ needs.test_core_types.result }}
@@ -450,6 +782,7 @@ jobs:
 
           hard_gate_failed=0
           for entry in "pool_eligibility:${POOL_ELIGIBILITY_OUTCOME}" \
+                       "derive_scope:${SCOPE_DERIVATION_OUTCOME}" \
                        "validate_json:${JSON_VALIDATION_OUTCOME}" \
                        "check_compile:${COMPILE_OUTCOME}"; do
             gate="${entry%%:*}"

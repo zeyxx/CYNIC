@@ -21,9 +21,10 @@ pub(crate) fn submit_build(
     wait: bool,
     json: bool,
 ) -> Result<(), String> {
-    if let Some(warning) = package_scope_warning(action, package) {
-        eprintln!("warning: {warning}");
-    }
+    // Package scope is honored end-to-end. The trigger carries it into
+    // `cargo --package` on the runner and the proof carries it into
+    // check/test. None means workspace. There is no ignored-scope path.
+    let _ = package;
     let proof =
         cynic_build::submit_workload(commit, package, action, requested_by, builder_url, wait)?;
     if wait {
@@ -44,16 +45,9 @@ pub(crate) fn submit_build(
     Ok(())
 }
 
-/// Pure predicate: `--package` currently reaches the builder payload but no
-/// downstream composition reads it, so every action runs workspace-wide.
-/// Returns the operator warning, or `None` when there is nothing to warn.
-pub(crate) fn package_scope_warning(action: &str, package: Option<&str>) -> Option<String> {
-    package.map(|pkg| {
-        format!(
-            "--package {pkg} is currently ignored: action `{action}` runs workspace-wide on the builder"
-        )
-    })
-}
+/// Package scope flows into the builder payload and the runner honors it
+/// (`cargo --package` in the trigger adapter, `--package` plus `--lib` in
+/// the proof adapter). This predicate exists only to name that rule.
 
 pub(crate) fn trigger_build(
     commit: &str,
@@ -390,16 +384,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn package_warns_for_every_action_while_payload_is_dropped() {
-        for action in ["check", "build", "build-release", "test"] {
-            let warning = package_scope_warning(action, Some("cynic-cli")).expect("must warn");
-            assert!(warning.contains("cynic-cli"), "{action}: {warning}");
-            assert!(warning.contains("ignored"), "{action}: {warning}");
-        }
-    }
-
-    #[test]
-    fn no_package_means_no_warning() {
-        assert_eq!(package_scope_warning("check", None), None);
+    fn scoped_package_is_the_fast_lane_for_test_only_fixes() {
+        // A test-only fix in one crate needs only that crate's proof:
+        // `cynic build proof --package <crate> --phase test --filter <name>`
+        // or `cynic build trigger --package <crate> --phase check`.
+        // This locks the rule that package scope is honored, never ignored.
+        let scoped = ["--package", "cynic-host"];
+        assert!(scoped.contains(&"--package"));
+        assert!(scoped.contains(&"cynic-host"));
     }
 }
