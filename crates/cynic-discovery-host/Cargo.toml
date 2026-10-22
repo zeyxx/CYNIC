@@ -1,0 +1,18 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-discovery-host"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+cynic-discovery = { path = "../cynic-discovery" }
+cynic-host = { path = "../cynic-host" }
+cynic-build = { path = "../cynic-build" }
+serde.workspace = true
+
+[dev-dependencies]
+
+[lints]
+workspace = true
