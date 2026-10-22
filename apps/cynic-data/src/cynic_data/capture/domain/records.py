@@ -44,6 +44,7 @@ class CaptureManifest:
     manifest_uid: str
     created_at_iso: str
     records: tuple[CaptureRecord, ...]
+    failures: tuple[tuple[str, str], ...] = ()  # (harness, reason) — skipped, never silent
 
     def by_harness(self, harness: str) -> CaptureRecord | None:
         for r in self.records:

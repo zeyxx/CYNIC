@@ -55,8 +55,18 @@ class NormalizerPort(Protocol):
 class CanonicalStorePort(Protocol):
     """Persistence for canonical entities. A store never invents data."""
 
-    def write(self, session: NormalizedSession) -> None: ...
+    def write(
+        self, session: NormalizedSession, manifest_uid: str | None = None
+    ) -> None: ...
 
     def read(self, session_uid: str) -> NormalizedSession | None: ...
+
+    def session_content_hash(self, session_uid: str) -> str | None:
+        """Hash recorded at the last write, or None when never written."""
+        ...
+
+    def record_run(self, run: dict) -> None:
+        """Persist a normalize-run ledger entry (crash visibility, resume proof)."""
+        ...
 
     def count(self, table: str) -> int: ...
