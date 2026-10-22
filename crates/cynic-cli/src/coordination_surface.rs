@@ -84,6 +84,10 @@ pub(crate) enum CoordinationCommand {
         /// Explicit log path (else CYNIC_COORDINATION_LOG, else local share).
         #[arg(long)]
         log: Option<String>,
+        /// Relay the entry to another node over SSH (layer 0; full peer tx later).
+        /// Value is a raw SSH target (user@host or config alias).
+        #[arg(long)]
+        via: Option<String>,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -172,6 +176,78 @@ fn now_unix_s() -> u64 {
         .unwrap_or(0)
 }
 
+/// Single-quote a string for remote shell use. Closed over the whole word,
+/// so bodies with spaces, quotes, or `$()` travel intact.
+fn shell_quote(raw: &str) -> String {
+    format!("'{}'", raw.replace('\'', "'\\''"))
+}
+
+/// Remote argv for one relayed entry. The original msg_id travels in `--ref`,
+/// so the remote copy links back to the local proof even though the remote
+/// log mints its own id. Pure: no I/O, fully unit-tested.
+fn relay_argv(
+    target: &str,
+    sender: &str,
+    kind: &str,
+    body: &str,
+    msg_id: &str,
+    refs: &[String],
+) -> Vec<String> {
+    let mut argv = vec![
+        "ssh".to_string(),
+        "-o".to_string(),
+        "BatchMode=yes".to_string(),
+        "-o".to_string(),
+        "ConnectTimeout=10".to_string(),
+        target.to_string(),
+        "cynic".to_string(),
+        "coordination".to_string(),
+        "append".to_string(),
+        "--agent".to_string(),
+        sender.to_string(),
+        "--kind".to_string(),
+        kind.to_string(),
+        "--body".to_string(),
+        shell_quote(body),
+    ];
+    for r in std::iter::once(&msg_id.to_string()).chain(refs.iter()) {
+        argv.push("--ref".to_string());
+        argv.push(shell_quote(r));
+    }
+    argv.push("--json".to_string());
+    argv
+}
+
+/// Copy one entry into the destination node's coordination log over SSH.
+/// Layer 0 of phase 2: the mesh ssh carries what peer tx will carry later.
+/// Returns the remote receipt line on success.
+fn relay_entry_ssh(
+    target: &str,
+    sender: &str,
+    kind: &str,
+    body: &str,
+    msg_id: &str,
+    refs: &[String],
+) -> Result<String, String> {
+    if target.trim().is_empty() {
+        return Err("empty relay target".to_string());
+    }
+    let argv = relay_argv(target, sender, kind, body, msg_id, refs);
+    let output = std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .output()
+        .map_err(|error| format!("ssh to {target} failed to spawn: {error}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("remote append on {target} failed with no message")
+        } else {
+            format!("remote append on {target} failed: {stderr}")
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
 pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
     match command {
         CoordinationCommand::Append {
@@ -257,6 +333,7 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             r#ref,
             agent,
             log,
+            via,
             json,
         } => {
             let log_path = match resolve_log(log.as_deref()) {
@@ -285,7 +362,33 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
                     } else {
                         println!("sent {} to {}", entry.msg_id.as_deref().unwrap_or("?"), entry.to.as_deref().unwrap_or("?"));
                     }
-                    ExitCode::SUCCESS
+                    if let Some(target) = via.as_deref() {
+                        let msg_id = entry.msg_id.clone().unwrap_or_default();
+                        let sender = entry.agent.clone();
+                        match relay_entry_ssh(
+                            target,
+                            &sender,
+                            &entry.kind,
+                            &entry.body,
+                            &msg_id,
+                            &entry.refs,
+                        ) {
+                            Ok(receipt) => {
+                                if json {
+                                    println!("{receipt}");
+                                } else {
+                                    println!("relayed {msg_id} via {target}: {receipt}");
+                                }
+                                ExitCode::SUCCESS
+                            }
+                            Err(error) => {
+                                eprintln!("coordination send relayed locally but remote copy failed: {error}");
+                                ExitCode::FAILURE
+                            }
+                        }
+                    } else {
+                        ExitCode::SUCCESS
+                    }
                 }
                 Err(error) => {
                     eprintln!("coordination send failed: {error}");
@@ -604,5 +707,47 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_quote_survives_hostile_bodies() {
+        assert_eq!(shell_quote("plain"), "'plain'");
+        assert_eq!(shell_quote("it's $HOME"), "'it'\\''s $HOME'");
+        assert_eq!(shell_quote("$(rm -rf /)"), "'$(rm -rf /)'");
+    }
+
+    #[test]
+    fn relay_argv_links_back_to_local_proof() {
+        let argv = relay_argv(
+            "cynic-agent-host",
+            "hermes",
+            "info",
+            "hello world",
+            "orig-123",
+            &["#260".to_string()],
+        );
+        assert_eq!(
+            &argv[..6],
+            &["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "cynic-agent-host"]
+        );
+        assert!(argv.contains(&"append".to_string()));
+        assert!(argv.contains(&"'hello world'".to_string()));
+        let refs: Vec<_> = argv
+            .windows(2)
+            .filter(|w| w[0] == "--ref")
+            .map(|w| w[1].clone())
+            .collect();
+        assert_eq!(refs, vec!["'orig-123'", "'#260'"]);
+        assert_eq!(argv.last().map(String::as_str), Some("--json"));
+    }
+
+    #[test]
+    fn relay_refuses_empty_target() {
+        assert!(relay_entry_ssh("  ", "hermes", "info", "x", "m", &[]).is_err());
     }
 }
