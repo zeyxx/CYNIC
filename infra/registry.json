@@ -1093,12 +1093,30 @@
           "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
           "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
           "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
+        },
+        {
+          "name": "node-receiver",
+          "artifact": "cynic-node",
+          "scheme": "http",
+          "endpoint_host": "192.168.0.25",
+          "port": 9090,
+          "network_plane": "lan",
+          "unit": "cynic-node.service",
+          "supervisor": {
+            "provider": "systemd"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://192.168.0.25:9090/health"
+          },
+          "role_evidence": "grant:7daa78d18ee0f64f (build_runner, 14 caps, expires +90d, authority cynic-compute-01-enrollment-authority-g3)",
+          "observed": "2026-10-22, :9090/health ok, service prove converged"
         }
       ],
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager. | 2026-10-19: toolchain completed, promoted to cynic/build after capacity probe run #27 succeeded. Runner labels: cynic/build,cynic/linux,cynic/compute-01.",
+      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager. | 2026-10-19: toolchain completed, promoted to cynic/build after capacity probe run #27 succeeded. Runner labels: cynic/build,cynic/linux,cynic/compute-01. | 2026-10-22: dual reality recorded — embedding_runner (GPU) + build_runner (receiver :9090, grant 7daa78d1). Primary role string unchanged pending multi-role schema decision.",
       "enrollment": {
         "date": "2026-10-19",
         "enrolled_by": "hermes+cortex-nat",
