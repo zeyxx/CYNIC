@@ -91,5 +91,10 @@ registry-shape drift — no submitter change needed. (One junk workload
    is root-owned (Aug 22) and undeletable without root. Remainder needs
    one root `rm -rf`. Lesson: check ownership BEFORE deleting, not after.
    Apply planned checkout reclaim.
-3. Code: single canonical cache migration (writers off `shared-target`),
-   `runner-job.log` rotation.
+3. Code: single canonical cache migration — CLOSED 2026-10-22 evening.
+   No workflow, no config, no code references `shared-target` (verified
+   across history). The 18:27 regrowth (478M, static since, no active
+   writer) is ad-hoc residue, not a configured writer. Nothing to migrate.
+   `runner-job.log` (65M, growing): the Forgejo-runner daemon (cynic user
+   systemd, since Oct 20) holds stdout on it. Rotation needs root
+   logrotate with copytruncate (no daemon restart) — one line, operator.
