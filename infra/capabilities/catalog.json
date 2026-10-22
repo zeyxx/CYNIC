@@ -406,30 +406,12 @@
         "host",
         "service",
         "reconcile",
-        "--node",
-        "{node}",
-        "--registry",
-        "{registry}",
-        "{unit}",
         "--apply"
       ],
-      "params": [
-        {
-          "name": "node",
-          "kind": "path_segment"
-        },
-        {
-          "name": "registry",
-          "kind": "absolute_path"
-        },
-        {
-          "name": "unit",
-          "kind": "path_segment"
-        }
-      ],
+      "params": [],
       "requires_root": true,
       "mandatory": false,
-      "purpose": "reconcile a systemd unit to declared state"
+      "purpose": "reconcile the host's declared services and retire the units the registry lists as retired"
     },
     {
       "id": "network-actuate",
