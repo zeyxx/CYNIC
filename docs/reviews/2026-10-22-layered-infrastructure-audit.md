@@ -36,7 +36,7 @@
 | Observation → evaluation → action → proof | 0 alert rules; a 2-week crash loop (250k restarts) went unnoticed |
 
 **Highest risks, in order:**
-0. **(Added by the §N network/DevOps pass.)** The kernel's actual knowledge store is a SurrealDB **on cortex** (the faulty-RAM host), not CT103. It has been **corrupt since 2026-10-17** (SSTable checksum failures, third corruption on record) and has **no usable backup** (N-1, N-2, N-3).
+0. **(Added by the §N network/DevOps pass.)** The kernel's actual knowledge store is a SurrealDB **on cortex**, not CT103. It is **currently corrupt** (SSTable checksum failures, onset unknown, earlier than 2026-10-17) and has **no usable backup** (N-1, N-2, N-3).
 1. Compromising cortex `user` gives root on the whole fleet (C4-1, C4-2, C4-3).
 2. There is no backup of anything: no vzdump job and no SurrealDB dump. All storage sits on one 2.5" HDD (C0-1, C0-12, C5-2).
 3. Internet-facing services run on a hypervisor with no firewall (C0-2, C0-3, C0-10).
@@ -205,7 +205,7 @@ Overlay 10.20.0.0/24. Peers: 101 (10.20.0.2), 103 (10.20.0.4), 105 (10.20.0.5), 
 | C5-3 | 🟠 | **Health timers are installed but never run:** `cynic-healthcheck.timer`, `cynic-monitor.timer` and `cynic-dog-monitor.timer` on cortex show no last or next run. | `systemctl list-timers --all` | Enable them, or delete them if superseded. |
 | C5-4 | 🟠 | **The build GC is merged but not deployed.** PR #224 (`f611d873`, *"arm the native build artefact GC on a daily timer"*) is on main, but CT105 has no GC timer. Checkouts use 2 GiB; the rest of the disk usage is unexplained (C0-16). | `list-timers` on 105 | Deploy through the release path. This is the C2-1 pattern again. |
 | C5-5 | 🟠 | **Watchdogs check liveness, not function.** `surreal-watchdog` (CT103) checks only SurrealDB `/health` and ignores the crash-looping `cynic-node` on the same CT. `cynic-main-watchdog.sh` (cortex cron) writes `AGREE <sha>` every 15 minutes and nothing reads it. | watchdog logs | Feed the watchdog output into Prometheus (textfile collector) so that C5-1's rules see it. |
-| C5-6 | 🟡 | **Supervision lives outside the principal.** The crons `cynic-main-watchdog.sh` and `cynic-ram-guard.sh` run from `/home/user/.local/bin`. The latter starts and stops a **Forgejo runner on cortex**, although `contracts/build-placement.json` forbids building on cortex (cortex also has faulty RAM). | `crontab -l` | Move the runner off cortex. Move the supervision into `cynic`-owned systemd units. |
+| C5-6 | 🟡 | **Supervision lives outside the principal.** The crons `cynic-main-watchdog.sh` and `cynic-ram-guard.sh` run from `/home/user/.local/bin`. The latter starts and stops a **Forgejo runner on cortex**, although `contracts/build-placement.json` forbids building on cortex. The contract's stated reasons are hygiene and reproducibility; the "faulty RAM" reason in AGENTS.md is stale (see §11). | `crontab -l` | Move the runner off cortex, or amend the placement contract explicitly. Move the supervision into `cynic`-owned systemd units. |
 | C5-7 | 🟡 | **An unbounded self-healing action runs on the hypervisor.** `cynic-hypervisor-watchdog.sh` runs every 5 minutes; on detection it does `kill -9 pmxcfs`, `rm -rf /dev/shm/qb-*` and `restart pve-cluster`, with no rate limit or lease. It has fired 4 times, all on 2026-10-06. | `/var/log/cynic-watchdog.log` | Add a max-N-per-hour limit with escalation (an alert) instead of an endless restart loop. |
 | C5-8 | 🔵 | **Logs are unbounded and unused.** journald uses 0.75–1.5 GiB per host. `/var/log/cynic` holds only 8 KiB, so components do not log there. The pve watchdog log is 470 KiB with no rotation. | `journalctl --disk-usage` | Set `SystemMaxUse`. Add logrotate for the watchdog log. |
 
@@ -231,7 +231,17 @@ The consumers had not migrated first. `/usr/local/bin/cynic` on cortex embeds 12
 
 | ID | Sev | Finding | Evidence | Remediation |
 |---|---|---|---|---|
-| N-1 | 🔴 | **The kernel's knowledge store is corrupt.** The kernel does not use CT103. `/etc/cynic/storage.toml` points at `http://127.0.0.1:8000`, a **SurrealDB 3.0.3 on cortex** (`surreal.service`, `surrealkv:///home/user/.surrealdb/data`, 213 MiB). Since **2026-10-17 17:17**: 6,620 kernel errors `SSTable error: checksum verification failed for block at 45189021`, and 293,291 checksum/corrupt lines in the surreal journal. This is the **third** corruption on record (`data.corrupt.20260606_124414`, `data.bak_20260815`). Cortex is the host AGENTS.md marks as having faulty RAM. The registry's `storage_primary` (CT103) is not the store in use. | `journalctl -u cynic-kernel \| grep -c 'expire_stale failed'`; `journalctl -u surreal \| grep -ci checksum`; `grep url /etc/cynic/storage.toml` | Preserve first (see "Preservation status" below). Run `memtest86+` on cortex. Export what is still readable. Move the store to a host with sound RAM, CT103 per the registry, through a reviewed migration. |
+| N-1 | 🔴 | **The kernel's knowledge store is corrupt.** The kernel does not use CT103. `/etc/cynic/storage.toml` points at `http://127.0.0.1:8000`, a **SurrealDB 3.0.3 on cortex** (`surreal.service`, `surrealkv:///home/user/.surrealdb/data`, 213 MiB). The journal holds 6,620 kernel errors `SSTable error: checksum verification failed for block at 45189021`, and 293,291 checksum/corrupt lines in the surreal journal.
+
+**Onset unknown.** The journal's oldest retained entry is 2026-10-17 17:16:44 and the first error appears 24 s later, so 17:17 is the retention horizon, not the onset. The host has been up since 2026-10-15 19:58 and `surreal.service` since 19:59, so the corruption may predate both.
+
+**Kernel introspection is blind to it.** In the same minutes it logged `introspection cycle: 0 alerts (0 critical)`.
+
+**Prior history.** `data.corrupt.20260606_124414` is one earlier corruption, named as such. `data.bak_20260815` is a directory swapped aside on 2026-08-15 23:17; no commit or document records why, so it is **not** counted as a corruption.
+
+**Cause open.** The faulty RAM has been removed per the operator: `dmidecode` shows 2 × 8 GB, `DIMM 1` populated on each channel, and the kernel log has 0 MCE/EDAC lines since boot. RAM is therefore not the presumed cause. Candidates to test: unclean stop, a SurrealKV 3.0.3 defect, disk.
+
+The registry's `storage_primary` (CT103) is not the store in use. | `journalctl -u cynic-kernel \| grep -c 'expire_stale failed'`; `journalctl -u surreal \| grep -ci checksum`; `journalctl --list-boots`; `uptime -s`; `grep url /etc/cynic/storage.toml` | Preserve first (see "Preservation status" below). Export what is still readable. Establish the cause (the surreal journal from before 2026-10-17 is gone, so check `/home/user/.surrealdb` file mtimes and SMART on cortex `sda`). Move the store to its registered host through a reviewed migration. |
 | N-2 | 🔴 | **The store has no usable backup.** `~/.surrealdb/backups/` stops at 2026-06-24, and its files are **83-byte gzips** (empty). | `ls -la ~/.surrealdb/backups` | Back up the store that is actually in use, not only CT103 (C5-2). Prove each backup with a restore. |
 | N-3 | 🔴 | **The store runs with unsafe settings.** The process runs as `user`, with its data under the operator's home and `-A` (all capabilities allowed). The **root password is weak and passed in argv**, so any local account can read it through `ps`. The kernel authenticates to it as `root`. | `ps -o user,args -p $(pgrep -f 'surreal start')` (do not paste the output) | Run it as a dedicated principal with data under `/var/lib/cynic`. Pass credentials through a file or the environment, never argv. Give the kernel a least-privilege DB user. Rotate the password. |
 | N-4 | 🔴 | **The DNS was cut over before its consumers migrated.** On cortex, three consumers still use `*.synapse.cynic`: `/usr/local/bin/cynic`, `/etc/systemd/system/cynic-kernel.service.d/90-storage.conf` (`SURREALDB_URL=http://organ-surrealdb.synapse.cynic:8000`, currently shadowed by `storage.toml` under an undocumented precedence), and the deployed `/etc/cynic/registry.json` (5 synapse names). | `strings /usr/local/bin/cynic \| grep -c synapse.cynic`; `grep -rl synapse /etc/cynic /etc/systemd/system` | Restore the `~synapse.cynic` compat zone on cortex until `make audit.deployed` is green on every host. Retire the old zone only after that. |
@@ -257,7 +267,7 @@ The consumers had not migrated first. `/usr/local/bin/cynic` on cortex embeds 12
 
 Each step is a separate scoped claim and branch (`agent/hermes/<finding-id>`), needs operator approval, and ends with read-back proof.
 
-0. **Kernel store preservation and diagnosis** — N-1, N-2, N-3: get the hot copy off-host, run a logical export, run memtest on cortex, then plan the store migration off cortex. Restore the synapse compat zone on cortex (N-4) so that the stale binaries keep working until step 6.
+0. **Kernel store preservation and diagnosis** — N-1, N-2, N-3: backup is handled upstream by the operator; then run a logical export, establish the corruption cause, and plan the store migration to its registered host. Restore the synapse compat zone on cortex (N-4) so that the stale binaries keep working until step 6.
 1. **Access (cortex)** — C4-1, C4-3, C1-1: remove `temp-claude` and `cynic-tools`, remove `user` from `cynic` and `docker`, fix `/etc/cynic` ownership, rotate the exposed secrets. *Keep a root console open.*
 2. **Data safety** — C0-1, C5-2: vzdump jobs off `sda`, and the SurrealDB backup timer. Prove each with a restore.
 3. **Hypervisor exposure** — C0-2, C0-3, C0-10, C0-13: sshd hardening, pve-firewall on `wlp1s0`, retire `cynic-cloud-api`, fix the headscale vhost.
@@ -323,3 +333,60 @@ curl -s -o /dev/null -w '%{http_code}' <endpoint>   # no auth header
 curl -s 127.0.0.1:9090/api/v1/{targets,rules,alertmanagers}
 systemctl list-timers --all; crontab -l
 ```
+
+---
+
+## 11. Cross-reference with history and planned work (origin/main, since 2026-08-01)
+
+Method: each finding was matched against commit messages and against `docs/`, `contracts/` and `infra/` on `origin/main`. Every match was then read to determine its state. Keyword counts alone are noisy and were not used as conclusions.
+
+### 11.1 Planned or done in the repo, absent from runtime
+
+| Finding | What the repo says | Runtime | Gap |
+|---|---|---|---|
+| C0-10 cloud-api | `docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md` tranche 3.3: "Remplacement de `cynic-cloud-api` … (Complété 2026-10-12)". Code: "legacy orphan" (`compute_provisioning_uc.rs:3`). **But** `b9ea21fd` (2026-10-17, `docs/specs/fleet-network-needs-matrix.md`, NET-10): "cynic-cloud-api is the declared CYNIC gateway". | Running as root on pve, internet-facing. | **Three documents disagree.** Code replacement done, runtime retirement never done. |
+| C5-4 build GC | `docs/design/OPERATIONAL_DRIFT_KILLCHAINS.md` (2026-10-21), killchains 1–6. PR #224 `f611d873` arms a daily timer. | No GC timer on CT105. | Merged, not deployed. |
+| C1-3/N-4/N-9 DNS | `6944a059` (2026-10-17) dual-zone bundle with synapse compat. | Compat removed live on cortex 2026-10-21 by a session with no committed record of the live step; still served on pve and the LXCs. | The plan specified compat; the live act contradicted it. |
+| C0-2/C0-17 SSH | `docs/specs/HOST_HARDENING_ENGINEERING_SPEC.md` (**normative**, 2026-08-15): "`PasswordAuthentication no` : interdiction absolue". | `passwordauthentication yes` on pve and every CT. | A normative spec that is never enforced and has no implementing commit. |
+| N-1 store | `docs/specs/SPEC-CYNIC-STORAGE-V1.md` ("Ratified, Hardened & Sealed", 2026-09-11) defines a WAL + SQLite + SIMD design. `docs/design/production-infrastructure.md` (proposed, 2026-10-07) lists cortex as "`cynic-kernel` if confirmed as kernel home". | The kernel uses SurrealKV on cortex. | Sealed spec not implemented; kernel placement never confirmed. |
+| C0-3 firewall | `2324f3d6` fail-closed firewall derivation; `crates/cynic-network/src/firewall_policy.rs`. | pve-firewall disabled, ACCEPT everywhere. | Code exists, no deployment. |
+| C2-1 deploy | `1165ff73` (2026-10-16) aligns `audit.deployed` with the builder's live layout. | Cortex, CT102 and CT103 binaries off-path. | The gate exists for one host only. |
+
+### 11.2 Known and planned, not yet started
+
+| Finding | Plan | State |
+|---|---|---|
+| C0-1/C5-2/N-2 backups | `docs/design/production-infrastructure.md` gap #8 "No backups observed", §4.7 backup policy (2026-10-07). | `proposed`. The operator says the backup is being done upstream. The repo's only backup unit targets CT103, not the store in use (N-1). |
+| C0-12 NVMe | `e4824cdd` (2026-10-07): "fraudulent NVMe", same-slot swap possible, UEFI boot OK; migration off `sda` not verified. | Diagnosed, not executed. |
+| C2-3 CI gate | `docs/design/CI_SOVEREIGNTY.md` (2026-10-19): "Status: proposed — no code, no runner, no token". | Design only. |
+| C5-1 alerting | Roadmap tranche 4.3 "Exportateur Prometheus natif", open. | Not started. |
+| C0-13 headscale / N-5 DNS automation | Roadmap tranche 2.3 "Automatisation de l'admission Headscale & CoreDNS", open. | Not started. |
+| C1-2 registry D1 | `infra/registry_authority.json` (`draft`, 2026-10-07). | No progress since. |
+| C3-1 layering | Upward edges recorded in `infra/audit-debt-ledger.json`; 15 related commits. | Tracked debt. |
+| C4-6 Anchor | `f627f93b` (2026-10-16): "program deferred to funds". | Consistent with "not deployed". |
+
+### 11.3 Documents lagging runtime (the doc is stale, not the system)
+
+| Fact | Document | Runtime |
+|---|---|---|
+| RAM | `AGENTS.md:7` "faulty RAM"; `docs/specs/checklist.md` §8 "RAM Instability Mitigation" and §9 "cortex — RAM unstable". The same text is copied into `crates/cynic-knowledge/tests/retrieval_training_pairs.json`, so **the stale fact is also in the RAG training set**. | Faulty modules removed per the operator. `dmidecode`: 2 × 8 GB, 0 MCE/EDAC. *This audit wrongly attributed N-1 to RAM on the strength of `AGENTS.md`; that has been corrected.* |
+| C4-4 relay | `docs/design/relay-107-migration.md` (2026-10-17): "Status: Proposed. Parallel-run". | Mainnet is already on CT107: `gasdf-kora-mainnet`, `gasdf-relay` and `gasdf-facilitator` are inactive on cortex. Cortex still runs `gasdf-kora-devnet` on `0.0.0.0:14000`. Registry not updated (C0-5). |
+| Builder retention | `docs/specs/checklist.md` §12 (2026-10-14): `checkouts` 40 G → 29 G. | 2 G now. Two root-only purges are still "PENDING ROOT". |
+
+### 11.4 Recurring defects already analysed once
+
+| Finding | Prior analysis | Recurrence |
+|---|---|---|
+| C2-10 git corruption on CT105 | `de463ce5` (2026-09-28, `infra/DIRECTORY_STRUCTURE_AUDIT.md`): cortex git corruption from 0-byte objects, "the missing detector". | New missing tree/blob on the builder working repo; the detector is still missing. |
+| N-1 store corruption | `data.corrupt.20260606_124414` (no document). | Current SSTable checksum failures, undetected by introspection. |
+
+### 11.5 No plan found anywhere
+
+C0-11/C2-2 (glibc target), C4-1 (`temp-claude` NOPASSWD ALL), C4-3 (secret ownership by `user`), C4-5 (unauthenticated inference), C2-5 (`cargo deny` never run), N-6 (DHCP `8.8.8.8`), N-8 (provenance of agent root mutations).
+
+### 11.6 Pattern
+
+1. **"Complété" means merged, not converged.** A tranche, PR or spec is closed when code lands. No document records the runtime state, and no gate checks it.
+2. **Normative specs are not enforced** (host hardening, storage V1).
+3. **Documents drift in both directions:** some lag the runtime (RAM, relay-107), others run ahead of it (cloud-api "replaced"). Because the RAG is trained on these documents, agents inherit the stale facts.
+4. **The unplanned set is the access and privilege layer.** It is also the layer that let a session mutate DNS live (N-8).
