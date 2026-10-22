@@ -1037,19 +1037,21 @@
         "compute-01",
         "trixie-apu"
       ],
-      "role": "embedding_runner",
+      "role": "build_runner",
       "host_family": "linux.debian.systemd",
       "status": "observed",
       "deploy_target": true,
       "boot_persistence": true,
       "transports": {
         "ssh": {
-          "target": "titouan@192.168.0.25",
-          "trust": "lan_password"
+          "target": "192.168.0.25",
+          "trust": "ssh_trust_anchor",
+          "principal": "cynic"
         }
       },
       "network": {
         "lan": "192.168.0.25",
+        "service": "192.168.0.25",
         "service_via_nat": "10.10.10.0/24 via 192.168.0.11 (cortex)"
       },
       "observed_hardware": {
