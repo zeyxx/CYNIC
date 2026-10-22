@@ -125,6 +125,13 @@ pub struct BuildSchedulerConfig {
     /// `decide_require_sccache` is consulted at admission time.
     #[serde(default)]
     pub sccache_measured_hit_rate: Option<f64>,
+    /// Declared toolchain binary directory (e.g. the rustup shims dir).
+    /// When set, the scheduler prepends it to the build child's PATH so a
+    /// bare `cargo` resolves deterministically instead of via whatever
+    /// ambient PATH the service manager happened to provide. Unset
+    /// preserves ambient resolution (and its failure modes).
+    #[serde(default)]
+    pub toolchain_bin_dir: Option<PathBuf>,
 }
 
 /// sccache rollout configuration for scheduler builds.

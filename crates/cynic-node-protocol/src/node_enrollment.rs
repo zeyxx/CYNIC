@@ -428,6 +428,46 @@ pub fn validate_signed_node_enrollment_grant(signed: &SignedNodeEnrollmentGrant)
     violations
 }
 
+/// Builds the unsigned enrollment grant body for an admitted request.
+///
+/// Pure constructor: `admission` must come from `admit_node_enrollment`.
+/// The caller signs `node_enrollment_grant_signing_bytes` over the returned
+/// `SignedNodeEnrollmentGrant` shell. The grant id is deterministic per
+/// (request, authority, issued-at) so re-issuance is idempotent.
+pub fn build_node_enrollment_grant(
+    request: &NodeEnrollmentRequest,
+    admission: &NodeEnrollmentAdmission,
+    authority_id: &str,
+    now_unix_s: u64,
+) -> NodeEnrollmentGrant {
+    use sha2::{Digest, Sha256};
+    let grant_id_digest = Sha256::digest(
+        format!(
+            "{}:{}:{}:{now_unix_s}",
+            request.request_id, request.node_id, authority_id
+        )
+        .as_bytes(),
+    );
+    NodeEnrollmentGrant {
+        schema: NODE_ENROLLMENT_GRANT_SCHEMA.to_string(),
+        grant_id: format!("grant:{}", &hex::encode(grant_id_digest)[..16]),
+        authority_id: authority_id.to_string(),
+        request_id: request.request_id.clone(),
+        seed_id: request.seed_id.clone(),
+        node_id: request.node_id.clone(),
+        role: request.role.clone(),
+        machine_identity_digest: request.machine_identity_digest.clone(),
+        generation: 1,
+        issued_at_unix_s: now_unix_s,
+        expires_at_unix_s: admission.grant_expires_at_unix_s.unwrap_or(now_unix_s),
+        granted_capabilities: admission.granted_capabilities.clone(),
+        evidence_refs: vec![
+            format!("enrollment-request:{}", request.request_id),
+            format!("enrollment-authority:{authority_id}"),
+        ],
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeEnrollmentObservation {
     pub schema: String,
@@ -721,6 +761,30 @@ mod tests {
     }
 
     #[test]
+    fn built_grant_copies_admission_and_is_deterministic() {
+        let request = request();
+        let authority = authority();
+        let digest = authority.token_digest.clone();
+        let admission = admit_node_enrollment(&request, &authority, &digest, 120, true);
+        assert!(
+            admission.blockers.is_empty(),
+            "{}",
+            admission.blockers.join(",")
+        );
+        let first = build_node_enrollment_grant(&request, &admission, &authority.authority_id, 120);
+        let second =
+            build_node_enrollment_grant(&request, &admission, &authority.authority_id, 120);
+        assert_eq!(first, second);
+        assert_eq!(first.schema, NODE_ENROLLMENT_GRANT_SCHEMA);
+        assert!(first.grant_id.starts_with("grant:"));
+        assert_eq!(first.expires_at_unix_s, 145);
+        assert_eq!(first.granted_capabilities, request.requested_capabilities);
+        assert_eq!(first.generation, 1);
+        assert_eq!(first.request_id, request.request_id);
+        assert_eq!(first.evidence_refs.len(), 2);
+    }
+
+    #[test]
     fn desired_state_requires_one_canonical_staging_contract() {
         let desired = NodeEnrollmentDesiredState {
             schema: NODE_ENROLLMENT_DESIRED_STATE_SCHEMA.to_string(),
@@ -925,5 +989,123 @@ mod tests {
                 vec![code.to_string()]
             );
         }
+    }
+}
+
+/// Bounded enrollment health summary for the `node enrollment-check` arm.
+///
+/// Pure (no I/O, no clock): the caller supplies the read-back fields, the
+/// renewal probe outcome, and now. A configured build scheduler with an
+/// unreachable renewal endpoint is a blocker, not a warning — the grant
+/// will lapse and the HTTP surface will go dark exactly as observed on
+/// cynic-compute-01 (loopback `kernel_url`, no local kernel).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeEnrollmentCheckSummary {
+    pub status: String,
+    pub enrollment_proven: bool,
+    pub grant_id: Option<String>,
+    pub grant_expires_at_unix_s: Option<u64>,
+    pub renewal_endpoint_reachable: bool,
+    pub blockers: Vec<String>,
+}
+
+pub fn summarize_node_enrollment_check(
+    enrollment_state: &SecurityEvidenceState,
+    grant_id: Option<String>,
+    grant_expires_at_unix_s: Option<u64>,
+    read_back_unknowns: &[String],
+    renewal_endpoint_reachable: bool,
+    build_scheduler_configured: bool,
+    now_unix_s: u64,
+) -> NodeEnrollmentCheckSummary {
+    let mut blockers: Vec<String> = read_back_unknowns.to_vec();
+    let proven = enrollment_state == &SecurityEvidenceState::Proven;
+    if !proven {
+        blockers.push("node_enrollment_not_proven".to_string());
+    }
+    if let Some(expires_at) = grant_expires_at_unix_s {
+        if now_unix_s >= expires_at {
+            blockers.push("node_enrollment_grant_expired".to_string());
+        }
+    }
+    if build_scheduler_configured && !renewal_endpoint_reachable {
+        blockers.push("node_enrollment_renewal_endpoint_unreachable".to_string());
+    }
+    blockers.sort();
+    blockers.dedup();
+    NodeEnrollmentCheckSummary {
+        status: if blockers.is_empty() {
+            "ready".to_string()
+        } else {
+            "blocked".to_string()
+        },
+        enrollment_proven: proven,
+        grant_id,
+        grant_expires_at_unix_s,
+        renewal_endpoint_reachable,
+        blockers,
+    }
+}
+
+#[cfg(test)]
+mod enrollment_check_tests {
+    use super::*;
+
+    fn summary(
+        proven: bool,
+        expires_at: Option<u64>,
+        reachable: bool,
+        scheduler: bool,
+        now: u64,
+    ) -> NodeEnrollmentCheckSummary {
+        summarize_node_enrollment_check(
+            if proven {
+                &SecurityEvidenceState::Proven
+            } else {
+                &SecurityEvidenceState::Absent
+            },
+            Some("grant:test".to_string()),
+            expires_at,
+            &[],
+            reachable,
+            scheduler,
+            now,
+        )
+    }
+
+    #[test]
+    fn ready_when_proven_fresh_and_renewal_reachable() {
+        let report = summary(true, Some(9_000), true, true, 5_000);
+        assert_eq!(report.status, "ready");
+        assert!(report.blockers.is_empty());
+    }
+
+    #[test]
+    fn expired_grant_blocks_even_when_proven() {
+        let report = summary(true, Some(4_000), true, true, 5_000);
+        assert_eq!(report.status, "blocked");
+        assert!(report.blockers.contains(&"node_enrollment_grant_expired".to_string()));
+    }
+
+    #[test]
+    fn unreachable_renewal_blocks_a_configured_scheduler() {
+        let report = summary(true, Some(9_000), false, true, 5_000);
+        assert_eq!(report.status, "blocked");
+        assert!(report
+            .blockers
+            .contains(&"node_enrollment_renewal_endpoint_unreachable".to_string()));
+    }
+
+    #[test]
+    fn unreachable_renewal_is_fine_without_a_scheduler() {
+        let report = summary(true, Some(9_000), false, false, 5_000);
+        assert_eq!(report.status, "ready");
+    }
+
+    #[test]
+    fn unproven_enrollment_blocks() {
+        let report = summary(false, None, true, false, 5_000);
+        assert_eq!(report.status, "blocked");
+        assert!(report.blockers.contains(&"node_enrollment_not_proven".to_string()));
     }
 }

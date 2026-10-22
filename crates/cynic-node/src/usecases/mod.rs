@@ -32,6 +32,7 @@ pub mod federated_task_dispatch_uc;
 pub mod federation_membership_uc;
 pub mod kernel_spof_observe_uc;
 pub mod node_control_plane_uc;
+pub mod node_enrollment_check_uc;
 pub mod node_enrollment_lifecycle_uc;
 pub mod node_identity_uc;
 pub mod node_network_recovery_uc;
