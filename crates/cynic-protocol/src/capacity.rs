@@ -149,6 +149,20 @@ pub struct CapacityAssessmentV1 {
     pub residual_unknowns: Vec<String>,
 }
 
+/// Pure parser for `free -b` stdout: extracts the `total` column of the
+/// `Mem:` row. Returns `None` on any shape mismatch — never guesses.
+pub fn parse_mem_total_bytes(stdout: &str) -> Option<u64> {
+    stdout.lines().find_map(|line| {
+        let mut cols = line.split_whitespace();
+        if cols.next() != Some("Mem:") {
+            return None;
+        }
+        // free -b columns: total used free shared buff/cache available.
+        let total = cols.next()?;
+        total.parse::<u64>().ok()
+    })
+}
+
 /// Pure parser for `free -b` stdout: extracts the `available` column of the
 /// `Mem:` row (bytes reclaimable without swap). Returns `None` on any
 /// shape mismatch — never guesses from a foreign layout. The `free`
@@ -412,5 +426,13 @@ mod tests {
         assert_eq!(parse_free_available_bytes(sample), Some(1780768768));
         assert_eq!(parse_free_available_bytes("garbage\nwithout mem row\n"), None);
         assert_eq!(parse_free_available_bytes("Mem: 1 2\n"), None);
+    }
+
+    #[test]
+    fn total_parser_reads_total_column_never_guesses() {
+        let sample = "              total        used        free      shared  buff/cache   available\nMem:     13513079680  9268723712   847939584    728281088  3396415488  1780768768\nSwap:     2147479552           0  2147479552\n";
+        assert_eq!(parse_mem_total_bytes(sample), Some(13513079680));
+        assert_eq!(parse_mem_total_bytes("garbage\nwithout mem row\n"), None);
+        assert_eq!(parse_mem_total_bytes("Mem:\n"), None);
     }
 }

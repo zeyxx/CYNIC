@@ -33,6 +33,7 @@ pub mod external_build;
 pub mod external_build_uc;
 pub mod harness;
 pub mod harness_authority;
+pub mod place;
 pub mod ports;
 pub mod release_publication;
 pub mod runner;
