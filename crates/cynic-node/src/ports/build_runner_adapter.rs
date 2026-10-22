@@ -438,6 +438,74 @@ impl BuildRunnerPort for SshBuildRunner {
             );
         }
 
+        // Step 2b: the pin above is HEAD-deep only. A worktree emptied after
+        // the pin (reaper, concurrent run, partial checkout) must not reach
+        // cargo as a confusing manifest error. Verify the manifest, heal once
+        // by re-cloning, and block with an explicit verdict if still absent.
+        let manifest_ok = self
+            .runner
+            .run(&[
+                "ssh",
+                target.as_str(),
+                "test",
+                "-f",
+                format!("{dir}/Cargo.toml").as_str(),
+            ])
+            .success();
+        if !manifest_ok {
+            let _ = self
+                .runner
+                .run(&["ssh", target.as_str(), "rm", "-rf", dir.as_str()]);
+            let reclone = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "clone",
+                self.ssot_url.as_str(),
+                dir.as_str(),
+            ]);
+            let recheckout = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "-C",
+                dir.as_str(),
+                "checkout",
+                sha.as_str(),
+            ]);
+            let rehead = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "-C",
+                dir.as_str(),
+                "rev-parse",
+                "HEAD",
+            ]);
+            let rehealed = reclone.success()
+                && recheckout.success()
+                && rehead.success()
+                && rehead.stdout.trim() == sha
+                && self
+                    .runner
+                    .run(&[
+                        "ssh",
+                        target.as_str(),
+                        "test",
+                        "-f",
+                        format!("{dir}/Cargo.toml").as_str(),
+                    ])
+                    .success();
+            if !rehealed {
+                return blocked(
+                    None,
+                    format!(
+                        "checkout worktree incomplete for {sha}: {dir}/Cargo.toml absent after re-clone"
+                    ),
+                );
+            }
+        }
+
         // Step 3: build with the canonical argv for the action.
         let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
             BuildError::ConfigurationRefused(format!("no canonical argv for action: {action}"))
