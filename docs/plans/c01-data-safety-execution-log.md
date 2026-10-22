@@ -8,6 +8,7 @@ Branch: `agent/hermes/c01-data-safety`. Approval: operator blanket go for the da
 - Verified in `/etc/pve/jobs.cfg` (read-back, content matches).
 - Excluded: CT105 (126G used, pve `local` has 72G free — dump would fail; needs off-sda target, still missing) and CT113 (stopped, pending register-or-destroy decision C0-5).
 - Proof run: `vzdump 107` snapshot now, 1.4GiB -> 364MB archive in 2m48s, snapshot cleaned, `vzdump-lxc-107-2026_10_22-11_05_35.tar.zst` on disk.
+- CT105 dump test: FAILED-AS-NOT-VIABLE (not a code failure). Remote `vzdump 105` survived the local ssh timeout and kept running; its partial `.tar.dat` was deleted mid-flight by the earlier cleanup, forcing a kill. Measured speed ~1.2 MB/s on the HDD snapshot path -> ~109 GB would take ~24h. Cleanup done properly: task killed, snapshot LV removed (`lvs` shows none), `/mnt/vzsnap0` unmounted, all partial files deleted, 105 itself untouched (`df` still 109G used). Lesson: full-105 dumps need a multi-hour window or an off-sda target — not a daytime operation. Recorded so nobody retries this blindly.
 - Remaining for full closure: off-sda storage for CT105; scratch-CT restore test.
 
 ## C5-2 SurrealDB backup timer: BLOCKED (repo unit does not fit CT103)
