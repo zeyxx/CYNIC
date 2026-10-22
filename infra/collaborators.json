@@ -57,9 +57,9 @@
         "trenchscanner",
         "cultscreener",
         "tokensage",
-        "holddex"
+        "holdex"
       ],
-      "notes": "Upstream author of the GCRtrd cult stack (TrenchScanner, cultscreener, TokenSage; holddex read-only). X: @gcrtrd. Starts at 'observed' per doctrine — trust from evidence, not reputation. Added 2026-10-19."
+      "notes": "Upstream author of the GCRtrd cult stack (TrenchScanner, cultscreener, TokenSage; holdex read-only). X: @gcrtrd. Starts at 'observed' per doctrine — trust from evidence, not reputation. Added 2026-10-19."
     }
   ],
   "trust_levels": [

@@ -125,7 +125,7 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         kind: Option<String>,
     },
-    /// Read-back of the external (non-CYNIC) project registry (infra/external-projects.json).
+    /// Read-back of the external (non-CYNIC) project registry (infra/external-project-registry.json, normative).
     External {
         #[arg(long)]
         json: bool,
@@ -140,9 +140,15 @@ pub(crate) enum AuditCommand {
         /// Builder URL (defaults to resolved pool URL).
         #[arg(long)]
         builder_url: Option<String>,
-        /// Forgejo base URL (for Forgejo provider).
+        /// Promote/migrate an external project's tier or mutation policy.
         #[arg(long)]
-        forgejo_url: Option<String>,
+        promote: Option<String>,
+        /// Target tier for --promote: served, dev, or contribute.
+        #[arg(long)]
+        to: Option<String>,
+        /// Confirm the mutation (required for --promote).
+        #[arg(long)]
+        yes: bool,
         /// Forgejo API token (for Forgejo provider).
         #[arg(long)]
         forgejo_token: Option<String>,
@@ -461,7 +467,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             run,
             project,
             builder_url,
-            forgejo_url,
+            promote,
+            to,
+            yes,
             forgejo_token,
             github_token,
             evidence_dir,
@@ -471,10 +479,18 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                     *json,
                     project.as_deref(),
                     builder_url.as_deref(),
-                    forgejo_url.as_deref(),
+                    None,
                     forgejo_token.as_deref(),
                     github_token.as_deref(),
                     evidence_dir.as_deref(),
+                )
+            } else if let Some(slug) = promote {
+                external_audit::promote(
+                    *json,
+                    slug,
+                    to.as_deref(),
+                    *yes,
+                    registry.as_deref(),
                 )
             } else {
                 external_audit::execute(*json, registry.as_deref())
