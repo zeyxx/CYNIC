@@ -5,7 +5,9 @@ use cynic_protocol::argv_allow::canonical_build_actions;
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
 pub mod bootstrap_withdrawal;
+pub mod cache_isolation;
 pub mod route_convergence;
+pub mod stack_budget;
 pub use bootstrap_admission::{
     BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA, BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
     BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA, BuildRunnerBootstrapAdmission,

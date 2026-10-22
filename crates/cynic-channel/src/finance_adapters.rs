@@ -40,9 +40,25 @@ impl ChannelSettlementLedger {
         proof: &ChannelSettlementProof,
         timestamp: u64,
     ) -> Result<(String, String), MeterError> {
+        let total = proof.initiator_balance + proof.worker_balance;
+
+        // The transaction id must be UNIQUE per settlement.
+        //
+        // It used to be `{channel_id}/debit/{final_sequence}`, which
+        // repeats for two settlements of the same channel and the same
+        // final sequence: the second one produced the id of the first.
+        // `ResourceLedger` is documented as "idempotent", and an id that
+        // repeats is not an identity — the second settlement would be
+        // indistinguishable from the first.
+        //
+        // The timestamp is what distinguishes them: it is the moment the
+        // settlement happened, and it differs between two settlements of
+        // the same sequence.
+        let settlement_id = format!("{}/settlement/{}", proof.channel_id, timestamp);
+
         // Debit from initiator (remaining balance returned)
         let debit_tx = ResourceTransaction::new(
-            format!("{}/debit/{}", proof.channel_id, proof.final_sequence),
+            format!("{settlement_id}/debit"),
             timestamp,
             "initiator",
             ResourceUnit::TokenCyd(proof.initiator_balance),
@@ -53,7 +69,7 @@ impl ChannelSettlementLedger {
 
         // Credit to worker (earned balance)
         let credit_tx = ResourceTransaction::new(
-            format!("{}/credit/{}", proof.channel_id, proof.final_sequence),
+            format!("{settlement_id}/credit"),
             timestamp,
             "worker",
             ResourceUnit::TokenCyd(proof.worker_balance),
@@ -73,10 +89,11 @@ impl ChannelSettlementLedger {
         // settlement rather than the sum of every settlement — and the
         // `ResourceLedger` doc says the balance is derived from the
         // entries, never stored independently.
-        self.ledger.balance = increment_unit(
-            &self.ledger.balance,
-            (proof.initiator_balance + proof.worker_balance) as f64,
-        );
+        //
+        // The arithmetic lives in `cynic_finance::increment_unit`: the
+        // code that moves a balance belongs to one place, not to each
+        // adapter that touches a ledger.
+        self.ledger.balance = increment_unit(&self.ledger.balance, total as f64);
 
         Ok((debit_id, credit_id))
     }

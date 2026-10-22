@@ -27,6 +27,13 @@ pub enum BuildPhase {
     Build,
     /// Build + activate (enroll node, install service).
     Activate,
+    /// `cargo test` — the test proof.
+    ///
+    /// The operator host is not a test machine: it is the workstation, and
+    /// running the workspace test suite there loads the host for a signal the
+    /// builder can produce authoritatively. This phase routes the test proof
+    /// to the runner, where the build already happens.
+    Test,
 }
 
 impl BuildPhase {
@@ -36,6 +43,7 @@ impl BuildPhase {
             BuildPhase::Check => "check",
             BuildPhase::Build => "build",
             BuildPhase::Activate => "activate",
+            BuildPhase::Test => "test",
         }
     }
 }
