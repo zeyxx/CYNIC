@@ -46,6 +46,11 @@ struct DnsActivationChecks {
     resolved_routes_synapse: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     synapse_dns_resolves: Option<bool>,
+    /// The resolver listener itself answers TCP. Unit state lies
+    /// (inactive while the port answers); only a connect proves liveness.
+    /// None when the drop-in names no listener (nothing to probe).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    listener_accepts: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -118,6 +123,9 @@ fn build_dns_activation_status_with_runtime(
         None
     };
 
+    let listener_accepts = dropin_listener_addr(resolved_dropin_path)
+        .map(|addr| listener_accepts_tcp(&addr));
+
     let checks = DnsActivationChecks {
         hosts_exists: Path::new(hosts_path).exists(),
         corefile_exists: Path::new(corefile_path).exists(),
@@ -132,6 +140,7 @@ fn build_dns_activation_status_with_runtime(
             || file_contains(service_path, &synapse_dns_corefile_path()),
         resolved_routes_synapse: file_contains(resolved_dropin_path, &format!("~{dns_zone}")),
         synapse_dns_resolves,
+        listener_accepts,
     };
 
     let mut missing = Vec::new();
@@ -168,6 +177,9 @@ fn build_dns_activation_status_with_runtime(
     if resolve_dns && checks.synapse_dns_resolves == Some(false) {
         missing.push("synapse_dns_resolves");
     }
+    if checks.listener_accepts == Some(false) {
+        missing.push("listener_accepts");
+    }
     for blocker in blocked_domains {
         missing.push(blocker);
     }
@@ -195,6 +207,33 @@ fn build_dns_activation_status_with_runtime(
         host_substrate,
         host_substrate_plan,
     })
+}
+
+/// Listener address named by the resolved drop-in (`DNS=127.0.0.1:1053`).
+/// The resolver is whatever the drop-in routes to — never a hardcoded port.
+fn dropin_listener_addr(dropin_path: &str) -> Option<String> {
+    let raw = std::fs::read_to_string(dropin_path).ok()?;
+    for line in raw.lines() {
+        let line = line.trim();
+        if let Some(value) = line.strip_prefix("DNS=") {
+            let addr = value.trim().split_whitespace().next()?;
+            if addr.contains(':') {
+                return Some(addr.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// TCP connect with a short timeout. The unit can say anything;
+/// an accepted connection is the only liveness that counts.
+fn listener_accepts_tcp(addr: &str) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+    let Ok(socket) = addr.parse::<SocketAddr>() else {
+        return false;
+    };
+    TcpStream::connect_timeout(&socket, Duration::from_secs(2)).is_ok()
 }
 
 fn topology_resolves_to_declared_addresses(
@@ -246,6 +285,37 @@ mod tests {
     use super::*;
     use crate::dns_contract::{CANONICAL_DNS_BINARY, CANONICAL_DNS_PROVIDER};
     use cynic_types::paths::CynicPaths;
+
+    #[test]
+    fn dropin_listener_addr_reads_dns_line() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("cynic-test-resolved.conf");
+        std::fs::write(&path, "[Resolve]\nDNS=127.0.0.1:1053\nDomains=~synapse.cynic\n").unwrap();
+        assert_eq!(
+            dropin_listener_addr(&path.display().to_string()),
+            Some("127.0.0.1:1053".to_string())
+        );
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn dropin_without_dns_line_probes_nothing() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("cynic-test-resolved-empty.conf");
+        std::fs::write(&path, "[Resolve]\nDomains=~synapse.cynic\n").unwrap();
+        assert_eq!(dropin_listener_addr(&path.display().to_string()), None);
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn open_port_accepts_closed_port_refuses() {
+        let open = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = open.local_addr().unwrap().to_string();
+        assert!(listener_accepts_tcp(&addr));
+        let port = open.local_addr().unwrap().port();
+        drop(open);
+        assert!(!listener_accepts_tcp(&format!("127.0.0.1:{port}")));
+    }
 
     #[test]
     fn blocked_when_required_paths_are_missing() {
