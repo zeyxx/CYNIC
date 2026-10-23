@@ -36,6 +36,16 @@ use artifact::{publish_artifact, pull_artifact, release_artifact};
 use forgejo::{execute_runner_token, execute_runs};
 use cynic_protocol::build_memory_capacity::MemoryCapacityDecision;
 
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildRunnerCommand {
+    /// Issue a repo-scoped Actions runner registration token via Forgejo API.
+    Token {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
 pub(crate) enum BuildCommand {
@@ -296,10 +306,9 @@ pub(crate) enum BuildCommand {
         json: bool,
     },
         /// Issue a repo-scoped Actions runner registration token via Forgejo API.
-        RunnerToken {
-            /// Emit machine-readable JSON.
-            #[arg(long)]
-            json: bool,
+        Runner {
+            #[command(subcommand)]
+            command: BuildRunnerCommand,
         },
         /// List recent Actions workflow runs.
         Runs {
@@ -738,13 +747,15 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 )
             }
         }
-        BuildCommand::RunnerToken { json } => {
-            let code = execute_runner_token(Path::new("."), json);
-            match code {
-                c if c == std::process::ExitCode::SUCCESS => Ok(()),
-                _ => Err("build runner-token failed".to_string()),
+        BuildCommand::Runner { command } => match command {
+            BuildRunnerCommand::Token { json } => {
+                let code = execute_runner_token(Path::new("."), json);
+                match code {
+                    c if c == std::process::ExitCode::SUCCESS => Ok(()),
+                    _ => Err("build runner token failed".to_string()),
+                }
             }
-        }
+        },
         BuildCommand::Deploy {
             commit,
             policy,
