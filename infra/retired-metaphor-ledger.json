@@ -28,15 +28,15 @@
   },
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "files": 135,
-    "occurrences": 884,
+    "files": 137,
+    "occurrences": 887,
     "by_term": {
       "dog": 1121,
       "dogs": 416,
       "metabolic": 25,
       "metabolism": 135,
       "organ": 299,
-      "organic": 148,
+      "organic": 151,
       "organism": 325,
       "organs": 166
     }
@@ -46,6 +46,7 @@
     {"path": "contracts/debt-taxonomy.json", "count": 1, "evidence": "contracts/debt-taxonomy.json:4", "terms": "organism"},
     {"path": "contracts/foundation.json", "count": 11, "evidence": "contracts/foundation.json:4", "terms": "organism, organs, organic, organ"},
     {"path": "contracts/framework.json", "count": 5, "evidence": "contracts/framework.json:7", "terms": "organism, organs"},
+    {"path": "contracts/pattern-registry.v1.json", "count": 1, "evidence": "contracts/pattern-registry.v1.json:72", "terms": "organic"},
     {"path": "crates/cynic-cli/src/agent_surface/mod.rs", "count": 1, "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:38", "terms": "organism"},
     {"path": "crates/cynic-cli/src/branch_audit.rs", "count": 1, "evidence": "crates/cynic-cli/src/branch_audit.rs:2", "terms": "organism"},
     {"path": "crates/cynic-cli/src/build_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/build_surface.rs:132", "terms": "metabolic"},
@@ -173,6 +174,7 @@
     {"path": "infra/cynicpedia.json", "count": 10, "evidence": "infra/cynicpedia.json:478", "terms": "Organic, organic, ORGANIC"},
     {"path": "infra/directory-tree.json", "count": 2, "evidence": "infra/directory-tree.json:198", "terms": "organs, organ"},
     {"path": "infra/module-inversion-ledger.json", "count": 1, "evidence": "infra/module-inversion-ledger.json:138", "terms": "dog"},
+    {"path": "infra/pattern-registry.json", "count": 2, "evidence": "infra/pattern-registry.json:7", "terms": "organic, Organic"},
     {"path": "infra/registry.json", "count": 2, "evidence": "infra/registry.json:4", "terms": "organism, organ"},
     {"path": "infra/registry_authority.json", "count": 2, "evidence": "infra/registry_authority.json:106", "terms": "organ"},
     {"path": "infra/runtime-authority.json", "count": 2, "evidence": "infra/runtime-authority.json:4", "terms": "organism, organs"},
