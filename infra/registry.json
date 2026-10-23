@@ -1106,10 +1106,25 @@
           "port": 8082,
           "network_plane": "lan",
           "unit": "cynic-reranker-node.service",
+          "endpoint": "http://192.168.0.25:8082/v1/rerank",
           "model": "Qwen3-Reranker-0.6B-Q8_0.gguf",
           "health": {
             "kind": "http",
             "url": "http://192.168.0.25:8082/health"
+          }
+        },
+        {
+          "name": "inference-server",
+          "artifact": "llama-server (LFM2.5 2.6B Q4_K_M)",
+          "scheme": "http",
+          "endpoint_host": "192.168.0.25",
+          "port": 8088,
+          "network_plane": "lan",
+          "endpoint": "http://192.168.0.25:8088/v1/chat/completions",
+          "model": "LFM2.5-2.6B-Q4_K_M.gguf",
+          "health": {
+            "kind": "http",
+            "url": "http://192.168.0.25:8088/health"
           }
         }
       ],

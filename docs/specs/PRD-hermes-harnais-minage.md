@@ -63,27 +63,36 @@ Corpus (frozen, hermes harness only):
 ### P4 — One malformed session + one inconsistent snapshot [state: in_progress]
 
 - evidence: `20260809_013853_b0b827: database disk image is malformed`; capture logged `Rowid 43975 out of order`
-- [>] P4a `in_progress`: quarantine the malformed session id, keep it out of canonical
-  - cause found 2026-10-23: corrupt b-tree row (messages rootpage 7, rowid 43975)
-    belongs to this exact session; two independent captures reproduce it → source-side defect
-  - WARNING: this session's messages contain live-looking secrets (API key, DB password
-    visible in plain tool output). Never mine it, never copy its values anywhere.
-    Quarantine file builds in scratch; rotation of the exposed credentials is operator business.
-- [>] P4b `in_progress`: re-capture with integrity gate green before next mine
-  - 2nd capture `ab18dadade53d59a` still red (same page/cell) → green requires filtered rebuild,
-    running: `scratch/quarantine_build.py` excludes the bad session, keeps everything else
-  - 2026-10-23 update: delete-then-VACUUM of 2 823 bad rows still red, moved by one rowid
-    (43975 → 43974). Cause not confined to deleted rows — root cause unknown, reads still work.
-    Decision: normalize the quarantined gel, require 2 233/2 233 ok, document the page as
-    known-bad instead of chasing one b-tree page. Running: `normalize_q.log`.
+- [x] P4a `proven` 2026-10-23: quarantine the malformed session id, keep it out of canonical
+  - cause found: corrupt b-tree row (messages rootpage 7, rowid 43975) in that session;
+    two captures reproduce it → source-side defect. That session's messages carried live
+    secrets in plain tool output — never mined, never copied; rotation is operator business.
+  - resolution: CLI `.dump`+reload rebuilt the region clean; the 5 ghost rows read fine now.
+- [x] P4b `proven` 2026-10-23: re-capture with integrity gate green before next mine
+  - `dumped.sqlite`: integrity `ok`, 2 233 sessions + 2 orphans, 447 605 messages, zero loss.
+  - `normalize_green.log`: 2 235/2 235 ok, 0 failed, EXIT 0 (303.6 s).
+  - totals: 447 605 turns, 442 674 tools, 7 349 corrections, 19 518 human, 1 145 282 edges.
 - [ ] P4c `proposed`: document fail-closed rule (malformed source ⇒ refused, never skipped silently)
 
-### P5 — 1–9 multi-agent overlap model [state: sliced]
+### P5 — 1–9 multi-agent overlap model [state: in_progress]
 
-- evidence: 853 sessions with parent; 803 on CYNIC cwd; branches `agent/hermes/*`; naive max-concurrent 29 (inflated: missing `ended_at` defaulted to +1h)
-- [ ] P5a `proposed`: true overlap from turn timestamps (no +1h fill; explicit unknown when open)
-- [ ] P5b `proposed`: collision index (same cwd + branch + time window)
-- [ ] P5c `proposed`: per-agent load (tools/min when N concurrent) → backpressure rule
+- evidence: 853 sessions with parent; 803 on CYNIC cwd; branches `agent/hermes/*`
+- [x] P5a `proven` 2026-10-23: true overlap from session windows, no fill (977 open/missing
+  bounds stay `unknown`, never defaulted). Closed usable: 1 256. Proven peak: **19 simultaneous**.
+  9–10 concurrent are frequent (267/253 window events) — the 1–9 pattern is real, ceiling higher.
+  26 cwd+branch groups overlap (precise all-pairs count in P5b: 2 421). Report: `scratch/overlap_report.json`.
+- [x] P5b `proven` 2026-10-23: collision index (same cwd + branch + overlapping window)
+  - 2 421 paires en collision, recouvrement médian 234 s, p90 3 973 s
+  - index (5 000 premières) : `scratch/collision_index.json`
+- [x] P5c `proven` 2026-10-23: per-agent load (tools/min when N concurrent) → backpressure rule
+  - 862 sessions mesurées, médiane outils/min par concurrence : 1→6.6, 2→15.7, 3→20.0,
+    6→16.5, 9→8.4, 10→6.2, 14→8.6. Pas de courbe propre : le type de tâche domine
+    (rafales CLI contre TUI idle). Report: `scratch/load_report.json`.
+  - règle proposée (brouillon, non prouvée) : au-delà de 8 simultanées sur même cwd+branche,
+    étaler les lancements; à valider par expérience dédiée avant de durcir.
+- trap found 2026-10-23: `run_hermes_canonical.py --out` is IGNORED, the store uses
+  `CYNIC_CANONICAL_DB`/default `scratch/canonical_hermes.sqlite` (it silently overwrote the
+  first DB). No fix in Python (legacy chain); the Rust vertical must take `--out` as truth.
 
 ### P6 — 109 skills never deduped [state: proposed]
 
@@ -103,3 +112,13 @@ Corpus (frozen, hermes harness only):
 ## 6. Journal (append-only)
 
 - 2026-10-23: created from fresh hermes-only mine (2 234 sessions). Prior August report (Windows, 3 436 sessions) retired as stale for hermes scope.
+- 2026-10-23: dump fidelity proven — quarantined vs dumped gel identical: 65 indexes,
+  43 tables, 13 triggers, 2 views; FTS 447 605 / 204 630; side tables equal
+  (model_usage 2 884, delegations 51, obligations 16). Zero flattening loss: source holds
+  no graph store (edges are derived downstream into canonical `edges`), so `.dump`+reload
+  loses nothing. Re-study: `raw-to-silver-fidelity` (hermes native edges = tool_call_uid +
+  id ordering, no parent pointer; old normalizers set parent None — the flattening sin),
+  `essence-loss-audit` (Gold dropped graph + human signal; root cause entity-extraction —
+  our canonical keeps `edges`/`states`/`human_signals`), `geodesic-retrieval-delta` R1
+  (Model MUST be causal graph; retrieval walks it), `RAG_SOTA_PATH` (MinMax fusion beats
+  RRF; cross-encoder rerank next; hard-negative fine-tune gated on rig).

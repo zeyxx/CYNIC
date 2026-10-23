@@ -477,10 +477,10 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
 
                     // SOTA Rung 2: Neural cross-encoder rerank over top candidates.
                     // Interleave BM25 keyword hits and Dense semantic hits to form a balanced,
-                    // high-recall pool of up to 30 candidates.
+                    // high-recall pool of up to 24 candidates.
                     let mut candidate_set = std::collections::HashSet::new();
-                    let mut candidates = Vec::with_capacity(30);
-                    let pool_cap = 30;
+                    let mut candidates = Vec::with_capacity(24);
+                    let pool_cap = 24;
 
                     let max_take = sparse.len().max(dense.len());
                     for i in 0..max_take {
@@ -506,62 +506,76 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     }
 
                     let rerank_endpoint = std::env::var("CYNIC_RERANK_URL")
-                        .unwrap_or_else(|_| "http://192.168.0.25:8082/v1/rerank".to_string());
+                        .ok()
+                        .filter(|u| !u.trim().is_empty())
+                        .or_else(|| {
+                            cynic_knowledge::resolve_service_endpoint_from_registry(
+                                "reranker-server",
+                            )
+                        });
                     let docs: Vec<&str> =
                         candidates.iter().map(|h| h.chunk.content.as_str()).collect();
 
+                    let timeout_ms = std::env::var("CYNIC_RERANK_TIMEOUT_MS")
+                        .ok()
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(15000);
                     let client = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_millis(8000))
+                        .timeout(std::time::Duration::from_millis(timeout_ms))
                         .build()
                         .ok();
 
                     let mut reranked = Vec::new();
-                    if let Some(c) = client {
-                        let payload = serde_json::json!({
-                            "query": question,
-                            "documents": docs,
-                            "top_n": limit,
-                        });
-                        match c.post(&rerank_endpoint).json(&payload).send().await {
-                            Ok(resp) if resp.status().is_success() => {
-                                if let Ok(data) = resp.json::<serde_json::Value>().await {
-                                    if let Some(results) =
-                                        data.get("results").and_then(|r| r.as_array())
-                                    {
-                                        for item in results {
-                                            if let (Some(idx), Some(score)) = (
-                                                item.get("index")
-                                                    .and_then(|i| i.as_u64())
-                                                    .map(|i| i as usize),
-                                                item.get("relevance_score").and_then(|s| s.as_f64()),
-                                            ) {
-                                                if let Some(hit) = candidates.get(idx) {
-                                                    reranked.push(cynic_knowledge::SearchHit {
-                                                        chunk: hit.chunk,
-                                                        score,
-                                                    });
+                    if let Some(ref endpoint) = rerank_endpoint {
+                        if let Some(c) = client {
+                            let payload = serde_json::json!({
+                                "query": question,
+                                "documents": docs,
+                                "top_n": limit,
+                            });
+                            match c.post(endpoint).json(&payload).send().await {
+                                Ok(resp) if resp.status().is_success() => {
+                                    if let Ok(data) = resp.json::<serde_json::Value>().await {
+                                        if let Some(results) =
+                                            data.get("results").and_then(|r| r.as_array())
+                                        {
+                                            for item in results {
+                                                if let (Some(idx), Some(score)) = (
+                                                    item.get("index")
+                                                        .and_then(|i| i.as_u64())
+                                                        .map(|i| i as usize),
+                                                    item.get("relevance_score").and_then(|s| s.as_f64()),
+                                                ) {
+                                                    if let Some(hit) = candidates.get(idx) {
+                                                        reranked.push(cynic_knowledge::SearchHit {
+                                                            chunk: hit.chunk,
+                                                            score,
+                                                        });
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            Ok(resp) => {
-                                eprintln!("rerank returned HTTP {}", resp.status());
-                            }
-                            Err(e) => {
-                                eprintln!(
-                                    "rerank network error ({e}); falling back to continuous fusion"
-                                );
+                                Ok(resp) => {
+                                    eprintln!("rerank returned HTTP {}", resp.status());
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "rerank network error ({e}); falling back to continuous fusion"
+                                    );
+                                }
                             }
                         }
                     }
 
                     if !reranked.is_empty() {
-                        eprintln!(
-                            "neural rerank: {} candidates reranked via {}",
-                            candidates.len(), rerank_endpoint
-                        );
+                        if let Some(ref ep) = rerank_endpoint {
+                            eprintln!(
+                                "neural rerank: {} candidates reranked via {}",
+                                candidates.len(), ep
+                            );
+                        }
                         reranked.truncate(limit);
                         reranked
                     } else {
@@ -598,9 +612,17 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     ExitCode::SUCCESS
                 }
             } else {
-                let mut target_endpoint = endpoint.unwrap_or_else(
-                    cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint,
-                );
+                let mut target_endpoint = match endpoint
+                    .or_else(cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint)
+                {
+                    Some(ep) => ep,
+                    None => {
+                        eprintln!(
+                            "inference endpoint resolution failed: no inference-server declared in canonical registry (infra/registry.json) or CYNIC_INFERENCE_URL"
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                };
                 if !target_endpoint.contains("/chat/completions") {
                     if !target_endpoint.ends_with('/') {
                         target_endpoint.push('/');

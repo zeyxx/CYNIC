@@ -1438,7 +1438,7 @@
       "severity": "warning"
     },
     {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:28 cites path infra/rate_classify_report.json which does not exist in the working tree",
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:26 cites path infra/rate_classify_report.json which does not exist in the working tree",
       "count": 1,
       "rule": "PATH-002",
       "severity": "warning"

@@ -3,6 +3,7 @@ pub mod epistemic_harvester;
 pub mod git;
 pub mod json_contract;
 pub mod markdown;
+pub mod registry_resolver;
 pub mod rust_ast;
 pub mod topology;
 
@@ -16,5 +17,6 @@ pub use json_contract::{
     load_authority_overrides, parse_json_contract, parse_json_contract_with_authority,
 };
 pub use markdown::{parse_document_tree, parse_markdown_tree};
+pub use registry_resolver::{find_canonical_registry_path, resolve_service_endpoint_from_registry};
 pub use rust_ast::parse_rust_file;
 pub use topology::{load_workspace_geometry, parse_crate_topology_json};

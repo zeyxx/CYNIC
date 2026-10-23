@@ -3,10 +3,12 @@ pub mod domain;
 
 pub use adapters::{
     categorize_interaction, classify_repo_domain, classify_repo_era, extract_git_history,
-    harvest_live_ledger, load_authority_overrides, load_corpus_cache, load_workspace_geometry,
-    parse_document_tree, parse_git_log_output, parse_github_repos, parse_interactions_graph,
-    parse_json_contract, parse_json_contract_with_authority, parse_markdown_tree, parse_rust_file,
-    save_corpus_cache, sync_workspace_corpus, GitExtractError,
+    find_canonical_registry_path, harvest_live_ledger, load_authority_overrides,
+    load_corpus_cache, load_workspace_geometry, parse_document_tree, parse_git_log_output,
+    parse_github_repos, parse_interactions_graph, parse_json_contract,
+    parse_json_contract_with_authority, parse_markdown_tree, parse_rust_file,
+    resolve_service_endpoint_from_registry, save_corpus_cache, sync_workspace_corpus,
+    GitExtractError,
 };
 pub use domain::{
     apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
