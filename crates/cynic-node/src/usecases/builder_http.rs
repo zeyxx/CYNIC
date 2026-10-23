@@ -13,7 +13,7 @@ use axum::{
 use chrono::Utc;
 use hmac::{Hmac, Mac, digest::KeyInit};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
@@ -123,6 +123,7 @@ pub fn app(
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
+        .route("/admin/identity", get(identity))
         .with_state(state)
 }
 
@@ -363,6 +364,97 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
         "total_recorded_events": counter.total_events(),
     }))
+}
+
+/// Pure `revision` extractor for the runtime registry copy.
+///
+/// POLICY_STAGING stages the merge commit SHA that admitted the registry as
+/// top-level `revision`; older copies carry no revision. Absent, empty, or
+/// non-string values yield `None` — the endpoint reports what it can prove,
+/// never a fabricated revision.
+fn applied_revision_from_registry_json(value: &serde_json::Value) -> Option<String> {
+    value
+        .get("revision")?
+        .as_str()
+        .filter(|revision| !revision.is_empty())
+        .map(|revision| revision.to_string())
+}
+
+/// Pure identity response shaper: no filesystem, no clock beyond the passed
+/// timestamp. Tested without HTTP.
+fn shape_identity_response(
+    node_id: &str,
+    observed_at_ms: i64,
+    running_binary_sha256: Option<&str>,
+    installed_binary_path: Option<&str>,
+    installed_binary_sha256: Option<&str>,
+    applied_registry_revision: Option<&str>,
+) -> serde_json::Value {
+    let binaries_match = match (running_binary_sha256, installed_binary_sha256) {
+        (Some(running), Some(installed)) => Some(running == installed),
+        _ => None,
+    };
+    serde_json::json!({
+        "schema": "cynic.builder.identity.v1",
+        "node_id": node_id,
+        "observed_at_ms": observed_at_ms,
+        "running_binary_sha256": running_binary_sha256,
+        "installed_binary_path": installed_binary_path,
+        "installed_binary_sha256": installed_binary_sha256,
+        "applied_registry_revision": applied_registry_revision,
+        "binaries_match": binaries_match,
+    })
+}
+
+/// SHA-256 of one file. `None` when the file cannot be read — a read-only
+/// endpoint reports what it can prove, never a 500 for an unhashable file.
+fn sha256_file(path: &std::path::Path) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    Some(hex::encode(Sha256::digest(bytes)))
+}
+
+/// Hash of the running builder binary (`current_exe`).
+fn running_binary_sha256() -> Option<String> {
+    sha256_file(&std::env::current_exe().ok()?)
+}
+
+/// Installed binary identity: `CynicPaths::binary_path()` (overridable via
+/// `CYNIC_BIN` / `CYNIC_BINARY_DIR`), resolved through its symlink when it is
+/// one. Returns the display path plus the sha256 of the link target or file.
+fn installed_binary_identity() -> (Option<String>, Option<String>) {
+    use cynic_types::paths::CynicPaths;
+    let path = CynicPaths::binary_path();
+    let target = std::fs::read_link(&path).unwrap_or(path);
+    let digest = sha256_file(&target);
+    (Some(target.to_string_lossy().to_string()), digest)
+}
+
+/// Applied registry revision from the runtime registry copy. `None` when the
+/// copy is absent, unparsable, or predates `revision` (POLICY_STAGING).
+fn applied_registry_revision() -> Option<String> {
+    use cynic_types::paths::CynicPaths;
+    let raw = std::fs::read_to_string(CynicPaths::registry_path()).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    applied_revision_from_registry_json(&value)
+}
+
+/// Convergence read-back: `GET /admin/identity`.
+///
+/// No auth: read-only, no mutation — the same trust boundary as `/health`
+/// and `/status`. Serves the running binary sha256, the installed
+/// link-target sha256, the node id, and the applied registry revision when
+/// available. This is the read-back that proves convergence for the
+/// POLICY_STAGING verify stage (the fleet reports one revision).
+async fn identity(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let (installed_path, installed_digest) = installed_binary_identity();
+    Json(shape_identity_response(
+        &state.config.node_id,
+        Utc::now().timestamp_millis(),
+        running_binary_sha256().as_deref(),
+        installed_path.as_deref(),
+        installed_digest.as_deref(),
+        applied_registry_revision().as_deref(),
+    ))
 }
 
 async fn get_proof(
@@ -1061,6 +1153,89 @@ mod tests {
         assert_eq!(
             envelope.action.argv,
             vec!["cargo", "run", "-q", "-p", "cynic-cli", "--", "audit", "crate"]
+        );
+    }
+
+    #[test]
+    fn identity_shape_reports_full_convergence() {
+        let running = "a".repeat(64);
+        let shaped = shape_identity_response(
+            "cynic-builder",
+            1_700_000_000_000,
+            Some(&running),
+            Some("/usr/local/bin/cynic"),
+            Some(&running),
+            Some("deadbeef"),
+        );
+        assert_eq!(shaped["schema"], "cynic.builder.identity.v1");
+        assert_eq!(shaped["node_id"], "cynic-builder");
+        assert_eq!(shaped["running_binary_sha256"], running);
+        assert_eq!(shaped["installed_binary_path"], "/usr/local/bin/cynic");
+        assert_eq!(shaped["applied_registry_revision"], "deadbeef");
+        assert_eq!(shaped["binaries_match"], true);
+    }
+
+    #[test]
+    fn identity_shape_reports_binary_skew() {
+        let shaped = shape_identity_response(
+            "cynic-builder",
+            1_700_000_000_000,
+            Some(&"a".repeat(64)),
+            Some("/usr/local/bin/cynic"),
+            Some(&"b".repeat(64)),
+            Some("deadbeef"),
+        );
+        assert_eq!(shaped["binaries_match"], false);
+    }
+
+    #[test]
+    fn identity_shape_reports_unknowns_as_null() {
+        let shaped = shape_identity_response("cynic-builder", 0, None, None, None, None);
+        assert!(shaped["running_binary_sha256"].is_null());
+        assert!(shaped["installed_binary_path"].is_null());
+        assert!(shaped["installed_binary_sha256"].is_null());
+        assert!(shaped["applied_registry_revision"].is_null());
+        assert!(shaped["binaries_match"].is_null());
+    }
+
+    #[test]
+    fn identity_revision_extractor_reads_top_level_revision() {
+        let value = serde_json::json!({"version": 1, "revision": "abc123"});
+        assert_eq!(
+            applied_revision_from_registry_json(&value),
+            Some("abc123".to_string())
+        );
+    }
+
+    #[test]
+    fn identity_revision_extractor_returns_none_without_revision() {
+        let value = serde_json::json!({"version": 1});
+        assert_eq!(applied_revision_from_registry_json(&value), None);
+    }
+
+    #[test]
+    fn identity_revision_extractor_rejects_empty_and_non_string() {
+        assert_eq!(
+            applied_revision_from_registry_json(&serde_json::json!({"revision": ""})),
+            None
+        );
+        assert_eq!(
+            applied_revision_from_registry_json(&serde_json::json!({"revision": 42})),
+            None
+        );
+    }
+
+    #[test]
+    fn identity_sha256_hashes_file_bytes() {
+        use std::io::Write;
+        let mut file = tempfile::NamedTempFile::new().expect("temp fixture");
+        file.write_all(b"cynic-identity").expect("write fixture");
+        let digest = sha256_file(&file.path().to_path_buf()).expect("hashable fixture");
+        assert_eq!(digest.len(), 64);
+        assert!(digest.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(
+            sha256_file(&std::path::PathBuf::from("/nonexistent-identity-fixture")),
+            None
         );
     }
 }
