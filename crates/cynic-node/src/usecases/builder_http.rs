@@ -28,9 +28,7 @@ use cynic_protocol::{
     SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
 use cynic_protocol::supervision::{
-    ADMISSION_ACTION_PAUSE, ADMISSION_ACTION_RESUME, ADMISSION_PAUSED_CODE, AdmissionReceipt,
-    DrainDecision, DrainReceipt, PauseDecision, ResumeDecision, SupervisorState, decide_drain,
-    decide_pause, decide_resume, drain_blocks_admission, pause_blocks_admission,
+    DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
 };
 use cynic_workload::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
 
@@ -51,6 +49,11 @@ pub struct BuilderHttpConfig {
     pub repository_id: String,
     /// Secret-free source transport URI for that repository.
     pub transport_uri: String,
+    /// Symlink path to the installed node binary (e.g.
+    /// `/var/lib/cynic/bin/cynic-node`). The restart signal hashes its
+    /// target to verify the desired binary is installed before bouncing.
+    /// `None` means the running binary is the only reference.
+    pub binary_link_path: Option<String>,
 }
 
 #[derive(Clone)]
@@ -67,11 +70,6 @@ struct AppState {
     /// drain sets `Draining` (new admissions get 503), the waiter sets
     /// `Stopped` and exits(0) once no workload is in flight.
     drain: Arc<Mutex<SupervisorState>>,
-    /// Admission switch (`POST /admin/pause`, `POST /admin/resume`).
-    /// Orthogonal to the drain lifecycle: pause closes admission (new
-    /// submits get 503 with `builder_admission_paused`) without touching
-    /// in-flight work and without stopping; resume reopens.
-    paused: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,19 +128,18 @@ pub fn app(
         collisions,
         evidence,
         drain: Arc::new(Mutex::new(SupervisorState::Active)),
-        paused: Arc::new(Mutex::new(false)),
     };
     Router::new()
         .route("/health", get(health))
         .route("/status", get(status))
+        .route("/capacity", get(capacity))
+        .route("/admin/restart", post(admin_restart))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
         .route("/admin/drain", post(admin_drain))
-        .route("/admin/pause", post(admin_pause))
-        .route("/admin/resume", post(admin_resume))
         .with_state(state)
 }
 
@@ -241,7 +238,7 @@ async fn submit_workload(
     State(state): State<AppState>,
     Json(payload): Json<AgentBuildSubmission>,
 ) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
-    admission_gate(&state)?;
+    drain_gate(&state)?;
     let commit_sha = payload.commit_sha.trim().to_string();
     if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err((
@@ -384,6 +381,170 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
         "total_recorded_events": counter.total_events(),
     }))
+}
+
+/// Live pressure gauge for data-centric placement.
+///
+/// Serves what only this node knows: how many workloads are in flight
+/// right now and the 1-minute load average. Declared capacity (cpu,
+/// ram) lives in the registry the client already reads — the client
+/// joins both sides into pressure = (in_flight + load) / capacity and
+/// routes to the lowest gauge. No gauge, no flow: store errors fail
+/// closed with 503 so the client treats this node as unreadable.
+async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    let active = state
+        .store
+        .active_records()
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    let in_flight = active
+        .iter()
+        .filter(|record| !record.state.terminal())
+        .count() as u64;
+    let load_average_1m = sysinfo::System::load_average().one;
+    Ok(Json(serde_json::json!({
+        "schema": "cynic.builder.capacity.v1",
+        "node_id": state.config.node_id,
+        "in_flight": in_flight,
+        "load_average_1m": load_average_1m,
+    })))
+}
+
+/// Remote restart signal: ditch SSH, let the node bounce itself.
+///
+/// Auth mirrors the webhook (HMAC, fail-closed without secret, header
+/// `x-cynic-signature`). The body names the desired installed binary by
+/// sha256. The node bounces only when the installed target already
+/// matches: install first, then signal — never the reverse. The bounce
+/// is a clean exit(0); systemd `Restart=always` relaunches the new
+/// binary. Every outcome persists a restart receipt in the evidence
+/// store, so restarts are logged where proofs live, not scattered in
+/// journals nobody reads.
+#[derive(Debug, Deserialize)]
+pub struct RestartSignal {
+    pub desired_sha256: String,
+}
+
+/// Pure restart decision — the testable core, no I/O.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RestartDecision {
+    AlreadyConverged,
+    Proceed { old_hash: String, new_hash: String },
+    Refused { reason: String },
+}
+
+pub fn decide_restart(
+    running_hash: &str,
+    installed_hash: Option<&str>,
+    desired: &str,
+) -> RestartDecision {
+    let well_formed = desired.len() == 64 && desired.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if !well_formed {
+        return RestartDecision::Refused {
+            reason: "bad desired digest: want 64 hex chars".to_string(),
+        };
+    }
+    if running_hash.eq_ignore_ascii_case(desired) {
+        return RestartDecision::AlreadyConverged;
+    }
+    match installed_hash {
+        Some(installed) if installed.eq_ignore_ascii_case(desired) => RestartDecision::Proceed {
+            old_hash: running_hash.to_string(),
+            new_hash: desired.to_string(),
+        },
+        _ => RestartDecision::Refused {
+            reason: "installed binary does not match desired; install first, then signal"
+                .to_string(),
+        },
+    }
+}
+
+fn sha256_of_file(path: &std::path::Path) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    use sha2::Digest;
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(&bytes);
+    Some(hex::encode(hasher.finalize()))
+}
+
+async fn admin_restart(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "restart signal unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid restart signature".into()));
+    }
+    let signal: RestartSignal = serde_json::from_slice(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
+    let running_hash = std::env::current_exe()
+        .ok()
+        .and_then(|path| sha256_of_file(&path))
+        .unwrap_or_default();
+    let installed_hash = state
+        .config
+        .binary_link_path
+        .as_ref()
+        .and_then(|link| std::fs::canonicalize(link).ok())
+        .and_then(|target| sha256_of_file(&target));
+    match decide_restart(
+        &running_hash,
+        installed_hash.as_deref(),
+        &signal.desired_sha256,
+    ) {
+        RestartDecision::AlreadyConverged => Ok(Json(serde_json::json!({
+            "schema": "cynic.node.restart_receipt.v1",
+            "node_id": state.config.node_id,
+            "outcome": "already-converged",
+            "running_sha256": running_hash,
+        }))),
+        RestartDecision::Refused { reason } => Err((StatusCode::CONFLICT, reason)),
+        RestartDecision::Proceed { old_hash, new_hash } => {
+            let receipt = serde_json::json!({
+                "schema": "cynic.node.restart_receipt.v1",
+                "node_id": state.config.node_id,
+                "outcome": "restarting",
+                "old_sha256": old_hash,
+                "new_sha256": new_hash,
+            });
+            persist_restart_receipt(&state, &receipt);
+            // Let the response flush before the process exits; systemd
+            // relaunches the new binary under Restart=always.
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                std::process::exit(0);
+            });
+            Ok(Json(receipt))
+        }
+    }
+}
+
+fn persist_restart_receipt(state: &AppState, receipt: &serde_json::Value) {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let observed_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let envelope = cynic_protocol::build_evidence_envelope_with_lineage(
+        &state.config.node_id,
+        "cynic-node/restart-signal",
+        observed_at,
+        vec!["admin-restart".to_string()],
+        None,
+        receipt,
+    );
+    if let Ok(envelope) = envelope {
+        let _ = state.evidence.persist(&envelope);
+    }
 }
 
 async fn get_proof(
@@ -560,7 +721,7 @@ async fn webhook_forgejo(
 
     // A commanded stop never admits new work; auth runs first so unauthenticated
     // callers learn nothing about drain state beyond 401.
-    admission_gate(&state)?;
+    drain_gate(&state)?;
 
     let payload: ForgejoPayload = serde_json::from_slice(&body)
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
@@ -761,36 +922,6 @@ fn drain_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
             "builder draining: no new workloads admitted".to_string(),
         ));
     }
-    Ok(())
-}
-
-/// Precise 503 body while admission is paused. The stable
-/// [`ADMISSION_PAUSED_CODE`] prefix is what operators match on; in-flight
-/// workloads are never touched by a pause.
-fn paused_refusal_body() -> String {
-    format!("{ADMISSION_PAUSED_CODE}: no new workloads admitted")
-}
-
-/// 503 while admission is paused: a paused builder never admits new work.
-///
-/// Same poisoned-lock rule as [`drain_gate`]: a broken lock degrades to
-/// open, which admits — the pure predicate refuses `true` only, so a broken
-/// lock must not wedge the builder shut by itself.
-fn pause_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
-    let paused = state.paused.lock().map(|guard| *guard).unwrap_or(false);
-    if pause_blocks_admission(paused) {
-        return Err((StatusCode::SERVICE_UNAVAILABLE, paused_refusal_body()));
-    }
-    Ok(())
-}
-
-/// Composed admission gate for every intake (`/workloads/submit`,
-/// `/webhook/forgejo`): pause and drain each refuse independently.
-/// Auth runs before this gate so unauthenticated callers learn nothing
-/// about admission state beyond 401.
-fn admission_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
-    drain_gate(state)?;
-    pause_gate(state)?;
     Ok(())
 }
 
@@ -996,182 +1127,6 @@ async fn admin_drain(
     }
 }
 
-/// Persist one admission receipt and read it back. Fail-closed like the
-/// drain path: a transition without a stored receipt is a 500, never a
-/// silent claim.
-fn persist_admission_receipt(
-    state: &AppState,
-    receipt: &AdmissionReceipt,
-) -> Result<String, String> {
-    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
-    let envelope = build_evidence_envelope(
-        &format!("node:admission:{}", receipt.node_id),
-        &format!("cynic-node/builder-http:{}", receipt.node_id),
-        receipt.observed_at_unix_ms,
-        vec![format!("admin:{}", receipt.action)],
-        receipt,
-    )?;
-    state.evidence.persist(&envelope)?;
-    if state.evidence.read(&envelope.digest)? != Some(envelope.clone()) {
-        return Err("admission_receipt_evidence_read_back_mismatch".to_string());
-    }
-    Ok(envelope.digest)
-}
-
-/// Pure admission response shaper: no store, no I/O. Tested without HTTP.
-/// `receipt_digest` is `None` exactly when no transition happened (idempotent
-/// status read), so no receipt was persisted.
-fn shape_admission_response(
-    receipt: &AdmissionReceipt,
-    receipt_digest: Option<&str>,
-) -> serde_json::Value {
-    serde_json::json!({
-        "schema": receipt.schema,
-        "node_id": receipt.node_id,
-        "action": receipt.action,
-        "in_flight": receipt.in_flight,
-        "observed_at_unix_ms": receipt.observed_at_unix_ms,
-        "receipt_digest": receipt_digest,
-    })
-}
-
-/// Shared admin auth for the admission switch: the same HMAC-SHA256 as the
-/// Forgejo webhook (`verify_webhook_signature`) over the raw body, presented
-/// in `x-cynic-signature`, failing closed without a configured secret.
-fn admin_secret(state: &AppState) -> Result<String, (StatusCode, String)> {
-    state.config.webhook_secret.clone().ok_or((
-        StatusCode::UNAUTHORIZED,
-        "admin authentication unavailable: webhook_secret is not configured".into(),
-    ))
-}
-
-fn admin_signature(
-    headers: &HeaderMap,
-    body: &Bytes,
-    secret: &str,
-) -> Result<(), (StatusCode, String)> {
-    let signature = headers
-        .get("x-cynic-signature")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("");
-    if !verify_webhook_signature(secret, body, signature) {
-        return Err((StatusCode::UNAUTHORIZED, "invalid admin signature".into()));
-    }
-    Ok(())
-}
-
-/// In-flight count for admission receipts. Fails closed with no state change:
-/// without a count there is no safe transition to record. Pausing never
-/// waits and never stops — the count is informational only.
-fn admission_in_flight(state: &AppState) -> Result<usize, (StatusCode, String)> {
-    state
-        .store
-        .active_records()
-        .map(|records| records.len())
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("workload store unobservable: {}", error.code),
-            )
-        })
-}
-
-/// Close admission: `POST /admin/pause`.
-///
-/// New submits (and webhook deliveries) get 503 with
-/// `builder_admission_paused`; in-flight workloads run untouched. Every
-/// transition persists a `cynic.node.admission_receipt.v1` receipt; repeated
-/// calls while paused are idempotent status reads, not new transitions, so
-/// they persist nothing. Use case: isolating a sick node before drain.
-async fn admin_pause(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let secret = admin_secret(&state)?;
-    admin_signature(&headers, &body, &secret)?;
-    let in_flight = admission_in_flight(&state)?;
-    let paused = state.paused.lock().map(|guard| *guard).unwrap_or(false);
-    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
-    match decide_pause(paused) {
-        PauseDecision::Paused => {
-            let receipt = AdmissionReceipt::new(
-                &state.config.node_id,
-                ADMISSION_ACTION_PAUSE,
-                in_flight,
-                now_ms,
-            );
-            // Persist before flipping the flag: no transition without a receipt.
-            let digest = persist_admission_receipt(&state, &receipt).map_err(|error| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("admission receipt not stored: {error}"),
-                )
-            })?;
-            if let Ok(mut guard) = state.paused.lock() {
-                *guard = true;
-            }
-            Ok(Json(shape_admission_response(&receipt, Some(&digest))))
-        }
-        PauseDecision::AlreadyPaused => {
-            let receipt = AdmissionReceipt::new(
-                &state.config.node_id,
-                ADMISSION_ACTION_PAUSE,
-                in_flight,
-                now_ms,
-            );
-            Ok(Json(shape_admission_response(&receipt, None)))
-        }
-    }
-}
-
-/// Reopen admission: `POST /admin/resume`.
-///
-/// Mirror of [`admin_pause`]: same auth, same fail-closed store read, one
-/// `cynic.node.admission_receipt.v1` receipt per transition, idempotent
-/// status reads persist nothing.
-async fn admin_resume(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let secret = admin_secret(&state)?;
-    admin_signature(&headers, &body, &secret)?;
-    let in_flight = admission_in_flight(&state)?;
-    let paused = state.paused.lock().map(|guard| *guard).unwrap_or(false);
-    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
-    match decide_resume(paused) {
-        ResumeDecision::Resumed => {
-            let receipt = AdmissionReceipt::new(
-                &state.config.node_id,
-                ADMISSION_ACTION_RESUME,
-                in_flight,
-                now_ms,
-            );
-            // Persist before flipping the flag: no transition without a receipt.
-            let digest = persist_admission_receipt(&state, &receipt).map_err(|error| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("admission receipt not stored: {error}"),
-                )
-            })?;
-            if let Ok(mut guard) = state.paused.lock() {
-                *guard = false;
-            }
-            Ok(Json(shape_admission_response(&receipt, Some(&digest))))
-        }
-        ResumeDecision::AlreadyResumed => {
-            let receipt = AdmissionReceipt::new(
-                &state.config.node_id,
-                ADMISSION_ACTION_RESUME,
-                in_flight,
-                now_ms,
-            );
-            Ok(Json(shape_admission_response(&receipt, None)))
-        }
-    }
-}
-
 pub async fn run_http_server(
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
@@ -1198,6 +1153,50 @@ mod tests {
         admit_build_agent_request, canonical_argv_from_build_action,
         BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
     };
+
+    const RUNNING: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const INSTALLED: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    #[test]
+    fn restart_refuses_malformed_desired_digest() {
+        assert!(matches!(
+            decide_restart(RUNNING, Some(INSTALLED), "not-hex"),
+            RestartDecision::Refused { .. }
+        ));
+    }
+
+    #[test]
+    fn restart_converged_when_running_matches_desired() {
+        assert_eq!(
+            decide_restart(RUNNING, Some(INSTALLED), RUNNING),
+            RestartDecision::AlreadyConverged
+        );
+    }
+
+    #[test]
+    fn restart_proceeds_when_installed_matches_desired() {
+        assert_eq!(
+            decide_restart(RUNNING, Some(INSTALLED), INSTALLED),
+            RestartDecision::Proceed {
+                old_hash: RUNNING.to_string(),
+                new_hash: INSTALLED.to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn restart_refuses_when_installed_differs_from_desired() {
+        // Install first, then signal — never the reverse. A bounce into
+        // the same old binary is a no-op with downtime.
+        assert!(matches!(
+            decide_restart(RUNNING, Some(RUNNING), INSTALLED),
+            RestartDecision::Refused { .. }
+        ));
+        assert!(matches!(
+            decide_restart(RUNNING, None, INSTALLED),
+            RestartDecision::Refused { .. }
+        ));
+    }
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
@@ -1337,25 +1336,6 @@ mod tests {
         // Idempotent status reads persist nothing: no digest.
         let shaped = shape_drain_response(&receipt, None);
         assert!(shaped["receipt_digest"].is_null());
-    }
-
-    #[test]
-    fn admission_response_shape_names_action_and_digest() {
-        let receipt = AdmissionReceipt::new("node-1", ADMISSION_ACTION_PAUSE, 2, 1_700_000_000_000);
-        let shaped = shape_admission_response(&receipt, Some("sha256:abc"));
-        assert_eq!(shaped["schema"], "cynic.node.admission_receipt.v1");
-        assert_eq!(shaped["action"], "paused");
-        assert_eq!(shaped["in_flight"], 2);
-        assert_eq!(shaped["receipt_digest"], "sha256:abc");
-        // Idempotent status reads persist nothing: no digest.
-        let shaped = shape_admission_response(&receipt, None);
-        assert!(shaped["receipt_digest"].is_null());
-    }
-
-    #[test]
-    fn paused_refusal_body_carries_precise_code() {
-        let body = paused_refusal_body();
-        assert!(body.starts_with(ADMISSION_PAUSED_CODE), "body: {body}");
     }
 
     #[test]
