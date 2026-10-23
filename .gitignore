@@ -95,3 +95,7 @@ cynic-demo.html
 /docs/articles/odyssey/*.draft.*
 /docs/articles/odyssey/COULISSES_*
 
+
+# IaC private configs (real IPs, domains, secrets)
+/infra/iaac-private/
+/infra/iaac/*.env
