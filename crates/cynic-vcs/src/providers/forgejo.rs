@@ -220,6 +220,7 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
         let (owner, repo_name) = self.parse_owner_repo(repo)?;
         let url = self.api_url(&format!("/repos/{owner}/{repo_name}/collaborators?limit=100"));
         let token = self.token.clone();
+        let user = user.to_string();
 
         Self::with_client(move |client| {
             let resp = client
