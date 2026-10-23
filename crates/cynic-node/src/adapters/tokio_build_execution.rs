@@ -86,6 +86,20 @@ impl BuildExecutionPort for TokioBuildExecution {
                                 "build_toolchain_unresolvable:{program}"
                             ))
                         })?;
+                    // Mirror of the toolchain pre-flight (observed
+                    // 2026-10-23: a declared sccache stanza pointing at a
+                    // missing binary fails deep inside the build instead
+                    // of at admission). Every declared binary resolves
+                    // before spawn, with its own precise code.
+                    if let Some(wrapper) = request.environment.get("RUSTC_WRAPPER") {
+                        let wrapper_ok =
+                            resolve_off_mode_program(wrapper, &request.environment).is_some();
+                        if !wrapper_ok {
+                            return Err(BuildExecutionError::Invalid(format!(
+                                "build_sccache_unresolvable:{wrapper}"
+                            )));
+                        }
+                    }
                     (resolved, arguments.to_vec(), true, true)
                 }
                 BuildSandboxMode::Bwrap(spec) => {
@@ -267,6 +281,56 @@ mod tests {
             matches!(error, BuildExecutionError::Invalid(ref code) if code.starts_with("build_toolchain_unresolvable:")),
             "expected precise unresolvable code, got {error:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn off_mode_missing_sccache_wrapper_fails_closed_with_precise_code() {
+        let request = BuildExecutionRequest {
+            argv: vec!["/bin/sleep".into(), "--version".into()],
+            working_directory: std::path::PathBuf::from("/tmp"),
+            environment: [
+                ("PATH".to_string(), "/usr/bin:/bin".to_string()),
+                (
+                    "RUSTC_WRAPPER".to_string(),
+                    "/nonexistent/sccache-binary".to_string(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            timeout: Duration::from_secs(10),
+            sandbox: BuildSandboxMode::Off,
+        };
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let error = TokioBuildExecution
+            .execute(&request, &cancellation)
+            .await
+            .expect_err("unresolvable sccache wrapper must fail closed, not spawn");
+        assert!(
+            matches!(error, BuildExecutionError::Invalid(ref code) if code.starts_with("build_sccache_unresolvable:")),
+            "expected precise unresolvable code, got {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn off_mode_present_sccache_wrapper_passes_preflight() {
+        let request = BuildExecutionRequest {
+            argv: vec!["/bin/sleep".into(), "0".into()],
+            working_directory: std::path::PathBuf::from("/tmp"),
+            environment: [
+                ("PATH".to_string(), "/usr/bin:/bin".to_string()),
+                ("RUSTC_WRAPPER".to_string(), "/bin/sleep".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            timeout: Duration::from_secs(10),
+            sandbox: BuildSandboxMode::Off,
+        };
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let read_back = TokioBuildExecution
+            .execute(&request, &cancellation)
+            .await
+            .expect("resolvable wrapper must pass pre-flight");
+        assert_eq!(read_back.exit_code, Some(0));
     }
 
     #[tokio::test]
