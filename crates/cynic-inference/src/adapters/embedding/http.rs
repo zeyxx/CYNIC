@@ -350,29 +350,15 @@ impl EmbeddingBackend {
             return (Vec::new(), Vec::new());
         }
 
-        // Per-endpoint pools with headroom-guarded stealing. A single shared
-        // queue drains entirely into the first-spawned endpoint's workers on
-        // small batches (join_all polls them first), so every peer after the
-        // first went idle while the queue emptied — measured, not theorized.
-        // Here each endpoint pops from its own pool; stealing from a peer
-        // pool only happens while that peer holds a FIFO head start equal to
-        // its worker count, so equal-capacity endpoints keep balanced shares
-        // and a slow/failing endpoint's pool is still consumed by the rest.
-        let mut pools: Vec<std::collections::VecDeque<(usize, Vec<String>, usize)>> =
-            (0..self.endpoints.len())
-                .map(|e| {
-                    sublots
-                        .iter()
-                        .enumerate()
-                        .filter(|(idx, _)| idx % self.endpoints.len() == e)
-                        .map(|(_, (sub_no, inputs))| (*sub_no, inputs.clone(), 0usize))
-                        .collect()
-                })
-                .collect();
-        let headroom: Vec<usize> = self.endpoints.iter().map(|e| e.slots).collect();
-        // Highest capacity first: the strongest endpoint may steal earliest.
-        let mut order: Vec<usize> = (0..self.endpoints.len()).collect();
-        order.sort_by_key(|e| std::cmp::Reverse(self.endpoints[*e].slots));
+        // Central Dynamic Work-Stealing Pull Queue across all endpoints:
+        // Workers pull on demand according to physical processing rate.
+        // Fast endpoints (e.g. GPU) naturally consume more lots without being
+        // throttled by slow peers (e.g. CPU), eliminating the 50/50 straggler trap.
+        let queue: std::collections::VecDeque<(usize, Vec<String>, usize)> = sublots
+            .into_iter()
+            .map(|(sub_no, inputs)| (sub_no, inputs, 0usize))
+            .collect();
+        let shared_queue = std::sync::Arc::new(tokio::sync::Mutex::new(queue));
 
         let results = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
         let errors: std::sync::Arc<tokio::sync::Mutex<Vec<Option<String>>>> =
@@ -381,98 +367,72 @@ impl EmbeddingBackend {
 
         let mut worker_futures = Vec::new();
 
-        let shared_pools = std::sync::Arc::new(tokio::sync::Mutex::new(std::mem::take(&mut pools)));
+        // Interleave workers across endpoints so that initial polling across
+        // endpoints is balanced rather than starving later endpoints in join_all.
+        let max_slots = self.endpoints.iter().map(|e| e.slots).max().unwrap_or(1);
+        for slot_idx in 0..max_slots {
+            for endpoint in &self.endpoints {
+                if slot_idx < endpoint.slots {
+                    let queue = shared_queue.clone();
+                    let results = results.clone();
+                    let errors = errors.clone();
+                    let completed = completed.clone();
+                    let endpoint_url = endpoint.url.clone();
 
-        for &ep_idx in &order {
-            let endpoint = &self.endpoints[ep_idx];
-            for _ in 0..endpoint.slots {
-                let pools = shared_pools.clone();
-                let headroom = std::sync::Arc::new(headroom.clone());
-                let results = results.clone();
-                let errors = errors.clone();
-                let completed = completed.clone();
-                let endpoint_url = endpoint.url.clone();
+                    worker_futures.push(async move {
+                        loop {
+                            let maybe_lot = {
+                                let mut guard = queue.lock().await;
+                                guard.pop_front()
+                            };
+                            let (sub_no, inputs, attempts) = match maybe_lot {
+                                Some(item) => item,
+                                None => break, // Queue exhausted, worker exits cleanly
+                            };
 
-                worker_futures.push(async move {
-                    loop {
-                        let maybe_lot = {
-                            let mut guard = pools.lock().await;
-                            let mine = guard[ep_idx].front().is_some();
-                            let worker_count = headroom[ep_idx].max(1);
-                            // Own pool drains first down to its head start;
-                            // below that a faster peer with idle workers steals.
-                            let keep_own = mine && guard[ep_idx].len() > worker_count;
-                            if keep_own {
-                                guard[ep_idx].pop_front()
-                            } else {
-                                guard
-                                    .iter_mut()
-                                    .find(|p| !p.is_empty())
-                                    .and_then(|p| p.pop_front())
-                            }
-                        };
-                        let (sub_no, inputs, attempts) = match maybe_lot {
-                            Some(item) => item,
-                            None => break, // All pools exhausted, worker exits cleanly
-                        };
-
-                        match self.post_batch_to(&endpoint_url, inputs.clone()).await {
-                            Ok(batch) => {
-                                {
-                                    let mut res = results.lock().await;
-                                    res[sub_no] = Some(batch);
+                            match self.post_batch_to(&endpoint_url, inputs.clone()).await {
+                                Ok(batch) => {
+                                    {
+                                        let mut res = results.lock().await;
+                                        res[sub_no] = Some(batch);
+                                    }
+                                    let done_lots = completed
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                        + 1;
+                                    report((done_lots * FANOUT_SUB_LOT).min(texts.len()), texts.len());
                                 }
-                                let done_lots = completed
-                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                                    + 1;
-                                report((done_lots * FANOUT_SUB_LOT).min(texts.len()), texts.len());
-                            }
-                            Err(error) => {
-                                if attempts + 1 < 3 {
-                                    // Requeue to this endpoint's pool only when
-                                    // its length still exceeds the peer head start
-                                    // — a failing pool must not hog the retry.
-                                    let mut guard = pools.lock().await;
-                                    let worker_count = headroom[ep_idx].max(1);
-                                    let target = if guard[ep_idx].len() >= worker_count {
-                                        ep_idx
+                                Err(error) => {
+                                    if attempts + 1 < 3 {
+                                        // Requeue to the front of the shared queue so that another
+                                        // (healthy) endpoint worker can retry it immediately.
+                                        {
+                                            let mut guard = queue.lock().await;
+                                            guard.push_front((sub_no, inputs, attempts + 1));
+                                        }
+                                        let backoff_ms =
+                                            500u64.saturating_mul(1 << attempts.min(4));
+                                        tokio::time::sleep(std::time::Duration::from_millis(
+                                            backoff_ms,
+                                        ))
+                                        .await;
                                     } else {
-                                        guard
-                                            .iter()
-                                            .enumerate()
-                                            .find(|(i, p)| !p.is_empty() && *i != ep_idx)
-                                            .map(|(i, _)| i)
-                                            .unwrap_or(ep_idx)
-                                    };
-                                    guard[target].push_back((sub_no, inputs, attempts + 1));
-                                    drop(guard);
-                                    // WiFi-class dropouts last seconds, not
-                                    // milliseconds: back off exponentially per
-                                    // attempt so a transient link loss survives
-                                    // instead of poisoning the lot.
-                                    let backoff_ms =
-                                        500u64.saturating_mul(1 << attempts.min(4));
-                                    tokio::time::sleep(std::time::Duration::from_millis(
-                                        backoff_ms,
-                                    ))
-                                    .await;
-                                } else {
-                                    // Poisoned lot after 3 distributed attempts across endpoints
-                                    let mut errs = errors.lock().await;
-                                    errs[sub_no] = Some(format!(
-                                        "lot {} failed on {} after {} attempts: {}",
-                                        sub_no + 1,
-                                        endpoint_url,
-                                        attempts + 1,
-                                        error
-                                    ));
-                                    completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                        // Poisoned lot after 3 distributed attempts across endpoints
+                                        let mut errs = errors.lock().await;
+                                        errs[sub_no] = Some(format!(
+                                            "lot {} failed on {} after {} attempts: {}",
+                                            sub_no + 1,
+                                            endpoint_url,
+                                            attempts + 1,
+                                            error
+                                        ));
+                                        completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    }
                                 }
                             }
                         }
-                    }
-                    Ok::<(), EmbeddingError>(())
-                });
+                        Ok::<(), EmbeddingError>(())
+                    });
+                }
             }
         }
 
@@ -621,12 +581,12 @@ mod tests {
         // service; excluded runners carry none and stay out.
         let resolved = EmbeddingBackend::endpoints_from_registry().unwrap();
         assert!(
-            resolved.contains("127.0.0.1:8081"),
-            "cortex joins: {resolved}"
-        );
-        assert!(
             resolved.contains("192.168.0.25:8080"),
             "compute-01 joins: {resolved}"
+        );
+        assert!(
+            !resolved.contains("127.0.0.1:8081"),
+            "cortex stays out: {resolved}"
         );
         assert!(
             !resolved.contains("10.10.10.106"),
