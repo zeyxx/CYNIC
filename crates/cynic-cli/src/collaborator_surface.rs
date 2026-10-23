@@ -953,5 +953,5 @@ mod onboard_tests {
     #[test]
     fn blank_handle_is_refused() {
         assert!(admit_onboard(&empty_registry(), "yansigit", "", None, &[], "").is_err());
-    }    }
+    }
 }

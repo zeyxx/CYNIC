@@ -165,7 +165,7 @@ mod tests {
     use super::*;
     use cynic_build::ExternalCommandResult;
     use cynic_kernel::ports::external_evidence::ExternalEvidenceIngestionResult;
-    use cynic_vcs::{ExternalBranch, ExternalProvider};
+    use cynic_vcs::{ExternalBranch, ExternalProvider, ExternalRepoSummary};
     use serde_json::json;
     use std::sync::Mutex;
 
@@ -192,6 +192,9 @@ mod tests {
             Ok(vec![])
         }
         fn list_branches(&self, _repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
+            Ok(vec![])
+        }
+        fn list_user_repos(&self, _user: &str) -> Result<Vec<ExternalRepoSummary>, String> {
             Ok(vec![])
         }
         fn create_branch(
