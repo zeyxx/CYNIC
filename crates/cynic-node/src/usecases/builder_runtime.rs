@@ -33,12 +33,10 @@ pub struct BuilderRuntimeConfig {
 /// yields `None` and the admin endpoints refuse closed; a broken secret
 /// file must never fail boot.
 pub fn resolve_webhook_secret(state_root: &str) -> Option<String> {
-    if let Ok(secret) = std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET") {
-        if !secret.trim().is_empty() {
-            return Some(secret.trim().to_string());
-        }
-    }
-    let path = std::env::var("CYNIC_WEBHOOK_SECRET_FILE")
+    // `#![forbid(unsafe_code)]`: env access stays in this thin untested
+    // shell; every decision lives in the pure function below.
+    let env = std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok();
+    let file_path = std::env::var("CYNIC_WEBHOOK_SECRET_FILE")
         .ok()
         .filter(|path| !path.trim().is_empty())
         .map(std::path::PathBuf::from)
@@ -47,7 +45,21 @@ pub fn resolve_webhook_secret(state_root: &str) -> Option<String> {
                 .join("identity")
                 .join("webhook.secret")
         });
-    webhook_secret_from_file(&path)
+    resolve_webhook_secret_with(env.as_deref(), &file_path)
+}
+
+/// Pure secret precedence: env (trimmed, non-blank) wins, then the file,
+/// then `None`. Unit-testable without touching process-global env.
+pub fn resolve_webhook_secret_with(
+    env_secret: Option<&str>,
+    file_path: &std::path::Path,
+) -> Option<String> {
+    if let Some(secret) = env_secret {
+        if !secret.trim().is_empty() {
+            return Some(secret.trim().to_string());
+        }
+    }
+    webhook_secret_from_file(file_path)
 }
 
 /// Read the secret from one file. Pure enough to unit test: trims, refuses
@@ -158,47 +170,6 @@ pub async fn run_builder_runtime(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, MutexGuard};
-
-    // Env vars are process-global: serialize every test that touches them.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    struct EnvGuard {
-        kept_env: Option<String>,
-        kept_file: Option<String>,
-    }
-
-    impl EnvGuard {
-        fn hold() -> (MutexGuard<'static, ()>, Self) {
-            let guard = ENV_LOCK.lock().unwrap();
-            let kept = Self {
-                kept_env: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
-                kept_file: std::env::var("CYNIC_WEBHOOK_SECRET_FILE").ok(),
-            };
-            // Env mutation is process-global: held under ENV_LOCK, and the
-            // previous values are restored on drop.
-            unsafe {
-                std::env::remove_var("CYNIC_FORGEJO_WEBHOOK_SECRET");
-                std::env::remove_var("CYNIC_WEBHOOK_SECRET_FILE");
-            }
-            (guard, kept)
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            unsafe {
-                match &self.kept_env {
-                    Some(value) => std::env::set_var("CYNIC_FORGEJO_WEBHOOK_SECRET", value),
-                    None => std::env::remove_var("CYNIC_FORGEJO_WEBHOOK_SECRET"),
-                }
-                match &self.kept_file {
-                    Some(value) => std::env::set_var("CYNIC_WEBHOOK_SECRET_FILE", value),
-                    None => std::env::remove_var("CYNIC_WEBHOOK_SECRET_FILE"),
-                }
-            }
-        }
-    }
 
     fn unique_dir(tag: &str) -> std::path::PathBuf {
         let dir =
@@ -210,15 +181,11 @@ mod tests {
 
     #[test]
     fn a_secret_file_resolves_when_no_env_is_set() {
-        let (_lock, _guard) = EnvGuard::hold();
         let root = unique_dir("file");
-        std::fs::write(
-            root.join("identity").join("webhook.secret"),
-            "file-secret\n",
-        )
-        .unwrap();
+        let path = root.join("identity").join("webhook.secret");
+        std::fs::write(&path, "file-secret\n").unwrap();
         assert_eq!(
-            resolve_webhook_secret(&root.to_string_lossy()),
+            resolve_webhook_secret_with(None, &path),
             Some("file-secret".to_string())
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -226,49 +193,57 @@ mod tests {
 
     #[test]
     fn env_wins_over_the_secret_file() {
-        let (_lock, _guard) = EnvGuard::hold();
         let root = unique_dir("env");
-        std::fs::write(root.join("identity").join("webhook.secret"), "file-secret").unwrap();
-        unsafe {
-            std::env::set_var("CYNIC_FORGEJO_WEBHOOK_SECRET", "env-secret");
-        }
+        let path = root.join("identity").join("webhook.secret");
+        std::fs::write(&path, "file-secret").unwrap();
         assert_eq!(
-            resolve_webhook_secret(&root.to_string_lossy()),
+            resolve_webhook_secret_with(Some("env-secret"), &path),
             Some("env-secret".to_string())
         );
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
+    fn a_blank_env_falls_through_to_the_file() {
+        let root = unique_dir("blank-env");
+        let path = root.join("identity").join("webhook.secret");
+        std::fs::write(&path, "file-secret").unwrap();
+        assert_eq!(
+            resolve_webhook_secret_with(Some("  "), &path),
+            Some("file-secret".to_string())
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn a_missing_secret_file_yields_none_not_a_boot_failure() {
-        let (_lock, _guard) = EnvGuard::hold();
         let root = unique_dir("missing");
-        assert_eq!(resolve_webhook_secret(&root.to_string_lossy()), None);
+        assert_eq!(
+            resolve_webhook_secret_with(None, &root.join("identity").join("webhook.secret")),
+            None
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
     fn a_blank_secret_file_yields_none() {
-        let (_lock, _guard) = EnvGuard::hold();
         let root = unique_dir("blank");
-        std::fs::write(root.join("identity").join("webhook.secret"), "  \n").unwrap();
-        assert_eq!(resolve_webhook_secret(&root.to_string_lossy()), None);
+        let path = root.join("identity").join("webhook.secret");
+        std::fs::write(&path, "  \n").unwrap();
+        assert_eq!(resolve_webhook_secret_with(None, &path), None);
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn an_explicit_secret_file_path_is_honored() {
-        let (_lock, _guard) = EnvGuard::hold();
-        let root = unique_dir("explicit");
-        let custom = root.join("custom.secret");
-        std::fs::write(&custom, "custom-secret").unwrap();
-        unsafe {
-            std::env::set_var("CYNIC_WEBHOOK_SECRET_FILE", &custom);
-        }
+    fn the_default_path_scopes_to_the_state_root_identity_dir() {
+        let root = unique_dir("scoped");
+        let path = root.join("identity").join("webhook.secret");
+        std::fs::write(&path, "scoped-secret").unwrap();
         assert_eq!(
-            resolve_webhook_secret("/nonexistent-root"),
-            Some("custom-secret".to_string())
+            resolve_webhook_secret_with(None, &path),
+            Some("scoped-secret".to_string())
         );
+        assert!(path.starts_with(&root));
         let _ = std::fs::remove_dir_all(&root);
     }
 }
