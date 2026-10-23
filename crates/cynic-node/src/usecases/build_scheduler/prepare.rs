@@ -163,6 +163,7 @@ pub(super) async fn prepare(
         scheduler,
         &claimed.record.envelope.action.argv,
         std::env::var("PATH").ok().as_deref(),
+        &workspace.workspace_root,
     ));
     source_provenance.extend([
         consumed.record_digest.clone(),
@@ -192,8 +193,13 @@ pub(super) async fn prepare(
 /// environment. Pure: the same scheduler config + argv always yields the
 /// same map.
 ///
-/// - `shared_target_root` set ⇒ `CARGO_TARGET_DIR=<root>/<profile>` so
-///   consecutive builds reuse a warm shared target (profile from argv).
+/// - `shared_target_root` set ⇒ `CARGO_TARGET_DIR=<root>/<profile>/<checkout>`
+///   so each per-SHA checkout compiles in its own fingerprint space. Two
+///   checkouts sharing one target dir poison cargo's unit fingerprints
+///   (E0432 in test while check passes); one directory per checkout keeps
+///   the warm cache for same-SHA rebuilds without cross-SHA contamination.
+///   Unparseable checkout names fall back to the unscoped `<root>/<profile>`
+///   rather than failing the build.
 /// - `build_jobs` set ⇒ `CARGO_BUILD_JOBS=<n>`; absent preserves cargo's
 ///   default job count.
 /// - `sccache` stanza present ⇒ `RUSTC_WRAPPER=<binary>` (cargo routes
@@ -208,6 +214,7 @@ pub(super) fn build_execution_env(
     scheduler: &BuildSchedulerConfig,
     argv: &[String],
     host_path: Option<&str>,
+    workspace_root: &std::path::Path,
 ) -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();
     if let Some(dir) = scheduler.toolchain_bin_dir.as_ref() {
@@ -220,9 +227,9 @@ pub(super) fn build_execution_env(
         env.insert("PATH".into(), format!("{}:{base}", dir.to_string_lossy()));
     }
     if let Some(root) = scheduler.shared_target_root.as_ref() {
-        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
-        // instead of recompiling cold in a throwaway directory.
-        let target_dir = shared_target_dir_for(root, argv);
+        // Per-checkout cargo cache: same-SHA rebuilds reuse their own warm
+        // dir; two SHAs never share one fingerprint space (E0432 class).
+        let target_dir = shared_target_dir_for(root, argv, workspace_root);
         env.insert(
             "CARGO_TARGET_DIR".into(),
             target_dir.to_string_lossy().into_owned(),
@@ -260,10 +267,27 @@ pub(crate) fn profile_for_argv(argv: &[String]) -> &'static str {
     }
 }
 
-/// Resolve the shared cargo target directory for a build: `<root>/<profile>`
-/// with `release` when `--release` is in argv, `debug` otherwise. Pure.
-fn shared_target_dir_for(root: &std::path::Path, argv: &[String]) -> std::path::PathBuf {
-    root.join(profile_for_argv(argv))
+/// Resolve the per-checkout cargo target directory for a build:
+/// `<root>/<profile>/<checkout>` with `release` when `--release` is in
+/// argv, `debug` otherwise. Pure. Same checkout ⇒ same path, so warm
+/// reuse survives across same-SHA rebuilds; different checkouts never
+/// share one fingerprint space.
+fn shared_target_dir_for(
+    root: &std::path::Path,
+    argv: &[String],
+    workspace_root: &std::path::Path,
+) -> std::path::PathBuf {
+    let profile_root = root.join(profile_for_argv(argv));
+    let checkout_name = workspace_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    cynic_protocol::remote_cache_roots::scoped_target_dir(
+        &profile_root.to_string_lossy(),
+        checkout_name,
+    )
+    .map(std::path::PathBuf::from)
+    .unwrap_or(profile_root)
 }
 
 /// Resolve the stable build workspace path for a profile:
@@ -637,11 +661,37 @@ mod tests {
             ..scheduler_config()
         };
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
+        assert_eq!(
+            env.get("CARGO_TARGET_DIR"),
+            Some(&"/var/lib/cynic/build-targets/debug/cynic-0123456789ab".to_string()),
+            "CARGO_TARGET_DIR must scope to the checkout when shared_target_root is configured"
+        );
+    }
+
+    #[test]
+    fn execution_env_falls_back_to_unscoped_target_dir_when_checkout_name_unusable() {
+        let root = PathBuf::from("/var/lib/cynic/build-targets");
+        let scheduler = crate::config::BuildSchedulerConfig {
+            shared_target_root: Some(root.clone()),
+            ..scheduler_config()
+        };
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/"),
+        );
         assert_eq!(
             env.get("CARGO_TARGET_DIR"),
             Some(&"/var/lib/cynic/build-targets/debug".to_string()),
-            "CARGO_TARGET_DIR must be set to <root>/<profile> when shared_target_root is configured"
+            "an unusable checkout name must fall back, never fail the build"
         );
     }
 
@@ -653,7 +703,12 @@ mod tests {
             "precondition: shared_target_root must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert!(
             !env.contains_key("CARGO_TARGET_DIR"),
             "CARGO_TARGET_DIR must NOT be set when shared_target_root is absent"
@@ -667,7 +722,12 @@ mod tests {
         let mut scheduler = scheduler_config();
         scheduler.build_jobs = Some(4);
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert_eq!(
             env.get("CARGO_BUILD_JOBS"),
             Some(&"4".to_string()),
@@ -683,7 +743,12 @@ mod tests {
             "precondition: build_jobs must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert!(
             !env.contains_key("CARGO_BUILD_JOBS"),
             "CARGO_BUILD_JOBS must NOT be set when build_jobs is absent"
@@ -701,7 +766,12 @@ mod tests {
             max_size_bytes: 8 * 1024 * 1024 * 1024,
         });
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert_eq!(
             env.get("RUSTC_WRAPPER"),
             Some(&"sccache".to_string()),
@@ -728,7 +798,12 @@ mod tests {
             max_size_bytes: 8 * 1024 * 1024 * 1024,
         });
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert_eq!(
             env.get("RUSTC_WRAPPER"),
             Some(&"/usr/local/bin/sccache".to_string()),
@@ -744,7 +819,12 @@ mod tests {
             "precondition: sccache stanza must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert!(
             !env.contains_key("RUSTC_WRAPPER"),
             "RUSTC_WRAPPER must NOT be set when the sccache stanza is absent"
@@ -764,7 +844,12 @@ mod tests {
         let mut scheduler = scheduler_config();
         scheduler.toolchain_bin_dir = Some(PathBuf::from("/var/lib/cynic/.cargo/bin"));
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert_eq!(
             env.get("PATH"),
             Some(&"/var/lib/cynic/.cargo/bin:/usr/bin:/bin".to_string()),
@@ -780,7 +865,12 @@ mod tests {
             "precondition: toolchain_bin_dir must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv, Some("/usr/bin:/bin"));
+        let env = build_execution_env(
+            &scheduler,
+            &argv,
+            Some("/usr/bin:/bin"),
+            std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab"),
+        );
         assert!(
             !env.contains_key("PATH"),
             "PATH must NOT be set when toolchain_bin_dir is absent (ambient resolution preserved)"

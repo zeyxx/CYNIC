@@ -62,6 +62,25 @@ impl SshBuildProof {
         Ok(remote_cache_roots(&state_root))
     }
 
+    /// Scope the runner target dir to the proof checkout.
+    ///
+    /// The checkout `dir` is `{checkout_base}/cynic-{sha12}`; only its final
+    /// component names the scope. Falls back to the unscoped profile root
+    /// rather than failing the proof on an unparseable name.
+    fn scoped_target_dir(
+        &self,
+        roots: &cynic_protocol::remote_cache_roots::RemoteCacheRoots,
+        checkout_dir: &str,
+    ) -> String {
+        let name = checkout_dir
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or("");
+        cynic_protocol::remote_cache_roots::scoped_target_dir(&roots.target_dir, name)
+            .unwrap_or_else(|| roots.target_dir.clone())
+    }
+
     fn run_remote(&self, argv: &[String]) -> Result<(bool, String, String), String> {
         let mut cmd = Command::new("ssh");
         cmd.arg(self.ssh_target());
@@ -97,7 +116,7 @@ impl BuildProofPort for SshBuildProof {
                     "RUST_MIN_STACK=8589934592".to_string(),
                     "CARGO_BUILD_JOBS=1".to_string(),
                     "CARGO_INCREMENTAL=0".to_string(),
-                    format!("CARGO_TARGET_DIR={}", roots.target_dir),
+                    format!("CARGO_TARGET_DIR={}", self.scoped_target_dir(&roots, &dir)),
                     "cargo".to_string(),
                     "check".to_string(),
                     "--locked".to_string(),
@@ -121,7 +140,7 @@ impl BuildProofPort for SshBuildProof {
                     "RUST_MIN_STACK=8589934592".to_string(),
                     "CARGO_BUILD_JOBS=1".to_string(),
                     "CARGO_INCREMENTAL=0".to_string(),
-                    format!("CARGO_TARGET_DIR={}", roots.target_dir),
+                    format!("CARGO_TARGET_DIR={}", self.scoped_target_dir(&roots, &dir)),
                     "cargo".to_string(),
                     "test".to_string(),
                     "--locked".to_string(),

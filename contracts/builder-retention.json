@@ -11,6 +11,13 @@
       "action": "remove directory"
     },
     {
+      "id": "per_sha_target_ttl",
+      "path": "/var/lib/cynic/build-targets/<profile>/cynic-<12hex>",
+      "retain_days": 7,
+      "condition": "owning checkout gone OR older than TTL with no live claim; mirrors per_sha_checkout_ttl so caches never outlive their sources",
+      "action": "remove directory"
+    },
+    {
       "id": "session_checkout_ttl",
       "path": "/var/lib/cynic/checkouts/agent-<name>-<scope>",
       "retain_days": 7,
