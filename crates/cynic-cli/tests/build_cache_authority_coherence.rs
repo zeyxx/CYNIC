@@ -33,21 +33,19 @@ fn build_runner_node() -> serde_json::Value {
         .get("nodes")
         .and_then(serde_json::Value::as_array)
         .expect("the registry declares nodes");
-    // The canonical target is fleet-wide and singular: it lives on the
-    // runner that declares a build_lifecycle (the builder). Sibling
-    // runners share the role but not the canonical declaration — see
-    // builder_role_parity.rs for the per-node bar.
     let mut found = nodes
         .iter()
+        .filter(|node| node.get("role").and_then(serde_json::Value::as_str) == Some("build_runner"))
         .filter(|node| {
-            node.get("role").and_then(serde_json::Value::as_str) == Some("build_runner")
-                && node.get("build_lifecycle").is_some()
+            node.pointer("/build_lifecycle/canonical_target_relative_path")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|path| !path.trim().is_empty())
         })
         .collect::<Vec<_>>();
     assert_eq!(
         found.len(),
         1,
-        "exactly one build_runner declares the build_lifecycle"
+        "exactly one build runner declares the canonical cache target"
     );
     found.remove(0).clone()
 }
@@ -146,15 +144,9 @@ fn the_ephemeral_retention_scope_is_declared() {
         .get("scopes")
         .and_then(serde_json::Value::as_array)
         .expect("the retention declares its scopes");
-    assert!(
-        !scopes.is_empty(),
-        "the retention declares at least one scope"
-    );
+    assert!(!scopes.is_empty(), "the retention declares at least one scope");
     let covers_checkouts = scopes.iter().any(|scope| {
-        scope
-            .get("relative_path")
-            .and_then(serde_json::Value::as_str)
-            == Some("checkouts")
+        scope.get("relative_path").and_then(serde_json::Value::as_str) == Some("checkouts")
             && scope.get("kind").and_then(serde_json::Value::as_str) == Some("evidence_checkout")
     });
     assert!(
