@@ -75,7 +75,7 @@
       "no check fails a build when a registry node name resolves nowhere",
       "729 println calls in cynic-cli emit human text with no schema, so N6 cannot be checked there at all"
     ],
-    "first_enforceable_step": "a registry-observation surface that resolves every declared node name, compares it against observed membership from the hypervisor, and emits a schema'd report. cynic-node registry-observation already exists as a surface and is the natural owner."
+    "first_enforceable_step": "a registry observation surface that resolves every declared node name, compares it against observed membership from the hypervisor, and emits a schema'd report. cynic node registry observation already exists as a surface and is the natural owner."
   },
   "explicit_non_goals": [
     "this contract does not require every value to be dynamic; a compiled constant is legitimate when it is a pure function input with no claim about the running system",
