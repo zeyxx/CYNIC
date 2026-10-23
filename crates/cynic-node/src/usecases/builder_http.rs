@@ -24,10 +24,12 @@ use cynic_build::{
 use std::sync::Mutex;
 use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, EvidenceEnvelope,
-    MutationAdmission, SecurityEvidenceState, admit_build_mutation,
+    MutationAdmission, SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
 use cynic_workload::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
 
+use crate::config::NodeControlConfig;
+use crate::config::{ReloadReceipt, decide_reload};
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -45,11 +47,35 @@ pub struct BuilderHttpConfig {
     pub repository_id: String,
     /// Secret-free source transport URI for that repository.
     pub transport_uri: String,
+    /// Absolute path of the `node-control.toml` this builder booted from.
+    /// `POST /admin/reload` re-reads exactly this file; the path itself is
+    /// startup state and never reloads.
+    pub config_path: String,
+}
+
+/// Hot-appliable builder snapshot. `POST /admin/reload` swaps the whole
+/// struct under one lock after the candidate parses and its receipt
+/// persists — readers never observe a half-applied config. The socket
+/// (`listen_addr`) and the state-root stores stay on their startup values;
+/// a reload that moves them flags `requires_restart` in its receipt.
+#[derive(Clone, Debug)]
+pub struct BuilderLiveConfig {
+    pub control: NodeControlConfig,
+    /// Registry-declared repository the webhook builds (re-derived per reload).
+    pub repository_id: String,
+    /// Secret-free source transport URI for that repository.
+    pub transport_uri: String,
+    /// Semantic digest of the last applied document (see `canonical_digest`).
+    pub applied_digest: String,
+    /// Exact bytes of the last applied document; the next reload diffs
+    /// the file against these, never against a re-serialized struct.
+    pub applied_raw: String,
 }
 
 #[derive(Clone)]
 struct AppState {
     config: BuilderHttpConfig,
+    live: Arc<Mutex<BuilderLiveConfig>>,
     store: Arc<dyn AgentWorkloadStorePort>,
     /// H4 duplicate-submit collision counter (Task 5). Records every
     /// submission event; the pure `CollisionCounter` logic determines
@@ -102,6 +128,7 @@ pub struct AcceptanceProof {
 
 pub fn app(
     config: BuilderHttpConfig,
+    live: BuilderLiveConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
     collisions: Arc<Mutex<CollisionCounter>>,
 ) -> Router {
@@ -111,6 +138,7 @@ pub fn app(
         );
     let state = AppState {
         config,
+        live: Arc::new(Mutex::new(live)),
         store,
         collisions,
         evidence,
@@ -125,7 +153,18 @@ pub fn app(
         .route("/exec", post(exec))
         .route("/admin/identity", get(identity))
         .route("/admin/evidence", get(admin_evidence))
+        .route("/admin/reload", post(admin_reload))
         .with_state(state)
+}
+
+/// Clone the current live snapshot. Poisoned locks clone through the poison:
+/// a panicked reloader must not wedge every request behind it.
+fn live_snapshot(state: &AppState) -> BuilderLiveConfig {
+    state
+        .live
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_else(|poison| poison.into_inner().clone())
 }
 
 /// Agent build submission payload for `POST /workloads/submit`.
@@ -236,6 +275,9 @@ async fn submit_workload(
 
     let accepted_at_ms = chrono::Utc::now().timestamp_millis();
 
+    // Request-scoped builder facts come from the live snapshot, so a
+    // `POST /admin/reload` takes effect without bouncing the process.
+    let live = live_snapshot(&state);
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
@@ -246,8 +288,8 @@ async fn submit_workload(
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: payload
                 .repository_id
-                .unwrap_or_else(|| state.config.repository_id.clone()),
-            transport_uri: state.config.transport_uri.clone(),
+                .unwrap_or_else(|| live.repository_id.clone()),
+            transport_uri: live.transport_uri.clone(),
             revision: commit_sha.clone(),
             authority_ref: "agent_submission".into(),
             snapshot: None,
@@ -264,8 +306,8 @@ async fn submit_workload(
 
     let mut envelope = compose_build_agent_workload(
         &request,
-        &state.config.node_id,
-        &state.config.workspace_root,
+        &live.control.node_id,
+        &live.control.workspace_root.to_string_lossy().to_string(),
     )
     .map_err(|blockers| {
         (
@@ -448,8 +490,9 @@ fn applied_registry_revision() -> Option<String> {
 /// POLICY_STAGING verify stage (the fleet reports one revision).
 async fn identity(State(state): State<AppState>) -> Json<serde_json::Value> {
     let (installed_path, installed_digest) = installed_binary_identity();
+    let live = live_snapshot(&state);
     Json(shape_identity_response(
-        &state.config.node_id,
+        &live.control.node_id,
         Utc::now().timestamp_millis(),
         running_binary_sha256().as_deref(),
         installed_path.as_deref(),
@@ -481,10 +524,10 @@ fn clamp_evidence_limit(requested: Option<usize>) -> usize {
 }
 
 /// Lifecycle kind of one evidence envelope, when it names a restart, drain,
-/// or pause receipt. Matches against the envelope subject, producer,
+/// pause, or reload receipt. Matches against the envelope subject, producer,
 /// provenance entries, and the payload `schema`/`kind`/`operation` markers —
-/// case-insensitive substring match, first hit wins in restart/drain/pause
-/// order. Returns `None` for build proofs and unrelated evidence.
+/// case-insensitive substring match, first hit wins in restart/drain/pause/
+/// reload order. Returns `None` for build proofs and unrelated evidence.
 fn evidence_lifecycle_kind(envelope: &EvidenceEnvelope) -> Option<&'static str> {
     let mut haystacks = vec![envelope.subject.clone(), envelope.producer.clone()];
     haystacks.extend(envelope.provenance.iter().cloned());
@@ -500,6 +543,8 @@ fn evidence_lifecycle_kind(envelope: &EvidenceEnvelope) -> Option<&'static str> 
         Some("drain")
     } else if joined.contains("pause") {
         Some("pause")
+    } else if joined.contains("reload") {
+        Some("reload")
     } else {
         None
     }
@@ -554,8 +599,8 @@ fn shape_evidence_list_response(
 /// Counts every `*.json` file as scanned; files that fail to parse count as
 /// `unparseable` and never fail the listing. A missing directory reads as an
 /// empty store — a read-only endpoint reports what it can prove, never a 500
-/// for absent evidence. `kind_filter` accepts `restart`, `drain`, or `pause`
-/// (case-insensitive); unknown filters match nothing.
+/// for absent evidence. `kind_filter` accepts `restart`, `drain`, `pause`,
+/// or `reload` (case-insensitive); unknown filters match nothing.
 fn list_evidence_summaries(
     evidence_root: &std::path::Path,
     limit: usize,
@@ -613,8 +658,9 @@ async fn admin_evidence(
     let evidence_root = std::path::PathBuf::from(&state.config.state_root).join("evidence");
     let (items, total_scanned, unparseable) =
         list_evidence_summaries(&evidence_root, limit, query.kind.as_deref());
+    let live = live_snapshot(&state);
     Json(shape_evidence_list_response(
-        &state.config.node_id,
+        &live.control.node_id,
         Utc::now().timestamp_millis(),
         items,
         total_scanned,
@@ -622,6 +668,150 @@ async fn admin_evidence(
         limit,
         query.kind.as_deref(),
     ))
+}
+
+/// Persist one reload receipt and read it back. Fail-closed like the drain
+/// path: a transition without a stored receipt is a 500, never a silent
+/// claim — the live snapshot is swapped only after this returns `Ok`.
+fn persist_reload_receipt(state: &AppState, receipt: &ReloadReceipt) -> Result<String, String> {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let envelope = build_evidence_envelope(
+        &format!("node:reload:{}", receipt.node_id),
+        &format!("cynic-node/builder-http:{}", receipt.node_id),
+        receipt.observed_at_unix_ms,
+        vec!["admin:reload".to_string()],
+        receipt,
+    )?;
+    state.evidence.persist(&envelope)?;
+    if state.evidence.read(&envelope.digest)? != Some(envelope.clone()) {
+        return Err("reload_receipt_evidence_read_back_mismatch".to_string());
+    }
+    Ok(envelope.digest)
+}
+
+/// Pure reload response shaper: no store, no I/O. Tested without HTTP.
+/// `receipt_digest` is `Some` exactly when a transition persisted a receipt;
+/// idempotent no-change reads persist nothing and carry `None`.
+fn shape_reload_response(
+    receipt: &ReloadReceipt,
+    receipt_digest: Option<&str>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": receipt.schema,
+        "node_id": receipt.node_id,
+        "outcome": receipt.outcome,
+        "previous_digest": receipt.previous_digest,
+        "applied_digest": receipt.applied_digest,
+        "changed_keys": receipt.changed_keys,
+        "requires_restart": receipt.requires_restart,
+        "observed_at_unix_ms": receipt.observed_at_unix_ms,
+        "receipt_digest": receipt_digest,
+    })
+}
+
+/// Hot config reload: `POST /admin/reload`.
+///
+/// Auth is the same HMAC-SHA256 as the Forgejo webhook
+/// (`verify_webhook_signature`) over the raw body, presented in
+/// `x-cynic-signature`, failing closed without a configured secret — the
+/// same verifier and header as `/admin/restart`, one secret and one header
+/// for the whole admin surface.
+///
+/// Semantics: re-reads the startup `node-control.toml` and swaps the live
+/// snapshot without bouncing the process. The candidate must parse and
+/// validate under exactly the startup rules; otherwise the call is refused
+/// (422) with the loader's reason and the old config keeps serving — never
+/// a half-apply. Applied transitions persist a `cynic.node.reload_receipt.v1`
+/// receipt (read back before the swap); no-change reads persist nothing.
+/// Fields the process cannot hot-apply (bound socket, state-root stores)
+/// flag `requires_restart` instead of pretending to move.
+async fn admin_reload(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let Some(secret) = state.config.webhook_secret.clone() else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "reload signal unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(&secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid reload signature".into()));
+    }
+
+    let candidate_raw = std::fs::read_to_string(&state.config.config_path).map_err(|error| {
+        let path = &state.config.config_path;
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("config file unreadable {path}: {error}"),
+        )
+    })?;
+    let live = live_snapshot(&state);
+    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
+    match decide_reload(&live.applied_raw, &candidate_raw) {
+        crate::config::ReloadDecision::NoChange { digest } => {
+            let receipt = ReloadReceipt {
+                schema: crate::config::RELOAD_RECEIPT_SCHEMA.to_string(),
+                node_id: live.control.node_id.clone(),
+                outcome: crate::config::ReloadOutcome::AlreadyConverged
+                    .as_str()
+                    .to_string(),
+                previous_digest: digest.clone(),
+                applied_digest: digest,
+                changed_keys: Vec::new(),
+                requires_restart: false,
+                observed_at_unix_ms: now_ms,
+            };
+            Ok(Json(shape_reload_response(&receipt, None)))
+        }
+        crate::config::ReloadDecision::Refused { reason, .. } => {
+            Err((StatusCode::UNPROCESSABLE_ENTITY, reason))
+        }
+        crate::config::ReloadDecision::Applied {
+            previous_digest: _,
+            applied_digest,
+            changed_keys,
+            requires_restart,
+            control,
+        } => {
+            let receipt = ReloadReceipt::applied(
+                &control.node_id,
+                &previous_digest,
+                &applied_digest,
+                changed_keys,
+                requires_restart,
+                now_ms,
+            );
+            // Persist before swapping: no transition without a receipt.
+            let digest = persist_reload_receipt(&state, &receipt).map_err(|error| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("reload receipt not stored: {error}"),
+                )
+            })?;
+            // Re-derive the registry-bound fields under the new config so
+            // the very next submit/webhook uses the reloaded values.
+            let derived = super::builder_runtime::builder_runtime_config_from(
+                &control,
+                &state.config.config_path,
+            );
+            if let Ok(mut guard) = state.live.lock() {
+                *guard = BuilderLiveConfig {
+                    control,
+                    repository_id: derived.repository_id,
+                    transport_uri: derived.transport_uri,
+                    applied_digest,
+                    applied_raw: candidate_raw,
+                };
+            }
+            Ok(Json(shape_reload_response(&receipt, Some(&digest))))
+        }
+    }
 }
 
 async fn get_proof(
@@ -864,6 +1054,8 @@ async fn webhook_forgejo(
     let request_id = forgejo_workload_id(&commit_sha);
     let accepted_at_ms = Utc::now().timestamp_millis();
 
+    // Same live snapshot as the submit path: reloads apply here too.
+    let live = live_snapshot(&state);
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: request_id.clone(),
@@ -876,8 +1068,8 @@ async fn webhook_forgejo(
         branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
-            repository_id: state.config.repository_id.clone(),
-            transport_uri: state.config.transport_uri.clone(),
+            repository_id: live.repository_id.clone(),
+            transport_uri: live.transport_uri.clone(),
             revision: commit_sha.clone(),
             authority_ref: "forgejo".into(),
             snapshot: None,
@@ -896,8 +1088,8 @@ async fn webhook_forgejo(
 
     let mut envelope = compose_build_agent_workload(
         &request,
-        &state.config.node_id,
-        &state.config.workspace_root,
+        &live.control.node_id,
+        &live.control.workspace_root.to_string_lossy().to_string(),
     )
     .map_err(|blockers| {
         (
@@ -980,12 +1172,33 @@ async fn webhook_forgejo(
 
 pub async fn run_http_server(
     config: BuilderHttpConfig,
+    control: NodeControlConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
     listen_addr: SocketAddr,
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Fail closed at boot: the reload path diffs the file against this
+    // snapshot, so the process starts only if the file parses under the
+    // same rules reloads enforce.
+    let applied_raw = std::fs::read_to_string(&config.config_path).map_err(|error| {
+        let path = &config.config_path;
+        format!("cannot read config {path}: {error}")
+    })?;
+    let applied_digest = crate::config::canonical_digest(&applied_raw)
+        .map_err(|error| format!("boot config invalid: {error}"))?;
+    crate::config::parse_node_control_str(&applied_raw)
+        .map_err(|error| format!("boot config invalid: {error}"))?;
+    let derived =
+        super::builder_runtime::builder_runtime_config_from(&control, &config.config_path);
+    let live = BuilderLiveConfig {
+        control,
+        repository_id: derived.repository_id,
+        transport_uri: derived.transport_uri,
+        applied_digest,
+        applied_raw,
+    };
     let collisions = Arc::new(Mutex::new(CollisionCounter::new()));
-    let app = app(config, store, collisions);
+    let app = app(config, live, store, collisions);
     let listener = tokio::net::TcpListener::bind(listen_addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -1445,6 +1658,57 @@ mod tests {
         assert_eq!(evidence_lifecycle_kind(&restart), Some("restart"));
         assert_eq!(evidence_lifecycle_kind(&drain), Some("drain"));
         assert_eq!(evidence_lifecycle_kind(&pause), Some("pause"));
+    }
+
+    #[test]
+    fn evidence_kind_detects_reload_receipts() {
+        let reload = lifecycle_envelope(
+            "builder",
+            "cynic-node",
+            4,
+            serde_json::json!({"schema": "cynic.node.reload_receipt.v1"}),
+        );
+        assert_eq!(evidence_lifecycle_kind(&reload), Some("reload"));
+    }
+
+    #[test]
+    fn reload_shape_reports_applied_vs_previous_and_digest() {
+        let receipt = ReloadReceipt::applied(
+            "builder-1",
+            "prev-digest",
+            "next-digest",
+            vec!["node_control.interval_secs".to_string()],
+            true,
+            1_700_000_000_000,
+        );
+        let shaped = shape_reload_response(&receipt, Some("sha256:abc"));
+        assert_eq!(shaped["schema"], "cynic.node.reload_receipt.v1");
+        assert_eq!(shaped["outcome"], "applied");
+        assert_eq!(shaped["previous_digest"], "prev-digest");
+        assert_eq!(shaped["applied_digest"], "next-digest");
+        assert_eq!(shaped["changed_keys"][0], "node_control.interval_secs");
+        assert_eq!(shaped["requires_restart"], true);
+        assert_eq!(shaped["receipt_digest"], "sha256:abc");
+    }
+
+    #[test]
+    fn reload_shape_no_change_carries_no_receipt_digest() {
+        let receipt = ReloadReceipt {
+            schema: crate::config::RELOAD_RECEIPT_SCHEMA.to_string(),
+            node_id: "builder-1".to_string(),
+            outcome: crate::config::ReloadOutcome::AlreadyConverged
+                .as_str()
+                .to_string(),
+            previous_digest: "same".to_string(),
+            applied_digest: "same".to_string(),
+            changed_keys: Vec::new(),
+            requires_restart: false,
+            observed_at_unix_ms: 1_700_000_000_000,
+        };
+        let shaped = shape_reload_response(&receipt, None);
+        assert_eq!(shaped["outcome"], "already-converged");
+        assert!(shaped["receipt_digest"].is_null());
+        assert!(shaped["changed_keys"].as_array().unwrap().is_empty());
     }
 
     #[test]

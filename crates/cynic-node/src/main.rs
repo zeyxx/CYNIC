@@ -114,7 +114,7 @@ async fn main() -> ExitCode {
     install_signal_handler(shutdown.clone());
 
     let node_tasks = if let Some(control) = cfg.node_control.clone() {
-        match node_control_runtime::start_tasks(control, shutdown.clone()).await {
+        match node_control_runtime::start_tasks(control, &config_path, shutdown.clone()).await {
             Ok(tasks) => tasks,
             Err(error) => {
                 tracing::error!("{error}");
@@ -150,13 +150,14 @@ async fn control_main(config_path: &str) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let tasks = match node_control_runtime::start_tasks(control, shutdown.clone()).await {
-        Ok(tasks) => tasks,
-        Err(error) => {
-            tracing::error!("{error}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let tasks =
+        match node_control_runtime::start_tasks(control, config_path, shutdown.clone()).await {
+            Ok(tasks) => tasks,
+            Err(error) => {
+                tracing::error!("{error}");
+                return ExitCode::FAILURE;
+            }
+        };
     shutdown.cancelled().await;
     shutdown.cancel();
     for task in tasks {
