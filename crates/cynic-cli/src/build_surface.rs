@@ -1,23 +1,67 @@
 //! Build CLI surface — thin facade over modular build workflows.
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
+use std::path::Path;
 
 mod archive;
+mod artifact;
+mod forgejo;
 mod invoice;
+mod pool;
 mod reclaim;
 mod runner;
 mod services;
 
+pub(crate) use artifact::BuildArtifactCommand;
 pub(crate) use invoice::BuildProofsCommand;
+pub(crate) use pool::BuildPoolCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
+use pool::{
+    evaluate_label, evaluate_local_node, evaluate_runner_memory, local_node_id,
+    measure_pool_from_forgejo, render_memory,
+    render_eligibility,
+};
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
-use runner::{prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build};
+use runner::{
+    drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, run_build,
+    submit_build, trigger_build,
+};
 use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
-use archive::{ArchiveReport, archive_terminal_workloads};
+use archive::{archive_terminal_workloads, ArchiveReport};
+use artifact::{publish_artifact, pull_artifact, release_artifact};
+use forgejo::{execute_runner_token, execute_runs};
+use cynic_protocol::build_memory_capacity::MemoryCapacityDecision;
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildRunnerCommand {
+    /// Issue a repo-scoped Actions runner registration token via Forgejo API.
+    Token {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildDeployCommand {
+    /// Read back each target's explicit fleet opt-in state.
+    Status {
+        /// Fleet registry path; defaults to the installed registry.
+        #[arg(long)]
+        registry: Option<String>,
+        /// Deploy locations path.
+        #[arg(long, default_value = "infra/deploy-locations.json")]
+        locations: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -57,7 +101,9 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
-        /// Action to execute: check, test, build, build-release.
+        /// Action to execute: check (compiles), audit (crate audit), audit-all,
+        /// build, build-release, test. Names what runs; unknown verbs are refused.
+        /// Note: --package is currently ignored by every action (warned).
         #[arg(long, default_value = "check")]
         action: String,
         /// Agent or requester identifier.
@@ -73,18 +119,47 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Drain a builder node: stop admitting, finish in-flight, exit for relaunch.
+    Drain {
+        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
+        #[arg(long)]
+        builder_url: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Restart a builder node into an already-installed binary by sha256.
+    Restart {
+        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
+        #[arg(long)]
+        builder_url: Option<String>,
+        /// Desired installed binary sha256 (64 hex chars).
+        #[arg(long)]
+        desired_sha256: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Trigger a distributed build on the observed network runner.
     Trigger {
         /// Exact 40-character source commit.
         #[arg(long)]
         commit: String,
-        /// Build phase: check, build, or activate.
+        /// Build phase: check, build, test, or activate.
+        ///
+        /// The test phase runs the test suite ON THE RUNNER: the operator
+        /// host is not a test machine.
         #[arg(long, default_value = "check")]
         phase: String,
         /// Explicit runner host override (breakglass only). When absent, the
         /// runner SSH target is resolved from the fleet registry.
         #[arg(long)]
         host: Option<String>,
+        /// Named runner (node id, name, or alias) from the fleet registry,
+        /// e.g. a compat builder. Ignored when --host is set; otherwise the
+        /// default `build_runner` role is used.
+        #[arg(long)]
+        runner: Option<String>,
         /// Path to the fleet registry JSON used for runner resolution.
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
@@ -103,6 +178,11 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
+        /// Gate scope: full (default) or auto (classify the commit diff and
+        /// run only the gate the change deserves: narrowed cargo check,
+        /// local pytest, JSON validation, or nothing).
+        #[arg(long, default_value = "full")]
+        scope: String,
         /// Shared sccache dir on the runner (content-keyed compiler cache).
         /// Empty = no wrapper (current behavior).
         #[arg(long, default_value = "")]
@@ -114,10 +194,20 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Inspect build-pool membership and toolchain eligibility.
+    Pool {
+        #[command(subcommand)]
+        command: BuildPoolCommand,
+    },
     /// List pipeline proofs, most recent first.
     Proofs {
         #[command(subcommand)]
         command: BuildProofsCommand,
+    },
+    /// Publish or pull runtime artifacts with fail-closed digest verification.
+    Artifact {
+        #[command(subcommand)]
+        command: BuildArtifactCommand,
     },
     /// Aggregate pipeline proofs for one commit into a metabolic invoice.
     Invoice {
@@ -148,6 +238,11 @@ pub(crate) enum BuildCommand {
         /// Focused test filter (only with --phase test).
         #[arg(long)]
         filter: Option<String>,
+        /// Gate scope: full (default, one proof as requested) or auto
+        /// (classify the commit diff and prove only what it deserves;
+        /// emits one scope envelope with every receipt).
+        #[arg(long, default_value = "full")]
+        scope: String,
         /// Runner host resolved from the fleet registry.
         #[arg(long, default_value = cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET)]
         host: String,
@@ -185,6 +280,15 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         target: Option<String>,
     },
+    /// List build runners declared in the fleet registry (read-only).
+    Runners {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Path to the fleet registry JSON used for runner resolution.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+    },
     /// Archive terminal workload records (dry-run + --apply).
     Store {
         /// Node state root.
@@ -210,7 +314,7 @@ pub(crate) enum BuildCommand {
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
         /// The builder's state root (the registry's relative paths resolve under it).
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         /// The builder's temporary root.
         #[arg(long, default_value = "/tmp")]
@@ -225,6 +329,222 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Render the canary deploy plan for a release commit (read-only).
+    /// Couche A: the plan is data — execution stays manual.
+    Deploy {
+        /// Exact 40-character source commit to deploy. Required for a plan.
+        #[arg(long)]
+        commit: Option<String>,
+        /// Path to the deploy policy (cynic.deploy_policy.v1).
+        #[arg(long, default_value = "infra/deploy-policy.json")]
+        policy: String,
+        /// Path to the deploy locations registry (cynic.deploy_locations.v1).
+        #[arg(long, default_value = "infra/deploy-locations.json")]
+        locations: String,
+        /// Comma-separated machines to include (default: all known).
+        #[arg(long)]
+        machines: Option<String>,
+        /// Fleet registry path: the opt-in authority (nodes[].deploy_target).
+        #[arg(long)]
+        registry: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Nested deploy inspection actions.
+        #[command(subcommand)]
+        command: Option<BuildDeployCommand>,
+    },
+        /// Issue a repo-scoped Actions runner registration token via Forgejo API.
+        Runner {
+            #[command(subcommand)]
+            command: BuildRunnerCommand,
+        },
+        /// List recent Actions workflow runs.
+        Runs {
+            /// Emit machine-readable JSON.
+            #[arg(long)]
+            json: bool,
+        },
+}
+
+/// Read back opt-in state for every machine declared in the deploy locations registry.
+fn render_deploy_opt_in_status(
+    registry_path: &str,
+    locations_path: &str,
+    json: bool,
+) -> Result<(), String> {
+    let locations_text = std::fs::read_to_string(locations_path)
+        .map_err(|e| format!("read deploy locations {locations_path}: {e}"))?;
+    let locations: cynic_release::DeployLocationsContract =
+        cynic_release::DeployLocationsContract::parse(&locations_text)
+            .map_err(|e| format!("parse deploy locations: {e}"))?;
+    if locations.schema != cynic_release::DEPLOY_LOCATIONS_SCHEMA {
+        return Err(format!(
+            "deploy locations schema mismatch: expected {}, got {}",
+            cynic_release::DEPLOY_LOCATIONS_SCHEMA,
+            locations.schema
+        ));
+    }
+    let registry_text = std::fs::read_to_string(registry_path)
+        .map_err(|e| format!("read registry {registry_path}: {e}"))?;
+    let registry: serde_json::Value =
+        serde_json::from_str(&registry_text).map_err(|e| format!("parse registry: {e}"))?;
+    let machines = locations.hostnames();
+    let (opted_in, skipped) =
+        cynic_release::decide_opted_in_machines(&locations, &registry, &machines);
+    let report = serde_json::json!({
+        "schema": "cynic.deploy_opt_in_status.v1",
+        "status": "observed",
+        "opted_in": opted_in,
+        "skipped": skipped,
+    });
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+    } else {
+        println!("deploy opt-in status:");
+        for machine in report["opted_in"].as_array().into_iter().flatten() {
+            println!("  {}: opted_in", machine.as_str().unwrap_or("<unknown>"));
+        }
+        for machine in report["skipped"].as_array().into_iter().flatten() {
+            println!(
+                "  {}: opted_out ({})",
+                machine["machine"].as_str().unwrap_or("<unknown>"),
+                machine["reason"].as_str().unwrap_or("unknown reason")
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Render the canary deploy plan (read-only, couche A).
+/// Eligibility is assumed-manual: the operator verifies the release verdict
+/// before executing. The plan is data from the policy, nothing is applied.
+fn render_deploy_plan(
+    commit: &str,
+    policy_path: &str,
+    locations_path: &str,
+    machines_filter: Option<&str>,
+    registry_path: &str,
+    json: bool,
+) -> Result<(), String> {
+    if commit.len() != 40 || !commit.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("commit must be an exact 40-character SHA".to_string());
+    }
+    let policy_text = std::fs::read_to_string(policy_path)
+        .map_err(|e| format!("read policy {policy_path}: {e}"))?;
+    let policy: cynic_release::DeployPolicyContract =
+        cynic_release::DeployPolicyContract::parse(&policy_text)
+            .map_err(|e| format!("parse policy: {e}"))?;
+    let policy_doc: serde_json::Value =
+        serde_json::from_str(&policy_text).map_err(|e| format!("parse policy document: {e}"))?;
+    let gate_names: Vec<String> = policy_doc
+        .pointer("/per_step_gates/health")
+        .and_then(|v| v.as_array())
+        .map(|gates| {
+            gates
+                .iter()
+                .filter_map(|g| g.get("name")?.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let locations_text = std::fs::read_to_string(locations_path)
+        .map_err(|e| format!("read deploy locations {locations_path}: {e}"))?;
+    let locations: cynic_release::DeployLocationsContract =
+        cynic_release::DeployLocationsContract::parse(&locations_text)
+            .map_err(|e| format!("parse deploy locations: {e}"))?;
+    if locations.schema != cynic_release::DEPLOY_LOCATIONS_SCHEMA {
+        return Err(format!(
+            "deploy locations schema mismatch: expected {}, got {}",
+            cynic_release::DEPLOY_LOCATIONS_SCHEMA,
+            locations.schema
+        ));
+    }
+    let mut known = locations.hostnames();
+    if let Some(filter) = machines_filter {
+        let wanted: Vec<String> = filter.split(',').map(|s| s.trim().to_string()).collect();
+        known.retain(|m| wanted.contains(m));
+    }
+    // Opt-in: the fleet registry is the authority. A machine whose node
+    // does not declare deploy_target=true is skipped with a named reason,
+    // never silently and never by error — opting out is routine.
+    let registry_text = std::fs::read_to_string(registry_path)
+        .map_err(|e| format!("read registry {registry_path}: {e}"))?;
+    let registry: serde_json::Value = serde_json::from_str(&registry_text)
+        .map_err(|e| format!("parse registry: {e}"))?;
+    let (known, skipped) =
+        cynic_release::decide_opted_in_machines(&locations, &registry, &known);
+    if known.is_empty() && skipped.is_empty() {
+        return Err("no known machine matches the filter".to_string());
+    }
+    // Every planned machine must resolve to a deployable target with its
+    // read-back surfaces — a plan that names a machine the registry cannot
+    // place is a plan that fails at the worst moment. The path resolution
+    // uses the machine's own roots, so a workstation path never inherits a
+    // node's state root.
+    let state_root = cynic_types::paths::CynicPaths::state_dir();
+    let home = std::env::var("HOME").ok();
+    for machine in &known {
+        let target = cynic_release::decide_deploy_target(&locations, machine).map_err(
+            |refusal| {
+                format!("deploy target refused for {}: {}", refusal.machine, refusal.reason)
+            },
+        )?;
+        cynic_release::resolve_deploy_path(
+            &target.deploy_path,
+            Some(state_root.to_string_lossy().as_ref()),
+            home.as_deref(),
+        )
+        .map_err(|refusal| {
+            format!("deploy path refused for {}: {}", refusal.machine, refusal.reason)
+        })?;
+    }
+    // Couche A: eligibility verified manually via the release verdict.
+    let verdict = cynic_release::ReleaseEligibilityVerdict::Eligible {
+        schema: "cynic.release_verdict.v1",
+        version: cynic_release::ReleaseVersion::new(0, 0, 0, None),
+        commit_sha: commit.to_string(),
+        tag_name: "assumed-manual-couche-a".to_string(),
+        decided_at_unix_s: 0,
+    };
+    let mut plan = cynic_release::decide_deploy_plan(&verdict, &policy, &known, &gate_names, commit)?;
+    plan.skipped = skipped.clone();
+    if json {
+        let text = serde_json::to_string_pretty(&plan)
+            .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
+        println!("{text}");
+    } else {
+        println!("deploy plan for {commit} (eligibility assumed-manual):");
+        for step in &plan.steps {
+            let target = cynic_release::decide_deploy_target(&locations, &step.machine)
+                .ok()
+                .and_then(|machine| {
+                    cynic_release::resolve_deploy_path(
+                        &machine.deploy_path,
+                        Some(state_root.to_string_lossy().as_ref()),
+                        home.as_deref(),
+                    )
+                    .ok()
+                    .map(|path| {
+                        format!(
+                            "{} ({:?}, {})",
+                            path, machine.layout, machine.principal
+                        )
+                    })
+                })
+                .unwrap_or_else(|| "unresolved".to_string());
+            println!(
+                "  {}. {} -> {target} (gates: {})",
+                step.order + 1,
+                step.machine,
+                step.gate_names.join(", ")
+            );
+        }
+        println!("(read-only — verify the release verdict, then execute manually)");
+        for skip in &plan.skipped {
+            println!("  skipped: {} ({})", skip.machine, skip.reason);
+        }
+    }
+    Ok(())
 }
 
 /// Render the archive report (JSON or text).
@@ -300,16 +620,36 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 json,
             )
         }
+        BuildCommand::Drain { builder_url, json } => {
+            let url = match builder_url {
+                Some(explicit) => explicit,
+                None => resolve_default_builder_url()?,
+            };
+            drain_node(&url, json)
+        }
+        BuildCommand::Restart {
+            builder_url,
+            desired_sha256,
+            json,
+        } => {
+            let url = match builder_url {
+                Some(explicit) => explicit,
+                None => resolve_default_builder_url()?,
+            };
+            restart_node(&url, &desired_sha256, json)
+        }
         BuildCommand::Trigger {
             commit,
             phase,
             host,
+            runner,
             registry,
             user,
             network_mode,
             checkout_base,
             ssot_url,
             package,
+            scope,
             sccache_dir,
             proof_log,
             json,
@@ -317,12 +657,14 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             &commit,
             &phase,
             host.as_deref(),
+            runner.as_deref(),
             &registry,
             &user,
             &network_mode,
             &checkout_base,
             &ssot_url,
             package,
+            &scope,
             &sccache_dir,
             proof_log.as_deref(),
             json,
@@ -333,6 +675,66 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             invoice_log,
             json,
         } => invoice_for_commit(&commit, proof_log.as_deref(), invoice_log.as_deref(), json),
+        BuildCommand::Pool { command } => match command {
+            BuildPoolCommand::Eligibility {
+                node,
+                label,
+                observed_labels,
+                registry,
+                json,
+            } => {
+                // A runner knows the label it serves, not its registry id.
+                let outcome = match (&label, &node) {
+                    (Some(label), _) => evaluate_label(&registry, label, &observed_labels),
+                    (None, Some(node)) => evaluate_local_node(&registry, node, &observed_labels),
+                    (None, None) => {
+                        let node_id = local_node_id();
+                        evaluate_local_node(&registry, &node_id, &observed_labels)
+                    }
+                };
+                match outcome {
+                    Ok(report) => {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&report)
+                                    .map_err(|error| error.to_string())?
+                            );
+                        } else {
+                            render_eligibility(&report);
+                        }
+                        Ok(())
+                    }
+                    Err(error) => Err(error),
+                }
+            }
+            BuildPoolCommand::Memory { json } => {
+                let assessment = evaluate_runner_memory();
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&assessment)
+                            .map_err(|error| error.to_string())?
+                    );
+                } else {
+                    render_memory(&assessment);
+                }
+                // A refused or unknown budget is a FAILURE, not a warning:
+                // the caller must not start a build it cannot hold.
+                match assessment.decision {
+                    MemoryCapacityDecision::Proceed { .. } => Ok(()),
+                    _ => Err("runner memory capacity is not sufficient for a build".to_string()),
+                }
+            }
+            BuildPoolCommand::Metrics {
+                label,
+                limit,
+                registry,
+                json,
+            } => {
+                measure_pool_from_forgejo(std::path::Path::new("."), &registry, &label, limit, json)
+            }
+        },
         BuildCommand::Proofs { command } => match command {
             BuildProofsCommand::List {
                 commit,
@@ -340,6 +742,47 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 proof_log,
                 json,
             } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
+        },
+        BuildCommand::Artifact { command } => match command {
+            BuildArtifactCommand::Publish {
+                artifact,
+                remote_path,
+                source_commit,
+                publisher,
+                output,
+                json,
+            } => publish_artifact(
+                &artifact,
+                &remote_path,
+                &source_commit,
+                &publisher,
+                &output,
+                json,
+            ),
+            BuildArtifactCommand::Pull {
+                manifest,
+                url,
+                output,
+                token_file,
+                json,
+            } => pull_artifact(&manifest, &url, &output, &token_file, json),
+            BuildArtifactCommand::Release {
+                artifact,
+                manifest,
+                repo,
+                tag,
+                api_base,
+                token_file,
+                json,
+            } => release_artifact(
+                &artifact,
+                &manifest,
+                &repo,
+                &tag,
+                &api_base,
+                &token_file,
+                json,
+            ),
         },
         BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
@@ -384,15 +827,17 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 _ => Err("build discover failed".to_string()),
             }
         }
+        BuildCommand::Runners { json, registry } => list_runners(&registry, json),
         BuildCommand::Proof {
             commit,
             package,
             phase,
             filter,
+            scope,
             host,
             user,
             json,
-        } => prove_build(&commit, package, &phase, filter, &host, &user, json),
+        } => prove_build(&commit, package, &phase, filter, &scope, &host, &user, json),
         BuildCommand::Store {
             state_root,
             older_than_ms,
@@ -434,6 +879,52 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                     apply,
                     json,
                 )
+            }
+        }
+        BuildCommand::Runner { command } => match command {
+            BuildRunnerCommand::Token { json } => {
+                let code = execute_runner_token(Path::new("."), json);
+                match code {
+                    c if c == std::process::ExitCode::SUCCESS => Ok(()),
+                    _ => Err("build runner token failed".to_string()),
+                }
+            }
+        },
+        BuildCommand::Deploy {
+            commit,
+            policy,
+            locations,
+            machines,
+            registry,
+            json,
+            command,
+        } => match command {
+            Some(BuildDeployCommand::Status {
+                registry,
+                locations,
+                json,
+            }) => {
+                let registry_path = crate::registry_path(registry);
+                render_deploy_opt_in_status(&registry_path, &locations, json)
+            }
+            None => {
+                let commit = commit.ok_or_else(|| "--commit is required unless reading deploy status".to_string())?;
+                let registry_path = crate::registry_path(registry);
+                render_deploy_plan(
+                    &commit,
+                    &policy,
+                    &locations,
+                    machines.as_deref(),
+                    &registry_path,
+                    json,
+                )
+            }
+        },
+        BuildCommand::Runs { json } => {
+            let code = execute_runs(Path::new("."), json);
+            match code {
+                c if c == std::process::ExitCode::SUCCESS => Ok(()),
+                _ => Err("build runs failed".to_string()),
             }
         }
     }

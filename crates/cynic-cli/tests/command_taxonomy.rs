@@ -22,7 +22,7 @@
 //! so every rename here is a structural split into two levels, which is why
 //! these are not a mechanical search-and-replace.
 
-use clap::CommandFactory;
+use clap::{CommandFactory, Parser};
 
 use cynic_cli::Cli;
 
@@ -90,4 +90,34 @@ fn the_guard_actually_walks_the_surface() {
         all.get_subcommands().any(|s| s.get_name() == "audit"),
         "the gated audit entry point must remain reachable from the top level"
     );
+}
+
+#[test]
+fn deploy_status_is_nested_and_does_not_require_a_commit() {
+    let parsed = Cli::try_parse_from([
+        "cynic",
+        "build",
+        "deploy",
+        "status",
+        "--registry",
+        "infra/registry.json",
+        "--locations",
+        "infra/deploy-locations.json",
+        "--json",
+    ]);
+    assert!(parsed.is_ok(), "deploy status argv was rejected");
+}
+
+#[test]
+fn deploy_plan_keeps_the_existing_direct_verb_shape() {
+    let commit = "a".repeat(40);
+    let parsed = Cli::try_parse_from([
+        "cynic",
+        "build",
+        "deploy",
+        "--commit",
+        commit.as_str(),
+        "--json",
+    ]);
+    assert!(parsed.is_ok(), "deploy plan argv was rejected");
 }

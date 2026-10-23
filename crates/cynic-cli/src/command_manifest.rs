@@ -387,6 +387,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build reclaim --json",
                     "cynic build runner token [--json]",
+                    "cynic build deploy --commit <sha> [--policy <path>] [--locations <path>] [--registry <path>] [--machines a,b] [--json]",
+                    "cynic build deploy status [--registry <path>] [--locations <path>] [--json]",
                     "cynic build runs [--json]",
                 ],
             },

@@ -9,6 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::deploy_locations::SkippedMachine;
 use crate::types::ReleaseEligibilityVerdict;
 
 /// One health gate declared by the deploy policy.
@@ -67,6 +68,10 @@ pub struct DeployPlan {
     pub commit_sha: String,
     pub steps: Vec<DeployStep>,
     pub ladder_rungs: usize,
+    /// Machines the registry did not opt in, with reasons. Rendered,
+    /// never silent. Defaults empty so older serialized plans still read.
+    #[serde(default)]
+    pub skipped: Vec<SkippedMachine>,
 }
 
 /// Decide the canary plan: machines ordered by the policy, restricted to
@@ -104,6 +109,7 @@ pub fn decide_deploy_plan(
         commit_sha: commit_sha.to_string(),
         steps,
         ladder_rungs: policy.ladder_len(),
+        skipped: Vec::new(),
     })
 }
 
@@ -117,9 +123,7 @@ pub fn decide_containment(failed_rung: u32, ladder_len: u32) -> ContainmentDecis
     if failed_rung > ladder_len {
         return ContainmentDecision::StopAndDiagnose;
     }
-    ContainmentDecision::Climb {
-        rung: failed_rung,
-    }
+    ContainmentDecision::Climb { rung: failed_rung }
 }
 
 /// Next action after a probe result.
@@ -185,7 +189,11 @@ mod tests {
         let plan = decide_deploy_plan(
             &eligible_verdict(),
             &policy(),
-            &["cortex".to_string(), "builder".to_string(), "ghost".to_string()],
+            &[
+                "cortex".to_string(),
+                "builder".to_string(),
+                "ghost".to_string(),
+            ],
             &["version_match".to_string()],
             "abc123",
         )
@@ -194,6 +202,27 @@ mod tests {
         assert_eq!(machines, vec!["builder", "cortex"]);
         assert_eq!(plan.steps[0].order, 0);
         assert_eq!(plan.steps[1].order, 1);
+    }
+
+    #[test]
+    fn plan_preserves_opt_out_reasons_when_every_machine_is_skipped() {
+        let skipped = vec![SkippedMachine {
+            machine: "cortex".to_string(),
+            reason: "deploy_target is false".to_string(),
+        }];
+        let plan = decide_deploy_plan_with_skips(
+            &eligible_verdict(),
+            &policy(),
+            &[],
+            &skipped,
+            &["identity_match".to_string()],
+            "abc123",
+        )
+        .expect("all machines opting out is a valid empty plan");
+
+        assert!(plan.steps.is_empty());
+        assert_eq!(plan.skipped, skipped);
+        assert_eq!(plan.ladder_rungs, 2);
     }
 
     #[test]
