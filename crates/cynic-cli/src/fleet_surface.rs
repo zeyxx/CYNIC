@@ -9,8 +9,11 @@
 //! hardcoded names). Probes reuse `SshBuildRunner` (observation only, never
 //! mutation). The registry write replaces one snapshot per runner.
 //!
-//! NEGATIVE BOUNDARY: never mutates runners, never admits or schedules
-//! anything, never touches the network beyond the bounded probe argv.
+//! NEGATIVE BOUNDARY: observe never mutates runners, never admits or
+//! schedules anything, never touches the network beyond the bounded probe
+//! argv. `remediate` is the single signed exception: it mutates one runner
+//! through one allowlisted action, only with `--yes`, and only on paths the
+//! runner declares itself.
 
 use clap::Subcommand;
 use serde::Serialize;
@@ -40,11 +43,36 @@ pub enum FleetCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Signed remediation on one runner (mutating; requires --yes).
+    Remediate {
+        /// Runner id as listed in the registry.
+        runner: String,
+        /// Allowlisted action: `gc-disk` | `restart-probe`.
+        #[arg(long)]
+        action: String,
+        /// Human seat confirmation. Without it the command only prints the
+        /// bounded argv and refuses.
+        #[arg(long)]
+        yes: bool,
+        /// SSH user for alias-form targets (user@host entries carry their own).
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 pub fn execute_fleet(cmd: &FleetCommand) -> ExitCode {
     match cmd {
         FleetCommand::Observe { user, json } => execute_observe(user, *json),
+        FleetCommand::Remediate {
+            runner,
+            action,
+            yes,
+            user,
+            json,
+        } => execute_remediate(runner, action, *yes, user, *json),
     }
 }
 
@@ -81,6 +109,106 @@ pub fn upsert_snapshot(registry: &mut serde_json::Value, snap: &RunnerCapacitySn
     }));
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RemediateAction {
+    GcDisk,
+    RestartProbe,
+}
+
+/// Parse the allowlisted remediation action. Unknown strings are refused
+/// with the allowed list — never passed through to any shell.
+pub fn parse_remediate_action(raw: &str) -> Result<RemediateAction, String> {
+    match raw {
+        "gc-disk" => Ok(RemediateAction::GcDisk),
+        "restart-probe" => Ok(RemediateAction::RestartProbe),
+        other => Err(format!(
+            "unknown remediate action '{other}'; allowed: gc-disk, restart-probe"
+        )),
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct RemediateCliReport {
+    schema: String,
+    runner: String,
+    action: RemediateAction,
+    executed: bool,
+    detail: String,
+}
+
+/// Signed remediation on one registry runner.
+///
+/// Pure gate first: unknown action or missing `--yes` refuses before any
+/// network touch. With `--yes`, exactly one allowlisted adapter call runs.
+fn execute_remediate(
+    runner_id: &str,
+    action_raw: &str,
+    yes: bool,
+    default_user: &str,
+    json: bool,
+) -> ExitCode {
+    let action = match parse_remediate_action(action_raw) {
+        Ok(a) => a,
+        Err(e) => return fail(e),
+    };
+    if !yes {
+        let refusal = format!(
+            "remediate refuses without --yes (runner '{runner_id}', action '{action_raw}')"
+        );
+        if json {
+            let report = RemediateCliReport {
+                schema: "cynic.cli.fleet_remediate.v1".to_string(),
+                runner: runner_id.to_string(),
+                action,
+                executed: false,
+                detail: refusal.clone(),
+            };
+            return emit_json(&report, true);
+        }
+        eprintln!("{refusal}");
+        return ExitCode::FAILURE;
+    }
+    let candidates = cynic_host::registry::resolve::list_runner_nodes(None).unwrap_or_default();
+    let Some(entry) = candidates.iter().find(|e| e.node_id == runner_id) else {
+        return fail(format!("unknown runner '{runner_id}'"));
+    };
+    let (user, host) = match entry.ssh_target.split_once('@') {
+        Some((u, h)) => (u.to_string(), h.to_string()),
+        None => (default_user.to_string(), entry.ssh_target.clone()),
+    };
+    let runner = cynic_node::cli_factory::ssh_build_runner(
+        host,
+        user,
+        String::new(),
+        None,
+        String::new(),
+        None,
+        None,
+    );
+    let outcome = match action {
+        RemediateAction::GcDisk => runner.remediate_gc_disk(),
+        RemediateAction::RestartProbe => runner.remediate_restart_probe(),
+    };
+    match outcome {
+        Ok(detail) => {
+            if json {
+                let report = RemediateCliReport {
+                    schema: "cynic.cli.fleet_remediate.v1".to_string(),
+                    runner: runner_id.to_string(),
+                    action,
+                    executed: true,
+                    detail,
+                };
+                emit_json(&report, false)
+            } else {
+                println!("{detail}");
+                ExitCode::SUCCESS
+            }
+        }
+        Err(e) => fail(e),
+    }
+}
 fn now_unix_s() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -197,6 +325,19 @@ mod fleet_observe_tests {
             disk_avail_bytes: Some(1),
             state_root: Some("/srv".to_string()),
         }
+    }
+
+    #[test]
+    fn remediate_refuses_unknown_action() {
+        let err = parse_remediate_action("rm-rf-everything").expect_err("must refuse");
+        assert!(err.contains("gc-disk"));
+        assert!(err.contains("restart-probe"));
+    }
+
+    #[test]
+    fn remediate_refuses_without_yes() {
+        let code = execute_remediate("builder", "gc-disk", false, "cynic", false);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
