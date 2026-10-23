@@ -26,8 +26,7 @@ use pool::{
 };
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
-    drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, run_build,
-    submit_build, trigger_build,
+    list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
 };
 use services::{provision_credentials, serve_webhook};
 
@@ -41,22 +40,6 @@ use cynic_protocol::build_memory_capacity::MemoryCapacityDecision;
 pub(crate) enum BuildRunnerCommand {
     /// Issue a repo-scoped Actions runner registration token via Forgejo API.
     Token {
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-pub(crate) enum BuildDeployCommand {
-    /// Read back each target's explicit fleet opt-in state.
-    Status {
-        /// Fleet registry path; defaults to the installed registry.
-        #[arg(long)]
-        registry: Option<String>,
-        /// Deploy locations path.
-        #[arg(long, default_value = "infra/deploy-locations.json")]
-        locations: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -115,27 +98,6 @@ pub(crate) enum BuildCommand {
         /// Wait for completion and fetch proof.
         #[arg(long)]
         wait: bool,
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Drain a builder node: stop admitting, finish in-flight, exit for relaunch.
-    Drain {
-        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
-        #[arg(long)]
-        builder_url: Option<String>,
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Restart a builder node into an already-installed binary by sha256.
-    Restart {
-        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
-        #[arg(long)]
-        builder_url: Option<String>,
-        /// Desired installed binary sha256 (64 hex chars).
-        #[arg(long)]
-        desired_sha256: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -238,11 +200,6 @@ pub(crate) enum BuildCommand {
         /// Focused test filter (only with --phase test).
         #[arg(long)]
         filter: Option<String>,
-        /// Gate scope: full (default, one proof as requested) or auto
-        /// (classify the commit diff and prove only what it deserves;
-        /// emits one scope envelope with every receipt).
-        #[arg(long, default_value = "full")]
-        scope: String,
         /// Runner host resolved from the fleet registry.
         #[arg(long, default_value = cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET)]
         host: String,
@@ -332,9 +289,9 @@ pub(crate) enum BuildCommand {
     /// Render the canary deploy plan for a release commit (read-only).
     /// Couche A: the plan is data — execution stays manual.
     Deploy {
-        /// Exact 40-character source commit to deploy. Required for a plan.
+        /// Exact 40-character source commit to deploy.
         #[arg(long)]
-        commit: Option<String>,
+        commit: String,
         /// Path to the deploy policy (cynic.deploy_policy.v1).
         #[arg(long, default_value = "infra/deploy-policy.json")]
         policy: String,
@@ -344,15 +301,9 @@ pub(crate) enum BuildCommand {
         /// Comma-separated machines to include (default: all known).
         #[arg(long)]
         machines: Option<String>,
-        /// Fleet registry path: the opt-in authority (nodes[].deploy_target).
-        #[arg(long)]
-        registry: Option<String>,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
-        /// Nested deploy inspection actions.
-        #[command(subcommand)]
-        command: Option<BuildDeployCommand>,
     },
         /// Issue a repo-scoped Actions runner registration token via Forgejo API.
         Runner {
@@ -367,55 +318,6 @@ pub(crate) enum BuildCommand {
         },
 }
 
-/// Read back opt-in state for every machine declared in the deploy locations registry.
-fn render_deploy_opt_in_status(
-    registry_path: &str,
-    locations_path: &str,
-    json: bool,
-) -> Result<(), String> {
-    let locations_text = std::fs::read_to_string(locations_path)
-        .map_err(|e| format!("read deploy locations {locations_path}: {e}"))?;
-    let locations: cynic_release::DeployLocationsContract =
-        cynic_release::DeployLocationsContract::parse(&locations_text)
-            .map_err(|e| format!("parse deploy locations: {e}"))?;
-    if locations.schema != cynic_release::DEPLOY_LOCATIONS_SCHEMA {
-        return Err(format!(
-            "deploy locations schema mismatch: expected {}, got {}",
-            cynic_release::DEPLOY_LOCATIONS_SCHEMA,
-            locations.schema
-        ));
-    }
-    let registry_text = std::fs::read_to_string(registry_path)
-        .map_err(|e| format!("read registry {registry_path}: {e}"))?;
-    let registry: serde_json::Value =
-        serde_json::from_str(&registry_text).map_err(|e| format!("parse registry: {e}"))?;
-    let machines = locations.hostnames();
-    let (opted_in, skipped) =
-        cynic_release::decide_opted_in_machines(&locations, &registry, &machines);
-    let report = serde_json::json!({
-        "schema": "cynic.deploy_opt_in_status.v1",
-        "status": "observed",
-        "opted_in": opted_in,
-        "skipped": skipped,
-    });
-    if json {
-        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
-    } else {
-        println!("deploy opt-in status:");
-        for machine in report["opted_in"].as_array().into_iter().flatten() {
-            println!("  {}: opted_in", machine.as_str().unwrap_or("<unknown>"));
-        }
-        for machine in report["skipped"].as_array().into_iter().flatten() {
-            println!(
-                "  {}: opted_out ({})",
-                machine["machine"].as_str().unwrap_or("<unknown>"),
-                machine["reason"].as_str().unwrap_or("unknown reason")
-            );
-        }
-    }
-    Ok(())
-}
-
 /// Render the canary deploy plan (read-only, couche A).
 /// Eligibility is assumed-manual: the operator verifies the release verdict
 /// before executing. The plan is data from the policy, nothing is applied.
@@ -424,7 +326,6 @@ fn render_deploy_plan(
     policy_path: &str,
     locations_path: &str,
     machines_filter: Option<&str>,
-    registry_path: &str,
     json: bool,
 ) -> Result<(), String> {
     if commit.len() != 40 || !commit.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -464,18 +365,6 @@ fn render_deploy_plan(
         let wanted: Vec<String> = filter.split(',').map(|s| s.trim().to_string()).collect();
         known.retain(|m| wanted.contains(m));
     }
-    // Opt-in: the fleet registry is the authority. A machine whose node
-    // does not declare deploy_target=true is skipped with a named reason,
-    // never silently and never by error — opting out is routine.
-    let registry_text = std::fs::read_to_string(registry_path)
-        .map_err(|e| format!("read registry {registry_path}: {e}"))?;
-    let registry: serde_json::Value = serde_json::from_str(&registry_text)
-        .map_err(|e| format!("parse registry: {e}"))?;
-    let (known, skipped) =
-        cynic_release::decide_opted_in_machines(&locations, &registry, &known);
-    if known.is_empty() && skipped.is_empty() {
-        return Err("no known machine matches the filter".to_string());
-    }
     // Every planned machine must resolve to a deployable target with its
     // read-back surfaces — a plan that names a machine the registry cannot
     // place is a plan that fails at the worst moment. The path resolution
@@ -506,14 +395,7 @@ fn render_deploy_plan(
         tag_name: "assumed-manual-couche-a".to_string(),
         decided_at_unix_s: 0,
     };
-    let plan = cynic_release::decide_deploy_plan_with_skips(
-        &verdict,
-        &policy,
-        &known,
-        &skipped,
-        &gate_names,
-        commit,
-    )?;
+    let plan = cynic_release::decide_deploy_plan(&verdict, &policy, &known, &gate_names, commit)?;
     if json {
         let text = serde_json::to_string_pretty(&plan)
             .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
@@ -546,9 +428,6 @@ fn render_deploy_plan(
             );
         }
         println!("(read-only — verify the release verdict, then execute manually)");
-        for skip in &plan.skipped {
-            println!("  skipped: {} ({})", skip.machine, skip.reason);
-        }
     }
     Ok(())
 }
@@ -625,24 +504,6 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 wait,
                 json,
             )
-        }
-        BuildCommand::Drain { builder_url, json } => {
-            let url = match builder_url {
-                Some(explicit) => explicit,
-                None => resolve_default_builder_url()?,
-            };
-            drain_node(&url, json)
-        }
-        BuildCommand::Restart {
-            builder_url,
-            desired_sha256,
-            json,
-        } => {
-            let url = match builder_url {
-                Some(explicit) => explicit,
-                None => resolve_default_builder_url()?,
-            };
-            restart_node(&url, &desired_sha256, json)
         }
         BuildCommand::Trigger {
             commit,
@@ -839,11 +700,10 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             package,
             phase,
             filter,
-            scope,
             host,
             user,
             json,
-        } => prove_build(&commit, package, &phase, filter, &scope, &host, &user, json),
+        } => prove_build(&commit, package, &phase, filter, &host, &user, json),
         BuildCommand::Store {
             state_root,
             older_than_ms,
@@ -901,31 +761,8 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             policy,
             locations,
             machines,
-            registry,
             json,
-            command,
-        } => match command {
-            Some(BuildDeployCommand::Status {
-                registry,
-                locations,
-                json,
-            }) => {
-                let registry_path = crate::registry_path(registry);
-                render_deploy_opt_in_status(&registry_path, &locations, json)
-            }
-            None => {
-                let commit = commit.ok_or_else(|| "--commit is required unless reading deploy status".to_string())?;
-                let registry_path = crate::registry_path(registry);
-                render_deploy_plan(
-                    &commit,
-                    &policy,
-                    &locations,
-                    machines.as_deref(),
-                    &registry_path,
-                    json,
-                )
-            }
-        },
+        } => render_deploy_plan(&commit, &policy, &locations, machines.as_deref(), json),
         BuildCommand::Runs { json } => {
             let code = execute_runs(Path::new("."), json);
             match code {
