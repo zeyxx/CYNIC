@@ -27,6 +27,17 @@ Corpus (frozen, hermes harness only):
 6. human review: create | merge into existing (preferred) | drop
 7. merge evidence into the touched skill; candidate folder stays empty by policy
 
+### 2.1 Skill Lifecycle: Emergence → Malleable Skill → Native Rust Distillation (Axiom BURN)
+
+A skill does not mine solely from errors; it emerges from **the entirety of execution traces** (successes, human signals, frequent tool bigrams, structural invariants).
+
+The lifecycle follows 5 rigorous stages:
+1. **Whole-Trace Mining** : Surface recurrent behavioral patterns across all turns, not just failure modes.
+2. **Malleable Skill Layer** : Maintained prompt/heuristic specification in `~/.hermes/skills/` during active iteration.
+3. **Stagnation Gate** : When a skill's update frequency approaches zero (update delta < $\epsilon$), the heuristic has converged.
+4. **Native Rust Distillation** : Distill the stabilized skill directly into pure, deterministic zero-I/O Rust domain logic in `crates/`.
+5. **Algorithmic & Cognitive De-bloat (Axiom BURN)** : Deprecate the LLM skill. Replace prompt parsing with a native function, reducing total lines of code (LOC), runtime latency, and cognitive complexity.
+
 ## 3. PRD invariants
 
 - I1: live reads refused — only the frozen gel is read (`CYNIC_HERMES_CAPTURE` required).
