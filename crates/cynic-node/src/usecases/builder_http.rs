@@ -28,7 +28,9 @@ use cynic_protocol::{
     SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
 use cynic_protocol::supervision::{
-    DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
+    ADMISSION_ACTION_PAUSE, ADMISSION_ACTION_RESUME, ADMISSION_PAUSED_CODE, AdmissionReceipt,
+    DrainDecision, DrainReceipt, PauseDecision, ResumeDecision, SupervisorState, decide_drain,
+    decide_pause, decide_resume, drain_blocks_admission, pause_blocks_admission,
 };
 use cynic_workload::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
 
@@ -65,6 +67,11 @@ struct AppState {
     /// drain sets `Draining` (new admissions get 503), the waiter sets
     /// `Stopped` and exits(0) once no workload is in flight.
     drain: Arc<Mutex<SupervisorState>>,
+    /// Admission switch (`POST /admin/pause`, `POST /admin/resume`).
+    /// Orthogonal to the drain lifecycle: pause closes admission (new
+    /// submits get 503 with `builder_admission_paused`) without touching
+    /// in-flight work and without stopping; resume reopens.
+    paused: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,6 +130,7 @@ pub fn app(
         collisions,
         evidence,
         drain: Arc::new(Mutex::new(SupervisorState::Active)),
+        paused: Arc::new(Mutex::new(false)),
     };
     Router::new()
         .route("/health", get(health))
@@ -133,6 +141,8 @@ pub fn app(
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
         .route("/admin/drain", post(admin_drain))
+        .route("/admin/pause", post(admin_pause))
+        .route("/admin/resume", post(admin_resume))
         .with_state(state)
 }
 
@@ -231,7 +241,7 @@ async fn submit_workload(
     State(state): State<AppState>,
     Json(payload): Json<AgentBuildSubmission>,
 ) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
-    drain_gate(&state)?;
+    admission_gate(&state)?;
     let commit_sha = payload.commit_sha.trim().to_string();
     if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err((
@@ -550,7 +560,7 @@ async fn webhook_forgejo(
 
     // A commanded stop never admits new work; auth runs first so unauthenticated
     // callers learn nothing about drain state beyond 401.
-    drain_gate(&state)?;
+    admission_gate(&state)?;
 
     let payload: ForgejoPayload = serde_json::from_slice(&body)
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
@@ -751,6 +761,36 @@ fn drain_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
             "builder draining: no new workloads admitted".to_string(),
         ));
     }
+    Ok(())
+}
+
+/// Precise 503 body while admission is paused. The stable
+/// [`ADMISSION_PAUSED_CODE`] prefix is what operators match on; in-flight
+/// workloads are never touched by a pause.
+fn paused_refusal_body() -> String {
+    format!("{ADMISSION_PAUSED_CODE}: no new workloads admitted")
+}
+
+/// 503 while admission is paused: a paused builder never admits new work.
+///
+/// Same poisoned-lock rule as [`drain_gate`]: a broken lock degrades to
+/// open, which admits — the pure predicate refuses `true` only, so a broken
+/// lock must not wedge the builder shut by itself.
+fn pause_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
+    let paused = state.paused.lock().map(|guard| *guard).unwrap_or(false);
+    if pause_blocks_admission(paused) {
+        return Err((StatusCode::SERVICE_UNAVAILABLE, paused_refusal_body()));
+    }
+    Ok(())
+}
+
+/// Composed admission gate for every intake (`/workloads/submit`,
+/// `/webhook/forgejo`): pause and drain each refuse independently.
+/// Auth runs before this gate so unauthenticated callers learn nothing
+/// about admission state beyond 401.
+fn admission_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
+    drain_gate(state)?;
+    pause_gate(state)?;
     Ok(())
 }
 
@@ -956,6 +996,182 @@ async fn admin_drain(
     }
 }
 
+/// Persist one admission receipt and read it back. Fail-closed like the
+/// drain path: a transition without a stored receipt is a 500, never a
+/// silent claim.
+fn persist_admission_receipt(
+    state: &AppState,
+    receipt: &AdmissionReceipt,
+) -> Result<String, String> {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let envelope = build_evidence_envelope(
+        &format!("node:admission:{}", receipt.node_id),
+        &format!("cynic-node/builder-http:{}", receipt.node_id),
+        receipt.observed_at_unix_ms,
+        vec![format!("admin:{}", receipt.action)],
+        receipt,
+    )?;
+    state.evidence.persist(&envelope)?;
+    if state.evidence.read(&envelope.digest)? != Some(envelope.clone()) {
+        return Err("admission_receipt_evidence_read_back_mismatch".to_string());
+    }
+    Ok(envelope.digest)
+}
+
+/// Pure admission response shaper: no store, no I/O. Tested without HTTP.
+/// `receipt_digest` is `None` exactly when no transition happened (idempotent
+/// status read), so no receipt was persisted.
+fn shape_admission_response(
+    receipt: &AdmissionReceipt,
+    receipt_digest: Option<&str>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": receipt.schema,
+        "node_id": receipt.node_id,
+        "action": receipt.action,
+        "in_flight": receipt.in_flight,
+        "observed_at_unix_ms": receipt.observed_at_unix_ms,
+        "receipt_digest": receipt_digest,
+    })
+}
+
+/// Shared admin auth for the admission switch: the same HMAC-SHA256 as the
+/// Forgejo webhook (`verify_webhook_signature`) over the raw body, presented
+/// in `x-cynic-signature`, failing closed without a configured secret.
+fn admin_secret(state: &AppState) -> Result<String, (StatusCode, String)> {
+    state.config.webhook_secret.clone().ok_or((
+        StatusCode::UNAUTHORIZED,
+        "admin authentication unavailable: webhook_secret is not configured".into(),
+    ))
+}
+
+fn admin_signature(
+    headers: &HeaderMap,
+    body: &Bytes,
+    secret: &str,
+) -> Result<(), (StatusCode, String)> {
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid admin signature".into()));
+    }
+    Ok(())
+}
+
+/// In-flight count for admission receipts. Fails closed with no state change:
+/// without a count there is no safe transition to record. Pausing never
+/// waits and never stops — the count is informational only.
+fn admission_in_flight(state: &AppState) -> Result<usize, (StatusCode, String)> {
+    state
+        .store
+        .active_records()
+        .map(|records| records.len())
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("workload store unobservable: {}", error.code),
+            )
+        })
+}
+
+/// Close admission: `POST /admin/pause`.
+///
+/// New submits (and webhook deliveries) get 503 with
+/// `builder_admission_paused`; in-flight workloads run untouched. Every
+/// transition persists a `cynic.node.admission_receipt.v1` receipt; repeated
+/// calls while paused are idempotent status reads, not new transitions, so
+/// they persist nothing. Use case: isolating a sick node before drain.
+async fn admin_pause(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let secret = admin_secret(&state)?;
+    admin_signature(&headers, &body, &secret)?;
+    let in_flight = admission_in_flight(&state)?;
+    let paused = state.paused.lock().map(|guard| *guard).unwrap_or(false);
+    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
+    match decide_pause(paused) {
+        PauseDecision::Paused => {
+            let receipt = AdmissionReceipt::new(
+                &state.config.node_id,
+                ADMISSION_ACTION_PAUSE,
+                in_flight,
+                now_ms,
+            );
+            // Persist before flipping the flag: no transition without a receipt.
+            let digest = persist_admission_receipt(&state, &receipt).map_err(|error| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("admission receipt not stored: {error}"),
+                )
+            })?;
+            if let Ok(mut guard) = state.paused.lock() {
+                *guard = true;
+            }
+            Ok(Json(shape_admission_response(&receipt, Some(&digest))))
+        }
+        PauseDecision::AlreadyPaused => {
+            let receipt = AdmissionReceipt::new(
+                &state.config.node_id,
+                ADMISSION_ACTION_PAUSE,
+                in_flight,
+                now_ms,
+            );
+            Ok(Json(shape_admission_response(&receipt, None)))
+        }
+    }
+}
+
+/// Reopen admission: `POST /admin/resume`.
+///
+/// Mirror of [`admin_pause`]: same auth, same fail-closed store read, one
+/// `cynic.node.admission_receipt.v1` receipt per transition, idempotent
+/// status reads persist nothing.
+async fn admin_resume(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let secret = admin_secret(&state)?;
+    admin_signature(&headers, &body, &secret)?;
+    let in_flight = admission_in_flight(&state)?;
+    let paused = state.paused.lock().map(|guard| *guard).unwrap_or(false);
+    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
+    match decide_resume(paused) {
+        ResumeDecision::Resumed => {
+            let receipt = AdmissionReceipt::new(
+                &state.config.node_id,
+                ADMISSION_ACTION_RESUME,
+                in_flight,
+                now_ms,
+            );
+            // Persist before flipping the flag: no transition without a receipt.
+            let digest = persist_admission_receipt(&state, &receipt).map_err(|error| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("admission receipt not stored: {error}"),
+                )
+            })?;
+            if let Ok(mut guard) = state.paused.lock() {
+                *guard = false;
+            }
+            Ok(Json(shape_admission_response(&receipt, Some(&digest))))
+        }
+        ResumeDecision::AlreadyResumed => {
+            let receipt = AdmissionReceipt::new(
+                &state.config.node_id,
+                ADMISSION_ACTION_RESUME,
+                in_flight,
+                now_ms,
+            );
+            Ok(Json(shape_admission_response(&receipt, None)))
+        }
+    }
+}
+
 pub async fn run_http_server(
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
@@ -1121,6 +1337,25 @@ mod tests {
         // Idempotent status reads persist nothing: no digest.
         let shaped = shape_drain_response(&receipt, None);
         assert!(shaped["receipt_digest"].is_null());
+    }
+
+    #[test]
+    fn admission_response_shape_names_action_and_digest() {
+        let receipt = AdmissionReceipt::new("node-1", ADMISSION_ACTION_PAUSE, 2, 1_700_000_000_000);
+        let shaped = shape_admission_response(&receipt, Some("sha256:abc"));
+        assert_eq!(shaped["schema"], "cynic.node.admission_receipt.v1");
+        assert_eq!(shaped["action"], "paused");
+        assert_eq!(shaped["in_flight"], 2);
+        assert_eq!(shaped["receipt_digest"], "sha256:abc");
+        // Idempotent status reads persist nothing: no digest.
+        let shaped = shape_admission_response(&receipt, None);
+        assert!(shaped["receipt_digest"].is_null());
+    }
+
+    #[test]
+    fn paused_refusal_body_carries_precise_code() {
+        let body = paused_refusal_body();
+        assert!(body.starts_with(ADMISSION_PAUSED_CODE), "body: {body}");
     }
 
     #[test]
