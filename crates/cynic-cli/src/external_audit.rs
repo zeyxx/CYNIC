@@ -27,6 +27,7 @@ use cynic_kernel::ports::external_evidence_adapter::LocalExternalEvidenceAdapter
 use cynic_node::usecases::external_project_audit_uc::{
     audit_external_project, ExternalProjectAuditRequest,
 };
+use cynic_types::paths::CynicPaths;
 use cynic_vcs::{ExternalProvider, ExternalRepoRef, ExternalSourcePort};
 use cynic_vcs::providers::{ForgejoExternalSourceAdapter, GitHubExternalSourceAdapter};
 
@@ -541,7 +542,12 @@ pub fn execute(json: bool, registry: Option<&str>) -> ExitCode {
 fn tier_root(tier: &str) -> Option<String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
     match tier {
-        "served" => Some("/var/lib/cynic/source/repositories/external".to_string()),
+        "served" => Some(
+            CynicPaths::state_dir()
+                .join("source/repositories/external")
+                .display()
+                .to_string(),
+        ),
         "dev" => Some(format!("{}/.cynic/external", home)),
         _ => None,
     }

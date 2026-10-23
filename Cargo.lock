@@ -1234,6 +1234,7 @@ name = "cynic-node-protocol"
 version = "0.8.0"
 dependencies = [
  "cynic-protocol",
+ "cynic-types",
  "hex",
  "serde",
  "serde_json",
