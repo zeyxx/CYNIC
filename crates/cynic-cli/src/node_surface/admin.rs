@@ -269,10 +269,13 @@ pub fn execute_admin_secret(command: &NodeAdminSecretCommand) -> Result<(), Stri
     let secret = validate_secret_content(&raw)?;
     let local_digest = sha256_of_local(secret_file)?;
 
-    let registry_text = {
-        let path = cynic_host::registry::resolve::resolve_registry_path(registry.as_deref())?;
-        std::fs::read_to_string(&path).map_err(|e| format!("registry unreadable: {e}"))?
-    };
+    let registry_path = registry.clone().unwrap_or_else(|| {
+        cynic_types::paths::CynicPaths::registry_path()
+            .display()
+            .to_string()
+    });
+    let registry_text = std::fs::read_to_string(&registry_path)
+        .map_err(|e| format!("registry unreadable: {e}"))?;
     let registry_json: serde_json::Value =
         serde_json::from_str(&registry_text).map_err(|e| format!("registry unparsable: {e}"))?;
     let pool = cynic_build::builder_pool::resolve_builder_pool(&registry_json);

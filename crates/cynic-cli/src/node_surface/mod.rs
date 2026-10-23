@@ -194,7 +194,7 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
             NodeServiceCommand::Prove { unit_name, description, binary, config, user, unit_dir, json } => service::execute_service_prove(unit_name, description, binary, config, user, unit_dir, json),
         },
         NodeCommand::Admin { command } => match command {
-            admin::NodeAdminCommand::Secret { command } => match admin::execute_admin_secret(command) {
+            admin::NodeAdminCommand::Secret { command } => match admin::execute_admin_secret(&command) {
                 Ok(()) => std::process::ExitCode::SUCCESS,
                 Err(error) => { eprintln!("error: {error}"); std::process::ExitCode::FAILURE }
             },
