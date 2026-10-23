@@ -8,12 +8,16 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Journal schema identifier. Pinned as a const so writers and the
+/// validator cannot drift apart.
+pub const RECEIPT_SCHEMA: &str = "cynic.deploy_receipt.v1";
+
 /// One journaled deploy step. The rollback pointer is the previous
 /// artifact digest observed on that machine before this step ran: a red
 /// step names exactly what to restore.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeployReceipt {
-    pub schema: &'static str,
+    pub schema: String,
     pub commit: String,
     pub artifact_sha: String,
     pub machine: String,
@@ -62,7 +66,7 @@ fn journal_path(state_dir: &str) -> std::path::PathBuf {
 /// blank artifact, blank machine, or a wrong schema are refused — a
 /// receipt that cannot identify what/where is worse than none.
 pub fn validate_receipt(receipt: &DeployReceipt) -> Result<(), String> {
-    if receipt.schema != "cynic.deploy_receipt.v1" {
+    if receipt.schema != RECEIPT_SCHEMA {
         return Err(format!("unknown receipt schema: {}", receipt.schema));
     }
     if receipt.commit.trim().is_empty() {
@@ -123,9 +127,9 @@ mod tests {
 
     fn receipt(machine: &str) -> DeployReceipt {
         DeployReceipt {
-            schema: "cynic.deploy_receipt.v1",
+            schema: RECEIPT_SCHEMA.to_string(),
             commit: "a".repeat(40),
-            artifact_sha: "sha256:deadbeef",
+            artifact_sha: "sha256:deadbeef".to_string(),
             machine: machine.to_string(),
             kind: DeployStepKind::Deploy,
             gates: vec![GateResult {
