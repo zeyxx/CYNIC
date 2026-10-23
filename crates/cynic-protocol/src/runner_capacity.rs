@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 
 /// Schema identifier for runner capacity snapshots.
 pub const RUNNER_CAPACITY_SNAPSHOT_SCHEMA: &str = "cynic.fleet.capacity_snapshot.v1";
+/// Window after which a snapshot reads as stale (mirrors the contract).
+pub const RUNNER_STALENESS_SECS: u64 = 600;
 
 /// One observed fact about a runner, published by supervision.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -21,6 +23,7 @@ pub struct RunnerCapacitySnapshot {
     pub runner_id: String,
     pub observed_unix_s: u64,
     pub free_ram_bytes: Option<u64>,
+    pub total_ram_bytes: Option<u64>,
     pub disk_avail_bytes: Option<u64>,
     pub state_root: Option<String>,
 }
@@ -96,6 +99,7 @@ mod runner_capacity_tests {
             runner_id: runner.to_string(),
             observed_unix_s: NOW,
             free_ram_bytes: Some(FLOOR * 2),
+            total_ram_bytes: Some(FLOOR * 4),
             disk_avail_bytes: Some(10_000_000_000),
             state_root: Some("/srv/cynic/runs".to_string()),
         }
