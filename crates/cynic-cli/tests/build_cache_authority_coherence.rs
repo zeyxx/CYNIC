@@ -36,11 +36,16 @@ fn build_runner_node() -> serde_json::Value {
     let mut found = nodes
         .iter()
         .filter(|node| node.get("role").and_then(serde_json::Value::as_str) == Some("build_runner"))
+        .filter(|node| {
+            node.pointer("/build_lifecycle/canonical_target_relative_path")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|path| !path.trim().is_empty())
+        })
         .collect::<Vec<_>>();
     assert_eq!(
         found.len(),
         1,
-        "exactly one node declares the build_runner role"
+        "exactly one build runner declares the canonical cache target"
     );
     found.remove(0).clone()
 }
