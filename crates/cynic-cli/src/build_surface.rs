@@ -506,8 +506,14 @@ fn render_deploy_plan(
         tag_name: "assumed-manual-couche-a".to_string(),
         decided_at_unix_s: 0,
     };
-    let mut plan = cynic_release::decide_deploy_plan(&verdict, &policy, &known, &gate_names, commit)?;
-    plan.skipped = skipped.clone();
+    let plan = cynic_release::decide_deploy_plan_with_skips(
+        &verdict,
+        &policy,
+        &known,
+        &skipped,
+        &gate_names,
+        commit,
+    )?;
     if json {
         let text = serde_json::to_string_pretty(&plan)
             .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
