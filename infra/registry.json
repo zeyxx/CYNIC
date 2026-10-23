@@ -1061,6 +1061,11 @@
         "ram": "16 GB",
         "gpu": "AMD Radeon Lucienne (Vulkan capable)"
       },
+      "capabilities": {
+        "cpu_cores": 8,
+        "ram_gb": 16,
+        "gpu": "AMD Radeon Lucienne"
+      },
       "source_workspace_layout": {
         "repository_store": "source/repositories",
         "workspace_store": "source/workspaces",
