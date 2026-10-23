@@ -8,7 +8,11 @@
 //! reads it from `CYNIC_ADMIN_SECRET`, never from argv (process lists
 //! leak argv) and never into logs.
 
+<<<<<<< HEAD
 use hmac::{Hmac, KeyInit, Mac};
+=======
+use hmac::{Hmac, Mac};
+>>>>>>> eebcf290 (feat(cli): send HMAC admin signals, drain and restart verbs)
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -96,6 +100,7 @@ pub fn send_restart(
     )
 }
 
+<<<<<<< HEAD
 /// Extract the HTTP status from a `send_admin_signal` refusal
 /// (`admin_signal_refused: http NNN`). Pure so the ceremony can branch on
 /// proof outcomes without parsing strings at the call site.
@@ -149,6 +154,8 @@ pub fn prove_secret_live(base_url: &str, secret: &str) -> Result<(), String> {
     }
 }
 
+=======
+>>>>>>> eebcf290 (feat(cli): send HMAC admin signals, drain and restart verbs)
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,6 +202,7 @@ mod tests {
             "expected precise unreachable code, got: {error}"
         );
     }
+<<<<<<< HEAD
 
     #[test]
     fn refusal_status_parses_for_ceremony_branching() {
@@ -219,4 +227,6 @@ mod tests {
             "expected unreachable code, got: {error}"
         );
     }
+=======
+>>>>>>> eebcf290 (feat(cli): send HMAC admin signals, drain and restart verbs)
 }

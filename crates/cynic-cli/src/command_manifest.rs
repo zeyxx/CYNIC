@@ -134,6 +134,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator onboard <collaborator_id> --handle <gh> [--display-name <name>] [--project <slug>] [--note <text>] --yes [--registry <path>]",
+                    "cynic collaborator watch [--project <slug>] [--forgejo-url <url>] [--github-token <t>] [--forgejo-token <t>] [--json]",
+                    "cynic fleet observe [--user <u>] [--json]",
+                    "cynic fleet remediate <runner> --action <gc-disk|restart-probe> --yes [--user <u>] [--json]",
                 ],
             },
             CommandDomain {
@@ -364,7 +367,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic build run --json",
                     "cynic build submit --json",
-                    "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
+                    "cynic build drain [--builder-url <url>] [--json]",
+                    "cynic build restart --desired-sha256 <hex> [--builder-url <url>] [--json]",
+                    "cynic build trigger --commit <sha> [--phase check|build|activate|test] [--package <pkg>] [--host <ssh>] [--runner <node>] [--scope full|auto] [--json]",
                     "cynic build pool eligibility [--node <id>] [--observed-labels a,b] [--json]",
                     "cynic build pool memory [--json]",
                     "cynic build proofs list [--commit <sha>] [--limit N] [--json]",
