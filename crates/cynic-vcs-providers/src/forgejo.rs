@@ -365,9 +365,15 @@ fn post_exec(exec_url: &str, command: &str, work_dir: &str) -> Result<(Option<i3
             "command": command,
             "work_dir": work_dir,
         });
+        let body = serde_json::to_vec(&payload)
+            .map_err(|e| format!("exec payload unserializable: {e}"))?;
+        let secret = crate::signed_exec::exec_secret()?;
+        let signature = crate::signed_exec::exec_signature(&secret, &body);
         let res = client
             .post(&exec_url)
-            .json(&payload)
+            .header("content-type", "application/json")
+            .header("x-cynic-signature", signature)
+            .body(body)
             .send()
             .map_err(|e| format!("failed to POST /exec to {exec_url}: {e}"))?;
         if !res.status().is_success() {

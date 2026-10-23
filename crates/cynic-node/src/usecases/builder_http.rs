@@ -188,9 +188,25 @@ pub struct ExecResponse {
 /// can drive external builds over HTTP instead of SSH. The command is executed
 /// via `sh -c` with `current_dir` set to `work_dir` when non-empty.
 async fn exec(
-    State(_state): State<AppState>,
-    Json(payload): Json<ExecRequest>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<ExecResponse>, (StatusCode, String)> {
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "exec unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid exec signature".into()));
+    }
+    let payload: ExecRequest = serde_json::from_slice(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
     if payload.command.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,

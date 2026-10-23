@@ -7,6 +7,7 @@ pub mod forgejo_webhook_server;
 pub mod github;
 pub mod pull_request;
 pub mod registry_binding;
+pub mod signed_exec;
 
 pub use forgejo::ForgejoExternalSourceAdapter;
 pub use forgejo_token::{
