@@ -37,6 +37,17 @@ pub(crate) fn execute_audit_node(command: &AuditNodeCommand) -> ExitCode {
 }
 
 #[derive(Subcommand)]
+pub(crate) enum AuditGateCommand {
+    /// Verify a machine-readable gate receipt artifact (audit the audit).
+    Receipt {
+        #[arg(long, default_value = "gate-receipt.json")]
+        path: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
 pub(crate) enum AuditCommand {
     /// Audit core crates architecture boundary tests and entrypoint line limits.
     Crate {
@@ -160,11 +171,9 @@ pub(crate) enum AuditCommand {
         evidence_dir: Option<String>,
     },
     /// Verify a machine-readable gate receipt artifact (audit the audit).
-    GateReceipt {
-        #[arg(long, default_value = "gate-receipt.json")]
-        path: String,
-        #[arg(long)]
-        json: bool,
+    Gate {
+        #[command(subcommand)]
+        command: AuditGateCommand,
     },
 }
 
@@ -496,7 +505,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 external_audit::execute(*json, registry.as_deref())
             }
         }
-        AuditCommand::GateReceipt { path, json } => execute_gate_receipt(path, *json),
+        AuditCommand::Gate { command } => match command {
+            AuditGateCommand::Receipt { path, json } => execute_gate_receipt(&path, *json),
+        },
     }
 }
 

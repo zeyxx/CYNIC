@@ -905,9 +905,9 @@
         "cynic_validate"
       ],
       "operator_tools": [
-        "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
-        "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
-        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release>"
+        "cynic node agent workload status --json --workload-id <id> [--state-root <path>]",
+        "cynic node agent workload transition --json --request <transition.json> [--state-root <path>] [--apply]",
+        "cynic node build workload grant verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release>"
       ]
     },
     "runtime_release": {
@@ -988,7 +988,7 @@
       ],
       "operator_tools": [
         "cynic runtime storage-capabilities --json",
-        "cynic-node storage-reconcile --json [--apply]"
+        "cynic node storage reconcile --json [--apply]"
       ]
     },
     "toolchain": {

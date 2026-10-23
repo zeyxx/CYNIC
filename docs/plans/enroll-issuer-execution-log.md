@@ -30,7 +30,7 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
 2. `NodeIdentityWorkflow::issue_signed_enrollment_grant` (cynic-host) —
    admit-first, sign with operator-held authority key (read-only, never
    generated here), structural revalidation before return.
-3. `cynic node enrollment-issue --request --authority [--token-file]
+3. `cynic node enrollment issue --request --authority [--token-file]
    --signing-key --output` — thin surface; `--token-file` absent means
    operator-mediated issuance (`require_token=false`), always reported.
 4. `infra/registry.json`: `cynic-compute-01` role `embedding_runner` ->
@@ -163,7 +163,7 @@ Approval: operator R + "tout aujourd'hui"; per-command gate approvals kept.
   `service prove converged` (digest match).
 - NATIVE (this session): ceremony doc
   (`docs/specs/compute-node-enrollment-ceremony.md`) + `node
-  enrollment-check` arm (pure summary + 2s renewal probe).
+  enrollment check` arm (pure summary + 2s renewal probe).
   Live run on compute-01: 29ms, `enrollment_proven true`,
   `renewal_endpoint_reachable false` → `blocked`. The exact signal
   the outage was missing: service up today, renewal impossible.

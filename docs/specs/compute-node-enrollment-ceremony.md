@@ -8,7 +8,7 @@ only file paths and verification steps.
 ## When
 
 - `:9090/health` refuses while `cynic-node.service` is `active`.
-- `node enrollment-check` reports `enrollment_proven: false` with an
+- `node enrollment check` reports `enrollment_proven: false` with an
   expiry in the past (or error), while the binary, unit, and config
   are otherwise converged.
 
@@ -69,7 +69,7 @@ Record the expected `sha256:<key_id>` BEFORE issuing.
 ## Issue and verify (triple-match)
 
 ```
-cynic node enrollment-issue \
+cynic node enrollment issue \
   --request  identity/enrollment-request-gN.json \
   --authority identity/enrollment-authority-gN.json \
   --signing-key identity/enrollment-authority-gN.key \
@@ -93,7 +93,7 @@ cynic node enrollment-issue \
 - The renewal loop (`run_enrollment_renewal_loop`) cannot extend a grant
   while `kernel_url` is unreachable from the node (e.g. loopback with no
   local kernel). Until remote renewal exists, the grant TTL IS the service
-  lifetime: set it deliberately, and watch `node enrollment-check`.
+  lifetime: set it deliberately, and watch `node enrollment check`.
 
 ## Role readiness (build_runner machine gate)
 
@@ -122,7 +122,7 @@ Run all checks as the node runtime user (e.g. `cynic`):
    present AND unprivileged user namespaces are enabled.
 5. Version pinned: `cargo --version` matches the declared toolchain pin.
 
-Gate wiring (next slice): `node enrollment-check` reports
+Gate wiring (next slice): `node enrollment check` reports
 `role_readiness` beside enrollment state; issuance refuses while red.
 Until wired, run the five checks by hand before every (re-)issuance and
 archive the output with the grant.

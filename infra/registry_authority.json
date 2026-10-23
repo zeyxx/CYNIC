@@ -84,7 +84,7 @@
     {
       "id": "N2",
       "rule": "The hypervisor is the fleet inventory of record for membership. The registry declares intent; the hypervisor reports reality; drift between them is the reconciliation input.",
-      "enforcement": "cynic-node registry-observation already exists as a surface; it must read the hypervisor and compare"
+      "enforcement": "cynic node registry observation already exists as a surface; it must read the hypervisor and compare"
     },
     {
       "id": "N3",

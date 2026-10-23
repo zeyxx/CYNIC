@@ -124,7 +124,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
                     "cynic audit harness [--kind <name>] [--json]",
                     "cynic audit external [--json] [--registry <path>]",
-                    "cynic audit gate-receipt [--path <path>] [--json]",
+                    "cynic audit gate receipt [--path <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -221,7 +221,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic agent claim --agent-id <id> --target <path> [--claim-type <file|crate>] [--ttl-seconds <n>] [--budget-actions <n>] [--budget-wall-seconds <n>] [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
-                    "cynic agent session-context [--registry <path>] [--json]",
+                    "cynic agent session context [--registry <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -247,17 +247,33 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
                     "cynic node activate --node-id <id> [--yes] [--json]",
-                    "cynic node identity-init --key-path <path> [--json]",
-                    "cynic node node-identity --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
-                    "cynic node csr-create --node-id <id> --role <role> [--key-path <path>] [--json]",
-                    "cynic node cert-inspect [--cert-path <path>] [--json]",
-                    "cynic node cert-verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
-                    "cynic node host-audit [--json] [--max-commits <n>]",
+                    "cynic node identity init [--key-path <path>] [--json]",
+                    "cynic node identity run --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
+                    "cynic node csr create --node-id <id> --role <role> [--key-path <path>] [--json]",
+                    "cynic node cert inspect [--cert-path <path>] [--json]",
+                    "cynic node cert verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
+                    "cynic node enrollment check [--config <path>] [--json]",
+                    "cynic node enrollment issue --request <req> --authority <auth> [--token-file <path>] --signing-key <key> [--output <path>] [--json]",
+                    "cynic node consensus status [--json]",
+                    "cynic node observe [--registry <path>] [--fail-on-warning] [--fail-on-critical] [--json]",
+                    "cynic node registry observation [--registry <path>] [--output <path>] [--json]",
                     "cynic node host cpu [--json]",
                     "cynic node host memory [--json]",
+                    "cynic node host audit [--json] [--max-commits <n>]",
                     "cynic node host disk status [--json]",
                     "cynic node host disk clean [--apply] [--json]",
                     "cynic node host capacity [--json]",
+                    "cynic node agent scheduler observe --node-id <id> --scheduler-epoch <n> --step-id <id> --budgets <json> --lifecycle <json> --output <path> [--json]",
+                    "cynic node agent scheduler step --observation <path> [--state-root <path>] [--json]",
+                    "cynic node agent workload status --workload-id <id> [--state-root <path>] [--json]",
+                    "cynic node agent workload transition --request <json> [--state-root <path>] [--apply] [--json]",
+                    "cynic node agent workspace [--request <json>] [--json]",
+                    "cynic node agent workspace lifecycle --workload-id <id> [--json]",
+                    "cynic node build workload grant verify --grant <json> --workload-record <json> --authority-public-key <hex> --node-id <id> --source-commit <sha> --action <action> [--json]",
+                    "cynic node storage reconcile [--state-dir <path>] [--apply] [--json]",
+                    "cynic node source admission plan --request <json> --observation <json> [--json]",
+                    "cynic node source bootstrap --node <id> --repository <url> --source <src> --revision <rev> [--apply] [--json]",
+                    "cynic node source materialize --request <json> [--apply] [--json]",
                     "cynic node compute provision --vmid <n> --hostname <name> --template-volid <volid> [--ip-cidr <cidr> --gateway <ip> --nameserver <ip> --features <flag>] [--node <name>] [--apply [--hypervisor <ssh-target>]]",
                 ],
             },
@@ -360,7 +376,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build credentials provision --json",
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build reclaim --json",
-                    "cynic build runner-token [--json]",
+                    "cynic build runner token [--json]",
                     "cynic build runs [--json]",
                 ],
             },
@@ -466,6 +482,7 @@ mod tests {
         let cli = Cli::command();
         let manifest = commands_manifest();
         let mut checked = 0usize;
+        let mut ghosts: Vec<String> = Vec::new();
         for domain in &manifest.domains {
             for command in &domain.commands {
                 let path = command
@@ -488,16 +505,23 @@ mod tests {
                     let found = current
                         .get_subcommands()
                         .find(|s| s.get_name() == segment.as_str());
-                    assert!(
-                        found.is_some(),
-                        "manifest command `{}` (domain `{}`) does not resolve at segment {depth}: `{segment}`",
-                        command,
-                        domain.name
-                    );
+                    if found.is_none() {
+                        ghosts.push(format!(
+                            "`{command}` (domain `{}`) fails at segment {depth}: `{segment}`",
+                            domain.name
+                        ));
+                        break;
+                    }
                     current = found.unwrap();
                 }
             }
         }
+        assert!(
+            ghosts.is_empty(),
+            "manifest lists {} command(s) clap cannot resolve:\n{}",
+            ghosts.len(),
+            ghosts.join("\n")
+        );
         assert!(
             checked > 100,
             "manifest command resolution checked too few commands: {checked}"

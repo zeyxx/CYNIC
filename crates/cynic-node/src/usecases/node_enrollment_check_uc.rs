@@ -1,4 +1,4 @@
-//! Bounded enrollment health check for the `node enrollment-check` arm.
+//! Bounded enrollment health check for the `node enrollment check` arm.
 //!
 //! Read-only: file read-back plus a short TCP probe of the renewal
 //! endpoint (`kernel_url`). The probe never hangs the arm — 2s timeout,

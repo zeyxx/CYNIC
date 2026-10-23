@@ -12,7 +12,7 @@ or `audit`.
 | 2 | actions runs watch | build | `build` | `cynic build runs watch` | planned |
 | 3 | push-mirror inspect | source | `source` | `cynic source mirror inspect` (push-mirror) | planned |
 | 4 | main-divergence | source | `source` | `cynic source divergence [--json]` | **implemented** |
-| 5 | gate-receipt verify | audit/source | `audit` (or `source`) | `cynic audit gate-receipt` / `cynic source receipt verify` | planned |
+| 5 | gate-receipt verify | audit/source | `audit` (or `source`) | `cynic audit gate receipt` / `cynic source receipt verify` | planned |
 
 ## Implemented verb: `cynic source divergence`
 

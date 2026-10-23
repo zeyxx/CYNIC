@@ -992,7 +992,7 @@ mod tests {
     }
 }
 
-/// Bounded enrollment health summary for the `node enrollment-check` arm.
+/// Bounded enrollment health summary for the `node enrollment check` arm.
 ///
 /// Pure (no I/O, no clock): the caller supplies the read-back fields, the
 /// renewal probe outcome, and now. A configured build scheduler with an
