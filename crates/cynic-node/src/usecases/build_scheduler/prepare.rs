@@ -455,7 +455,7 @@ fn sandbox_mode_for(
     let target_dir = scheduler
         .shared_target_root
         .as_ref()
-        .map(|root| shared_target_dir_for(root, argv));
+        .map(|root| shared_target_dir_for(root, argv, workspace_root));
     let mut spec =
         CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
             .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
@@ -637,6 +637,7 @@ mod tests {
     #[test]
     fn shared_target_dir_maps_release_and_debug_profiles() {
         let root = std::path::Path::new("/var/lib/cynic/build-targets");
+        let checkout = std::path::Path::new("/var/lib/cynic/checkouts/cynic-0123456789ab");
         let release_argv = vec![
             "cargo".to_string(),
             "build".to_string(),
@@ -644,12 +645,12 @@ mod tests {
         ];
         let debug_argv = vec!["cargo".to_string(), "build".to_string()];
         assert_eq!(
-            shared_target_dir_for(root, &release_argv),
-            PathBuf::from("/var/lib/cynic/build-targets/release")
+            shared_target_dir_for(root, &release_argv, checkout),
+            PathBuf::from("/var/lib/cynic/build-targets/release/cynic-0123456789ab")
         );
         assert_eq!(
-            shared_target_dir_for(root, &debug_argv),
-            PathBuf::from("/var/lib/cynic/build-targets/debug")
+            shared_target_dir_for(root, &debug_argv, checkout),
+            PathBuf::from("/var/lib/cynic/build-targets/debug/cynic-0123456789ab")
         );
     }
 
