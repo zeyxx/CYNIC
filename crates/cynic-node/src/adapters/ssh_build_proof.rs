@@ -90,6 +90,14 @@ impl BuildProofPort for SshBuildProof {
         );
         let package = request.package.as_deref();
 
+        // Hermetic target dir, scoped to this checkout: several agent
+        // checkouts share the runner, and cargo judges freshness by mtime.
+        // A shared target dir lets one checkout reuse another checkout's
+        // artifacts (last-builder-wins), forging resolution errors such as
+        // a bogus E0432 on a module the pinned tree does contain. A receipt
+        // must only read what its own tree built.
+        let proof_target_dir = format!("{dir}/target-proof");
+
         let (check_args, test_args) = match &request.phase {
             cynic_build::build_proof::BuildProofPhase::Check => {
                 let mut a: Vec<String> = vec![
@@ -97,7 +105,7 @@ impl BuildProofPort for SshBuildProof {
                     "RUST_MIN_STACK=8589934592".to_string(),
                     "CARGO_BUILD_JOBS=1".to_string(),
                     "CARGO_INCREMENTAL=0".to_string(),
-                    format!("CARGO_TARGET_DIR={}", roots.target_dir),
+                    format!("CARGO_TARGET_DIR={proof_target_dir}"),
                     "cargo".to_string(),
                     "check".to_string(),
                     "--locked".to_string(),
@@ -121,7 +129,7 @@ impl BuildProofPort for SshBuildProof {
                     "RUST_MIN_STACK=8589934592".to_string(),
                     "CARGO_BUILD_JOBS=1".to_string(),
                     "CARGO_INCREMENTAL=0".to_string(),
-                    format!("CARGO_TARGET_DIR={}", roots.target_dir),
+                    format!("CARGO_TARGET_DIR={proof_target_dir}"),
                     "cargo".to_string(),
                     "test".to_string(),
                     "--locked".to_string(),
