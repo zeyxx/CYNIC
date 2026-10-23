@@ -184,6 +184,127 @@ pub fn mark_health(endpoint: &mut BuilderEndpoint, healthy: bool) {
     endpoint.healthy = healthy;
 }
 
+/// Live pressure gauge read from a builder's `/capacity` surface.
+///
+/// Only the node knows its in-flight count and load. Declared capacity
+/// (cpu cores) comes from the registry the client already holds — the
+/// client joins both sides. No gauge (old binary, timeout, bad schema)
+/// is `None`: no gauge, no flow.
+#[derive(Debug, Clone)]
+pub struct CapacityReading {
+    pub node_id: String,
+    pub in_flight: u64,
+    pub load_average_1m: f64,
+}
+
+/// Query one builder's `/capacity` gauge.
+///
+/// Returns `None` on any failure (unreachable, timeout, non-2xx, wrong
+/// schema, unparsable body). Caller treats `None` as unreadable, never
+/// as idle.
+pub fn query_capacity(url: &str) -> Option<CapacityReading> {
+    let url = url.to_string();
+    std::thread::spawn(move || {
+        let Ok(client) = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+        else {
+            return None;
+        };
+        let capacity_url = format!("{}/capacity", url.trim_end_matches('/'));
+        let body: serde_json::Value = client.get(&capacity_url).send().ok()?.json().ok()?;
+        if body.get("schema").and_then(|s| s.as_str()) != Some("cynic.builder.capacity.v1") {
+            return None;
+        }
+        Some(CapacityReading {
+            node_id: body
+                .get("node_id")
+                .and_then(|n| n.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            in_flight: body
+                .get("in_flight")
+                .and_then(|n| n.as_u64())
+                .unwrap_or(u64::MAX),
+            load_average_1m: body
+                .get("load_average_1m")
+                .and_then(|n| n.as_f64())
+                .unwrap_or(f64::MAX),
+        })
+    })
+    .join()
+    .unwrap_or(None)
+}
+
+/// Pressure of one builder: queued work plus machine load, per cpu core.
+///
+/// Lower flows first. Missing in-flight or load reads as infinite
+/// pressure (unreadable never wins against a gauge). Missing declared
+/// capacity normalizes by one core — no bonus for hiding hardware.
+pub fn pressure_score(endpoint: &BuilderEndpoint, reading: Option<&CapacityReading>) -> f64 {
+    let Some(reading) = reading else {
+        return f64::INFINITY;
+    };
+    let cpu = endpoint
+        .capabilities
+        .as_ref()
+        .map(|caps| caps.cpu_cores.max(1) as f64)
+        .unwrap_or(1.0);
+    (reading.in_flight as f64 + reading.load_average_1m) / cpu
+}
+
+/// Pick the healthy builder under the lowest pressure.
+///
+/// Gauged builders compete on pressure; unreadable ones only serve when
+/// no gauge exists anywhere (legacy fallback to [`select_balanced_builder`]).
+/// Zero healthy returns None (fail closed).
+pub fn select_by_pressure(
+    pool: &[BuilderEndpoint],
+    readings: &[CapacityReading],
+) -> Option<BuilderEndpoint> {
+    let healthy: Vec<&BuilderEndpoint> = pool.iter().filter(|b| b.healthy).collect();
+    if healthy.is_empty() {
+        return None;
+    }
+    let reading_for =
+        |endpoint: &BuilderEndpoint| readings.iter().find(|r| r.node_id == endpoint.node_id);
+    let mut best: Option<(&BuilderEndpoint, f64)> = None;
+    for endpoint in &healthy {
+        let score = pressure_score(endpoint, reading_for(endpoint));
+        if score.is_infinite() {
+            continue;
+        }
+        let better = best.map(|(_, s)| score < s).unwrap_or(true);
+        if better {
+            best = Some((endpoint, score));
+        }
+    }
+    if let Some((endpoint, _)) = best {
+        return Some((*endpoint).clone());
+    }
+    // No gauge anywhere: legacy spread, same as before.
+    select_balanced_builder(pool)
+}
+
+/// Resolve the pool, health-check each builder, read every gauge, and
+/// route to the lowest pressure.
+///
+/// Production entry point for pressure-aware submit. Builders without
+/// the `/capacity` surface (old binaries) stay eligible through the
+/// legacy fallback — they never silently win against a gauge.
+pub fn resolve_builder_pool_with_capacity(registry: &serde_json::Value) -> Option<BuilderEndpoint> {
+    let mut pool = resolve_builder_pool(registry);
+    for endpoint in &mut pool {
+        endpoint.healthy = health_check(&endpoint.url);
+    }
+    let readings: Vec<CapacityReading> = pool
+        .iter()
+        .filter(|b| b.healthy)
+        .filter_map(|b| query_capacity(&b.url))
+        .collect();
+    select_by_pressure(&pool, &readings)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,6 +460,113 @@ mod tests {
             seen_b1 && seen_b2,
             "both healthy builders must be selected over time"
         );
+    }
+
+    // ── select_by_pressure tests ─────────────────────────────────────
+
+    fn capped_pool() -> Vec<BuilderEndpoint> {
+        vec![
+            BuilderEndpoint {
+                node_id: "small".to_string(),
+                url: "http://a:9090".to_string(),
+                healthy: true,
+                capabilities: Some(CapabilityRequirements {
+                    cpu_cores: 4,
+                    ram_gb: 8,
+                    gpu: "iGPU".to_string(),
+                }),
+            },
+            BuilderEndpoint {
+                node_id: "big".to_string(),
+                url: "http://b:9090".to_string(),
+                healthy: true,
+                capabilities: Some(CapabilityRequirements {
+                    cpu_cores: 8,
+                    ram_gb: 16,
+                    gpu: "dGPU".to_string(),
+                }),
+            },
+        ]
+    }
+
+    fn reading(node_id: &str, in_flight: u64, load: f64) -> CapacityReading {
+        CapacityReading {
+            node_id: node_id.to_string(),
+            in_flight,
+            load_average_1m: load,
+        }
+    }
+
+    #[test]
+    fn pressure_routes_to_idle_over_busy() {
+        let pool = capped_pool();
+        let readings = vec![reading("small", 4, 3.0), reading("big", 0, 0.2)];
+        let selected = select_by_pressure(&pool, &readings);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("big"));
+    }
+
+    #[test]
+    fn pressure_normalizes_by_declared_cpus() {
+        // Same absolute load, but the big machine carries it per core.
+        let pool = capped_pool();
+        let readings = vec![reading("small", 2, 2.0), reading("big", 4, 4.0)];
+        // small: (2+2)/4 = 1.0, big: (4+4)/8 = 1.0 → tie keeps first.
+        let selected = select_by_pressure(&pool, &readings);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("small"));
+        // One more unit on small tips the flow to big.
+        let readings = vec![reading("small", 3, 2.0), reading("big", 4, 4.0)];
+        let selected = select_by_pressure(&pool, &readings);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("big"));
+    }
+
+    #[test]
+    fn pressure_excludes_unhealthy_even_when_idle() {
+        let mut pool = capped_pool();
+        pool[1].healthy = false;
+        let readings = vec![reading("small", 9, 9.0), reading("big", 0, 0.0)];
+        let selected = select_by_pressure(&pool, &readings);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("small"));
+    }
+
+    #[test]
+    fn pressure_none_when_all_unhealthy() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "down".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: false,
+            capabilities: None,
+        }];
+        assert!(select_by_pressure(&pool, &[]).is_none());
+    }
+
+    #[test]
+    fn pressure_without_gauges_falls_back_to_spread() {
+        let pool = two_healthy_pool();
+        let mut seen_b1 = false;
+        let mut seen_b2 = false;
+        for _ in 0..200 {
+            match select_by_pressure(&pool, &[]).map(|s| s.node_id) {
+                Some(id) if id == "b1" => seen_b1 = true,
+                Some(id) if id == "b2" => seen_b2 = true,
+                other => panic!("unexpected selection: {other:?}"),
+            }
+            if seen_b1 && seen_b2 {
+                break;
+            }
+        }
+        assert!(
+            seen_b1 && seen_b2,
+            "old binaries without gauges must still share via legacy spread"
+        );
+    }
+
+    #[test]
+    fn unreadable_never_wins_against_a_gauge() {
+        let pool = capped_pool();
+        // Only small reports; big stays silent.
+        let readings = vec![reading("small", 6, 6.0)];
+        let selected = select_by_pressure(&pool, &readings);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("small"));
     }
 
     // ── health_check tests ──────────────────────────────────────────────

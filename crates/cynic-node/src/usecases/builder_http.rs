@@ -118,6 +118,7 @@ pub fn app(
     Router::new()
         .route("/health", get(health))
         .route("/status", get(status))
+        .route("/capacity", get(capacity))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
@@ -363,6 +364,32 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
         "total_recorded_events": counter.total_events(),
     }))
+}
+
+/// Live pressure gauge for data-centric placement.
+///
+/// Serves what only this node knows: how many workloads are in flight
+/// right now and the 1-minute load average. Declared capacity (cpu,
+/// ram) lives in the registry the client already reads — the client
+/// joins both sides into pressure = (in_flight + load) / capacity and
+/// routes to the lowest gauge. No gauge, no flow: store errors fail
+/// closed with 503 so the client treats this node as unreadable.
+async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    let active = state
+        .store
+        .active_records()
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    let in_flight = active
+        .iter()
+        .filter(|record| !record.state.terminal())
+        .count() as u64;
+    let load_average_1m = sysinfo::System::load_average().one;
+    Ok(Json(serde_json::json!({
+        "schema": "cynic.builder.capacity.v1",
+        "node_id": state.config.node_id,
+        "in_flight": in_flight,
+        "load_average_1m": load_average_1m,
+    })))
 }
 
 async fn get_proof(
