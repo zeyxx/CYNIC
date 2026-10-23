@@ -29,6 +29,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 - **Forbidden**: `git add -A` and `git add .` are strictly prohibited. Stage explicit paths only.
 - **Commit identity**: `-c user.name=<agent-id> -c user.email=<agent>@agent.local`.
 - **Branches**: Work on `agent/<name>/<scope>`; never push to `main` directly.
+- **Sovereign merges**: Forgejo is the sovereign store, GitHub the public projection. Merge only via `cynic source pr merge` on the sovereign side; never `gh pr merge` (it writes to the projection and splits the line — 2026-10-23). The hourly drift watch pages on divergence; converge before any further merge.
 - **Claims**: Scope claim before mutation; release with proof reference.
 
 ## Language
