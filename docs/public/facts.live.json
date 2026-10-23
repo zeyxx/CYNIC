@@ -1,0 +1,1451 @@
+{
+  "schema": "cynic.facts.live.v1",
+  "generated_at": "2026-10-23T11:10:37Z",
+  "identity": {
+    "full_name": "Titouan Corneloup",
+    "handle": "zeyxx",
+    "github_login": "zeyxx",
+    "email": "titouan.corneloup@protonmail.com",
+    "location": "Paris / Île-de-France",
+    "headline_fr": "Architecte Systèmes Souverains & Orchestrateur d'Agents IA — R&D Autodidacte",
+    "headline_en": "Sovereign Systems Architect & AI Agent Orchestrator — Self-Taught R&D",
+    "summary_fr": "Autodidacte. Je ne code plus manuellement depuis plusieurs années : je conçois, spécifie, arbitre et relis des systèmes produits par des agents de codage LLM. Discipline de preuve appliquée à chaque mutation : ce que je n'ai pas écrit n'est pas revendiqué. CYNIC (44 crates Rust, >400k LOC) est le laboratoire de cette méthode.",
+    "summary_en": "Self-taught systems architect. I no longer write code manually: I design, specify, arbitrate, and review systems produced by LLM coding agents. Strict proof discipline applied to every mutation: what I did not write, I do not claim. CYNIC (44 Rust crates, >400k LOC) is the living laboratory of this method.",
+    "disclosure_fr": "Déclaration de mode de développement : le candidat orchestre des systèmes complexes via des agents de codage IA (Claude Code, Gemini, Codex, Hermes) guidés par des spécifications formelles, des contrats machine-readable et des invariants d'architecture exécutables. Seul Python a été écrit à la main dans les premières années (2023-2024). Rust, TypeScript, Go et Solidity sont pilotés conceptuellement avec preuve de relecture.",
+    "disclosure_en": "Development Mode Disclosure: The author architects and orchestrates complex distributed systems through AI coding agents (Claude Code, Gemini, Codex, Hermes) guided by formal specifications, machine-readable contracts, and executable architecture boundaries. Only Python was authored by hand in early years (2023-2024). Rust, TypeScript, Go, and Solidity are conceptually driven with strict verification and read-back proofs.",
+    "links": {
+      "github": "https://github.com/zeyxx",
+      "github_cynic": "https://github.com/zeyxx/CYNIC",
+      "linkedin": "https://linkedin.com/in/titouancorneloup/"
+    }
+  },
+  "summary_metrics": {
+    "github_repos": 35,
+    "arch_boundaries": 44,
+    "external_prs": 26,
+    "typed_commits": 3535,
+    "external_ecosystems": 9,
+    "cynic_crates": 41,
+    "external_issues": 5,
+    "contracts": 38,
+    "total_commits": 4582,
+    "test_attributes": 4565,
+    "total_prs": 453,
+    "active_days": 181,
+    "cynic_loc": 388421,
+    "git_add_all_violations": 0,
+    "markdown_docs": 272
+  },
+  "claims": [
+    {
+      "id": "cynic.zero_git_add_all",
+      "category": "hygiene",
+      "statement": "Strict hygienic staging: zero commits in history use untracked 'git add -A' or 'git add .'",
+      "status": "demonstrated",
+      "evidence": "git log commit subjects",
+      "verify_command": "git log --format='%s' | grep -ciE 'add -A|add \\.$'",
+      "numeric_value": 0,
+      "unit": "violations"
+    },
+    {
+      "id": "cynic.workspace_crates",
+      "category": "architecture",
+      "statement": "CYNIC workspace contains 41 modular crates adhering to strict downward DAG topology",
+      "status": "demonstrated",
+      "evidence": "Cargo.toml workspace & infra/crate-topology.json",
+      "verify_command": "ls crates | wc -l",
+      "numeric_value": 41,
+      "unit": "crates"
+    },
+    {
+      "id": "cynic.total_loc_rust",
+      "category": "code_volume",
+      "statement": "CYNIC substrate volume comprises 388421 physical lines of Rust",
+      "status": "demonstrated",
+      "evidence": "git ls-files '*.rs'",
+      "verify_command": "git ls-files '*.rs' | xargs cat | wc -l",
+      "numeric_value": 388421,
+      "unit": "LOC"
+    },
+    {
+      "id": "cynic.arch_boundaries",
+      "category": "architecture",
+      "statement": "100% of workspace crates enforce executable architecture boundary tests forbidding illegal upward dependencies",
+      "status": "demonstrated",
+      "evidence": "tests/architecture_boundary.rs across crates",
+      "verify_command": "git ls-files | grep -c 'architecture_boundary.rs$'",
+      "numeric_value": 44,
+      "unit": "tests"
+    },
+    {
+      "id": "cynic.machine_contracts",
+      "category": "architecture",
+      "statement": "Runtime authority governed by 38 machine-readable normative JSON contracts",
+      "status": "demonstrated",
+      "evidence": "contracts/*.json",
+      "verify_command": "ls contracts/*.json | wc -l",
+      "numeric_value": 38,
+      "unit": "contracts"
+    },
+    {
+      "id": "author.github_repos",
+      "category": "provenance",
+      "statement": "Track record spans 35 public and private repositories across 4 distinct evolutionary eras",
+      "status": "demonstrated",
+      "evidence": "GitHub API @zeyxx / infra/repos-zeyxx-github.json",
+      "verify_command": "gh repo list zeyxx --limit 100 --json name | jq length",
+      "numeric_value": 35,
+      "unit": "repos"
+    },
+    {
+      "id": "author.external_security_bounties",
+      "category": "competence",
+      "statement": "Discovered and submitted 4 critical smart contract vulnerabilities and price manipulation exploits (Anatoly Yakovenko / Percolator Bounties 5 & 6, 100,000,000x price manipulation PoC)",
+      "status": "demonstrated",
+      "evidence": "aeyakovenko/percolator-prog#110, percolator-cli#79, percolator#63, percolator-cli#80",
+      "verify_command": "jq '.external_issues[] | select(.repository.nameWithOwner | contains(\"aeyakovenko\"))' infra/github-interactions-graph.json",
+      "numeric_value": 4,
+      "unit": "bounties/exploits"
+    },
+    {
+      "id": "author.upstream_compiler_bug",
+      "category": "competence",
+      "statement": "Discovered and documented upstream compiler SIGSEGV crash in rustc 1.95.0 LLVM FastISel code generation",
+      "status": "demonstrated",
+      "evidence": "rust-lang/rust#156563",
+      "verify_command": "jq '.external_issues[] | select(.repository.nameWithOwner == \"rust-lang/rust\")' infra/github-interactions-graph.json",
+      "numeric_value": 1,
+      "unit": "compiler bug"
+    },
+    {
+      "id": "author.external_ecosystems",
+      "category": "provenance",
+      "statement": "Contributed across 9 external ecosystems spanning 26 external Pull Requests and 5 critical upstream issues",
+      "status": "demonstrated",
+      "evidence": "GitHub API @zeyxx / infra/github-interactions-graph.json",
+      "verify_command": "jq '.summary.external_ecosystems | length' infra/github-interactions-graph.json",
+      "numeric_value": 9,
+      "unit": "ecosystems"
+    },
+    {
+      "id": "cynic.zero_io_core",
+      "category": "architecture",
+      "statement": "Functional Core / Imperative Shell (FCIS): pure domain logic isolated from I/O ports",
+      "status": "implemented",
+      "evidence": "Domain modules compile without async runtimes or network dependencies",
+      "verify_command": "cynic audit crate --json",
+      "numeric_value": null,
+      "unit": null
+    },
+    {
+      "id": "cynic.kani_model_checking",
+      "category": "architecture",
+      "statement": "Kani formal verification proofs for consensus invariants in cynic-node",
+      "status": "partial",
+      "evidence": "crates/cynic-node/src/verification.rs (present in source, not replayed in standard CI)",
+      "verify_command": null,
+      "numeric_value": null,
+      "unit": null
+    }
+  ],
+  "repos": [
+    {
+      "name": "CYNIC",
+      "description": "Sovereign low-layer Rust runtime, epistemic consensus, and multi-agent coordination organism",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-02-23T15:58:55Z",
+      "pushed_at": "2026-10-23T09:04:41Z",
+      "primary_language": "Rust",
+      "era": "sovereign_rust",
+      "domain": "systems",
+      "url": "https://github.com/zeyxx/CYNIC"
+    },
+    {
+      "name": "hermes-antigravity",
+      "description": "Google Antigravity / Cloud Code Assist inference provider plugin for Hermes Agent",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-09-05T12:35:29Z",
+      "pushed_at": "2026-10-22T12:58:31Z",
+      "primary_language": "Python",
+      "era": "sovereign_rust",
+      "domain": "ai_agents",
+      "url": "https://github.com/zeyxx/hermes-antigravity"
+    },
+    {
+      "name": "GASdf",
+      "description": "GASdf - pay fees in shitcoins. Powered by $ASDFASDFA.",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-12-24T18:11:58Z",
+      "pushed_at": "2026-10-19T00:06:03Z",
+      "primary_language": "JavaScript",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/GASdf"
+    },
+    {
+      "name": "hermes-agent",
+      "description": "The agent that grows with you",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "NousResearch/hermes-agent",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-10-06T00:35:47Z",
+      "pushed_at": "2026-10-14T09:43:00Z",
+      "primary_language": "Python",
+      "era": "sovereign_rust",
+      "domain": "ai_agents",
+      "url": "https://github.com/zeyxx/hermes-agent"
+    },
+    {
+      "name": "hermes-utls-parity",
+      "description": "Local TLS/HTTP2 fingerprint parity research lab (loopback-only, never contacts Google). Extracted from hermes-antigravity.",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-10-12T12:26:09Z",
+      "pushed_at": "2026-10-12T12:26:43Z",
+      "primary_language": "Go",
+      "era": "sovereign_rust",
+      "domain": "infra",
+      "url": "https://github.com/zeyxx/hermes-utls-parity"
+    },
+    {
+      "name": "cynic-skills",
+      "description": "Agent Skills for CYNIC — the cynical dog that judges everything. 36-dimension scoring, burn analysis, philosophical wisdom. φ-bounded at 61.8%.",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-02-09T21:36:09Z",
+      "pushed_at": "2026-09-05T15:00:43Z",
+      "primary_language": null,
+      "era": "sovereign_rust",
+      "domain": "ai_agents",
+      "url": "https://github.com/zeyxx/cynic-skills"
+    },
+    {
+      "name": "zeyxx",
+      "description": "Cybersecurity & Systems Engineering | Autonomous AI Agents, Rust, Protocol Security",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-12-21T03:20:37Z",
+      "pushed_at": "2026-09-05T13:07:03Z",
+      "primary_language": null,
+      "era": "solana_trench",
+      "domain": "infra",
+      "url": "https://github.com/zeyxx/zeyxx"
+    },
+    {
+      "name": "privacy-ethereum-framework",
+      "description": "",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-08-04T17:20:59Z",
+      "pushed_at": "2026-08-27T19:59:27Z",
+      "primary_language": "Python",
+      "era": "sovereign_rust",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/privacy-ethereum-framework"
+    },
+    {
+      "name": "KAIROS",
+      "description": "KAIROS — autonomous trading agent for Solana memecoins + Hyperliquid perps",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-03-10T18:38:41Z",
+      "pushed_at": "2026-06-09T19:10:28Z",
+      "primary_language": "Python",
+      "era": "sovereign_rust",
+      "domain": "market_intel",
+      "url": "https://github.com/zeyxx/KAIROS"
+    },
+    {
+      "name": "blitz-and-chill",
+      "description": "Blitz & Chill — Social chess, mobile-first, play with friends for stakes",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": null,
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-06-02T14:14:13Z",
+      "pushed_at": "2026-06-06T14:28:20Z",
+      "primary_language": "TypeScript",
+      "era": "sovereign_rust",
+      "domain": "market_intel",
+      "url": "https://github.com/zeyxx/blitz-and-chill"
+    },
+    {
+      "name": "CultScreener",
+      "description": "A utility to view true cults on Solana",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "sollama58/CultScreener",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-04-29T19:22:56Z",
+      "pushed_at": "2026-06-02T15:19:11Z",
+      "primary_language": "JavaScript",
+      "era": "sovereign_rust",
+      "domain": "market_intel",
+      "url": "https://github.com/zeyxx/CultScreener"
+    },
+    {
+      "name": "percolator-prog",
+      "description": "",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "aeyakovenko/percolator-prog",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-06-02T10:38:23Z",
+      "pushed_at": "2026-06-02T01:55:12Z",
+      "primary_language": "Rust",
+      "era": "sovereign_rust",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/percolator-prog"
+    },
+    {
+      "name": "percolator-cli",
+      "description": "",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "aeyakovenko/percolator-cli",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-05-27T18:45:23Z",
+      "pushed_at": "2026-05-27T18:45:26Z",
+      "primary_language": "TypeScript",
+      "era": "sovereign_rust",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/percolator-cli"
+    },
+    {
+      "name": "kyon-android",
+      "description": "Aboie (KYON) — Android anti-spam app powered by CYNIC kernel",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-05-20T18:25:58Z",
+      "pushed_at": "2026-05-22T15:26:57Z",
+      "primary_language": "Kotlin",
+      "era": "sovereign_rust",
+      "domain": "systems",
+      "url": "https://github.com/zeyxx/kyon-android"
+    },
+    {
+      "name": "tailscale-mcp",
+      "description": "MCP server that turns your Tailscale network into an AI-native operations layer",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-03-12T18:20:57Z",
+      "pushed_at": "2026-03-12T18:21:33Z",
+      "primary_language": "Go",
+      "era": "sovereign_rust",
+      "domain": "ai_agents",
+      "url": "https://github.com/zeyxx/tailscale-mcp"
+    },
+    {
+      "name": "awesome-solana-ai",
+      "description": "Public repo of AI tooling to help build on Solana",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "solana-foundation/awesome-solana-ai",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-01-30T08:43:18Z",
+      "pushed_at": "2026-03-04T16:48:29Z",
+      "primary_language": null,
+      "era": "solana_trench",
+      "domain": "ai_agents",
+      "url": "https://github.com/zeyxx/awesome-solana-ai"
+    },
+    {
+      "name": "CYNIC-legacy",
+      "description": "κυνικός - Collective AI consciousness for Claude Code | Memory · Judgment · Patterns | φ distrusts φ",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-01-14T15:18:38Z",
+      "pushed_at": "2026-02-23T01:19:45Z",
+      "primary_language": "Python",
+      "era": "sovereign_rust",
+      "domain": "systems",
+      "url": "https://github.com/zeyxx/CYNIC-legacy"
+    },
+    {
+      "name": "HolDex",
+      "description": "An open-source DexScreener alternative, powered by ASDFASDFA",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "sollama58/HolDex",
+      "authorship": "contributed_fork",
+      "author_commits": 100,
+      "created_at": "2025-12-28T21:43:07Z",
+      "pushed_at": "2026-02-20T19:36:22Z",
+      "primary_language": "JavaScript",
+      "era": "solana_trench",
+      "domain": "market_intel",
+      "url": "https://github.com/zeyxx/HolDex"
+    },
+    {
+      "name": "upptime-gasdf",
+      "description": "Uptime monitoring & status page for GASdf | Powered by Upptime",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-01-03T02:25:50Z",
+      "pushed_at": "2026-02-07T19:36:25Z",
+      "primary_language": "JSON",
+      "era": "solana_trench",
+      "domain": "infra",
+      "url": "https://github.com/zeyxx/upptime-gasdf"
+    },
+    {
+      "name": "asdf-brain",
+      "description": "",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-01-08T02:24:27Z",
+      "pushed_at": "2026-02-07T01:22:25Z",
+      "primary_language": "JavaScript",
+      "era": "solana_trench",
+      "domain": "infra",
+      "url": "https://github.com/zeyxx/asdf-brain"
+    },
+    {
+      "name": "asdf-manifesto",
+      "description": "",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2026-01-06T17:31:26Z",
+      "pushed_at": "2026-01-09T15:29:29Z",
+      "primary_language": null,
+      "era": "solana_trench",
+      "domain": "infra",
+      "url": "https://github.com/zeyxx/asdf-manifesto"
+    },
+    {
+      "name": "claude-mem",
+      "description": "A Claude Code plugin that automatically captures everything Claude does during your coding sessions, compresses it with AI (using Claude's agent-sdk), and injects relevant context back into future sessions.",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "thedotmack/claude-mem",
+      "authorship": "contributed_fork",
+      "author_commits": 3,
+      "created_at": "2026-01-07T22:51:38Z",
+      "pushed_at": "2026-01-07T23:40:09Z",
+      "primary_language": "TypeScript",
+      "era": "solana_trench",
+      "domain": "ai_agents",
+      "url": "https://github.com/zeyxx/claude-mem"
+    },
+    {
+      "name": "solana-keychain",
+      "description": "Framework-agnostic Solana transaction signing with multiple backends. Unified trait interface, async-first design, and feature-gated compilation for minimal dependencies.",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "solana-foundation/solana-keychain",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2026-01-04T00:47:42Z",
+      "pushed_at": "2026-01-04T00:55:14Z",
+      "primary_language": "TypeScript",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/solana-keychain"
+    },
+    {
+      "name": "asdf-oracle",
+      "description": "Real-time oracle dashboard for asdfasdfa",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-12-18T15:50:24Z",
+      "pushed_at": "2025-12-24T17:51:11Z",
+      "primary_language": "JavaScript",
+      "era": "solana_trench",
+      "domain": "market_intel",
+      "url": "https://github.com/zeyxx/asdf-oracle"
+    },
+    {
+      "name": "ASDev",
+      "description": "ASDev - A Pumpfun Launching Platform with built-in airdrop rewards.",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "sollama58/ASDev",
+      "authorship": "contributed_fork",
+      "author_commits": 17,
+      "created_at": "2025-12-09T17:43:40Z",
+      "pushed_at": "2025-12-21T20:39:10Z",
+      "primary_language": "JavaScript",
+      "era": "solana_trench",
+      "domain": "market_intel",
+      "url": "https://github.com/zeyxx/ASDev"
+    },
+    {
+      "name": "asdf-burn-engine",
+      "description": "",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-09-05T16:52:22Z",
+      "pushed_at": "2025-12-19T21:57:01Z",
+      "primary_language": "TypeScript",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/asdf-burn-engine"
+    },
+    {
+      "name": "asdf-validator",
+      "description": "Track creator fees for Pump.fun tokens.",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-12-06T17:44:01Z",
+      "pushed_at": "2025-12-11T22:53:05Z",
+      "primary_language": "TypeScript",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/asdf-validator"
+    },
+    {
+      "name": "asdf-vanity-grinder",
+      "description": "",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-12-09T16:03:57Z",
+      "pushed_at": "2025-12-11T22:37:35Z",
+      "primary_language": "Rust",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/asdf-vanity-grinder"
+    },
+    {
+      "name": "asdf-validator-lite",
+      "description": "Track creator fees for a single Pump.fun token with Proof-of-History",
+      "is_private": false,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-12-06T21:00:26Z",
+      "pushed_at": "2025-12-07T03:38:02Z",
+      "primary_language": "TypeScript",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/asdf-validator-lite"
+    },
+    {
+      "name": "ASDForecast",
+      "description": "Prediction market for Solana, built for ASDFASDFA. Fees towards ASDF BBB.",
+      "is_private": false,
+      "is_fork": true,
+      "parent_repo": "sollama58/ASDForecast",
+      "authorship": "upstream_audit",
+      "author_commits": 0,
+      "created_at": "2025-12-03T21:28:44Z",
+      "pushed_at": "2025-12-06T16:52:20Z",
+      "primary_language": "HTML",
+      "era": "solana_trench",
+      "domain": "blockchain",
+      "url": "https://github.com/zeyxx/ASDForecast"
+    },
+    {
+      "name": "mindcraft",
+      "description": "jeu de stratégie ",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-11-12T14:43:14Z",
+      "pushed_at": "2025-11-12T20:29:45Z",
+      "primary_language": "HTML",
+      "era": "offensive_pentest",
+      "domain": "data_ml",
+      "url": "https://github.com/zeyxx/mindcraft"
+    },
+    {
+      "name": "sieve-app",
+      "description": "",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-11-11T18:40:35Z",
+      "pushed_at": "2025-11-11T20:11:08Z",
+      "primary_language": "TypeScript",
+      "era": "offensive_pentest",
+      "domain": "data_ml",
+      "url": "https://github.com/zeyxx/sieve-app"
+    },
+    {
+      "name": "EfficazPentest",
+      "description": "",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2025-10-21T21:27:45Z",
+      "pushed_at": "2025-10-21T22:57:40Z",
+      "primary_language": "Python",
+      "era": "offensive_pentest",
+      "domain": "security",
+      "url": "https://github.com/zeyxx/EfficazPentest"
+    },
+    {
+      "name": "aquarium",
+      "description": "Projet NSI n°2",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2024-01-15T17:50:15Z",
+      "pushed_at": "2024-01-15T17:50:42Z",
+      "primary_language": "Python",
+      "era": "nsi_awakening",
+      "domain": "data_ml",
+      "url": "https://github.com/zeyxx/aquarium"
+    },
+    {
+      "name": "NASA-Apis",
+      "description": "Projet NSI n°1",
+      "is_private": true,
+      "is_fork": false,
+      "parent_repo": null,
+      "authorship": "original",
+      "author_commits": 1,
+      "created_at": "2023-11-26T14:49:30Z",
+      "pushed_at": "2024-01-15T17:37:01Z",
+      "primary_language": "Python",
+      "era": "nsi_awakening",
+      "domain": "data_ml",
+      "url": "https://github.com/zeyxx/NASA-Apis"
+    }
+  ],
+  "skills": [
+    {
+      "id": "ai_agents",
+      "label_fr": "Outillage IA et agents",
+      "label_en": "AI Tooling & Multi-Agent Orchestration",
+      "basis": "exercised",
+      "depth": "in_progress",
+      "domain": "ai_agents",
+      "note_fr": "Compétence exercée directement : orchestration d'agents sans agent dans la boucle.",
+      "note_en": "Primary exercised skill: directing coding agents, prompt architectures, and consensus loops.",
+      "items_fr": [
+        {
+          "text": "Orchestration d'agents de codage (Claude Code, Gemini, Codex, Hermes)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Conception de protocoles d'agents (claims, leases, preuve par relecture)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Rédaction de spécifications et contrats machine-readable",
+          "basis": "exercised"
+        },
+        {
+          "text": "Model Context Protocol (MCP)",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Orchestration of coding agents (Claude Code, Gemini, Codex, Hermes)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Agent protocol design (claims, leases, read-back proofs)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Writing specifications and machine-readable contracts",
+          "basis": "exercised"
+        },
+        {
+          "text": "Model Context Protocol (MCP)",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "systems",
+      "label_fr": "Systèmes bas-niveau",
+      "label_en": "Low-Layer Systems & Consensus",
+      "basis": "understood",
+      "depth": "anchored",
+      "domain": "systems",
+      "note_fr": "Cœur du socle CYNIC : autorisation, isolation, consensus.",
+      "note_en": "Core of CYNIC substrate: authorization, isolation, state machine replication.",
+      "items_fr": [
+        {
+          "text": "Linux (cgroups, PSI, /proc)",
+          "basis": "understood"
+        },
+        {
+          "text": "Machine à états répliquée (SMR)",
+          "basis": "understood"
+        },
+        {
+          "text": "Conception de systèmes distribués",
+          "basis": "understood"
+        },
+        {
+          "text": "Isolation de processus (LXC/QEMU)",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Linux internals (cgroups, PSI, /proc)",
+          "basis": "understood"
+        },
+        {
+          "text": "State Machine Replication (SMR)",
+          "basis": "understood"
+        },
+        {
+          "text": "Distributed systems design",
+          "basis": "understood"
+        },
+        {
+          "text": "Process isolation (LXC/QEMU)",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "rust",
+      "label_fr": "Rust",
+      "label_en": "Rust Architecture & Invariants",
+      "basis": "understood",
+      "depth": "anchored",
+      "domain": "systems",
+      "note_fr": "Architecture de 44 crates, zéro-I/O domain, ports et adaptateurs.",
+      "note_en": "44-crate workspace architecture, pure zero-I/O domain core, ports & adapters.",
+      "items_fr": [
+        {
+          "text": "Crates et workspaces modulaires",
+          "basis": "understood"
+        },
+        {
+          "text": "Ports et adaptateurs (DAG strict)",
+          "basis": "understood"
+        },
+        {
+          "text": "Cœur domaine zéro-I/O (FCIS)",
+          "basis": "understood"
+        },
+        {
+          "text": "Tests d'architecture exécutables",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Modular crates and workspace topology",
+          "basis": "understood"
+        },
+        {
+          "text": "Strict downward DAG ports and adapters",
+          "basis": "understood"
+        },
+        {
+          "text": "Zero-I/O domain core (FCIS)",
+          "basis": "understood"
+        },
+        {
+          "text": "Executable architecture boundary tests",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "blockchain",
+      "label_fr": "Blockchain & Protocoles",
+      "label_en": "Blockchain & Protocol Engineering",
+      "basis": "understood",
+      "depth": "anchored",
+      "domain": "blockchain",
+      "note_fr": "Solana / SPL, Ethereum EVM, mécanismes de confidentialité (mixers, pools).",
+      "note_en": "Solana / SPL, Ethereum EVM, privacy mechanisms, on-chain fee relays.",
+      "items_fr": [
+        {
+          "text": "Solana / SPL & transactions sans gaz (GASdf)",
+          "basis": "understood"
+        },
+        {
+          "text": "Ethereum / EVM, devnet Kurtosis (PEF)",
+          "basis": "understood"
+        },
+        {
+          "text": "Mécanismes de confidentialité (mixers, Dandelion)",
+          "basis": "understood"
+        },
+        {
+          "text": "Oracles et frais on-chain",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Solana / SPL & gasless relay (GASdf)",
+          "basis": "understood"
+        },
+        {
+          "text": "Ethereum / EVM, Kurtosis devnets (PEF)",
+          "basis": "understood"
+        },
+        {
+          "text": "Privacy mechanisms (mixers, Dandelion pools)",
+          "basis": "understood"
+        },
+        {
+          "text": "On-chain oracles and fee markets",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "label_fr": "Infrastructure et opérations",
+      "label_en": "Infrastructure & Sovereign DevOps",
+      "basis": "understood",
+      "depth": null,
+      "domain": "infra",
+      "note_fr": "Maillage WireGuard, Proxmox LXC, GitOps, DNS déterministe.",
+      "note_en": "WireGuard mesh, Proxmox LXC virtualization, GitOps release gates.",
+      "items_fr": [
+        {
+          "text": "Maillage WireGuard / Headscale",
+          "basis": "understood"
+        },
+        {
+          "text": "Proxmox / LXC & QEMU",
+          "basis": "understood"
+        },
+        {
+          "text": "systemd et supervision de daemons",
+          "basis": "understood"
+        },
+        {
+          "text": "Forgejo auto-hébergé & CI hermétique",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "WireGuard / Headscale mesh networking",
+          "basis": "understood"
+        },
+        {
+          "text": "Proxmox / LXC & QEMU virtualization",
+          "basis": "understood"
+        },
+        {
+          "text": "systemd daemon supervision",
+          "basis": "understood"
+        },
+        {
+          "text": "Self-hosted Forgejo & hermetic CI",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "languages",
+      "label_fr": "Langages",
+      "label_en": "Programming Languages",
+      "basis": "exposition",
+      "depth": null,
+      "domain": "systems",
+      "note_fr": "Python écrit à la main ; Rust, TS et Bash pilotés par agents ; Kotlin, Solidity et Go en exposition.",
+      "note_en": "Python authored by hand; Rust, TS, Bash agent-steered; Kotlin, Solidity, Go surveyed.",
+      "items_fr": [
+        {
+          "text": "Python — écrit à la main (2023-2024)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Rust — piloté conceptuellement via agents",
+          "basis": "understood"
+        },
+        {
+          "text": "TypeScript / JavaScript — piloté via agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Bash / Shell — piloté via agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Go, Solidity, Kotlin — exposition mesurée",
+          "basis": "exposition"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Python — authored by hand (2023-2024)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Rust — conceptually driven through agents",
+          "basis": "understood"
+        },
+        {
+          "text": "TypeScript / JavaScript — driven through agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Bash / Shell — driven through agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Go, Solidity, Kotlin — surveyed exposure",
+          "basis": "exposition"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "date": "2026-03-14",
+      "title": "Gemini 3 Paris Hackathon (Cerebral Valley)",
+      "description_fr": "Démonstration du prototype CYNIC (premier commit 4 jours plus tôt) : moteur de jugement épistémique trait Dog + Judge borné à φ⁻¹ = 61.8% sur des positions d'échecs.",
+      "description_en": "Demonstrated early CYNIC prototype (committed 4 days prior): epistemic judgment engine Dog + Judge trait bounded at φ⁻¹ = 61.8% on chess positions.",
+      "proof_reference": "CYNIC@2affadd8:HACKATHON-RULES.md"
+    },
+    {
+      "date": "2026-06-18",
+      "title": "VivaTech Paris (10e édition)",
+      "description_fr": "Pitch de CYNIC comme organisme d'arbitrage autonome pour agents LLM.",
+      "description_en": "Pitching CYNIC as an autonomous arbitration organism for LLM agents.",
+      "proof_reference": "CYNIC@8575ee61:docs/vivatech_2026_pitch_cynic.md"
+    },
+    {
+      "date": "2026-10-13",
+      "title": "NVIDIA Paris Sovereign AI Session",
+      "description_fr": "Présentation des architectures d'inférence locale et de distillation de micro-modèles.",
+      "description_en": "Presentation of local inference and micro-model distillation architectures.",
+      "proof_reference": "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_FR.md:377"
+    }
+  ],
+  "interactions": {
+    "schema": "cynic.interactions_graph.v1",
+    "total_prs": 453,
+    "external_prs": 26,
+    "internal_prs": 427,
+    "total_issues": 8,
+    "external_issues": 5,
+    "internal_issues": 3,
+    "external_ecosystems": [
+      "NousResearch",
+      "aeyakovenko",
+      "sollama58",
+      "thedotmack",
+      "solana-foundation",
+      "Ragnar-no-sleep",
+      "rust-lang",
+      "kilyaaan",
+      "Ihceen"
+    ],
+    "items": [
+      {
+        "repository": "NousResearch/hermes-agent",
+        "number": 137941,
+        "title": "catalog: add antigravity (native direct-API provider, v1.5.0)",
+        "state": "closed",
+        "url": "https://github.com/NousResearch/hermes-agent/pull/137941",
+        "created_at": "2026-10-13T17:58:06Z",
+        "closed_at": "2026-10-14T05:50:11Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Antigravity direct-API provider integration & OAuth plugin API"
+      },
+      {
+        "repository": "NousResearch/hermes-agent",
+        "number": 137309,
+        "title": "catalog: add antigravity (native direct-API provider, v1.5.0)",
+        "state": "closed",
+        "url": "https://github.com/NousResearch/hermes-agent/pull/137309",
+        "created_at": "2026-10-12T17:58:09Z",
+        "closed_at": "2026-10-13T09:54:27Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Antigravity direct-API provider integration & OAuth plugin API"
+      },
+      {
+        "repository": "NousResearch/hermes-agent",
+        "number": 133591,
+        "title": "catalog: add antigravity (native direct-API Antigravity provider)",
+        "state": "closed",
+        "url": "https://github.com/NousResearch/hermes-agent/pull/133591",
+        "created_at": "2026-10-06T00:36:27Z",
+        "closed_at": "2026-10-06T06:30:24Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Antigravity direct-API provider integration & OAuth plugin API"
+      },
+      {
+        "repository": "Ihceen/privacy-ethereum-framework",
+        "number": 2,
+        "title": "feat(titouan): industrial + Sybil joint (draft — do not merge main yet)",
+        "state": "open",
+        "url": "https://github.com/Ihceen/privacy-ethereum-framework/pull/2",
+        "created_at": "2026-07-17T14:16:57Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Industrial Groth16 defenses & threat prisms on EVM devnets"
+      },
+      {
+        "repository": "Ihceen/privacy-ethereum-framework",
+        "number": 1,
+        "title": "feat: industrial defenses (strict groth16, P1–P3) + threat prisms",
+        "state": "merged",
+        "url": "https://github.com/Ihceen/privacy-ethereum-framework/pull/1",
+        "created_at": "2026-07-17T14:14:15Z",
+        "closed_at": "2026-07-17T14:16:44Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Industrial Groth16 defenses & threat prisms on EVM devnets"
+      },
+      {
+        "repository": "Ragnar-no-sleep/blitz-and-chill",
+        "number": 16,
+        "title": "Integrate Talaria PoH gateway on current solo QR base",
+        "state": "closed",
+        "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/16",
+        "created_at": "2026-06-07T00:21:38Z",
+        "closed_at": "2026-06-17T19:23:40Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "PoIH gateway, CYNIC /observe integration"
+      },
+      {
+        "repository": "Ragnar-no-sleep/blitz-and-chill",
+        "number": 12,
+        "title": "feat(cynic): PoIH bridge — game_completion -> CYNIC /observe",
+        "state": "closed",
+        "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/12",
+        "created_at": "2026-06-03T10:36:40Z",
+        "closed_at": "2026-06-06T09:39:07Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "PoIH gateway, CYNIC /observe integration"
+      },
+      {
+        "repository": "Ragnar-no-sleep/blitz-and-chill",
+        "number": 11,
+        "title": "feat(poh): /api/verify — wallet → PoH check for SOL raffle integration",
+        "state": "closed",
+        "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/11",
+        "created_at": "2026-06-02T21:14:42Z",
+        "closed_at": "2026-06-06T09:39:07Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "PoIH gateway, CYNIC /observe integration"
+      },
+      {
+        "repository": "sollama58/CultScreener",
+        "number": 5,
+        "title": "feat(holderBehavior): add CYNIC behavioral signals — accumulatorRatio + organicGrowth",
+        "state": "open",
+        "url": "https://github.com/sollama58/CultScreener/pull/5",
+        "created_at": "2026-06-02T15:19:43Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "CYNIC behavioral signals, rich dynamic embeds, lottery system"
+      },
+      {
+        "repository": "Ragnar-no-sleep/blitz-and-chill",
+        "number": 10,
+        "title": "feat(poh): rejection labeling — K15 glaive + HMAC ip hash + threat model",
+        "state": "closed",
+        "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/10",
+        "created_at": "2026-06-02T14:20:12Z",
+        "closed_at": "2026-06-17T19:27:33Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "PoIH gateway, CYNIC /observe integration"
+      },
+      {
+        "repository": "aeyakovenko/percolator-cli",
+        "number": 80,
+        "title": "[PoC] Bounty 6: Bankrupt-Recycling Exploit",
+        "state": "closed",
+        "url": "https://github.com/aeyakovenko/percolator-cli/pull/80",
+        "created_at": "2026-05-27T18:45:27Z",
+        "closed_at": "2026-05-28T15:31:42Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "security_bounty",
+        "impact_note": "PoC Bounty 6 Bankrupt-Recycling Exploit"
+      },
+      {
+        "repository": "sollama58/CultScreener",
+        "number": 4,
+        "title": "feat: use @asdf-forge/constants for token mints",
+        "state": "open",
+        "url": "https://github.com/sollama58/CultScreener/pull/4",
+        "created_at": "2026-05-27T08:32:15Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "CYNIC behavioral signals, rich dynamic embeds, lottery system"
+      },
+      {
+        "repository": "sollama58/CultScreener",
+        "number": 3,
+        "title": "feat(share): rich embeds for X/Twitter + theme support",
+        "state": "open",
+        "url": "https://github.com/sollama58/CultScreener/pull/3",
+        "created_at": "2026-05-18T16:29:04Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "CYNIC behavioral signals, rich dynamic embeds, lottery system"
+      },
+      {
+        "repository": "sollama58/CultScreener",
+        "number": 2,
+        "title": "feat(share): rich dynamic embeds for X/Twitter with theme support",
+        "state": "closed",
+        "url": "https://github.com/sollama58/CultScreener/pull/2",
+        "created_at": "2026-05-16T09:57:42Z",
+        "closed_at": "2026-05-18T16:29:11Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "CYNIC behavioral signals, rich dynamic embeds, lottery system"
+      },
+      {
+        "repository": "sollama58/CultScreener",
+        "number": 1,
+        "title": "feat(share): enable rich dynamic embeds for X (Twitter) using sharp",
+        "state": "closed",
+        "url": "https://github.com/sollama58/CultScreener/pull/1",
+        "created_at": "2026-04-29T19:23:24Z",
+        "closed_at": "2026-05-16T10:01:31Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "CYNIC behavioral signals, rich dynamic embeds, lottery system"
+      },
+      {
+        "repository": "kilyaaan/polymarket-bot",
+        "number": 1,
+        "title": "feat: v6 Late Trend strategy + repo cleanup",
+        "state": "open",
+        "url": "https://github.com/kilyaaan/polymarket-bot/pull/1",
+        "created_at": "2026-04-18T12:17:05Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": null
+      },
+      {
+        "repository": "solana-foundation/awesome-solana-ai",
+        "number": 13,
+        "title": "Add CYNIC to AI Agents",
+        "state": "merged",
+        "url": "https://github.com/solana-foundation/awesome-solana-ai/pull/13",
+        "created_at": "2026-01-30T08:44:41Z",
+        "closed_at": "2026-03-04T16:48:37Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Official Solana Foundation registry of AI Agents"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 7,
+        "title": "fix(helius): Critical API credit explosion fix + Harmony v2.0 + Webhook improvements",
+        "state": "open",
+        "url": "https://github.com/sollama58/HolDex/pull/7",
+        "created_at": "2026-01-09T13:17:04Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 6,
+        "title": "chore: Add CI pipeline, tests, and latest features",
+        "state": "merged",
+        "url": "https://github.com/sollama58/HolDex/pull/6",
+        "created_at": "2026-01-08T18:24:46Z",
+        "closed_at": "2026-01-08T18:58:59Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 5,
+        "title": "feat: Distributed Node Network with Ed25519 Signatures (Clean)",
+        "state": "merged",
+        "url": "https://github.com/sollama58/HolDex/pull/5",
+        "created_at": "2026-01-08T16:05:43Z",
+        "closed_at": "2026-01-08T18:11:16Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "thedotmack/claude-mem",
+        "number": 608,
+        "title": "refactor: multi-project ChromaSync + fix: cleanup leaked SDK processes",
+        "state": "closed",
+        "url": "https://github.com/thedotmack/claude-mem/pull/608",
+        "created_at": "2026-01-07T23:02:12Z",
+        "closed_at": "2026-01-08T05:55:51Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Multi-project ChromaSync refactor & SDK process leak cleanup"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 4,
+        "title": "feat: Distributed Node Network with Ed25519 Signatures",
+        "state": "closed",
+        "url": "https://github.com/sollama58/HolDex/pull/4",
+        "created_at": "2026-01-07T22:29:49Z",
+        "closed_at": "2026-01-08T17:17:51Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 3,
+        "title": "feat: Distributed Node Network with Ed25519 Signatures",
+        "state": "closed",
+        "url": "https://github.com/sollama58/HolDex/pull/3",
+        "created_at": "2026-01-07T21:41:20Z",
+        "closed_at": "2026-01-08T02:20:10Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 2,
+        "title": "feat: K-Score v10 + Harmony E-Score + Security Hardening",
+        "state": "merged",
+        "url": "https://github.com/sollama58/HolDex/pull/2",
+        "created_at": "2025-12-31T01:14:59Z",
+        "closed_at": "2026-01-06T02:17:20Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "sollama58/HolDex",
+        "number": 1,
+        "title": "K-Score v8 + Credit Rating System",
+        "state": "merged",
+        "url": "https://github.com/sollama58/HolDex/pull/1",
+        "created_at": "2025-12-29T12:10:30Z",
+        "closed_at": "2025-12-30T23:50:56Z",
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "Distributed Node Network with Ed25519 Signatures, K-Score v8/v10, CI"
+      },
+      {
+        "repository": "sollama58/ASDForecast",
+        "number": 1,
+        "title": "feat: Add ASDF lottery system with activity requirement (v121.0)",
+        "state": "open",
+        "url": "https://github.com/sollama58/ASDForecast/pull/1",
+        "created_at": "2025-12-04T14:32:49Z",
+        "closed_at": null,
+        "is_pr": true,
+        "is_external": true,
+        "category": "partner_feature",
+        "impact_note": "CYNIC behavioral signals, rich dynamic embeds, lottery system"
+      },
+      {
+        "repository": "NousResearch/hermes-agent",
+        "number": 133512,
+        "title": "[Feature]: no public API for a plugin to register an external OAuth provider with hermes auth",
+        "state": "open",
+        "url": "https://github.com/NousResearch/hermes-agent/issues/133512",
+        "created_at": "2026-10-05T20:48:28Z",
+        "closed_at": null,
+        "is_pr": false,
+        "is_external": true,
+        "category": "protocol_contribution",
+        "impact_note": "Antigravity direct-API provider integration & OAuth plugin API"
+      },
+      {
+        "repository": "aeyakovenko/percolator-prog",
+        "number": 110,
+        "title": "CRITICAL: 100,000,000x Price Manipulation (Retire Flip) + 1000x Notional Understatement",
+        "state": "closed",
+        "url": "https://github.com/aeyakovenko/percolator-prog/issues/110",
+        "created_at": "2026-06-02T10:33:56Z",
+        "closed_at": "2026-06-04T00:45:48Z",
+        "is_pr": false,
+        "is_external": true,
+        "category": "security_bounty",
+        "impact_note": "CRITICAL: 100,000,000x Price Manipulation (Retire Flip) + 1000x Notional Understatement"
+      },
+      {
+        "repository": "aeyakovenko/percolator-cli",
+        "number": 79,
+        "title": "[Bounty 6] Bankrupt-Recycling via TradeNoCpi (Insurance Drain)",
+        "state": "closed",
+        "url": "https://github.com/aeyakovenko/percolator-cli/issues/79",
+        "created_at": "2026-05-27T18:38:01Z",
+        "closed_at": "2026-05-28T15:31:32Z",
+        "is_pr": false,
+        "is_external": true,
+        "category": "security_bounty",
+        "impact_note": "Bounty 6: Bankrupt-Recycling via TradeNoCpi (Insurance Drain)"
+      },
+      {
+        "repository": "aeyakovenko/percolator",
+        "number": 63,
+        "title": "Bounty-5: Phantom Fee Attack — Domain Budget Inflation via Discarded Fee Return Values",
+        "state": "closed",
+        "url": "https://github.com/aeyakovenko/percolator/issues/63",
+        "created_at": "2026-05-25T17:27:13Z",
+        "closed_at": "2026-05-26T13:09:11Z",
+        "is_pr": false,
+        "is_external": true,
+        "category": "security_bounty",
+        "impact_note": "Bounty-5: Phantom Fee Attack — Domain Budget Inflation via Discarded Fee Return Values"
+      },
+      {
+        "repository": "rust-lang/rust",
+        "number": 156563,
+        "title": "SIGSEGV in LLVM FastISel::selectInstruction with codegen-units=1 on rustc 1.95.0",
+        "state": "open",
+        "url": "https://github.com/rust-lang/rust/issues/156563",
+        "created_at": "2026-05-14T07:23:58Z",
+        "closed_at": null,
+        "is_pr": false,
+        "is_external": true,
+        "category": "compiler_bug",
+        "impact_note": "Upstream rustc 1.95.0 SIGSEGV in LLVM FastISel::selectInstruction with codegen-units=1"
+      },
+      {
+        "repository": "zeyxx/CYNIC",
+        "number": 376,
+        "title": "Proof hermeticity: shared target dir lets checkouts poison each other's fingerprints (mtime freshness)",
+        "state": "open",
+        "url": "https://github.com/zeyxx/CYNIC/issues/376",
+        "created_at": "2026-10-23T09:41:45Z",
+        "closed_at": null,
+        "is_pr": false,
+        "is_external": false,
+        "category": "internal_governance",
+        "impact_note": "CYNIC core runtime hermeticity & CI gating"
+      },
+      {
+        "repository": "zeyxx/CYNIC",
+        "number": 371,
+        "title": "CI: scope verification suites to changed crates (path-filtered gate)",
+        "state": "open",
+        "url": "https://github.com/zeyxx/CYNIC/issues/371",
+        "created_at": "2026-10-23T08:18:06Z",
+        "closed_at": null,
+        "is_pr": false,
+        "is_external": false,
+        "category": "internal_governance",
+        "impact_note": "CYNIC core runtime hermeticity & CI gating"
+      },
+      {
+        "repository": "zeyxx/hermes-antigravity",
+        "number": 5,
+        "title": "[Blocked] Secret Scanning détecte Client ID/Secret Google OAuth — nécessite déblocage pour push",
+        "state": "closed",
+        "url": "https://github.com/zeyxx/hermes-antigravity/issues/5",
+        "created_at": "2026-09-26T13:21:38Z",
+        "closed_at": "2026-10-05T16:50:59Z",
+        "is_pr": false,
+        "is_external": false,
+        "category": "internal_governance",
+        "impact_note": "CYNIC core runtime hermeticity & CI gating"
+      }
+    ]
+  }
+}

@@ -1,0 +1,732 @@
+{
+  "schema": "cynic.interactions_graph.v1",
+  "summary": {
+    "total_prs": 453,
+    "external_prs": 26,
+    "internal_prs": 427,
+    "total_issues": 8,
+    "external_issues": 5,
+    "internal_issues": 3,
+    "external_ecosystems": [
+      "NousResearch",
+      "aeyakovenko",
+      "sollama58",
+      "thedotmack",
+      "solana-foundation",
+      "Ragnar-no-sleep",
+      "rust-lang",
+      "kilyaaan",
+      "Ihceen"
+    ]
+  },
+  "external_prs": [
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-10-14T05:50:11Z",
+      "createdAt": "2026-10-13T17:58:06Z",
+      "number": 137941,
+      "repository": {
+        "name": "hermes-agent",
+        "nameWithOwner": "NousResearch/hermes-agent"
+      },
+      "state": "closed",
+      "title": "catalog: add antigravity (native direct-API provider, v1.5.0)",
+      "url": "https://github.com/NousResearch/hermes-agent/pull/137941"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-10-13T09:54:27Z",
+      "createdAt": "2026-10-12T17:58:09Z",
+      "number": 137309,
+      "repository": {
+        "name": "hermes-agent",
+        "nameWithOwner": "NousResearch/hermes-agent"
+      },
+      "state": "closed",
+      "title": "catalog: add antigravity (native direct-API provider, v1.5.0)",
+      "url": "https://github.com/NousResearch/hermes-agent/pull/137309"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-10-06T06:30:24Z",
+      "createdAt": "2026-10-06T00:36:27Z",
+      "number": 133591,
+      "repository": {
+        "name": "hermes-agent",
+        "nameWithOwner": "NousResearch/hermes-agent"
+      },
+      "state": "closed",
+      "title": "catalog: add antigravity (native direct-API Antigravity provider)",
+      "url": "https://github.com/NousResearch/hermes-agent/pull/133591"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-07-17T14:16:57Z",
+      "number": 2,
+      "repository": {
+        "name": "privacy-ethereum-framework",
+        "nameWithOwner": "Ihceen/privacy-ethereum-framework"
+      },
+      "state": "open",
+      "title": "feat(titouan): industrial + Sybil joint (draft \u2014 do not merge main yet)",
+      "url": "https://github.com/Ihceen/privacy-ethereum-framework/pull/2"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "2026-07-17T14:16:44Z",
+      "createdAt": "2026-07-17T14:14:15Z",
+      "number": 1,
+      "repository": {
+        "name": "privacy-ethereum-framework",
+        "nameWithOwner": "Ihceen/privacy-ethereum-framework"
+      },
+      "state": "merged",
+      "title": "feat: industrial defenses (strict groth16, P1\u2013P3) + threat prisms",
+      "url": "https://github.com/Ihceen/privacy-ethereum-framework/pull/1"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "2026-06-17T19:23:40Z",
+      "createdAt": "2026-06-07T00:21:38Z",
+      "number": 16,
+      "repository": {
+        "name": "blitz-and-chill",
+        "nameWithOwner": "Ragnar-no-sleep/blitz-and-chill"
+      },
+      "state": "closed",
+      "title": "Integrate Talaria PoH gateway on current solo QR base",
+      "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/16"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "2026-06-06T09:39:07Z",
+      "createdAt": "2026-06-03T10:36:40Z",
+      "number": 12,
+      "repository": {
+        "name": "blitz-and-chill",
+        "nameWithOwner": "Ragnar-no-sleep/blitz-and-chill"
+      },
+      "state": "closed",
+      "title": "feat(cynic): PoIH bridge \u2014 game_completion -> CYNIC /observe",
+      "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/12"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "2026-06-06T09:39:07Z",
+      "createdAt": "2026-06-02T21:14:42Z",
+      "number": 11,
+      "repository": {
+        "name": "blitz-and-chill",
+        "nameWithOwner": "Ragnar-no-sleep/blitz-and-chill"
+      },
+      "state": "closed",
+      "title": "feat(poh): /api/verify \u2014 wallet \u2192 PoH check for SOL raffle integration",
+      "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/11"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-06-02T15:19:43Z",
+      "number": 5,
+      "repository": {
+        "name": "CultScreener",
+        "nameWithOwner": "sollama58/CultScreener"
+      },
+      "state": "open",
+      "title": "feat(holderBehavior): add CYNIC behavioral signals \u2014 accumulatorRatio + organicGrowth",
+      "url": "https://github.com/sollama58/CultScreener/pull/5"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "2026-06-17T19:27:33Z",
+      "createdAt": "2026-06-02T14:20:12Z",
+      "number": 10,
+      "repository": {
+        "name": "blitz-and-chill",
+        "nameWithOwner": "Ragnar-no-sleep/blitz-and-chill"
+      },
+      "state": "closed",
+      "title": "feat(poh): rejection labeling \u2014 K15 glaive + HMAC ip hash + threat model",
+      "url": "https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/10"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-05-28T15:31:42Z",
+      "createdAt": "2026-05-27T18:45:27Z",
+      "number": 80,
+      "repository": {
+        "name": "percolator-cli",
+        "nameWithOwner": "aeyakovenko/percolator-cli"
+      },
+      "state": "closed",
+      "title": "[PoC] Bounty 6: Bankrupt-Recycling Exploit",
+      "url": "https://github.com/aeyakovenko/percolator-cli/pull/80"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-05-27T08:32:15Z",
+      "number": 4,
+      "repository": {
+        "name": "CultScreener",
+        "nameWithOwner": "sollama58/CultScreener"
+      },
+      "state": "open",
+      "title": "feat: use @asdf-forge/constants for token mints",
+      "url": "https://github.com/sollama58/CultScreener/pull/4"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-05-18T16:29:04Z",
+      "number": 3,
+      "repository": {
+        "name": "CultScreener",
+        "nameWithOwner": "sollama58/CultScreener"
+      },
+      "state": "open",
+      "title": "feat(share): rich embeds for X/Twitter + theme support",
+      "url": "https://github.com/sollama58/CultScreener/pull/3"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-05-18T16:29:11Z",
+      "createdAt": "2026-05-16T09:57:42Z",
+      "number": 2,
+      "repository": {
+        "name": "CultScreener",
+        "nameWithOwner": "sollama58/CultScreener"
+      },
+      "state": "closed",
+      "title": "feat(share): rich dynamic embeds for X/Twitter with theme support",
+      "url": "https://github.com/sollama58/CultScreener/pull/2"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-05-16T10:01:31Z",
+      "createdAt": "2026-04-29T19:23:24Z",
+      "number": 1,
+      "repository": {
+        "name": "CultScreener",
+        "nameWithOwner": "sollama58/CultScreener"
+      },
+      "state": "closed",
+      "title": "feat(share): enable rich dynamic embeds for X (Twitter) using sharp",
+      "url": "https://github.com/sollama58/CultScreener/pull/1"
+    },
+    {
+      "authorAssociation": "COLLABORATOR",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-04-18T12:17:05Z",
+      "number": 1,
+      "repository": {
+        "name": "polymarket-bot",
+        "nameWithOwner": "kilyaaan/polymarket-bot"
+      },
+      "state": "open",
+      "title": "feat: v6 Late Trend strategy + repo cleanup",
+      "url": "https://github.com/kilyaaan/polymarket-bot/pull/1"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2026-03-04T16:48:37Z",
+      "createdAt": "2026-01-30T08:44:41Z",
+      "number": 13,
+      "repository": {
+        "name": "awesome-solana-ai",
+        "nameWithOwner": "solana-foundation/awesome-solana-ai"
+      },
+      "state": "merged",
+      "title": "Add CYNIC to AI Agents",
+      "url": "https://github.com/solana-foundation/awesome-solana-ai/pull/13"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-01-09T13:17:04Z",
+      "number": 7,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "open",
+      "title": "fix(helius): Critical API credit explosion fix + Harmony v2.0 + Webhook improvements",
+      "url": "https://github.com/sollama58/HolDex/pull/7"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2026-01-08T18:58:59Z",
+      "createdAt": "2026-01-08T18:24:46Z",
+      "number": 6,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "merged",
+      "title": "chore: Add CI pipeline, tests, and latest features",
+      "url": "https://github.com/sollama58/HolDex/pull/6"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2026-01-08T18:11:16Z",
+      "createdAt": "2026-01-08T16:05:43Z",
+      "number": 5,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "merged",
+      "title": "feat: Distributed Node Network with Ed25519 Signatures (Clean)",
+      "url": "https://github.com/sollama58/HolDex/pull/5"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-01-08T05:55:51Z",
+      "createdAt": "2026-01-07T23:02:12Z",
+      "number": 608,
+      "repository": {
+        "name": "claude-mem",
+        "nameWithOwner": "thedotmack/claude-mem"
+      },
+      "state": "closed",
+      "title": "refactor: multi-project ChromaSync + fix: cleanup leaked SDK processes",
+      "url": "https://github.com/thedotmack/claude-mem/pull/608"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2026-01-08T17:17:51Z",
+      "createdAt": "2026-01-07T22:29:49Z",
+      "number": 4,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "closed",
+      "title": "feat: Distributed Node Network with Ed25519 Signatures",
+      "url": "https://github.com/sollama58/HolDex/pull/4"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2026-01-08T02:20:10Z",
+      "createdAt": "2026-01-07T21:41:20Z",
+      "number": 3,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "closed",
+      "title": "feat: Distributed Node Network with Ed25519 Signatures",
+      "url": "https://github.com/sollama58/HolDex/pull/3"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2026-01-06T02:17:20Z",
+      "createdAt": "2025-12-31T01:14:59Z",
+      "number": 2,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "merged",
+      "title": "feat: K-Score v10 + Harmony E-Score + Security Hardening",
+      "url": "https://github.com/sollama58/HolDex/pull/2"
+    },
+    {
+      "authorAssociation": "CONTRIBUTOR",
+      "closedAt": "2025-12-30T23:50:56Z",
+      "createdAt": "2025-12-29T12:10:30Z",
+      "number": 1,
+      "repository": {
+        "name": "HolDex",
+        "nameWithOwner": "sollama58/HolDex"
+      },
+      "state": "merged",
+      "title": "K-Score v8 + Credit Rating System",
+      "url": "https://github.com/sollama58/HolDex/pull/1"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2025-12-04T14:32:49Z",
+      "number": 1,
+      "repository": {
+        "name": "ASDForecast",
+        "nameWithOwner": "sollama58/ASDForecast"
+      },
+      "state": "open",
+      "title": "feat: Add ASDF lottery system with activity requirement (v121.0)",
+      "url": "https://github.com/sollama58/ASDForecast/pull/1"
+    }
+  ],
+  "external_issues": [
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-10-05T20:48:28Z",
+      "number": 133512,
+      "repository": {
+        "name": "hermes-agent",
+        "nameWithOwner": "NousResearch/hermes-agent"
+      },
+      "state": "open",
+      "title": "[Feature]: no public API for a plugin to register an external OAuth provider with hermes auth",
+      "url": "https://github.com/NousResearch/hermes-agent/issues/133512"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-06-04T00:45:48Z",
+      "createdAt": "2026-06-02T10:33:56Z",
+      "number": 110,
+      "repository": {
+        "name": "percolator-prog",
+        "nameWithOwner": "aeyakovenko/percolator-prog"
+      },
+      "state": "closed",
+      "title": "CRITICAL: 100,000,000x Price Manipulation (Retire Flip) + 1000x Notional Understatement",
+      "url": "https://github.com/aeyakovenko/percolator-prog/issues/110"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-05-28T15:31:32Z",
+      "createdAt": "2026-05-27T18:38:01Z",
+      "number": 79,
+      "repository": {
+        "name": "percolator-cli",
+        "nameWithOwner": "aeyakovenko/percolator-cli"
+      },
+      "state": "closed",
+      "title": "[Bounty 6] Bankrupt-Recycling via TradeNoCpi (Insurance Drain)",
+      "url": "https://github.com/aeyakovenko/percolator-cli/issues/79"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "2026-05-26T13:09:11Z",
+      "createdAt": "2026-05-25T17:27:13Z",
+      "number": 63,
+      "repository": {
+        "name": "percolator",
+        "nameWithOwner": "aeyakovenko/percolator"
+      },
+      "state": "closed",
+      "title": "Bounty-5: Phantom Fee Attack \u2014 Domain Budget Inflation via Discarded Fee Return Values",
+      "url": "https://github.com/aeyakovenko/percolator/issues/63"
+    },
+    {
+      "authorAssociation": "NONE",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-05-14T07:23:58Z",
+      "number": 156563,
+      "repository": {
+        "name": "rust",
+        "nameWithOwner": "rust-lang/rust"
+      },
+      "state": "open",
+      "title": "SIGSEGV in LLVM FastISel::selectInstruction with codegen-units=1 on rustc 1.95.0",
+      "url": "https://github.com/rust-lang/rust/issues/156563"
+    }
+  ],
+  "internal_prs_sample": [
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-10-23T08:07:36Z",
+      "number": 370,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "open",
+      "title": "feat(fleet): supervised capacity loop (observe, placement, alert, remediate)",
+      "url": "https://github.com/zeyxx/CYNIC/pull/370"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-10-22T12:58:33Z",
+      "number": 51,
+      "repository": {
+        "name": "hermes-antigravity",
+        "nameWithOwner": "zeyxx/hermes-antigravity"
+      },
+      "state": "open",
+      "title": "docs: record merge authority and fork-PR policy",
+      "url": "https://github.com/zeyxx/hermes-antigravity/pull/51"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-22T12:55:32Z",
+      "createdAt": "2026-10-22T12:41:00Z",
+      "number": 50,
+      "repository": {
+        "name": "hermes-antigravity",
+        "nameWithOwner": "zeyxx/hermes-antigravity"
+      },
+      "state": "merged",
+      "title": "fix(auth): skip OAuth client config rows when leasing a bearer",
+      "url": "https://github.com/zeyxx/hermes-antigravity/pull/50"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T07:36:37Z",
+      "createdAt": "2026-10-20T07:30:09Z",
+      "number": 366,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(cli): give the network arms a registry the test owns",
+      "url": "https://github.com/zeyxx/CYNIC/pull/366"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-22T10:36:20Z",
+      "createdAt": "2026-10-20T07:11:22Z",
+      "number": 365,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "closed",
+      "title": "ci: test the whole workspace, not four crates",
+      "url": "https://github.com/zeyxx/CYNIC/pull/365"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T07:13:03Z",
+      "createdAt": "2026-10-20T07:05:50Z",
+      "number": 364,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "chore(topology): refresh the measured line counts after the cli manifest fix",
+      "url": "https://github.com/zeyxx/CYNIC/pull/364"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T07:02:25Z",
+      "createdAt": "2026-10-20T06:13:08Z",
+      "number": 363,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(cli): make the three red cli-lib tests hermetic and truthful",
+      "url": "https://github.com/zeyxx/CYNIC/pull/363"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T07:11:20Z",
+      "createdAt": "2026-10-20T05:55:41Z",
+      "number": 362,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "closed",
+      "title": "ci: test the whole workspace, not four crates",
+      "url": "https://github.com/zeyxx/CYNIC/pull/362"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T05:52:20Z",
+      "createdAt": "2026-10-20T05:47:43Z",
+      "number": 361,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "docs(readme): document the release path an operator can actually run",
+      "url": "https://github.com/zeyxx/CYNIC/pull/361"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T05:39:39Z",
+      "createdAt": "2026-10-20T05:35:57Z",
+      "number": 360,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "chore(topology): refresh the LOC counters after the version gate",
+      "url": "https://github.com/zeyxx/CYNIC/pull/360"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T05:33:18Z",
+      "createdAt": "2026-10-20T05:28:45Z",
+      "number": 359,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "chore(release): bump the workspace version to 0.9.0",
+      "url": "https://github.com/zeyxx/CYNIC/pull/359"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T05:26:32Z",
+      "createdAt": "2026-10-20T05:22:24Z",
+      "number": 358,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "feat(release): refuse a release whose version does not advance",
+      "url": "https://github.com/zeyxx/CYNIC/pull/358"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T05:19:35Z",
+      "createdAt": "2026-10-20T05:16:20Z",
+      "number": 357,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "feat(release): derive the release set from the registry, ship a distribution manifest",
+      "url": "https://github.com/zeyxx/CYNIC/pull/357"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T05:08:52Z",
+      "createdAt": "2026-10-20T05:04:00Z",
+      "number": 356,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "chore(topology): refresh the LOC counters after the settlement balance fix",
+      "url": "https://github.com/zeyxx/CYNIC/pull/356"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T04:56:45Z",
+      "createdAt": "2026-10-20T04:52:31Z",
+      "number": 355,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(channel): the settlement balance accumulates, it does not overwrite",
+      "url": "https://github.com/zeyxx/CYNIC/pull/355"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T04:42:14Z",
+      "createdAt": "2026-10-20T04:37:18Z",
+      "number": 354,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(cli): deploy the binaries the build actually produces",
+      "url": "https://github.com/zeyxx/CYNIC/pull/354"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T04:47:42Z",
+      "createdAt": "2026-10-20T04:36:39Z",
+      "number": 353,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "feat(release): a binary release workflow on the sovereign runner",
+      "url": "https://github.com/zeyxx/CYNIC/pull/353"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T04:23:18Z",
+      "createdAt": "2026-10-20T04:18:54Z",
+      "number": 352,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(publication): declare the paths the contract never covered",
+      "url": "https://github.com/zeyxx/CYNIC/pull/352"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T03:40:59Z",
+      "createdAt": "2026-10-20T03:26:38Z",
+      "number": 351,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(cli): make the proof log append atomic",
+      "url": "https://github.com/zeyxx/CYNIC/pull/351"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-20T04:15:12Z",
+      "createdAt": "2026-10-20T03:26:24Z",
+      "number": 350,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "merged",
+      "title": "fix(build): refuse the retired make:* spellings instead of renaming them",
+      "url": "https://github.com/zeyxx/CYNIC/pull/350"
+    }
+  ],
+  "internal_issues": [
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-10-23T09:41:45Z",
+      "number": 376,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "open",
+      "title": "Proof hermeticity: shared target dir lets checkouts poison each other's fingerprints (mtime freshness)",
+      "url": "https://github.com/zeyxx/CYNIC/issues/376"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "0001-01-01T00:00:00Z",
+      "createdAt": "2026-10-23T08:18:06Z",
+      "number": 371,
+      "repository": {
+        "name": "CYNIC",
+        "nameWithOwner": "zeyxx/CYNIC"
+      },
+      "state": "open",
+      "title": "CI: scope verification suites to changed crates (path-filtered gate)",
+      "url": "https://github.com/zeyxx/CYNIC/issues/371"
+    },
+    {
+      "authorAssociation": "OWNER",
+      "closedAt": "2026-10-05T16:50:59Z",
+      "createdAt": "2026-09-26T13:21:38Z",
+      "number": 5,
+      "repository": {
+        "name": "hermes-antigravity",
+        "nameWithOwner": "zeyxx/hermes-antigravity"
+      },
+      "state": "closed",
+      "title": "[Blocked] Secret Scanning d\u00e9tecte Client ID/Secret Google OAuth \u2014 n\u00e9cessite d\u00e9blocage pour push",
+      "url": "https://github.com/zeyxx/hermes-antigravity/issues/5"
+    }
+  ]
+}

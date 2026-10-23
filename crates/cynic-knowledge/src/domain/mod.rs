@@ -5,12 +5,15 @@ pub mod chunk;
 pub mod chunk_quality;
 pub mod commit;
 pub mod continuous_fusion;
+pub mod epistemic_facts;
 pub mod epistemic_grounding;
 pub mod geometry;
 pub mod graph;
 pub mod graph_expansion;
 pub mod hybrid_rrf;
+pub mod public_surface;
 pub mod query_routing;
+pub mod rerank;
 pub mod scorer;
 pub mod synthesis;
 pub mod vector_cache;
@@ -34,6 +37,12 @@ pub use commit::{GitCommitRecord, GIT_COMMIT_SCHEMA_V1};
 pub use continuous_fusion::{
     fuse_continuous_convex, min_max_normalize, EmpiricalCdf, NormalizationStrategy,
 };
+pub use epistemic_facts::{
+    AuthorIdentity, AuthorshipNature, CalibratedSkillGroup, CalibratedSkillItem, ClaimCategory, ClaimStatus,
+    EpistemicFactLedger, HistoricalEvent, InteractionCategory, InteractionRecord, InteractionsGraph,
+    RepoEra, RepoProvenance, SkillBasis, SkillDepth, TechnicalDomain, VerifiableClaim,
+    EPISTEMIC_FACTS_SCHEMA_V1, INTERACTIONS_GRAPH_SCHEMA_V1,
+};
 pub use epistemic_grounding::{
     assemble_epistemic_context, compute_term_coverage, reorder_lost_in_the_middle,
     sort_by_topological_authority, EpistemicAssemblyConfig, EpistemicCoverageVerdict,
@@ -44,7 +53,9 @@ pub use geometry::{CrateGeometryRecord, WorkspaceGeometry, WORKSPACE_GEOMETRY_SC
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use graph_expansion::expand_hits_with_graph;
 pub use hybrid_rrf::{fuse_reciprocal_ranks, DenseHit, DEFAULT_RRF_K};
+pub use public_surface::{render_public_surface_html, render_public_surface_markdown};
 pub use query_routing::{route_query, QueryRoute, RoutingTable};
+pub use rerank::{apply_rerank_scores, RerankItem, RerankRequest, RerankResponse};
 pub use scorer::{bm25_margin, dense_margin, tokenize, LexicalIndex, SearchHit};
 pub use synthesis::{
     CitedSource, SynthesisPrompt, SynthesisPromptBuilder, SYNTHESIS_PROMPT_SCHEMA_V1,

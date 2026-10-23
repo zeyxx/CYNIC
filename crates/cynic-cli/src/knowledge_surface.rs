@@ -90,6 +90,18 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Harvest live verifiable facts and generate the public epistemic surface (HTML + Markdown).
+    Surface {
+        /// Optional destination directory for public_surface.html and public_surface.md [default: docs/public]
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Verify all measurable claims and output PASS/FAIL verdicts.
+        #[arg(long)]
+        verify: bool,
+        /// Output live fact ledger as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -448,17 +460,114 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             };
             let hits: Vec<cynic_knowledge::SearchHit<'_>> = match &dense_owned {
                 Some((dense_chunks, dense_vectors, dense_query)) => {
+                    let candidate_k = 50;
                     let dense =
-                        cynic_knowledge::top_k_dense(dense_query, dense_chunks, dense_vectors, 20);
-                    let empty_sparse: Vec<cynic_knowledge::SearchHit<'_>> = Vec::new();
+                        cynic_knowledge::top_k_dense(dense_query, dense_chunks, dense_vectors, candidate_k);
+                    let sparse = index.search(&question, candidate_k);
+                    let alpha = std::env::var("CYNIC_FUSION_ALPHA")
+                        .ok()
+                        .and_then(|v| v.parse::<f64>().ok())
+                        .unwrap_or(0.80);
                     let mut fused = cynic_knowledge::fuse_continuous_convex(
-                        &empty_sparse,
+                        &sparse,
                         &dense,
-                        1.0,
+                        alpha,
                         cynic_knowledge::NormalizationStrategy::CandidateMinMax,
                     );
-                    fused.truncate(limit);
-                    fused
+
+                    // SOTA Rung 2: Neural cross-encoder rerank over top candidates.
+                    // Interleave BM25 keyword hits and Dense semantic hits to form a balanced,
+                    // high-recall pool of up to 30 candidates.
+                    let mut candidate_set = std::collections::HashSet::new();
+                    let mut candidates = Vec::with_capacity(30);
+                    let pool_cap = 30;
+
+                    let max_take = sparse.len().max(dense.len());
+                    for i in 0..max_take {
+                        if let Some(s) = sparse.get(i) {
+                            if candidate_set.insert(s.chunk.chunk_id.as_str()) {
+                                candidates.push(*s);
+                                if candidates.len() >= pool_cap {
+                                    break;
+                                }
+                            }
+                        }
+                        if let Some(d) = dense.get(i) {
+                            if candidate_set.insert(d.chunk.chunk_id.as_str()) {
+                                candidates.push(cynic_knowledge::SearchHit {
+                                    chunk: d.chunk,
+                                    score: d.similarity as f64,
+                                });
+                                if candidates.len() >= pool_cap {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    let rerank_endpoint = std::env::var("CYNIC_RERANK_URL")
+                        .unwrap_or_else(|_| "http://192.168.0.25:8082/v1/rerank".to_string());
+                    let docs: Vec<&str> =
+                        candidates.iter().map(|h| h.chunk.content.as_str()).collect();
+
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_millis(8000))
+                        .build()
+                        .ok();
+
+                    let mut reranked = Vec::new();
+                    if let Some(c) = client {
+                        let payload = serde_json::json!({
+                            "query": question,
+                            "documents": docs,
+                            "top_n": limit,
+                        });
+                        match c.post(&rerank_endpoint).json(&payload).send().await {
+                            Ok(resp) if resp.status().is_success() => {
+                                if let Ok(data) = resp.json::<serde_json::Value>().await {
+                                    if let Some(results) =
+                                        data.get("results").and_then(|r| r.as_array())
+                                    {
+                                        for item in results {
+                                            if let (Some(idx), Some(score)) = (
+                                                item.get("index")
+                                                    .and_then(|i| i.as_u64())
+                                                    .map(|i| i as usize),
+                                                item.get("relevance_score").and_then(|s| s.as_f64()),
+                                            ) {
+                                                if let Some(hit) = candidates.get(idx) {
+                                                    reranked.push(cynic_knowledge::SearchHit {
+                                                        chunk: hit.chunk,
+                                                        score,
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(resp) => {
+                                eprintln!("rerank returned HTTP {}", resp.status());
+                            }
+                            Err(e) => {
+                                eprintln!(
+                                    "rerank network error ({e}); falling back to continuous fusion"
+                                );
+                            }
+                        }
+                    }
+
+                    if !reranked.is_empty() {
+                        eprintln!(
+                            "neural rerank: {} candidates reranked via {}",
+                            candidates.len(), rerank_endpoint
+                        );
+                        reranked.truncate(limit);
+                        reranked
+                    } else {
+                        fused.truncate(limit);
+                        fused
+                    }
                 }
                 None => index.search(&question, limit),
             };
@@ -732,6 +841,63 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 );
                 ExitCode::SUCCESS
             }
+        }
+        KnowCommand::Surface { out_dir, verify, json } => {
+            let ledger = cynic_knowledge::harvest_live_ledger(&repo_root, None);
+            if json {
+                return crate::emit_json(&ledger, false);
+            }
+            let out_dir = out_dir.unwrap_or_else(|| repo_root.join("docs/public"));
+            if let Err(e) = std::fs::create_dir_all(&out_dir) {
+                eprintln!("Failed to create output directory {}: {}", out_dir.display(), e);
+                return ExitCode::FAILURE;
+            }
+
+            let md = cynic_knowledge::render_public_surface_markdown(&ledger);
+            let html = cynic_knowledge::render_public_surface_html(&ledger);
+
+            let md_path = out_dir.join("public_surface.md");
+            let html_path = out_dir.join("public_surface.html");
+            let json_path = out_dir.join("facts.live.json");
+
+            if let Err(e) = std::fs::write(&md_path, &md) {
+                eprintln!("Failed to write {}: {}", md_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+            if let Err(e) = std::fs::write(&html_path, &html) {
+                eprintln!("Failed to write {}: {}", html_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+            if let Ok(json_str) = serde_json::to_string_pretty(&ledger) {
+                let _ = std::fs::write(&json_path, json_str);
+            }
+
+            println!("=== CYNIC Epistemic Surface Generated ===");
+            println!("  Markdown : {}", md_path.display());
+            println!("  HTML     : {}", html_path.display());
+            println!("  JSON     : {}", json_path.display());
+            println!("  Repos    : {} repos across 4 eras", ledger.repos.len());
+            println!(
+                "  Crates   : {} (LOC: {})",
+                ledger.summary_metrics.get("cynic_crates").unwrap_or(&0),
+                ledger.summary_metrics.get("cynic_loc").unwrap_or(&0)
+            );
+            println!("  Commits  : {}", ledger.summary_metrics.get("total_commits").unwrap_or(&0));
+
+            if verify {
+                println!("\n=== Verifiable Claims Verification ===");
+                for claim in &ledger.claims {
+                    let status_badge = match claim.status {
+                        cynic_knowledge::ClaimStatus::Demonstrated => "\x1b[32mPASS\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Implemented => "\x1b[34mIMPL\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Partial => "\x1b[33mPART\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Aspirational => "\x1b[35mASPI\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Unknown => "\x1b[33mUNKN\x1b[0m",
+                    };
+                    println!("  [{}] {:<28} {}", status_badge, claim.id, claim.statement);
+                }
+            }
+            ExitCode::SUCCESS
         }
     }
 }

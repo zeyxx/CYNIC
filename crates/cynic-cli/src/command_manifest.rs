@@ -124,7 +124,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
                     "cynic audit harness [--kind <name>] [--json]",
                     "cynic audit external [--json] [--registry <path>]",
-                    "cynic audit gate-receipt [--path <path>] [--json]",
+                    "cynic audit gate receipt [--path <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -363,7 +363,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build credentials provision --json",
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build reclaim --json",
-                    "cynic build runner-token [--json]",
+                    "cynic build runner token [--json]",
                     "cynic build runs [--json]",
                 ],
             },
@@ -382,6 +382,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "know",
                 commands: vec![
                     "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
+                    "cynic know surface [--out-dir <path>] [--verify] [--json]",
                 ],
             },
             CommandDomain {

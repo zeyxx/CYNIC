@@ -62,10 +62,21 @@ impl LexicalIndex {
 
     /// Searches the index with a raw query using BM25 with authority tier weighting.
     pub fn search<'a>(&'a self, query: &str, limit: usize) -> Vec<SearchHit<'a>> {
-        let query_tokens = tokenize(query);
-        if query_tokens.is_empty() || self.chunks.is_empty() {
+        let raw_tokens = tokenize(query);
+        if raw_tokens.is_empty() || self.chunks.is_empty() {
             return Vec::new();
         }
+
+        let filtered_tokens: Vec<String> = raw_tokens
+            .iter()
+            .filter(|t| !is_stop_word(t))
+            .cloned()
+            .collect();
+        let query_tokens = if filtered_tokens.is_empty() {
+            &raw_tokens
+        } else {
+            &filtered_tokens
+        };
 
         let k1 = 1.2;
         let b = 0.75;
@@ -80,7 +91,7 @@ impl LexicalIndex {
             let chunk_len = term_counts.values().sum::<usize>() as f64;
 
             let mut raw_bm25 = 0.0;
-            for token in &query_tokens {
+            for token in query_tokens {
                 if let Some(&tf) = term_counts.get(token) {
                     let df = *self.doc_frequencies.get(token).unwrap_or(&0) as f64;
                     let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
@@ -267,6 +278,26 @@ pub fn tokenize(text: &str) -> Vec<String> {
         .filter(|t| t.len() >= 2)
         .map(|s| s.to_string())
         .collect()
+}
+
+/// Returns true if a token is a high-frequency French or English stop word.
+pub fn is_stop_word(token: &str) -> bool {
+    matches!(
+        token,
+        // English
+        "the" | "a" | "an" | "and" | "or" | "but" | "in" | "on" | "at" | "to" | "for"
+            | "of" | "with" | "by" | "from" | "as" | "is" | "are" | "was" | "were"
+            | "be" | "been" | "being" | "have" | "has" | "had" | "do" | "does" | "did"
+            | "what" | "which" | "who" | "whom" | "this" | "that" | "these" | "those"
+            | "how" | "why" | "where" | "when"
+            // French
+            | "le" | "la" | "les" | "de" | "du" | "des" | "un" | "une" | "et" | "en"
+            | "dans" | "pour" | "par" | "sur" | "qui" | "que" | "quoi" | "dont" | "ou"
+            | "ce" | "cet" | "cette" | "ces" | "est" | "sont" | "ont" | "au" | "aux"
+            | "avec" | "sans" | "sous" | "quelles" | "quelle" | "quels" | "quel"
+            | "comment" | "pourquoi" | "quand" | "leur" | "leurs" | "notre" | "nos"
+            | "votre" | "vos"
+    )
 }
 
 /// Evaluates topological altitude multiplier based on CYNIC authority cone.
