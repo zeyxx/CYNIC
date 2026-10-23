@@ -384,27 +384,30 @@ pub(crate) fn trigger_build(
         let candidates =
             cynic_host::registry::resolve::list_runner_nodes(Some(registry)).unwrap_or_default();
         if !candidates.is_empty() {
+            let capacity_path = std::path::Path::new(registry)
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("fleet-capacity.json");
+            let capacity: Vec<cynic_protocol::runner_capacity::RunnerCapacitySnapshot> =
+                std::fs::read_to_string(&capacity_path)
+                    .ok()
+                    .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+                    .and_then(|v| v.get("snapshots").cloned())
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default();
+            let now_unix_s = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
             let mut snapshots = Vec::new();
             for entry in &candidates {
-                let Some((user, probe_host)) = entry.ssh_target.split_once('@') else {
-                    continue;
-                };
-                let probe = cynic_node::cli_factory::ssh_build_runner(
-                    probe_host.to_string(),
-                    user.to_string(),
-                    cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)
-                        .unwrap_or_default(),
-                    package.clone(),
-                    sccache_dir.to_string(),
-                    Some(checkout_base.to_string()).filter(|value| !value.trim().is_empty()),
-                    minimum_available_bytes,
-                );
                 let (median_ms, samples) =
                     proof_median_ms(&log_text, &entry.node_id, action_name);
+                let observed = capacity.iter().find(|s| s.runner_id == entry.node_id);
                 snapshots.push(cynic_build::RunnerSnapshot {
                     node_id: entry.node_id.clone(),
-                    free_ram_bytes: probe.probe_free_ram_bytes(),
-                    total_ram_bytes: probe.probe_total_ram_bytes(),
+                    free_ram_bytes: observed.and_then(|s| s.free_ram_bytes),
+                    total_ram_bytes: observed.and_then(|s| s.total_ram_bytes),
                     queued_ms: 0,
                     median_ms,
                     samples,
@@ -417,6 +420,8 @@ pub(crate) fn trigger_build(
                 lambda,
                 mu_ms,
                 snapshots,
+                &capacity,
+                now_unix_s,
             );
             for rank in &decision.ranked {
                 eprintln!(
@@ -434,7 +439,11 @@ pub(crate) fn trigger_build(
                         .find(|entry| entry.node_id == chosen)
                         .map(|entry| entry.ssh_target.clone())
                         .unwrap_or_default();
-                    if let Some((user, new_host)) = target.split_once('@') {
+                    let (user, new_host) = match target.split_once('@') {
+                        Some((u, h)) => (u.to_string(), h.to_string()),
+                        None => (user.to_string(), target),
+                    };
+                    if !new_host.is_empty() {
                         eprintln!("placement: rerouting {} -> {chosen}", health.node_id);
                         runner = cynic_node::cli_factory::ssh_build_runner(
                             new_host.to_string(),

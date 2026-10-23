@@ -438,6 +438,74 @@ impl BuildRunnerPort for SshBuildRunner {
             );
         }
 
+        // Step 2b: the pin above is HEAD-deep only. A worktree emptied after
+        // the pin (reaper, concurrent run, partial checkout) must not reach
+        // cargo as a confusing manifest error. Verify the manifest, heal once
+        // by re-cloning, and block with an explicit verdict if still absent.
+        let manifest_ok = self
+            .runner
+            .run(&[
+                "ssh",
+                target.as_str(),
+                "test",
+                "-f",
+                format!("{dir}/Cargo.toml").as_str(),
+            ])
+            .success();
+        if !manifest_ok {
+            let _ = self
+                .runner
+                .run(&["ssh", target.as_str(), "rm", "-rf", dir.as_str()]);
+            let reclone = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "clone",
+                self.ssot_url.as_str(),
+                dir.as_str(),
+            ]);
+            let recheckout = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "-C",
+                dir.as_str(),
+                "checkout",
+                sha.as_str(),
+            ]);
+            let rehead = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "-C",
+                dir.as_str(),
+                "rev-parse",
+                "HEAD",
+            ]);
+            let rehealed = reclone.success()
+                && recheckout.success()
+                && rehead.success()
+                && rehead.stdout.trim() == sha
+                && self
+                    .runner
+                    .run(&[
+                        "ssh",
+                        target.as_str(),
+                        "test",
+                        "-f",
+                        format!("{dir}/Cargo.toml").as_str(),
+                    ])
+                    .success();
+            if !rehealed {
+                return blocked(
+                    None,
+                    format!(
+                        "checkout worktree incomplete for {sha}: {dir}/Cargo.toml absent after re-clone"
+                    ),
+                );
+            }
+        }
+
         // Step 3: build with the canonical argv for the action.
         let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
             BuildError::ConfigurationRefused(format!("no canonical argv for action: {action}"))
@@ -574,6 +642,54 @@ impl SshBuildRunner {
         cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
     }
 
+    /// State root reported by the runner itself (`cynic runtime paths
+    /// --json`). `None` on any failure — the caller records the unknown,
+    /// never a path.
+    pub fn probe_state_root(&self) -> Option<String> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "cynic",
+            "runtime",
+            "paths",
+            "--json",
+        ]);
+        if !out.success() {
+            return None;
+        }
+        parse_state_root(&out.stdout)
+    }
+
+    /// Free bytes available on the runner's checkout filesystem.
+    /// `None` on any failure — the caller records the unknown, never a number.
+    pub fn probe_disk_avail_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let paths = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "cynic",
+            "runtime",
+            "paths",
+            "--json",
+        ]);
+        if !paths.success() {
+            return None;
+        }
+        let state_root = parse_state_root(&paths.stdout)?;
+        let checkout_base = remote_cache_roots(&state_root).checkout_base;
+        // Classic `df -k` columns: the parser reads Avail (parts[3]) and
+        // matches the mount point. `--output=avail` prints a single column
+        // the parser skips, which muted every runner's disk.
+        let df = self
+            .runner
+            .run(&["ssh", target.as_str(), "df", "-k", checkout_base.as_str()]);
+        if !df.success() {
+            return None;
+        }
+        parse_df_available_bytes(&df.stdout, &checkout_base)
+    }
+
     /// Total RAM bytes from the same `free -b` probe. `None` on any
     /// failure — the caller records the unknown, never a number.
     pub fn probe_total_ram_bytes(&self) -> Option<u64> {
@@ -583,6 +699,79 @@ impl SshBuildRunner {
             return None;
         }
         cynic_protocol::capacity::parse_mem_total_bytes(&out.stdout)
+    }
+
+    /// Bounded remediation `gc-disk`: empty the runner-declared sccache dir.
+    ///
+    /// Every path comes from the runner's own `runtime paths` answer —
+    /// nothing is guessed. `find -mindepth 1 -delete` keeps the dir itself
+    /// (permissions survive); sccache content is content-keyed and
+    /// rebuildable, never proof-critical. Returns a human log line with
+    /// bytes before/after.
+    pub fn remediate_gc_disk(&self) -> Result<String, String> {
+        let target = self.ssh_target();
+        let roots = self.remote_roots(&target)?;
+        let before = self.du_bytes(&target, &roots.sccache_dir)?;
+        let rm = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "find",
+            roots.sccache_dir.as_str(),
+            "-mindepth",
+            "1",
+            "-delete",
+        ]);
+        if !rm.success() {
+            return Err(format!("gc-disk failed on {}: {}", self.host, rm.stderr));
+        }
+        let after = self.du_bytes(&target, &roots.sccache_dir)?;
+        Ok(format!(
+            "gc-disk on {}: sccache {} -> {} bytes",
+            self.host, before, after
+        ))
+    }
+
+    /// Bounded remediation `restart-probe`: no probe daemon exists, so
+    /// re-establishing the probe channel means the runner answers
+    /// `runtime paths` again. Read-only; fails when the runner stays silent.
+    pub fn remediate_restart_probe(&self) -> Result<String, String> {
+        let target = self.ssh_target();
+        self.remote_roots(&target)?;
+        Ok(format!("probe channel alive on {}", self.host))
+    }
+
+    fn remote_roots(
+        &self,
+        target: &str,
+    ) -> Result<cynic_protocol::remote_cache_roots::RemoteCacheRoots, String> {
+        let paths = self
+            .runner
+            .run(&["ssh", target, "cynic", "runtime", "paths", "--json"]);
+        if !paths.success() {
+            return Err(format!(
+                "runner {} does not answer runtime paths; will not guess locations",
+                self.host
+            ));
+        }
+        let state_root = parse_state_root(&paths.stdout).ok_or_else(|| {
+            format!(
+                "runner {} gave unparsable runtime paths; will not guess locations",
+                self.host
+            )
+        })?;
+        Ok(remote_cache_roots(&state_root))
+    }
+
+    fn du_bytes(&self, target: &str, path: &str) -> Result<u64, String> {
+        let du = self.runner.run(&["ssh", target, "du", "-sb", path]);
+        if !du.success() {
+            return Err(format!("du failed on {}: {}", self.host, du.stderr));
+        }
+        du.stdout
+            .split_whitespace()
+            .next()
+            .and_then(|n| n.parse::<u64>().ok())
+            .ok_or_else(|| format!("unparsable du output on {}", self.host))
     }
 }
 
