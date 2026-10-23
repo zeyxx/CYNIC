@@ -246,6 +246,84 @@ pub fn decide_restart(
     }
 }
 
+/// Wire schema for builder drain receipts (`POST /admin/drain` persists one
+/// per transition; the evidence store is the audit trail).
+pub const DRAIN_RECEIPT_SCHEMA: &str = "cynic.node.drain_receipt.v1";
+
+/// Pure drain choice. The caller owns the store read, the receipt persist,
+/// the waiter sleep, and the final `exit(0)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrainDecision {
+    /// Enter draining; `in_flight` workloads must finish first.
+    StartDraining { in_flight: usize },
+    /// Still draining; keep waiting.
+    Wait { in_flight: usize },
+    /// No in-flight work left; persist the drained receipt, then exit(0).
+    Complete,
+    /// Already stopped; nothing to do.
+    AlreadyStopped,
+}
+
+/// Pure drain transition over the shared [`SupervisorState`] lifecycle:
+/// `Active -> Draining -> Stopped` (no new state: `draining` is already the
+/// commanded-stop vocabulary). Any state that is neither draining nor
+/// stopped starts draining — refusing new work is always the safe direction,
+/// including from `Unknown` (unobservable store) and `Failed`.
+pub fn decide_drain(current: SupervisorState, in_flight: usize) -> DrainDecision {
+    match current {
+        SupervisorState::Draining => {
+            if in_flight == 0 {
+                DrainDecision::Complete
+            } else {
+                DrainDecision::Wait { in_flight }
+            }
+        }
+        SupervisorState::Stopped => DrainDecision::AlreadyStopped,
+        _ => DrainDecision::StartDraining { in_flight },
+    }
+}
+
+/// Pure admission gate while draining: a commanded stop never admits new
+/// work. Total by construction — only `Draining` refuses; every other state
+/// admits (a stopped process exits before serving anyway).
+pub fn drain_blocks_admission(current: SupervisorState) -> bool {
+    current == SupervisorState::Draining
+}
+
+/// One drain receipt payload, persisted per transition as
+/// [`DRAIN_RECEIPT_SCHEMA`]. State names are the byte-stable
+/// [`SupervisorState::as_str`] spellings; the caller wraps this in an
+/// evidence envelope (subject, producer, and provenance are transport facts,
+/// not decision facts, so they stay out of the pure core).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DrainReceipt {
+    pub schema: String,
+    pub node_id: String,
+    pub transition_from: String,
+    pub transition_to: String,
+    pub in_flight: usize,
+    pub observed_at_unix_ms: u128,
+}
+
+impl DrainReceipt {
+    pub fn new(
+        node_id: &str,
+        from: SupervisorState,
+        to: SupervisorState,
+        in_flight: usize,
+        observed_at_unix_ms: u128,
+    ) -> Self {
+        Self {
+            schema: DRAIN_RECEIPT_SCHEMA.to_string(),
+            node_id: node_id.to_string(),
+            transition_from: from.as_str().to_string(),
+            transition_to: to.as_str().to_string(),
+            in_flight,
+            observed_at_unix_ms,
+        }
+    }
+}
+
 /// Read-only supervisor observation for one role, per
 /// `contracts/supervisor-contract.json` `observation.required_fields`.
 /// Emitted by `cynic supervise observe`; never constructed by mutation paths.
@@ -587,6 +665,63 @@ mod tests {
             decide_restart(&policy, 2, 10, true),
             RestartDecision::Restart { delay_secs: 5 }
         );
+    }
+
+    #[test]
+    fn decide_drain_covers_all_branches() {
+        use SupervisorState as S;
+        // Active with work starts draining and names the in-flight count.
+        assert_eq!(
+            decide_drain(S::Active, 3),
+            DrainDecision::StartDraining { in_flight: 3 }
+        );
+        // Unknown and Failed still start draining: refusing new work is the
+        // safe direction when the store is unobservable or the last run died.
+        assert_eq!(
+            decide_drain(S::Unknown, 0),
+            DrainDecision::StartDraining { in_flight: 0 }
+        );
+        assert_eq!(
+            decide_drain(S::Failed, 1),
+            DrainDecision::StartDraining { in_flight: 1 }
+        );
+        // Draining waits while work remains, completes at zero.
+        assert_eq!(
+            decide_drain(S::Draining, 2),
+            DrainDecision::Wait { in_flight: 2 }
+        );
+        assert_eq!(decide_drain(S::Draining, 0), DrainDecision::Complete);
+        // Stopped is terminal.
+        assert_eq!(decide_drain(S::Stopped, 0), DrainDecision::AlreadyStopped);
+    }
+
+    #[test]
+    fn drain_blocks_admission_only_while_draining() {
+        use SupervisorState as S;
+        assert!(drain_blocks_admission(S::Draining));
+        for state in [
+            S::Planned,
+            S::Starting,
+            S::Active,
+            S::Stopped,
+            S::Failed,
+            S::Unknown,
+        ] {
+            assert!(!drain_blocks_admission(state), "state: {}", state.as_str());
+        }
+    }
+
+    #[test]
+    fn drain_receipt_names_the_transition() {
+        use SupervisorState as S;
+        let receipt = DrainReceipt::new("node-1", S::Active, S::Draining, 2, 1_700_000_000_000);
+        assert_eq!(receipt.schema, DRAIN_RECEIPT_SCHEMA);
+        assert_eq!(receipt.transition_from, "active");
+        assert_eq!(receipt.transition_to, "draining");
+        assert_eq!(receipt.in_flight, 2);
+        let roundtrip: DrainReceipt =
+            serde_json::from_slice(&serde_json::to_vec(&receipt).unwrap()).unwrap();
+        assert_eq!(roundtrip, receipt);
     }
 
     #[test]
