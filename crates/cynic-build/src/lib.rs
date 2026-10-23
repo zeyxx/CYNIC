@@ -13,6 +13,7 @@
 //! re-exports only. No logic, no I/O.
 
 pub mod adapters;
+pub mod admin_signal;
 pub mod build;
 pub mod build_artefact;
 pub mod build_discovery;

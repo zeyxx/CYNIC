@@ -187,6 +187,59 @@ pub(crate) fn submit_build(
     Ok(())
 }
 
+/// Read the admin secret from the environment. Never from argv: process
+/// lists leak argv to every local user, and a secret in shell history
+/// outlives the signal.
+fn admin_secret() -> Result<String, String> {
+    std::env::var("CYNIC_ADMIN_SECRET")
+        .map_err(|_| "CYNIC_ADMIN_SECRET is not set; export it before signaling".to_string())
+        .and_then(|secret| {
+            if secret.trim().is_empty() {
+                Err("CYNIC_ADMIN_SECRET is empty; refusing an unsigned signal".to_string())
+            } else {
+                Ok(secret)
+            }
+        })
+}
+
+fn render_admin_reply(reply: &serde_json::Value, json: bool) -> Result<(), String> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(reply).map_err(|error| error.to_string())?
+        );
+    } else {
+        println!(
+            "{}",
+            reply
+                .get("outcome")
+                .and_then(|outcome| outcome.as_str())
+                .unwrap_or("signaled")
+        );
+    }
+    Ok(())
+}
+
+/// Send a drain signal to a builder node: stop admitting, finish
+/// in-flight, then exit for supervised relaunch.
+pub(crate) fn drain_node(builder_url: &str, json: bool) -> Result<(), String> {
+    let secret = admin_secret()?;
+    let reply = cynic_build::admin_signal::send_drain(builder_url, &secret)?;
+    render_admin_reply(&reply, json)
+}
+
+/// Send a restart signal to a builder node. The node bounces only when
+/// the installed binary already matches `desired_sha256`.
+pub(crate) fn restart_node(
+    builder_url: &str,
+    desired_sha256: &str,
+    json: bool,
+) -> Result<(), String> {
+    let secret = admin_secret()?;
+    let reply = cynic_build::admin_signal::send_restart(builder_url, &secret, desired_sha256)?;
+    render_admin_reply(&reply, json)
+}
+
 /// Package scope flows into the builder payload and the runner honors it
 /// (`cargo --package` in the trigger adapter, `--package` plus `--lib` in
 /// the proof adapter). This predicate exists only to name that rule.
