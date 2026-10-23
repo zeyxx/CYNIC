@@ -28,12 +28,12 @@
   },
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "files": 137,
-    "occurrences": 887,
+    "files": 136,
+    "occurrences": 886,
     "by_term": {
       "dog": 1121,
       "dogs": 416,
-      "metabolic": 25,
+      "metabolic": 24,
       "metabolism": 135,
       "organ": 299,
       "organic": 151,
@@ -56,7 +56,6 @@
     {"path": "crates/cynic-cli/src/node_surface/host/capacity.rs", "count": 1, "evidence": "crates/cynic-cli/src/node_surface/host/capacity.rs:60", "terms": "METABOLIC"},
     {"path": "crates/cynic-cli/src/runtime_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/runtime_surface.rs:73", "terms": "METABOLIC"},
     {"path": "crates/cynic-cli/src/runtime_surface/inference_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/runtime_surface/inference_surface.rs:5", "terms": "organism"},
-    {"path": "crates/cynic-cli/src/task_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/task_surface.rs:266", "terms": "metabolic"},
     {"path": "crates/cynic-eval/Cargo.toml", "count": 1, "evidence": "crates/cynic-eval/Cargo.toml:7", "terms": "dog"},
     {"path": "crates/cynic-eval/src/eval/dog.rs", "count": 29, "evidence": "crates/cynic-eval/src/eval/dog.rs:1", "terms": "Dog, Dogs, dog, organism, dogs"},
     {"path": "crates/cynic-eval/src/eval/dog_health.rs", "count": 13, "evidence": "crates/cynic-eval/src/eval/dog_health.rs:1", "terms": "dog, Dog, organ"},
