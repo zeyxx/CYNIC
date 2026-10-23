@@ -244,6 +244,7 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
         // counts need one call per repo, so v1 reports issues only.
         let url = self.api_url(&format!("/users/{user}/repos?per_page=100&type=all&sort=updated"));
         let token = self.token.clone();
+        let user = user.to_string();
 
         Self::with_client(move |client| {
             let resp = client

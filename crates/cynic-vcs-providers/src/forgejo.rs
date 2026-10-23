@@ -230,6 +230,7 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
     fn list_user_repos(&self, user: &str) -> Result<Vec<ExternalRepoSummary>, String> {
         let url = self.api_url(&format!("/users/{user}/repos?limit=100"));
         let token = self.token.clone();
+        let user = user.to_string();
 
         Self::with_client(move |client| {
             let resp = client
