@@ -57,6 +57,10 @@ struct AppState {
     /// the trailing 24h window.
     collisions: Arc<Mutex<CollisionCounter>>,
     evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
+    /// Drain flag: when set, `/workloads/submit` refuses new work with
+    /// `builder_draining` while in-flight workloads finish. One-way:
+    /// only a process restart (fresh `AppState`) clears it.
+    draining: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -114,11 +118,12 @@ pub fn app(
         store,
         collisions,
         evidence,
+        draining: Arc::new(std::sync::atomic::AtomicBool::new(false)),
     };
     Router::new()
         .route("/health", get(health))
         .route("/status", get(status))
-        .route("/capacity", get(capacity))
+        .route("/admin/drain", post(admin_drain))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
@@ -222,6 +227,12 @@ async fn submit_workload(
     State(state): State<AppState>,
     Json(payload): Json<AgentBuildSubmission>,
 ) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
+    if state.draining.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "builder_draining: node is draining, resubmit to another runner".to_string(),
+        ));
+    }
     let commit_sha = payload.commit_sha.trim().to_string();
     if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err((
@@ -364,32 +375,6 @@ async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
         "total_recorded_events": counter.total_events(),
     }))
-}
-
-/// Live pressure gauge for data-centric placement.
-///
-/// Serves what only this node knows: how many workloads are in flight
-/// right now and the 1-minute load average. Declared capacity (cpu,
-/// ram) lives in the registry the client already reads — the client
-/// joins both sides into pressure = (in_flight + load) / capacity and
-/// routes to the lowest gauge. No gauge, no flow: store errors fail
-/// closed with 503 so the client treats this node as unreadable.
-async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
-    let active = state
-        .store
-        .active_records()
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let in_flight = active
-        .iter()
-        .filter(|record| !record.state.terminal())
-        .count() as u64;
-    let load_average_1m = sysinfo::System::load_average().one;
-    Ok(Json(serde_json::json!({
-        "schema": "cynic.builder.capacity.v1",
-        "node_id": state.config.node_id,
-        "in_flight": in_flight,
-        "load_average_1m": load_average_1m,
-    })))
 }
 
 async fn get_proof(
@@ -539,6 +524,114 @@ fn reref_name(payload: &ForgejoPayload) -> String {
         .last()
         .map(|_| "push".to_string())
         .unwrap_or_else(|| "unknown-ref".to_string())
+}
+
+/// Drain signal: stop admitting, finish in-flight, then exit.
+///
+/// Auth mirrors the webhook (HMAC, fail-closed without secret, header
+/// `x-cynic-signature`). Sets the one-way drain flag: `/workloads/submit`
+/// refuses new work with `builder_draining` while running workloads
+/// finish. A watcher thread polls the store every 5 seconds; when no
+/// workload remains active it persists a `drained` receipt and exits(0)
+/// so systemd relaunches a fresh process (which clears the flag). A
+/// one-hour guard keeps a stuck drain draining instead of force-killing:
+/// receipts, never silent kills.
+async fn admin_drain(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "drain unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid drain signature".into()));
+    }
+    let already = state
+        .draining
+        .swap(true, std::sync::atomic::Ordering::SeqCst);
+    let in_flight = count_in_flight(&state);
+    persist_drain_receipt(
+        &state,
+        if already {
+            "already-draining"
+        } else {
+            "draining"
+        },
+        in_flight,
+    );
+    if !already {
+        spawn_drain_watcher(state.clone());
+    }
+    Ok(Json(serde_json::json!({
+        "schema": "cynic.node.drain_receipt.v1",
+        "node_id": state.config.node_id,
+        "outcome": if already { "already-draining" } else { "draining" },
+        "in_flight": in_flight,
+    })))
+}
+
+fn count_in_flight(state: &AppState) -> u64 {
+    state
+        .store
+        .active_records()
+        .map(|records| {
+            records
+                .iter()
+                .filter(|record| !record.state.terminal())
+                .count() as u64
+        })
+        .unwrap_or(0)
+}
+
+fn persist_drain_receipt(state: &AppState, outcome: &str, in_flight: u64) {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let receipt = serde_json::json!({
+        "schema": "cynic.node.drain_receipt.v1",
+        "node_id": state.config.node_id,
+        "outcome": outcome,
+        "in_flight": in_flight,
+    });
+    let observed_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let envelope = cynic_protocol::build_evidence_envelope_with_lineage(
+        &state.config.node_id,
+        "cynic-node/drain",
+        observed_at,
+        vec!["admin-drain".to_string()],
+        None,
+        &receipt,
+    );
+    if let Ok(envelope) = envelope {
+        let _ = state.evidence.persist(&envelope);
+    }
+}
+
+fn spawn_drain_watcher(state: AppState) {
+    std::thread::spawn(move || {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3600);
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            if count_in_flight(&state) == 0 {
+                persist_drain_receipt(&state, "drained", 0);
+                std::process::exit(0);
+            }
+            if std::time::Instant::now() >= deadline {
+                let stuck = count_in_flight(&state);
+                persist_drain_receipt(&state, "drain-timeout", stuck);
+                return;
+            }
+        }
+    });
 }
 
 async fn webhook_forgejo(
@@ -772,6 +865,74 @@ mod tests {
         admit_build_agent_request, canonical_argv_from_build_action,
         BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
     };
+
+    fn drain_test_state(draining: bool) -> AppState {
+        use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
+        let root = std::env::temp_dir().join("cynic-drain-decision-test");
+        AppState {
+            config: BuilderHttpConfig {
+                listen_addr: "127.0.0.1:9090".parse().unwrap(),
+                state_root: root.to_string_lossy().to_string(),
+                workspace_root: root.to_string_lossy().to_string(),
+                node_id: "test-node".to_string(),
+                agent_id: "test-agent".to_string(),
+                webhook_secret: None,
+                repository_id: "test-repo".to_string(),
+                transport_uri: "test-uri".to_string(),
+            },
+            store: Arc::new(LocalAgentWorkloadStore::new(root.join("workloads"))),
+            collisions: Arc::new(Mutex::new(CollisionCounter::default())),
+            evidence:
+                cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore::new(
+                    root.join("evidence"),
+                ),
+            draining: Arc::new(std::sync::atomic::AtomicBool::new(draining)),
+        }
+    }
+
+    fn drain_test_payload() -> AgentBuildSubmission {
+        AgentBuildSubmission {
+            commit_sha: "a".repeat(40),
+            repository_id: None,
+            package: None,
+            action: "check".to_string(),
+            requested_by: "drain-test".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn draining_submit_refuses_with_precise_code() {
+        let state = drain_test_state(true);
+        let error = submit_workload(State(state), Json(drain_test_payload()))
+            .await
+            .expect_err("draining submit must refuse, not admit");
+        assert_eq!(error.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(
+            error.1.contains("builder_draining"),
+            "refusal must name the precise code, got: {}",
+            error.1
+        );
+    }
+
+    #[tokio::test]
+    async fn drain_signal_is_idempotent_on_second_call() {
+        // The flag is one-way and swap-once: the second signal reports
+        // already-draining and must not spawn a second watcher. Here the
+        // observable half: a pre-drained node admits nothing new.
+        let state = drain_test_state(false);
+        let first = state
+            .draining
+            .swap(true, std::sync::atomic::Ordering::SeqCst);
+        let second = state
+            .draining
+            .swap(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(!first, "first drain sets the flag");
+        assert!(second, "second drain observes the flag");
+        let error = submit_workload(State(state), Json(drain_test_payload()))
+            .await
+            .expect_err("drained node must refuse");
+        assert_eq!(error.0, StatusCode::SERVICE_UNAVAILABLE);
+    }
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
