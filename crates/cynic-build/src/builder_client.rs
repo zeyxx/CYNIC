@@ -14,8 +14,8 @@ use serde_json::json;
 ///
 /// `CYNIC_BUILDER_URL` wins when set and non-empty (backward compat).
 /// Otherwise the registry is read, all `build_runner` nodes are health-checked
-/// via [`crate::builder_pool::resolve_builder_pool_with_health`], and the
-/// first healthy builder is selected via [`crate::builder_pool::select_healthy_builder`].
+/// via [`crate::builder_pool::resolve_builder_pool_with_health`], and one
+/// healthy builder is selected via [`crate::builder_pool::select_balanced_builder`].
 ///
 /// Fails closed when no builder is healthy — never guesses, never falls back
 /// to an unhealthy endpoint.
@@ -38,7 +38,7 @@ pub fn resolve_builder_url_with_health() -> Result<String, String> {
         .map_err(|e| format!("invalid infra/registry.json format: {e}"))?;
 
     let pool = crate::builder_pool::resolve_builder_pool_with_health(&reg);
-    match crate::builder_pool::select_healthy_builder(&pool) {
+    match crate::builder_pool::select_balanced_builder(&pool) {
         Some(endpoint) => Ok(endpoint.url),
         None => Err(
             "could not resolve builder URL: no healthy build_runner in pool (all unhealthy or registry empty)"
