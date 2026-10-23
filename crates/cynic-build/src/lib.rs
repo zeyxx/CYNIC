@@ -29,6 +29,7 @@ pub mod builder_pool;
 pub mod collision_counter;
 pub mod compressor;
 pub mod deploy;
+pub mod deploy_receipt;
 pub mod deploy_uc;
 pub mod external_build;
 pub mod external_build_uc;
