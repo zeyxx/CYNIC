@@ -221,7 +221,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic agent claim --agent-id <id> --target <path> [--claim-type <file|crate>] [--ttl-seconds <n>] [--budget-actions <n>] [--budget-wall-seconds <n>] [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
-                    "cynic agent session-context [--registry <path>] [--json]",
+                    "cynic agent session context [--registry <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -482,6 +482,7 @@ mod tests {
         let cli = Cli::command();
         let manifest = commands_manifest();
         let mut checked = 0usize;
+        let mut ghosts: Vec<String> = Vec::new();
         for domain in &manifest.domains {
             for command in &domain.commands {
                 let path = command
@@ -504,16 +505,23 @@ mod tests {
                     let found = current
                         .get_subcommands()
                         .find(|s| s.get_name() == segment.as_str());
-                    assert!(
-                        found.is_some(),
-                        "manifest command `{}` (domain `{}`) does not resolve at segment {depth}: `{segment}`",
-                        command,
-                        domain.name
-                    );
+                    if found.is_none() {
+                        ghosts.push(format!(
+                            "`{command}` (domain `{}`) fails at segment {depth}: `{segment}`",
+                            domain.name
+                        ));
+                        break;
+                    }
                     current = found.unwrap();
                 }
             }
         }
+        assert!(
+            ghosts.is_empty(),
+            "manifest lists {} command(s) clap cannot resolve:\n{}",
+            ghosts.len(),
+            ghosts.join("\n")
+        );
         assert!(
             checked > 100,
             "manifest command resolution checked too few commands: {checked}"
