@@ -8,11 +8,7 @@
 //! reads it from `CYNIC_ADMIN_SECRET`, never from argv (process lists
 //! leak argv) and never into logs.
 
-<<<<<<< HEAD
 use hmac::{Hmac, KeyInit, Mac};
-=======
-use hmac::{Hmac, Mac};
->>>>>>> eebcf290 (feat(cli): send HMAC admin signals, drain and restart verbs)
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -100,62 +96,6 @@ pub fn send_restart(
     )
 }
 
-<<<<<<< HEAD
-/// Extract the HTTP status from a `send_admin_signal` refusal
-/// (`admin_signal_refused: http NNN`). Pure so the ceremony can branch on
-/// proof outcomes without parsing strings at the call site.
-pub fn refused_status_code(error: &str) -> Option<u16> {
-    error
-        .strip_prefix("admin_signal_refused: http ")
-        .and_then(|rest| rest.split_whitespace().next())
-        .and_then(|code| code.parse().ok())
-}
-
-/// Fetch the public capacity gauge. No signature: proves the HTTP surface
-/// is up after a restart, before any signed proof is attempted.
-pub fn fetch_capacity(base_url: &str) -> Result<serde_json::Value, String> {
-    let url = format!("{}/capacity", base_url.trim_end_matches('/'));
-    std::thread::spawn(move || {
-        let Ok(client) = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-        else {
-            return Err("capacity_client_build_failed".to_string());
-        };
-        let response = client
-            .get(&url)
-            .send()
-            .map_err(|e| format!("capacity_unreachable: {e}"))?;
-        if !response.status().is_success() {
-            return Err(format!("capacity_refused: http {}", response.status()));
-        }
-        response
-            .json::<serde_json::Value>()
-            .map_err(|e| format!("capacity_unparsable: {e}"))
-    })
-    .join()
-    .map_err(|_| "capacity_thread_failed".to_string())?
-}
-
-/// Prove the freshly provisioned secret is live without disrupting the
-/// node: a signed restart naming an impossible digest must be REFUSED
-/// (409, signature verified, digest rejected) — never UNAUTHORIZED (401,
-/// secret missing or wrong). Any 409 means the secret works end to end.
-pub fn prove_secret_live(base_url: &str, secret: &str) -> Result<(), String> {
-    let impossible = format!("sha256:{}", "0".repeat(64));
-    match send_restart(base_url, secret, &impossible) {
-        Ok(_) => Err("secret_proof_unexpected_success: impossible digest accepted".to_string()),
-        Err(error) => match refused_status_code(&error) {
-            Some(409) => Ok(()),
-            Some(401) => Err("secret_not_live: server refused the signature".to_string()),
-            Some(code) => Err(format!("secret_proof_unexpected_status: http {code}")),
-            None => Err(error),
-        },
-    }
-}
-
-=======
->>>>>>> eebcf290 (feat(cli): send HMAC admin signals, drain and restart verbs)
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,31 +142,4 @@ mod tests {
             "expected precise unreachable code, got: {error}"
         );
     }
-<<<<<<< HEAD
-
-    #[test]
-    fn refusal_status_parses_for_ceremony_branching() {
-        assert_eq!(
-            refused_status_code("admin_signal_refused: http 409 Conflict"),
-            Some(409)
-        );
-        assert_eq!(
-            refused_status_code("admin_signal_refused: http 401 Unauthorized"),
-            Some(401)
-        );
-        assert_eq!(refused_status_code("admin_signal_unreachable: foo"), None);
-        assert_eq!(refused_status_code("garbage"), None);
-    }
-
-    #[test]
-    fn impossible_digest_proof_fails_closed_offline() {
-        let error = prove_secret_live("http://127.0.0.1:9", "secret")
-            .expect_err("offline proof must fail, not pretend live");
-        assert!(
-            error.contains("admin_signal_unreachable"),
-            "expected unreachable code, got: {error}"
-        );
-    }
-=======
->>>>>>> eebcf290 (feat(cli): send HMAC admin signals, drain and restart verbs)
 }
