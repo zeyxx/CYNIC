@@ -34,12 +34,17 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Persistent, shared build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). A job starts warm instead
-          # of recompiling the workspace from scratch: measured on
-          # builder-119, 256s cold vs 96s warm.
+          # Per-run isolated build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). One directory per CI run:
+          # shards of the same run share one compilation (first shard cold,
+          # the rest warm); two runs never share one fingerprint space.
+          # Cross-run sharing forged resolution errors (last-builder-wins
+          # mtime lottery), so the target moved from the shared `fgate`
+          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
+          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
@@ -173,13 +178,14 @@ jobs:
           #
           # The CYNIC binary decides, from the observed memory, how many
           # concurrent compilations fit. The decision is published in the
-          # shared target directory, which is where the shared build cache
-          # already lives, so the other shards read it.
+          # run's own target directory, which is where that run's build
+          # cache already lives, so the other shards read it.
           # Each `run:` block is its own shell: the variables of the
-          # toolchain step are not in scope here, so the shared directory
+          # toolchain step are not in scope here, so the run directory
           # is resolved again from the same source of truth.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           if [ -x "$CARGO_TARGET_DIR/release/cynic" ]; then
             "$CARGO_TARGET_DIR/release/cynic" build pool memory --json > "$target_dir/gate-jobs.json"
@@ -217,6 +223,16 @@ jobs:
             --registry infra/registry.json \
             --observed-labels "$POOL_LABEL"
 
+      - name: Prune stale per-run caches
+        run: |
+          set -eu
+          # Every run leaves one fgate-run-* directory behind; no run lasts
+          # 3 days. The legacy shared `fgate` directory is left alone (runs
+          # on older mains may still use it).
+          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
+          find "${state_root}/build-targets" -maxdepth 1 -name 'fgate-run-*' -mtime +3 -exec rm -rf {} + 2>/dev/null || true
+          echo "remaining run caches: $(find "${state_root}/build-targets" -maxdepth 1 -name 'fgate-run-*' 2>/dev/null | wc -l)"
+
   derive_scope:
     name: Gate 0 Proof Scope Derivation
     runs-on: [cynic/build]
@@ -233,7 +249,8 @@ jobs:
           # constant. Changed crates plus their reverse dependents need a
           # proof; every other shard skips. Missing scope runs everything.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           base=""
           if git rev-parse --verify origin/main >/dev/null 2>&1; then
@@ -348,12 +365,17 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Persistent, shared build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). A job starts warm instead
-          # of recompiling the workspace from scratch: measured on
-          # builder-119, 256s cold vs 96s warm.
+          # Per-run isolated build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). One directory per CI run:
+          # shards of the same run share one compilation (first shard cold,
+          # the rest warm); two runs never share one fingerprint space.
+          # Cross-run sharing forged resolution errors (last-builder-wins
+          # mtime lottery), so the target moved from the shared `fgate`
+          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
+          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
@@ -418,12 +440,17 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Persistent, shared build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). A job starts warm instead
-          # of recompiling the workspace from scratch: measured on
-          # builder-119, 256s cold vs 96s warm.
+          # Per-run isolated build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). One directory per CI run:
+          # shards of the same run share one compilation (first shard cold,
+          # the rest warm); two runs never share one fingerprint space.
+          # Cross-run sharing forged resolution errors (last-builder-wins
+          # mtime lottery), so the target moved from the shared `fgate`
+          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
+          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
@@ -467,7 +494,8 @@ jobs:
         run: |
           set -eu
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          scope_file="${state_root}/build-targets/fgate/scope.json"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          scope_file="${state_root}/build-targets/${run_tag}/scope.json"
           if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-types <<'PY'
           import json,sys
           scope_path, crate = sys.argv[1], sys.argv[2]
@@ -506,12 +534,17 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Persistent, shared build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). A job starts warm instead
-          # of recompiling the workspace from scratch: measured on
-          # builder-119, 256s cold vs 96s warm.
+          # Per-run isolated build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). One directory per CI run:
+          # shards of the same run share one compilation (first shard cold,
+          # the rest warm); two runs never share one fingerprint space.
+          # Cross-run sharing forged resolution errors (last-builder-wins
+          # mtime lottery), so the target moved from the shared `fgate`
+          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
+          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
@@ -555,7 +588,8 @@ jobs:
         run: |
           set -eu
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          scope_file="${state_root}/build-targets/fgate/scope.json"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          scope_file="${state_root}/build-targets/${run_tag}/scope.json"
           if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-knowledge <<'PY'
           import json,sys
           scope_path, crate = sys.argv[1], sys.argv[2]
@@ -594,12 +628,17 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Persistent, shared build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). A job starts warm instead
-          # of recompiling the workspace from scratch: measured on
-          # builder-119, 256s cold vs 96s warm.
+          # Per-run isolated build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). One directory per CI run:
+          # shards of the same run share one compilation (first shard cold,
+          # the rest warm); two runs never share one fingerprint space.
+          # Cross-run sharing forged resolution errors (last-builder-wins
+          # mtime lottery), so the target moved from the shared `fgate`
+          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
+          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
@@ -643,7 +682,8 @@ jobs:
         run: |
           set -eu
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          scope_file="${state_root}/build-targets/fgate/scope.json"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          scope_file="${state_root}/build-targets/${run_tag}/scope.json"
           if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-inference <<'PY'
           import json,sys
           scope_path, crate = sys.argv[1], sys.argv[2]
@@ -682,12 +722,17 @@ jobs:
           if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Persistent, shared build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). A job starts warm instead
-          # of recompiling the workspace from scratch: measured on
-          # builder-119, 256s cold vs 96s warm.
+          # Per-run isolated build cache (infra/directory-tree.json:
+          # {state-root}/build-targets/<profile>). One directory per CI run:
+          # shards of the same run share one compilation (first shard cold,
+          # the rest warm); two runs never share one fingerprint space.
+          # Cross-run sharing forged resolution errors (last-builder-wins
+          # mtime lottery), so the target moved from the shared `fgate`
+          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
+          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          target_dir="${state_root}/build-targets/fgate"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          target_dir="${state_root}/build-targets/${run_tag}"
           mkdir -p "$target_dir"
           echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
           echo "target dir: $target_dir"
@@ -731,7 +776,8 @@ jobs:
         run: |
           set -eu
           state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          scope_file="${state_root}/build-targets/fgate/scope.json"
+          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
+          scope_file="${state_root}/build-targets/${run_tag}/scope.json"
           if [ -r "$scope_file" ] && ! python3 - "$scope_file" cynic-cli <<'PY'
           import json,sys
           scope_path, crate = sys.argv[1], sys.argv[2]
