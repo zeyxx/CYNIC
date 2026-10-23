@@ -49,6 +49,11 @@ pub struct BuilderHttpConfig {
     pub repository_id: String,
     /// Secret-free source transport URI for that repository.
     pub transport_uri: String,
+    /// Symlink path to the installed node binary (e.g.
+    /// `/var/lib/cynic/bin/cynic-node`). The restart signal hashes its
+    /// target to verify the desired binary is installed before bouncing.
+    /// `None` means the running binary is the only reference.
+    pub binary_link_path: Option<String>,
 }
 
 #[derive(Clone)]
@@ -128,6 +133,7 @@ pub fn app(
         .route("/health", get(health))
         .route("/status", get(status))
         .route("/capacity", get(capacity))
+        .route("/admin/restart", post(admin_restart))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
@@ -401,6 +407,144 @@ async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Valu
         "in_flight": in_flight,
         "load_average_1m": load_average_1m,
     })))
+}
+
+/// Remote restart signal: ditch SSH, let the node bounce itself.
+///
+/// Auth mirrors the webhook (HMAC, fail-closed without secret, header
+/// `x-cynic-signature`). The body names the desired installed binary by
+/// sha256. The node bounces only when the installed target already
+/// matches: install first, then signal — never the reverse. The bounce
+/// is a clean exit(0); systemd `Restart=always` relaunches the new
+/// binary. Every outcome persists a restart receipt in the evidence
+/// store, so restarts are logged where proofs live, not scattered in
+/// journals nobody reads.
+#[derive(Debug, Deserialize)]
+pub struct RestartSignal {
+    pub desired_sha256: String,
+}
+
+/// Pure restart decision — the testable core, no I/O.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RestartDecision {
+    AlreadyConverged,
+    Proceed { old_hash: String, new_hash: String },
+    Refused { reason: String },
+}
+
+pub fn decide_restart(
+    running_hash: &str,
+    installed_hash: Option<&str>,
+    desired: &str,
+) -> RestartDecision {
+    let well_formed = desired.len() == 64 && desired.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if !well_formed {
+        return RestartDecision::Refused {
+            reason: "bad desired digest: want 64 hex chars".to_string(),
+        };
+    }
+    if running_hash.eq_ignore_ascii_case(desired) {
+        return RestartDecision::AlreadyConverged;
+    }
+    match installed_hash {
+        Some(installed) if installed.eq_ignore_ascii_case(desired) => RestartDecision::Proceed {
+            old_hash: running_hash.to_string(),
+            new_hash: desired.to_string(),
+        },
+        _ => RestartDecision::Refused {
+            reason: "installed binary does not match desired; install first, then signal"
+                .to_string(),
+        },
+    }
+}
+
+fn sha256_of_file(path: &std::path::Path) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    use sha2::Digest;
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(&bytes);
+    Some(hex::encode(hasher.finalize()))
+}
+
+async fn admin_restart(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "restart signal unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid restart signature".into()));
+    }
+    let signal: RestartSignal = serde_json::from_slice(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
+    let running_hash = std::env::current_exe()
+        .ok()
+        .and_then(|path| sha256_of_file(&path))
+        .unwrap_or_default();
+    let installed_hash = state
+        .config
+        .binary_link_path
+        .as_ref()
+        .and_then(|link| std::fs::canonicalize(link).ok())
+        .and_then(|target| sha256_of_file(&target));
+    match decide_restart(
+        &running_hash,
+        installed_hash.as_deref(),
+        &signal.desired_sha256,
+    ) {
+        RestartDecision::AlreadyConverged => Ok(Json(serde_json::json!({
+            "schema": "cynic.node.restart_receipt.v1",
+            "node_id": state.config.node_id,
+            "outcome": "already-converged",
+            "running_sha256": running_hash,
+        }))),
+        RestartDecision::Refused { reason } => Err((StatusCode::CONFLICT, reason)),
+        RestartDecision::Proceed { old_hash, new_hash } => {
+            let receipt = serde_json::json!({
+                "schema": "cynic.node.restart_receipt.v1",
+                "node_id": state.config.node_id,
+                "outcome": "restarting",
+                "old_sha256": old_hash,
+                "new_sha256": new_hash,
+            });
+            persist_restart_receipt(&state, &receipt);
+            // Let the response flush before the process exits; systemd
+            // relaunches the new binary under Restart=always.
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                std::process::exit(0);
+            });
+            Ok(Json(receipt))
+        }
+    }
+}
+
+fn persist_restart_receipt(state: &AppState, receipt: &serde_json::Value) {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let observed_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let envelope = cynic_protocol::build_evidence_envelope_with_lineage(
+        &state.config.node_id,
+        "cynic-node/restart-signal",
+        observed_at,
+        vec!["admin-restart".to_string()],
+        None,
+        receipt,
+    );
+    if let Ok(envelope) = envelope {
+        let _ = state.evidence.persist(&envelope);
+    }
 }
 
 async fn get_proof(
@@ -1009,6 +1153,50 @@ mod tests {
         admit_build_agent_request, canonical_argv_from_build_action,
         BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
     };
+
+    const RUNNING: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const INSTALLED: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    #[test]
+    fn restart_refuses_malformed_desired_digest() {
+        assert!(matches!(
+            decide_restart(RUNNING, Some(INSTALLED), "not-hex"),
+            RestartDecision::Refused { .. }
+        ));
+    }
+
+    #[test]
+    fn restart_converged_when_running_matches_desired() {
+        assert_eq!(
+            decide_restart(RUNNING, Some(INSTALLED), RUNNING),
+            RestartDecision::AlreadyConverged
+        );
+    }
+
+    #[test]
+    fn restart_proceeds_when_installed_matches_desired() {
+        assert_eq!(
+            decide_restart(RUNNING, Some(INSTALLED), INSTALLED),
+            RestartDecision::Proceed {
+                old_hash: RUNNING.to_string(),
+                new_hash: INSTALLED.to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn restart_refuses_when_installed_differs_from_desired() {
+        // Install first, then signal — never the reverse. A bounce into
+        // the same old binary is a no-op with downtime.
+        assert!(matches!(
+            decide_restart(RUNNING, Some(RUNNING), INSTALLED),
+            RestartDecision::Refused { .. }
+        ));
+        assert!(matches!(
+            decide_restart(RUNNING, None, INSTALLED),
+            RestartDecision::Refused { .. }
+        ));
+    }
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
