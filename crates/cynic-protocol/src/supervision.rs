@@ -324,6 +324,92 @@ impl DrainReceipt {
     }
 }
 
+/// Wire schema for builder admission receipts (`POST /admin/pause` and
+/// `POST /admin/resume` persist one per transition; the evidence store is
+/// the audit trail).
+pub const ADMISSION_RECEIPT_SCHEMA: &str = "cynic.node.admission_receipt.v1";
+
+/// Precise refusal code for new submits while admission is paused. Carried
+/// in the 503 body as `{code}: ...` so operators can match it exactly;
+/// in-flight workloads are never touched by a pause.
+pub const ADMISSION_PAUSED_CODE: &str = "builder_admission_paused";
+
+/// Receipt action names for [`AdmissionReceipt::action`].
+pub const ADMISSION_ACTION_PAUSE: &str = "paused";
+pub const ADMISSION_ACTION_RESUME: &str = "resumed";
+
+/// Pure pause choice over the admission flag. The caller owns the flag read,
+/// the receipt persist, and the flag flip. Idempotent by construction:
+/// pausing an already-paused builder is a status read, not a transition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PauseDecision {
+    /// Close admission; in-flight work is untouched.
+    Paused,
+    /// Already paused; persist nothing.
+    AlreadyPaused,
+}
+
+/// Pure pause transition: open flag closes, closed flag stays closed.
+pub fn decide_pause(paused: bool) -> PauseDecision {
+    if paused {
+        PauseDecision::AlreadyPaused
+    } else {
+        PauseDecision::Paused
+    }
+}
+
+/// Pure resume choice over the admission flag. Same ownership split as
+/// [`decide_pause`]: resuming an open builder is a status read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResumeDecision {
+    /// Reopen admission.
+    Resumed,
+    /// Already open; persist nothing.
+    AlreadyResumed,
+}
+
+/// Pure resume transition: closed flag reopens, open flag stays open.
+pub fn decide_resume(paused: bool) -> ResumeDecision {
+    if paused {
+        ResumeDecision::Resumed
+    } else {
+        ResumeDecision::AlreadyResumed
+    }
+}
+
+/// Pure admission gate while paused: a paused builder never admits new work.
+/// Total by construction — the flag alone decides; lifecycle state stays out
+/// so pause composes with drain (`paused || draining` refuses) without
+/// touching the shared [`SupervisorState`] vocabulary.
+pub fn pause_blocks_admission(paused: bool) -> bool {
+    paused
+}
+
+/// One admission receipt payload, persisted per pause/resume transition as
+/// [`ADMISSION_RECEIPT_SCHEMA`]. The caller wraps this in an evidence
+/// envelope (subject, producer, and provenance are transport facts, not
+/// decision facts, so they stay out of the pure core).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AdmissionReceipt {
+    pub schema: String,
+    pub node_id: String,
+    pub action: String,
+    pub in_flight: usize,
+    pub observed_at_unix_ms: u128,
+}
+
+impl AdmissionReceipt {
+    pub fn new(node_id: &str, action: &str, in_flight: usize, observed_at_unix_ms: u128) -> Self {
+        Self {
+            schema: ADMISSION_RECEIPT_SCHEMA.to_string(),
+            node_id: node_id.to_string(),
+            action: action.to_string(),
+            in_flight,
+            observed_at_unix_ms,
+        }
+    }
+}
+
 /// Read-only supervisor observation for one role, per
 /// `contracts/supervisor-contract.json` `observation.required_fields`.
 /// Emitted by `cynic supervise observe`; never constructed by mutation paths.
@@ -722,6 +808,36 @@ mod tests {
         let roundtrip: DrainReceipt =
             serde_json::from_slice(&serde_json::to_vec(&receipt).unwrap()).unwrap();
         assert_eq!(roundtrip, receipt);
+    }
+
+    #[test]
+    fn pause_resume_decisions_are_total_and_idempotent() {
+        // Open flag closes; closed flag stays closed (status read).
+        assert_eq!(decide_pause(false), PauseDecision::Paused);
+        assert_eq!(decide_pause(true), PauseDecision::AlreadyPaused);
+        // Closed flag reopens; open flag stays open (status read).
+        assert_eq!(decide_resume(true), ResumeDecision::Resumed);
+        assert_eq!(decide_resume(false), ResumeDecision::AlreadyResumed);
+    }
+
+    #[test]
+    fn pause_blocks_admission_on_flag_only() {
+        assert!(pause_blocks_admission(true));
+        assert!(!pause_blocks_admission(false));
+    }
+
+    #[test]
+    fn admission_receipt_names_action_and_roundtrips() {
+        let receipt = AdmissionReceipt::new("node-1", ADMISSION_ACTION_PAUSE, 2, 1_700_000_000_000);
+        assert_eq!(receipt.schema, ADMISSION_RECEIPT_SCHEMA);
+        assert_eq!(receipt.action, "paused");
+        assert_eq!(receipt.in_flight, 2);
+        let roundtrip: AdmissionReceipt =
+            serde_json::from_slice(&serde_json::to_vec(&receipt).unwrap()).unwrap();
+        assert_eq!(roundtrip, receipt);
+        let resumed =
+            AdmissionReceipt::new("node-1", ADMISSION_ACTION_RESUME, 0, 1_700_000_000_001);
+        assert_eq!(resumed.action, "resumed");
     }
 
     #[test]
