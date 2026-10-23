@@ -1,0 +1,368 @@
+//! Fleet supervision: observe runner capacity on a schedule (read-only).
+//!
+//! WHY: placement must read supervised state, never probe cold. This arm
+//! probes every registry runner (RAM, disk, state root) and writes the
+//! snapshots to `infra/fleet-capacity.json`. Detection is automatic and
+//! read-only; admission stays signed elsewhere.
+//!
+//! HOW: runners come from `list_runner_nodes` (dynamic registry, no
+//! hardcoded names). Probes reuse `SshBuildRunner` (observation only, never
+//! mutation). The registry write replaces one snapshot per runner.
+//!
+//! NEGATIVE BOUNDARY: observe never mutates runners, never admits or
+//! schedules anything, never touches the network beyond the bounded probe
+//! argv. `remediate` is the single signed exception: it mutates one runner
+//! through one allowlisted action, only with `--yes`, and only on paths the
+//! runner declares itself.
+
+use clap::Subcommand;
+use serde::Serialize;
+use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use cynic_protocol::runner_capacity::{
+    RUNNER_STALENESS_SECS, RunnerCapacitySnapshot, RunnerUsability, decide_runner_usability,
+};
+
+use crate::{emit_json, fail, rust_source};
+
+/// Minimum task class floor used to judge usability at observe time.
+/// Placement applies its own per-class floor; observe reports against the
+/// lightest known floor so degradation is visible early.
+pub const OBSERVE_FLOOR_RAM_BYTES: u64 = 2147483648;
+
+#[derive(Subcommand, Debug)]
+pub enum FleetCommand {
+    /// Observe every registry runner and record capacity snapshots (read-only
+    /// on the runners; rewrites the local capacity registry).
+    Observe {
+        /// SSH user for alias-form targets (user@host entries carry their own).
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Signed remediation on one runner (mutating; requires --yes).
+    Remediate {
+        /// Runner id as listed in the registry.
+        runner: String,
+        /// Allowlisted action: `gc-disk` | `restart-probe`.
+        #[arg(long)]
+        action: String,
+        /// Human seat confirmation. Without it the command only prints the
+        /// bounded argv and refuses.
+        #[arg(long)]
+        yes: bool,
+        /// SSH user for alias-form targets (user@host entries carry their own).
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+pub fn execute_fleet(cmd: &FleetCommand) -> ExitCode {
+    match cmd {
+        FleetCommand::Observe { user, json } => execute_observe(user, *json),
+        FleetCommand::Remediate {
+            runner,
+            action,
+            yes,
+            user,
+            json,
+        } => execute_remediate(runner, action, *yes, user, *json),
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct ObserveCliReport {
+    schema: String,
+    snapshots: Vec<RunnerCapacitySnapshot>,
+    degraded: Vec<String>,
+    muted: Vec<String>,
+}
+
+/// Replace the snapshot for one runner id, preserving the others.
+pub fn upsert_snapshot(registry: &mut serde_json::Value, snap: &RunnerCapacitySnapshot) {
+    let obj = registry
+        .as_object_mut()
+        .expect("capacity registry is a JSON object");
+    if !obj.get("snapshots").is_some_and(|v| v.is_array()) {
+        obj.insert(
+            "snapshots".to_string(),
+            serde_json::Value::Array(Vec::new()),
+        );
+    }
+    let arr = obj
+        .get_mut("snapshots")
+        .and_then(|v| v.as_array_mut())
+        .expect("snapshots is an array");
+    arr.retain(|s| s.get("runner_id").and_then(|v| v.as_str()) != Some(snap.runner_id.as_str()));
+    arr.push(serde_json::json!({
+        "runner_id": snap.runner_id,
+        "observed_unix_s": snap.observed_unix_s,
+        "free_ram_bytes": snap.free_ram_bytes,
+        "disk_avail_bytes": snap.disk_avail_bytes,
+        "state_root": snap.state_root,
+    }));
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RemediateAction {
+    GcDisk,
+    RestartProbe,
+}
+
+/// Parse the allowlisted remediation action. Unknown strings are refused
+/// with the allowed list — never passed through to any shell.
+pub fn parse_remediate_action(raw: &str) -> Result<RemediateAction, String> {
+    match raw {
+        "gc-disk" => Ok(RemediateAction::GcDisk),
+        "restart-probe" => Ok(RemediateAction::RestartProbe),
+        other => Err(format!(
+            "unknown remediate action '{other}'; allowed: gc-disk, restart-probe"
+        )),
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct RemediateCliReport {
+    schema: String,
+    runner: String,
+    action: RemediateAction,
+    executed: bool,
+    detail: String,
+}
+
+/// Signed remediation on one registry runner.
+///
+/// Pure gate first: unknown action or missing `--yes` refuses before any
+/// network touch. With `--yes`, exactly one allowlisted adapter call runs.
+fn execute_remediate(
+    runner_id: &str,
+    action_raw: &str,
+    yes: bool,
+    default_user: &str,
+    json: bool,
+) -> ExitCode {
+    let action = match parse_remediate_action(action_raw) {
+        Ok(a) => a,
+        Err(e) => return fail(e),
+    };
+    if !yes {
+        let refusal = format!(
+            "remediate refuses without --yes (runner '{runner_id}', action '{action_raw}')"
+        );
+        if json {
+            let report = RemediateCliReport {
+                schema: "cynic.cli.fleet_remediate.v1".to_string(),
+                runner: runner_id.to_string(),
+                action,
+                executed: false,
+                detail: refusal.clone(),
+            };
+            return emit_json(&report, true);
+        }
+        eprintln!("{refusal}");
+        return ExitCode::FAILURE;
+    }
+    let candidates = cynic_host::registry::resolve::list_runner_nodes(None).unwrap_or_default();
+    let Some(entry) = candidates.iter().find(|e| e.node_id == runner_id) else {
+        return fail(format!("unknown runner '{runner_id}'"));
+    };
+    let (user, host) = match entry.ssh_target.split_once('@') {
+        Some((u, h)) => (u.to_string(), h.to_string()),
+        None => (default_user.to_string(), entry.ssh_target.clone()),
+    };
+    let runner = cynic_node::cli_factory::ssh_build_runner(
+        host,
+        user,
+        String::new(),
+        None,
+        String::new(),
+        None,
+        None,
+    );
+    let outcome = match action {
+        RemediateAction::GcDisk => runner.remediate_gc_disk(),
+        RemediateAction::RestartProbe => runner.remediate_restart_probe(),
+    };
+    match outcome {
+        Ok(detail) => {
+            if json {
+                let report = RemediateCliReport {
+                    schema: "cynic.cli.fleet_remediate.v1".to_string(),
+                    runner: runner_id.to_string(),
+                    action,
+                    executed: true,
+                    detail,
+                };
+                emit_json(&report, false)
+            } else {
+                println!("{detail}");
+                ExitCode::SUCCESS
+            }
+        }
+        Err(e) => fail(e),
+    }
+}
+fn now_unix_s() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Read-only observe: probe every registry runner, record snapshots.
+///
+/// Never mutates runners. Rewrites `infra/fleet-capacity.json` with fresh
+/// snapshots. Non-zero exit when any runner is muted or degraded so a cron
+/// can alert.
+fn execute_observe(default_user: &str, json: bool) -> ExitCode {
+    let candidates = cynic_host::registry::resolve::list_runner_nodes(None).unwrap_or_default();
+    if candidates.is_empty() {
+        return fail("no runner nodes in the registry".to_string());
+    }
+
+    let root = rust_source::workspace_root();
+    let registry_path = root.join("infra/fleet-capacity.json");
+    let registry_raw = match std::fs::read_to_string(&registry_path) {
+        Ok(s) => s,
+        Err(e) => return fail(format!("cannot read capacity registry: {e}")),
+    };
+    let mut registry: serde_json::Value = match serde_json::from_str(&registry_raw) {
+        Ok(v) => v,
+        Err(e) => return fail(format!("invalid JSON in capacity registry: {e}")),
+    };
+
+    let now = now_unix_s();
+    let mut snapshots = Vec::new();
+    let mut degraded = Vec::new();
+    let mut muted = Vec::new();
+
+    for entry in &candidates {
+        let (user, probe_host) = match entry.ssh_target.split_once('@') {
+            Some((u, h)) => (u.to_string(), h.to_string()),
+            None => (default_user.to_string(), entry.ssh_target.clone()),
+        };
+        let probe = cynic_node::cli_factory::ssh_build_runner(
+            probe_host.to_string(),
+            user.to_string(),
+            String::new(),
+            None,
+            String::new(),
+            None,
+            None,
+        );
+        let snap = RunnerCapacitySnapshot {
+            runner_id: entry.node_id.clone(),
+            observed_unix_s: now,
+            free_ram_bytes: probe.probe_free_ram_bytes(),
+            total_ram_bytes: probe.probe_total_ram_bytes(),
+            disk_avail_bytes: probe.probe_disk_avail_bytes(),
+            state_root: probe.probe_state_root(),
+        };
+        match decide_runner_usability(&snap, now, OBSERVE_FLOOR_RAM_BYTES, RUNNER_STALENESS_SECS) {
+            RunnerUsability::Usable => {}
+            RunnerUsability::Degraded(_) => degraded.push(entry.node_id.clone()),
+            RunnerUsability::Muted(_) => muted.push(entry.node_id.clone()),
+        }
+        upsert_snapshot(&mut registry, &snap);
+        snapshots.push(snap);
+    }
+
+    let out = match serde_json::to_string_pretty(&registry) {
+        Ok(s) => s,
+        Err(e) => return fail(format!("cannot serialize capacity registry: {e}")),
+    };
+    if let Err(e) = std::fs::write(&registry_path, out) {
+        return fail(format!("cannot write capacity registry: {e}"));
+    }
+
+    if json {
+        let report = ObserveCliReport {
+            schema: "cynic.cli.fleet_observe.v1".to_string(),
+            snapshots,
+            degraded: degraded.clone(),
+            muted: muted.clone(),
+        };
+        emit_json(&report, !degraded.is_empty() || !muted.is_empty())
+    } else {
+        for s in &snapshots {
+            let state = if muted.iter().any(|m| m == &s.runner_id) {
+                "muted"
+            } else if degraded.iter().any(|d| d == &s.runner_id) {
+                "degraded"
+            } else {
+                "usable"
+            };
+            println!(
+                "{}: {} (ram={:?}, disk={:?}, root={:?})",
+                s.runner_id, state, s.free_ram_bytes, s.disk_avail_bytes, s.state_root
+            );
+        }
+        if degraded.is_empty() && muted.is_empty() {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(test)]
+mod fleet_observe_tests {
+    use super::*;
+
+    fn snap(runner: &str, observed: u64) -> RunnerCapacitySnapshot {
+        RunnerCapacitySnapshot {
+            runner_id: runner.to_string(),
+            observed_unix_s: observed,
+            free_ram_bytes: Some(1),
+            total_ram_bytes: Some(16),
+            disk_avail_bytes: Some(1),
+            state_root: Some("/srv".to_string()),
+        }
+    }
+
+    #[test]
+    fn remediate_refuses_unknown_action() {
+        let err = parse_remediate_action("rm-rf-everything").expect_err("must refuse");
+        assert!(err.contains("gc-disk"));
+        assert!(err.contains("restart-probe"));
+    }
+
+    #[test]
+    fn remediate_refuses_without_yes() {
+        let code = execute_remediate("builder", "gc-disk", false, "cynic", false);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn upsert_replaces_stale_snapshot_same_runner() {
+        let mut registry = serde_json::json!({
+            "schema": "cynic.fleet.capacity.v1",
+            "snapshots": [
+                {"runner_id": "builder", "observed_unix_s": 1,
+                 "free_ram_bytes": 1, "disk_avail_bytes": 1,
+                 "state_root": "/old"}
+            ]
+        });
+        upsert_snapshot(&mut registry, &snap("builder", 2));
+        let arr = registry
+            .get("snapshots")
+            .and_then(|v| v.as_array())
+            .expect("array");
+        assert_eq!(arr.len(), 1);
+        assert_eq!(
+            arr[0].get("observed_unix_s").and_then(|v| v.as_u64()),
+            Some(2)
+        );
+        assert_eq!(
+            arr[0].get("state_root").and_then(|v| v.as_str()),
+            Some("/srv")
+        );
+    }
+}
