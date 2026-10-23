@@ -19,6 +19,8 @@ use clap::Subcommand;
 use serde::{Deserialize, Serialize};
 
 use crate::{emit_json, fail, rust_source};
+use cynic_vcs::ExternalRepoSummary;
+use cynic_vcs_providers::{ForgejoExternalSourceAdapter, GitHubExternalSourceAdapter};
 
 #[derive(Subcommand)]
 pub(crate) enum CollaboratorCommand {
@@ -92,6 +94,30 @@ pub(crate) enum CollaboratorCommand {
         /// Path to the collaborators registry.
         #[arg(long)]
         registry: Option<String>,
+    },
+    /// Show open activity across the operator's own repos on both forges (read-only).
+    Activity {
+        /// GitHub user whose repos to list (omit to skip GitHub).
+        #[arg(long)]
+        github_user: Option<String>,
+        /// Forgejo user whose repos to list (omit to skip Forgejo).
+        #[arg(long)]
+        forgejo_user: Option<String>,
+        /// Only show this repo (by name).
+        #[arg(long)]
+        project: Option<String>,
+        /// Forgejo base URL (required when --forgejo-user is set).
+        #[arg(long)]
+        forgejo_url: Option<String>,
+        /// GitHub token (or GITHUB_TOKEN env).
+        #[arg(long)]
+        github_token: Option<String>,
+        /// Forgejo token (or FORGEJO_TOKEN env).
+        #[arg(long)]
+        forgejo_token: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -234,6 +260,23 @@ pub(crate) fn execute_collaborator(command: &CollaboratorCommand) -> ExitCode {
             note,
             *yes,
             registry.as_deref(),
+        ),
+        CollaboratorCommand::Activity {
+            github_user,
+            forgejo_user,
+            project,
+            forgejo_url,
+            github_token,
+            forgejo_token,
+            json,
+        } => execute_activity(
+            github_user.as_deref(),
+            forgejo_user.as_deref(),
+            project.as_deref(),
+            forgejo_url.as_deref(),
+            github_token.as_deref(),
+            forgejo_token.as_deref(),
+            *json,
         ),
     }
 }
@@ -651,7 +694,95 @@ fn execute_onboard(
     emit_json(&report, false)
 }
 
-fn parse_collaborators(value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::Collaborator> {
+#[allow(clippy::too_many_arguments)]
+fn execute_activity(
+    github_user: Option<&str>,
+    forgejo_user: Option<&str>,
+    project: Option<&str>,
+    forgejo_url: Option<&str>,
+    github_token: Option<&str>,
+    forgejo_token: Option<&str>,
+    json: bool,
+) -> ExitCode {
+    use cynic_node::usecases::collaborator_activity_uc::{merge_activity, summarize_activity};
+    use cynic_vcs::ExternalSourcePort;
+
+    if github_user.is_none() && forgejo_user.is_none() {
+        return fail("set at least one of --github-user or --forgejo-user");
+    }
+
+    let mut forges = Vec::new();
+
+    if let Some(user) = github_user {
+        let token = match github_token
+            .map(|s| s.to_string())
+            .or_else(|| cynic_secrets::env_var("github-token", "GITHUB_TOKEN"))
+        {
+            Some(t) => t,
+            None => return fail("GITHUB_TOKEN is required for --github-user"),
+        };
+        let adapter = GitHubExternalSourceAdapter::new("https://api.github.com".to_string(), token);
+        let summaries: Vec<ExternalRepoSummary> = match adapter.list_user_repos(user) {
+            Ok(rows) => rows,
+            Err(e) => return fail(format!("GitHub activity fetch failed: {e}")),
+        };
+        forges.push(summarize_activity("github", user, &summaries, project));
+    }
+
+    if let Some(user) = forgejo_user {
+        let base = match forgejo_url {
+            Some(url) => url.to_string(),
+            None => return fail("--forgejo-url is required for --forgejo-user"),
+        };
+        let token = match forgejo_token
+            .map(|s| s.to_string())
+            .or_else(|| cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"))
+        {
+            Some(t) => t,
+            None => return fail("FORGEJO_TOKEN is required for --forgejo-user"),
+        };
+        let adapter = ForgejoExternalSourceAdapter::new(base, token);
+        let summaries: Vec<ExternalRepoSummary> = match adapter.list_user_repos(user) {
+            Ok(rows) => rows,
+            Err(e) => return fail(format!("Forgejo activity fetch failed: {e}")),
+        };
+        forges.push(summarize_activity("forgejo", user, &summaries, project));
+    }
+
+    let report = merge_activity(forges);
+    if json {
+        return emit_json(&report, false);
+    }
+    for forge in &report.forges {
+        println!(
+            "{} @{}: {} repos, {} open issues, {} open PRs",
+            forge.forge, forge.user, forge.repo_count, forge.open_issues, forge.open_prs
+        );
+        for repo in forge.repos.iter().take(10) {
+            match repo.open_prs {
+                Some(prs) => println!(
+                    "  {}: {} issues, {} PRs (updated {})",
+                    repo.name, repo.open_issues, prs, repo.updated_at
+                ),
+                None => println!(
+                    "  {}: {} issues (updated {})",
+                    repo.name, repo.open_issues, repo.updated_at
+                ),
+            }
+        }
+        if forge.repos.len() > 10 {
+            println!("  ... and {} more", forge.repos.len() - 10);
+        }
+    }
+    println!(
+        "total: {} repos, {} open issues, {} open PRs",
+        report.total_repos, report.total_open_issues, report.total_open_prs
+    );
+    ExitCode::SUCCESS
+}
+
+fn parse_collaborators(
+value: &serde_json::Value) -> Vec<cynic_node::usecases::collaborator_trust_uc::Collaborator> {
     value
         .get("collaborators")
         .and_then(|x| x.as_array())
@@ -822,5 +953,5 @@ mod onboard_tests {
     #[test]
     fn blank_handle_is_refused() {
         assert!(admit_onboard(&empty_registry(), "yansigit", "", None, &[], "").is_err());
-    }
+    }    }
 }

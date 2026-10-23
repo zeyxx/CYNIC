@@ -10,7 +10,7 @@ use std::process::Command;
 
 use cynic_vcs::external_source::{
     ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof, ExternalRepoRef,
-    ExternalSourcePort,
+    ExternalRepoSummary, ExternalSourcePort,
 };
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -72,6 +72,25 @@ struct ForgejoBranch {
 #[derive(Deserialize)]
 struct ForgejoCommit {
     id: String,
+}
+
+/// Minimal repo shape for user repo listing (counts only).
+#[derive(Deserialize)]
+struct ForgejoUserRepo {
+    name: String,
+    owner: ForgejoOwner,
+    #[serde(default)]
+    open_issues_count: u64,
+    #[serde(default)]
+    open_prs_count: Option<u64>,
+    #[serde(default)]
+    updated_at: String,
+}
+
+#[derive(Deserialize)]
+struct ForgejoOwner {
+    #[serde(default)]
+    login: String,
 }
 
 #[derive(Deserialize)]
@@ -203,6 +222,40 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
                         head_sha: b.commit.id,
                         is_default,
                     }
+                })
+                .collect())
+        })
+    }
+
+    fn list_user_repos(&self, user: &str) -> Result<Vec<ExternalRepoSummary>, String> {
+        let url = self.api_url(&format!("/users/{user}/repos?limit=100"));
+        let token = self.token.clone();
+
+        Self::with_client(move |client| {
+            let resp = client
+                .get(&url)
+                .header("Authorization", format!("token {token}"))
+                .send()
+                .map_err(|e| format!("HTTP error: {e}"))?;
+
+            if resp.status() == reqwest::StatusCode::NOT_FOUND {
+                return Err(format!("Forgejo user '{user}' not found"));
+            }
+            if !resp.status().is_success() {
+                return Err(format!("Forgejo API error: {}", resp.status()));
+            }
+
+            let repos: Vec<ForgejoUserRepo> =
+                resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+
+            Ok(repos
+                .into_iter()
+                .map(|r| ExternalRepoSummary {
+                    owner: r.owner.login,
+                    name: r.name,
+                    open_issues: r.open_issues_count,
+                    open_prs: r.open_prs_count,
+                    updated_at: r.updated_at,
                 })
                 .collect())
         })

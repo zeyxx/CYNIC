@@ -8,7 +8,7 @@
 //! NEGATIVE BOUNDARY: no std::fs, no HTTP, no process spawn, no git commands.
 
 use crate::external_source::{
-    ExternalBranch, ExternalCloneResult, ExternalRepoRef, ExternalSourcePort,
+    ExternalBranch, ExternalCloneResult, ExternalRepoRef, ExternalRepoSummary, ExternalSourcePort,
 };
 
 /// Orchestrate cloning a repo and creating a branch from a given SHA.
@@ -108,6 +108,10 @@ mod tests {
                 head_sha: "abc123".to_string(),
                 is_default: true,
             }])
+        }
+
+        fn list_user_repos(&self, _user: &str) -> Result<Vec<ExternalRepoSummary>, String> {
+            Ok(vec![])
         }
 
         fn create_branch(

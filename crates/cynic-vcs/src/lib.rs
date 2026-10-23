@@ -46,7 +46,7 @@ pub use external_source_uc::*;
 pub use external_source::{
     EXTERNAL_CLONE_PROOF_SCHEMA, EXTERNAL_PR_PROOF_SCHEMA, EXTERNAL_PUSH_PROOF_SCHEMA,
     EXTERNAL_SOURCE_SCHEMA, ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalProvider,
-    ExternalPushProof, ExternalRepoRef, ExternalSourcePort,
+    ExternalPushProof, ExternalRepoRef, ExternalRepoSummary, ExternalSourcePort,
 };
 pub use forgejo::*;
 pub use forgejo_port::{ForgejoObservationPort, build_forgejo_plan, forgejo_token_spec};

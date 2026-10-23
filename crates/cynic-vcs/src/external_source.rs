@@ -63,6 +63,18 @@ pub struct ExternalBranch {
     pub is_default: bool,
 }
 
+/// Activity summary for one repo owned by a user on a forge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalRepoSummary {
+    pub owner: String,
+    pub name: String,
+    /// Open issues (GitHub folds PRs into this count).
+    pub open_issues: u64,
+    /// Open pull requests, when the forge reports them separately.
+    pub open_prs: Option<u64>,
+    pub updated_at: String,
+}
+
 /// Proof emitted after pushing to an external repo.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalPushProof {
@@ -208,6 +220,11 @@ pub trait ExternalSourcePort: Send + Sync {
 
     /// List branches on the remote.
     fn list_branches(&self, repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String>;
+
+    /// List repos owned by a user on the forge, with open counts (read-only).
+    /// Used by the collaborator activity surface to show the operator's own
+    /// projects. Never mutates; counts only.
+    fn list_user_repos(&self, user: &str) -> Result<Vec<ExternalRepoSummary>, String>;
 
     /// Create a branch on the remote (requires branch_pr or higher policy).
     fn create_branch(
@@ -624,6 +641,9 @@ mod tests {
                 &self,
                 _repo: &ExternalRepoRef,
             ) -> Result<Vec<ExternalBranch>, String> {
+                Ok(vec![])
+            }
+            fn list_user_repos(&self, _user: &str) -> Result<Vec<ExternalRepoSummary>, String> {
                 Ok(vec![])
             }
             fn create_branch(

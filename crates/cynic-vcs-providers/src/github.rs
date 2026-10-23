@@ -10,7 +10,7 @@ use std::process::Command;
 
 use cynic_vcs::external_source::{
     ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof, ExternalRepoRef,
-    ExternalSourcePort,
+    ExternalRepoSummary, ExternalSourcePort,
 };
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -80,6 +80,23 @@ struct GitHubBranch {
 #[derive(Deserialize)]
 struct GitHubCommit {
     sha: String,
+}
+
+/// Minimal repo shape for user repo listing (counts only).
+#[derive(Deserialize)]
+struct GitHubUserRepo {
+    name: String,
+    owner: GitHubOwner,
+    #[serde(default)]
+    open_issues_count: u64,
+    #[serde(default)]
+    updated_at: String,
+}
+
+#[derive(Deserialize)]
+struct GitHubOwner {
+    #[serde(default)]
+    login: String,
 }
 
 #[derive(Deserialize)]
@@ -217,6 +234,43 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
                         head_sha: b.commit.sha,
                         is_default,
                     }
+                })
+                .collect())
+        })
+    }
+
+    fn list_user_repos(&self, user: &str) -> Result<Vec<ExternalRepoSummary>, String> {
+        // GitHub folds pull requests into open_issues_count; per-repo PR
+        // counts need one call per repo, so v1 reports issues only.
+        let url = self.api_url(&format!("/users/{user}/repos?per_page=100&type=all&sort=updated"));
+        let token = self.token.clone();
+
+        Self::with_client(move |client| {
+            let resp = client
+                .get(&url)
+                .header("Authorization", format!("Bearer {token}"))
+                .header("Accept", "application/vnd.github+json")
+                .send()
+                .map_err(|e| format!("HTTP error: {e}"))?;
+
+            if resp.status() == reqwest::StatusCode::NOT_FOUND {
+                return Err(format!("GitHub user '{user}' not found"));
+            }
+            if !resp.status().is_success() {
+                return Err(format!("GitHub API error: {}", resp.status()));
+            }
+
+            let repos: Vec<GitHubUserRepo> =
+                resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+
+            Ok(repos
+                .into_iter()
+                .map(|r| ExternalRepoSummary {
+                    owner: r.owner.login,
+                    name: r.name,
+                    open_issues: r.open_issues_count,
+                    open_prs: None,
+                    updated_at: r.updated_at,
                 })
                 .collect())
         })
