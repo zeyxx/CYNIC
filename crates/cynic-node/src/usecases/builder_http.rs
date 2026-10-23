@@ -6,7 +6,7 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     body::Bytes,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     routing::{get, post},
 };
@@ -23,8 +23,8 @@ use cynic_build::{
 };
 use std::sync::Mutex;
 use cynic_protocol::{
-    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, MutationAdmission,
-    SecurityEvidenceState, admit_build_mutation,
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, EvidenceEnvelope,
+    MutationAdmission, SecurityEvidenceState, admit_build_mutation,
 };
 use cynic_workload::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
 
@@ -124,6 +124,7 @@ pub fn app(
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
         .route("/admin/identity", get(identity))
+        .route("/admin/evidence", get(admin_evidence))
         .with_state(state)
 }
 
@@ -454,6 +455,172 @@ async fn identity(State(state): State<AppState>) -> Json<serde_json::Value> {
         installed_path.as_deref(),
         installed_digest.as_deref(),
         applied_registry_revision().as_deref(),
+    ))
+}
+
+/// Default and maximum page sizes for `GET /admin/evidence`.
+pub(crate) const EVIDENCE_LIST_DEFAULT_LIMIT: usize = 50;
+pub(crate) const EVIDENCE_LIST_MAX_LIMIT: usize = 200;
+
+/// Query parameters for `GET /admin/evidence`.
+#[derive(Debug, Deserialize)]
+pub(crate) struct EvidenceQuery {
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub kind: Option<String>,
+}
+
+/// Clamp the requested page size: absent means the default, anything above
+/// the maximum is capped. Zero stays zero and yields an empty page.
+fn clamp_evidence_limit(requested: Option<usize>) -> usize {
+    match requested {
+        None => EVIDENCE_LIST_DEFAULT_LIMIT,
+        Some(n) => n.min(EVIDENCE_LIST_MAX_LIMIT),
+    }
+}
+
+/// Lifecycle kind of one evidence envelope, when it names a restart, drain,
+/// or pause receipt. Matches against the envelope subject, producer,
+/// provenance entries, and the payload `schema`/`kind`/`operation` markers —
+/// case-insensitive substring match, first hit wins in restart/drain/pause
+/// order. Returns `None` for build proofs and unrelated evidence.
+fn evidence_lifecycle_kind(envelope: &EvidenceEnvelope) -> Option<&'static str> {
+    let mut haystacks = vec![envelope.subject.clone(), envelope.producer.clone()];
+    haystacks.extend(envelope.provenance.iter().cloned());
+    for key in ["schema", "kind", "operation"] {
+        if let Some(marker) = envelope.payload.get(key).and_then(|v| v.as_str()) {
+            haystacks.push(marker.to_string());
+        }
+    }
+    let joined = haystacks.join("\n").to_lowercase();
+    if joined.contains("restart") {
+        Some("restart")
+    } else if joined.contains("drain") {
+        Some("drain")
+    } else if joined.contains("pause") {
+        Some("pause")
+    } else {
+        None
+    }
+}
+
+/// Payload-declared schema of one evidence envelope, when the payload names
+/// one. `None` serializes as `null` — the listing reports what it can prove.
+fn evidence_payload_schema(envelope: &EvidenceEnvelope) -> Option<&str> {
+    envelope.payload.get("schema")?.as_str()
+}
+
+/// Pure summary shaper for one evidence envelope: digest, lifecycle kind,
+/// and payload schema. No filesystem, no clock. Tested without HTTP.
+fn summarize_evidence_envelope(envelope: &EvidenceEnvelope) -> serde_json::Value {
+    serde_json::json!({
+        "digest": envelope.digest,
+        "subject": envelope.subject,
+        "producer": envelope.producer,
+        "observed_at_unix_ms": envelope.observed_at_unix_ms,
+        "kind": evidence_lifecycle_kind(envelope),
+        "payload_schema": evidence_payload_schema(envelope),
+    })
+}
+
+/// Pure list shaper: schema envelope around the page plus scan counters.
+/// Tested without HTTP.
+fn shape_evidence_list_response(
+    node_id: &str,
+    observed_at_ms: i64,
+    items: Vec<serde_json::Value>,
+    total_scanned: usize,
+    unparseable: usize,
+    limit: usize,
+    kind: Option<&str>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": "cynic.builder.evidence_list.v1",
+        "node_id": node_id,
+        "observed_at_ms": observed_at_ms,
+        "limit": limit,
+        "kind": kind,
+        "total_scanned": total_scanned,
+        "unparseable": unparseable,
+        "returned": items.len(),
+        "items": items,
+    })
+}
+
+/// Scan the local content-addressed evidence directory and return lifecycle
+/// receipt summaries, newest first, bounded to `limit`.
+///
+/// Counts every `*.json` file as scanned; files that fail to parse count as
+/// `unparseable` and never fail the listing. A missing directory reads as an
+/// empty store — a read-only endpoint reports what it can prove, never a 500
+/// for absent evidence. `kind_filter` accepts `restart`, `drain`, or `pause`
+/// (case-insensitive); unknown filters match nothing.
+fn list_evidence_summaries(
+    evidence_root: &std::path::Path,
+    limit: usize,
+    kind_filter: Option<&str>,
+) -> (Vec<serde_json::Value>, usize, usize) {
+    let wanted = kind_filter.map(|k| k.to_lowercase());
+    let entries = match std::fs::read_dir(evidence_root) {
+        Ok(entries) => entries,
+        Err(_) => return (Vec::new(), 0, 0),
+    };
+    let mut total_scanned = 0usize;
+    let mut unparseable = 0usize;
+    let mut staged: Vec<(u128, serde_json::Value)> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        total_scanned += 1;
+        let envelope = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<EvidenceEnvelope>(&bytes).ok());
+        let Some(envelope) = envelope else {
+            unparseable += 1;
+            continue;
+        };
+        if let Some(wanted) = &wanted {
+            if evidence_lifecycle_kind(&envelope).as_deref() != Some(wanted.as_str()) {
+                continue;
+            }
+        }
+        staged.push((
+            envelope.observed_at_unix_ms,
+            summarize_evidence_envelope(&envelope),
+        ));
+    }
+    staged.sort_by(|a, b| b.0.cmp(&a.0));
+    staged.truncate(limit);
+    let items = staged.into_iter().map(|(_, item)| item).collect();
+    (items, total_scanned, unparseable)
+}
+
+/// Lifecycle receipt read-back: `GET /admin/evidence?limit=&kind=`.
+///
+/// No auth: read-only, no mutation — the same trust boundary as `/health`,
+/// `/status`, and `/admin/identity`. Lists restart/drain/pause receipts from
+/// the local evidence store (the same directory that backs
+/// `/records/{id}`), newest first, bounded. Restarts logged where proofs live
+/// are queryable without SSH.
+async fn admin_evidence(
+    State(state): State<AppState>,
+    Query(query): Query<EvidenceQuery>,
+) -> Json<serde_json::Value> {
+    let limit = clamp_evidence_limit(query.limit);
+    let evidence_root = std::path::PathBuf::from(&state.config.state_root).join("evidence");
+    let (items, total_scanned, unparseable) =
+        list_evidence_summaries(&evidence_root, limit, query.kind.as_deref());
+    Json(shape_evidence_list_response(
+        &state.config.node_id,
+        Utc::now().timestamp_millis(),
+        items,
+        total_scanned,
+        unparseable,
+        limit,
+        query.kind.as_deref(),
     ))
 }
 
@@ -1237,5 +1404,157 @@ mod tests {
             sha256_file(&std::path::PathBuf::from("/nonexistent-identity-fixture")),
             None
         );
+    }
+
+    fn lifecycle_envelope(
+        subject: &str,
+        producer: &str,
+        observed_at_ms: u128,
+        payload: serde_json::Value,
+    ) -> EvidenceEnvelope {
+        cynic_protocol::build_evidence_envelope(
+            subject,
+            producer,
+            observed_at_ms,
+            vec!["lifecycle-receipt-fixture".to_string()],
+            &payload,
+        )
+        .expect("fixture envelope")
+    }
+
+    #[test]
+    fn evidence_kind_detects_restart_drain_pause() {
+        let restart = lifecycle_envelope(
+            "builder",
+            "cynic-node:supervisor",
+            3,
+            serde_json::json!({"schema": "cynic.node.restart_receipt.v1"}),
+        );
+        let drain = lifecycle_envelope(
+            "builder:drain",
+            "cynic-node",
+            2,
+            serde_json::json!({"status": "ok"}),
+        );
+        let pause = lifecycle_envelope(
+            "builder",
+            "cynic-node",
+            1,
+            serde_json::json!({"operation": "pause"}),
+        );
+        assert_eq!(evidence_lifecycle_kind(&restart), Some("restart"));
+        assert_eq!(evidence_lifecycle_kind(&drain), Some("drain"));
+        assert_eq!(evidence_lifecycle_kind(&pause), Some("pause"));
+    }
+
+    #[test]
+    fn evidence_kind_is_none_for_build_proofs() {
+        let proof = lifecycle_envelope(
+            "agent-workload",
+            "cynic-builder",
+            1,
+            serde_json::json!({"schema": "cynic.builder.proof.v1", "exit_code": 0}),
+        );
+        assert_eq!(evidence_lifecycle_kind(&proof), None);
+    }
+
+    #[test]
+    fn evidence_limit_defaults_and_caps() {
+        assert_eq!(clamp_evidence_limit(None), EVIDENCE_LIST_DEFAULT_LIMIT);
+        assert_eq!(clamp_evidence_limit(Some(10)), 10);
+        assert_eq!(clamp_evidence_limit(Some(0)), 0);
+        assert_eq!(clamp_evidence_limit(Some(10_000)), EVIDENCE_LIST_MAX_LIMIT);
+    }
+
+    #[test]
+    fn evidence_list_shape_carries_schema_and_counters() {
+        let shaped = shape_evidence_list_response(
+            "cynic-builder",
+            1_700_000_000_000,
+            vec![serde_json::json!({"digest": "sha256:abc"})],
+            7,
+            1,
+            50,
+            None,
+        );
+        assert_eq!(shaped["schema"], "cynic.builder.evidence_list.v1");
+        assert_eq!(shaped["node_id"], "cynic-builder");
+        assert_eq!(shaped["returned"], 1);
+        assert_eq!(shaped["total_scanned"], 7);
+        assert_eq!(shaped["unparseable"], 1);
+        assert!(shaped["kind"].is_null());
+    }
+
+    fn write_evidence_fixture(dir: &std::path::Path, envelope: &EvidenceEnvelope) {
+        let name = format!(
+            "{}.json",
+            envelope
+                .digest
+                .strip_prefix("sha256:")
+                .expect("content-addressed digest")
+        );
+        std::fs::write(
+            dir.join(name),
+            serde_json::to_vec_pretty(envelope).expect("serialize fixture"),
+        )
+        .expect("write fixture");
+    }
+
+    #[test]
+    fn evidence_scan_lists_newest_first_bounded_and_filtered() {
+        let dir = tempfile::tempdir().expect("temp evidence dir");
+        let evidence_root = dir.path().join("evidence");
+        std::fs::create_dir(&evidence_root).expect("evidence dir");
+        let old = lifecycle_envelope(
+            "builder",
+            "cynic-node",
+            100,
+            serde_json::json!({"schema": "cynic.node.restart_receipt.v1"}),
+        );
+        let mid = lifecycle_envelope(
+            "builder",
+            "cynic-node",
+            200,
+            serde_json::json!({"schema": "cynic.node.drain_receipt.v1"}),
+        );
+        let new = lifecycle_envelope(
+            "builder",
+            "cynic-node",
+            300,
+            serde_json::json!({"schema": "cynic.builder.proof.v1"}),
+        );
+        write_evidence_fixture(&evidence_root, &old);
+        write_evidence_fixture(&evidence_root, &mid);
+        write_evidence_fixture(&evidence_root, &new);
+        std::fs::write(evidence_root.join("corrupt.json"), b"{not json").expect("corrupt");
+        std::fs::write(evidence_root.join("notes.txt"), b"ignored").expect("non-json");
+
+        let (items, total, bad) = list_evidence_summaries(&evidence_root, 10, None);
+        assert_eq!(total, 4);
+        assert_eq!(bad, 1);
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0]["observed_at_unix_ms"], 300);
+        assert_eq!(items[2]["observed_at_unix_ms"], 100);
+
+        let (page, _, _) = list_evidence_summaries(&evidence_root, 1, None);
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0]["observed_at_unix_ms"], 300);
+
+        let (restarts, _, _) = list_evidence_summaries(&evidence_root, 10, Some("restart"));
+        assert_eq!(restarts.len(), 1);
+        assert_eq!(restarts[0]["kind"], "restart");
+
+        let (unknown, _, _) = list_evidence_summaries(&evidence_root, 10, Some("reboot"));
+        assert!(unknown.is_empty());
+    }
+
+    #[test]
+    fn evidence_scan_missing_dir_is_empty_not_error() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let (items, total, bad) =
+            list_evidence_summaries(&dir.path().join("no-such-evidence"), 10, None);
+        assert!(items.is_empty());
+        assert_eq!(total, 0);
+        assert_eq!(bad, 0);
     }
 }
