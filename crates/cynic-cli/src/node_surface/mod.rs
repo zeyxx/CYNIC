@@ -1,6 +1,7 @@
 //! Node CLI surface — unified node command dispatch.
 
 pub mod activation;
+pub mod admin;
 pub mod agent;
 pub mod consensus;
 pub mod identity;
@@ -35,6 +36,7 @@ pub enum NodeCommand {
     Storage { #[command(subcommand)] command: NodeStorageCommand },
     Source { #[command(subcommand)] command: NodeSourceCommand },
     Service { #[command(subcommand)] command: NodeServiceCommand },
+    Admin { #[command(subcommand)] command: admin::NodeAdminCommand },
 }
 
 #[derive(Subcommand)]
@@ -190,6 +192,12 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::Service { command } => match command {
             NodeServiceCommand::Generate { unit_name, description, binary, config, user, output, json } => service::execute_service_generate(unit_name, description, binary, config, user, output, json),
             NodeServiceCommand::Prove { unit_name, description, binary, config, user, unit_dir, json } => service::execute_service_prove(unit_name, description, binary, config, user, unit_dir, json),
+        },
+        NodeCommand::Admin { command } => match command {
+            admin::NodeAdminCommand::Secret { command } => match admin::execute_admin_secret(command) {
+                Ok(()) => std::process::ExitCode::SUCCESS,
+                Err(error) => { eprintln!("error: {error}"); std::process::ExitCode::FAILURE }
+            },
         },
     }
 }
