@@ -773,7 +773,7 @@ async fn admin_reload(
             Err((StatusCode::UNPROCESSABLE_ENTITY, reason))
         }
         crate::config::ReloadDecision::Applied {
-            previous_digest: _,
+            previous_digest,
             applied_digest,
             changed_keys,
             requires_restart,
