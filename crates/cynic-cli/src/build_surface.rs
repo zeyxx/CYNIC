@@ -26,7 +26,8 @@ use pool::{
 };
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
-    list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
+    drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, run_build,
+    submit_build, trigger_build,
 };
 use services::{provision_credentials, serve_webhook};
 
@@ -98,6 +99,27 @@ pub(crate) enum BuildCommand {
         /// Wait for completion and fetch proof.
         #[arg(long)]
         wait: bool,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Drain a builder node: stop admitting, finish in-flight, exit for relaunch.
+    Drain {
+        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
+        #[arg(long)]
+        builder_url: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Restart a builder node into an already-installed binary by sha256.
+    Restart {
+        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
+        #[arg(long)]
+        builder_url: Option<String>,
+        /// Desired installed binary sha256 (64 hex chars).
+        #[arg(long)]
+        desired_sha256: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -504,6 +526,24 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 wait,
                 json,
             )
+        }
+        BuildCommand::Drain { builder_url, json } => {
+            let url = match builder_url {
+                Some(explicit) => explicit,
+                None => resolve_default_builder_url()?,
+            };
+            drain_node(&url, json)
+        }
+        BuildCommand::Restart {
+            builder_url,
+            desired_sha256,
+            json,
+        } => {
+            let url = match builder_url {
+                Some(explicit) => explicit,
+                None => resolve_default_builder_url()?,
+            };
+            restart_node(&url, &desired_sha256, json)
         }
         BuildCommand::Trigger {
             commit,
