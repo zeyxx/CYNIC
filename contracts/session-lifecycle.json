@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.session_lifecycle.v1",
+  "version": "0.1.0",
+  "status": "normative",
+  "purpose": "Single authority for an agent session: bounded states, bound worktree and claim, and five measured counters. A session that is not in this machine is prose, not a session.",
+  "extends": "contracts/source-lifecycle.json",
+  "authority_order": [
+    "observed runtime state",
+    "contracts/foundation.json",
+    "contracts/source-lifecycle.json",
+    "contracts/session-lifecycle.json",
+    "infra/registry.json",
+    "workspace Cargo.toml",
+    "canonical Rust crates"
+  ],
+  "principles": [
+    "Machine-readable first: session states and transitions are strictly typed data, never prose.",
+    "One session binds one worktree and one claim identity; sharing either across sessions is a fork, not reuse.",
+    "No mutation without read-back proof: open, claim, proof, release, and close are all observed facts.",
+    "Unknown is data: a missing observation is recorded as unknown, never filled with a plausible value."
+  ],
+  "session_state_machine": {
+    "states": [
+      "opened",
+      "claimed",
+      "working",
+      "proving",
+      "releasing",
+      "closed"
+    ],
+    "transitions": [
+      { "from": "opened", "to": "claimed", "requires": ["worktree_allocated", "claim_granted_with_base_sha"] },
+      { "from": "claimed", "to": "working", "requires": ["scope_covered"] },
+      { "from": "working", "to": "proving", "requires": ["commit_pushed", "claim_still_active"] },
+      { "from": "proving", "to": "releasing", "requires": ["builder_proof_at_pushed_sha"] },
+      { "from": "releasing", "to": "closed", "requires": ["claims_released", "worktree_removed_or_retained", "close_receipt_logged"] }
+    ],
+    "terminal": "closed",
+    "rule": "No state is skipped. A session that proves without a claim proves nothing; its proof is unattributed."
+  },
+  "bindings": {
+    "worktree": "Allocated from verified origin/main via the isolated-worktree surface. One session, one worktree.",
+    "claim": "Claim identity is per session (agent_id carries the session). The claim records base_sha at grant time.",
+    "staleness": "Status surfaces base_sha drift: behind_count of base_sha behind origin/main at read time."
+  },
+  "green_main_gate": {
+    "rule": "No session opens on a red main. Allocation refuses while a mandatory gate is red on origin/main.",
+    "toll": "A branch that pays main debt records one toll_paid counter per debt family, not per commit."
+  },
+  "gc_rule": {
+    "rule": "A worktree is collectable only on two independent facts: claim released AND head reachable from a durable ref.",
+    "never": ["clean alone", "prunable alone", "age alone", "size alone"]
+  },
+  "counters": [
+    {
+      "kind": "toll_paid",
+      "producer": "branch",
+      "consumer": "coordination_log_reader",
+      "fields": ["branch", "sha", "toll_family", "main_gate_red"],
+      "counts": "main-debt families paid by a branch that is not their owner"
+    },
+    {
+      "kind": "gc_decision",
+      "producer": "reconcile",
+      "consumer": "coordination_log_reader",
+      "fields": ["worktree", "verdict", "claim_state", "head_reachable"],
+      "counts": "retain vs collect verdicts with their two-fact evidence"
+    },
+    {
+      "kind": "base_drift",
+      "producer": "claim_status",
+      "consumer": "session_owner",
+      "fields": ["base_sha", "origin_main_sha", "behind_count"],
+      "counts": "stale-base observations before they become mystery failures"
+    },
+    {
+      "kind": "head_collision",
+      "producer": "worktree_observer",
+      "consumer": "session_owner",
+      "fields": ["worktree", "expected_branch", "observed_branch"],
+      "counts": "shared-checkout HEAD moves under a live session"
+    },
+    {
+      "kind": "claim_expiry",
+      "producer": "claim_store",
+      "consumer": "session_owner",
+      "fields": ["agent_id", "scope", "outcome"],
+      "counts": "expired vs forked vs renewed leases; outcome is one of expired, forked, renewed"
+    }
+  ],
+  "close_receipt": {
+    "kind": "session_close",
+    "requires": ["session_id", "claims_released", "worktree_fate", "proof_ref"],
+    "rule": "Close appends one receipt to the coordination log. No receipt means the session is still open."
+  }
+}
