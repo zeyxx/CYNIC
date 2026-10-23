@@ -18,7 +18,7 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::runner_capacity::{
-    RunnerCapacitySnapshot, RunnerUsability, decide_runner_usability,
+    RUNNER_STALENESS_SECS, RunnerCapacitySnapshot, RunnerUsability, decide_runner_usability,
 };
 
 use crate::{emit_json, fail, rust_source};
@@ -27,8 +27,6 @@ use crate::{emit_json, fail, rust_source};
 /// Placement applies its own per-class floor; observe reports against the
 /// lightest known floor so degradation is visible early.
 pub const OBSERVE_FLOOR_RAM_BYTES: u64 = 2147483648;
-/// Window after which a snapshot reads as stale (mirrors the contract).
-pub const OBSERVE_STALENESS_SECS: u64 = 600;
 
 #[derive(Subcommand, Debug)]
 pub enum FleetCommand {
@@ -135,10 +133,11 @@ fn execute_observe(default_user: &str, json: bool) -> ExitCode {
             runner_id: entry.node_id.clone(),
             observed_unix_s: now,
             free_ram_bytes: probe.probe_free_ram_bytes(),
+            total_ram_bytes: probe.probe_total_ram_bytes(),
             disk_avail_bytes: probe.probe_disk_avail_bytes(),
             state_root: probe.probe_state_root(),
         };
-        match decide_runner_usability(&snap, now, OBSERVE_FLOOR_RAM_BYTES, OBSERVE_STALENESS_SECS) {
+        match decide_runner_usability(&snap, now, OBSERVE_FLOOR_RAM_BYTES, RUNNER_STALENESS_SECS) {
             RunnerUsability::Usable => {}
             RunnerUsability::Degraded(_) => degraded.push(entry.node_id.clone()),
             RunnerUsability::Muted(_) => muted.push(entry.node_id.clone()),
@@ -194,6 +193,7 @@ mod fleet_observe_tests {
             runner_id: runner.to_string(),
             observed_unix_s: observed,
             free_ram_bytes: Some(1),
+            total_ram_bytes: Some(16),
             disk_avail_bytes: Some(1),
             state_root: Some("/srv".to_string()),
         }
