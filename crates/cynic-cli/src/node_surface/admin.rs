@@ -1,11 +1,15 @@
-//! Node admin ceremony: one-click webhook-secret provisioning.
+//! Node admin ceremony: one-click webhook-secret rotation.
 //!
-//! WHY: every secret rotation used to mean one root shell per node
-//! (systemd env edits, restarts, hand-read gauges). This verb does the
-//! whole loop from the operator machine: distribute the secret file,
-//! restart, wait for the gauge, prove the secret live with a signed but
-//! harmless signal — and reports per node what changed, what is
-//! verified, and what is left.
+//! WHY: every secret rotation used to mean one root shell per node.
+//! This verb does the whole loop from the operator machine: stage the
+//! new env fragment, restart, wait for the gauge, prove the secret live
+//! with a signed but harmless signal — and reports per node what
+//! changed, what is verified, and what is left.
+//!
+//! The daemon reads ONLY the `CYNIC_FORGEJO_WEBHOOK_SECRET` entry of the
+//! systemd env file (default `/etc/cynic/env`). A bare secret file
+//! elsewhere is ignored by the daemon — this verb writes the env
+//! fragment, never a stray secret file.
 //!
 //! The secret is read from a FILE (`--secret-file`), never from argv:
 //! process lists leak argv, and shell history outlives the ceremony.
@@ -30,8 +34,9 @@ pub enum NodeAdminSecretCommand {
         /// Limit to these node ids. Default: every build_runner in the registry.
         #[arg(long)]
         node: Vec<String>,
-        /// Remote destination. Default matches the daemon file fallback.
-        #[arg(long, default_value = "/var/lib/cynic/identity/webhook.secret")]
+        /// Remote destination: the systemd env file the daemon reads.
+        /// Must already be wired via EnvironmentFile in the unit.
+        #[arg(long, default_value = "/etc/cynic/env")]
         remote_path: String,
         #[arg(long, default_value_t = false)]
         yes: bool,
@@ -57,6 +62,18 @@ pub fn validate_secret_content(raw: &str) -> Result<String, String> {
     }
     Ok(secret)
 }
+
+/// The single env entry the daemon reads. Pure so tests pin the exact
+/// bytes that land in the systemd env file — no stray whitespace, the
+/// value that broke c01's rotation is impossible by construction.
+pub fn env_fragment_line(secret: &str) -> String {
+    format!("CYNIC_FORGEJO_WEBHOOK_SECRET={secret}\n")
+}
+
+/// Remote staging for the secret fragment. `/tmp` because the machine
+/// user can always write there; the privileged move into the env file
+/// happens in one remote step, then staging is removed.
+const REMOTE_STAGING: &str = "/tmp/cynic-webhook-secret.ceremony";
 
 /// One node's ceremony outcome. The secret itself never appears here.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -138,21 +155,6 @@ fn scp_to(target: &str, local: &str, remote_path: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn sha256_of_local(path: &str) -> Result<String, String> {
-    let output = std::process::Command::new("sha256sum")
-        .arg(path)
-        .output()
-        .map_err(|e| format!("sha256sum_unavailable: {e}"))?;
-    if !output.status.success() {
-        return Err("sha256sum_failed".to_string());
-    }
-    String::from_utf8_lossy(&output.stdout)
-        .split_whitespace()
-        .next()
-        .map(str::to_string)
-        .ok_or_else(|| "sha256sum_unparsable".to_string())
-}
-
 fn wait_for_gauge(url: &str) -> bool {
     for _ in 0..18 {
         if cynic_build::admin_signal::fetch_capacity(url).is_ok() {
@@ -182,7 +184,6 @@ fn provision_one(
     ssh_target: &str,
     url: &str,
     secret_file: &str,
-    local_digest: &str,
     secret: &str,
     remote_path: &str,
 ) -> NodeCeremonyReport {
@@ -196,25 +197,50 @@ fn provision_one(
         signature_ok: false,
         detail: String::new(),
     };
-    if let Err(error) = scp_to(ssh_target, secret_file, remote_path) {
+    if let Err(error) = scp_to(ssh_target, secret_file, REMOTE_STAGING) {
         return NodeCeremonyReport {
             detail: error,
             ..base
         };
     }
-    let chmod = format!("chmod 600 {remote_path} && sha256sum {remote_path}");
-    let remote_digest = match run_ssh(ssh_target, &chmod) {
+    // One remote step: strip any old entry, append the exact fragment,
+    // move into place, remove staging. The move fails closed without
+    // privilege and names the manual command.
+    let install = format!(
+        "printf 'CYNIC_FORGEJO_WEBHOOK_SECRET=%s\\n' \"$(tr -d '\\n\\r ' < {REMOTE_STAGING})\" > {REMOTE_STAGING}.env && grep -v '^CYNIC_FORGEJO_WEBHOOK_SECRET=' {remote_path} >> {REMOTE_STAGING}.env 2>/dev/null; mv {REMOTE_STAGING}.env {remote_path} && rm -f {REMOTE_STAGING} && sed 's/.*=//' {remote_path} | tr -d '\\n\\r ' | sha256sum"
+    );
+    let remote_digest = match run_ssh(ssh_target, &install) {
         Ok(out) => out.split_whitespace().next().unwrap_or("").to_string(),
         Err(error) => {
             return NodeCeremonyReport {
-                detail: error,
+                detail: format!("{error}; run as root there: stage the fragment into {remote_path} then systemctl restart cynic-node"),
                 ..base
-            };
+            }
         }
     };
-    if remote_digest != local_digest {
+    let mut local_digest_cmd = std::process::Command::new("sha256sum");
+    let digest_output = local_digest_cmd
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("sha256sum_unavailable: {e}"))?;
+    use std::io::Write as _;
+    let mut child = digest_output;
+    if let Some(stdin) = child.stdin.take() {
+        let mut stdin = stdin;
+        let _ = stdin.write_all(secret.trim().as_bytes());
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("sha256sum_failed: {e}"))?;
+    let local_digest = String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_string();
+    if remote_digest != local_digest || local_digest.is_empty() {
         return NodeCeremonyReport {
-            detail: "read-back digest mismatch; remote file not trusted".to_string(),
+            detail: "read-back digest mismatch; remote env not trusted".to_string(),
             ..base
         };
     }
@@ -267,7 +293,6 @@ pub fn execute_admin_secret(command: &NodeAdminSecretCommand) -> Result<(), Stri
     let raw =
         std::fs::read_to_string(secret_file).map_err(|e| format!("secret file unreadable: {e}"))?;
     let secret = validate_secret_content(&raw)?;
-    let local_digest = sha256_of_local(secret_file)?;
 
     let registry_path = registry.clone().unwrap_or_else(|| {
         cynic_types::paths::CynicPaths::registry_path()
@@ -312,7 +337,6 @@ pub fn execute_admin_secret(command: &NodeAdminSecretCommand) -> Result<(), Stri
             &ssh_target,
             &endpoint.url,
             secret_file,
-            &local_digest,
             &secret,
             remote_path,
         ));
@@ -349,6 +373,16 @@ mod tests {
         let secret = "a".repeat(32);
         let held = validate_secret_content(&format!("  {secret}\n")).unwrap();
         assert_eq!(held, secret);
+    }
+
+    #[test]
+    fn env_fragment_is_exact_with_no_stray_whitespace() {
+        let line = env_fragment_line(&"a".repeat(32));
+        assert_eq!(
+            line,
+            format!("CYNIC_FORGEJO_WEBHOOK_SECRET={}\n", "a".repeat(32))
+        );
+        assert!(!line.contains(' '));
     }
 
     #[test]
