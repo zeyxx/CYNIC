@@ -678,14 +678,12 @@ impl SshBuildRunner {
         }
         let state_root = parse_state_root(&paths.stdout)?;
         let checkout_base = remote_cache_roots(&state_root).checkout_base;
-        let df = self.runner.run(&[
-            "ssh",
-            target.as_str(),
-            "df",
-            "-k",
-            "--output=avail",
-            checkout_base.as_str(),
-        ]);
+        // Classic `df -k` columns: the parser reads Avail (parts[3]) and
+        // matches the mount point. `--output=avail` prints a single column
+        // the parser skips, which muted every runner's disk.
+        let df = self
+            .runner
+            .run(&["ssh", target.as_str(), "df", "-k", checkout_base.as_str()]);
         if !df.success() {
             return None;
         }
