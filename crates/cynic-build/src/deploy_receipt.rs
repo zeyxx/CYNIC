@@ -143,8 +143,11 @@ mod tests {
         }
     }
 
-    fn dir() -> String {
-        let dir = std::env::temp_dir().join(format!("cynic-receipts-{}", std::process::id()));
+    fn dir(name: &str) -> String {
+        let dir = std::env::temp_dir().join(format!(
+            "cynic-receipts-{}-{name}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&dir).expect("dir");
         dir.display().to_string()
     }
@@ -153,13 +156,14 @@ mod tests {
     fn blank_commit_is_refused_before_write() {
         let mut bad = receipt("builder");
         bad.commit = "  ".to_string();
-        let error = append_receipt(&dir(), &bad).expect_err("blank commit must not journal");
+        let error =
+            append_receipt(&dir("blank"), &bad).expect_err("blank commit must not journal");
         assert!(error.contains("commit is blank"), "got: {error}");
     }
 
     #[test]
     fn round_trip_preserves_order_and_rollback_pointer() {
-        let state = dir();
+        let state = dir("round-trip");
         append_receipt(&state, &receipt("builder")).unwrap();
         let mut red = receipt("cortex");
         red.status = DeployStepStatus::Red;
@@ -175,7 +179,7 @@ mod tests {
 
     #[test]
     fn malformed_line_fails_the_whole_read() {
-        let state = dir();
+        let state = dir("malformed");
         append_receipt(&state, &receipt("builder")).unwrap();
         use std::io::Write as _;
         let mut file = std::fs::OpenOptions::new()
@@ -190,7 +194,7 @@ mod tests {
 
     #[test]
     fn missing_journal_reads_as_empty_not_error() {
-        let back = read_receipts(&dir()).unwrap();
+        let back = read_receipts(&dir("missing")).unwrap();
         assert!(back.is_empty());
     }
 }
