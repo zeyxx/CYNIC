@@ -219,20 +219,32 @@ fn provision_one(
         }
     };
     let mut local_digest_cmd = std::process::Command::new("sha256sum");
-    let digest_output = local_digest_cmd
+    local_digest_cmd
         .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("sha256sum_unavailable: {e}"))?;
+        .stdout(std::process::Stdio::piped());
+    let mut child = match local_digest_cmd.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            return NodeCeremonyReport {
+                detail: format!("sha256sum_unavailable: {error}"),
+                ..base
+            }
+        }
+    };
     use std::io::Write as _;
-    let mut child = digest_output;
     if let Some(stdin) = child.stdin.take() {
         let mut stdin = stdin;
         let _ = stdin.write_all(secret.trim().as_bytes());
     }
-    let output = child
-        .wait_with_output()
-        .map_err(|e| format!("sha256sum_failed: {e}"))?;
+    let output = match child.wait_with_output() {
+        Ok(output) => output,
+        Err(error) => {
+            return NodeCeremonyReport {
+                detail: format!("sha256sum_failed: {error}"),
+                ..base
+            }
+        }
+    };
     let local_digest = String::from_utf8_lossy(&output.stdout)
         .split_whitespace()
         .next()
