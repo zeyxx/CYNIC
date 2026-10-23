@@ -30,6 +30,10 @@ pub mod federated_mesh_probe_uc;
 pub mod federated_mesh_resolver;
 pub mod federated_task_dispatch_uc;
 pub mod federation_membership_uc;
+/// WHY: a muted or degraded runner must reach the operator.
+/// HOW: pure reconcile of fleet usability into idempotent outbox entries;
+/// delivery rides the existing notify drain.
+pub mod fleet_outbox_uc;
 pub mod kernel_spof_observe_uc;
 pub mod node_control_plane_uc;
 pub mod node_enrollment_lifecycle_uc;
