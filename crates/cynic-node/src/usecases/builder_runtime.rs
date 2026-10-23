@@ -168,21 +168,27 @@ mod tests {
                 kept_env: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
                 kept_file: std::env::var("CYNIC_WEBHOOK_SECRET_FILE").ok(),
             };
-            std::env::remove_var("CYNIC_FORGEJO_WEBHOOK_SECRET");
-            std::env::remove_var("CYNIC_WEBHOOK_SECRET_FILE");
+            // Env mutation is process-global: held under ENV_LOCK, and the
+            // previous values are restored on drop.
+            unsafe {
+                std::env::remove_var("CYNIC_FORGEJO_WEBHOOK_SECRET");
+                std::env::remove_var("CYNIC_WEBHOOK_SECRET_FILE");
+            }
             (guard, kept)
         }
     }
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            match &self.kept_env {
-                Some(value) => std::env::set_var("CYNIC_FORGEJO_WEBHOOK_SECRET", value),
-                None => std::env::remove_var("CYNIC_FORGEJO_WEBHOOK_SECRET"),
-            }
-            match &self.kept_file {
-                Some(value) => std::env::set_var("CYNIC_WEBHOOK_SECRET_FILE", value),
-                None => std::env::remove_var("CYNIC_WEBHOOK_SECRET_FILE"),
+            unsafe {
+                match &self.kept_env {
+                    Some(value) => std::env::set_var("CYNIC_FORGEJO_WEBHOOK_SECRET", value),
+                    None => std::env::remove_var("CYNIC_FORGEJO_WEBHOOK_SECRET"),
+                }
+                match &self.kept_file {
+                    Some(value) => std::env::set_var("CYNIC_WEBHOOK_SECRET_FILE", value),
+                    None => std::env::remove_var("CYNIC_WEBHOOK_SECRET_FILE"),
+                }
             }
         }
     }
@@ -216,7 +222,9 @@ mod tests {
         let (_lock, _guard) = EnvGuard::hold();
         let root = unique_dir("env");
         std::fs::write(root.join("identity").join("webhook.secret"), "file-secret").unwrap();
-        std::env::set_var("CYNIC_FORGEJO_WEBHOOK_SECRET", "env-secret");
+        unsafe {
+            std::env::set_var("CYNIC_FORGEJO_WEBHOOK_SECRET", "env-secret");
+        }
         assert_eq!(
             resolve_webhook_secret(&root.to_string_lossy()),
             Some("env-secret".to_string())
@@ -247,7 +255,9 @@ mod tests {
         let root = unique_dir("explicit");
         let custom = root.join("custom.secret");
         std::fs::write(&custom, "custom-secret").unwrap();
-        std::env::set_var("CYNIC_WEBHOOK_SECRET_FILE", &custom);
+        unsafe {
+            std::env::set_var("CYNIC_WEBHOOK_SECRET_FILE", &custom);
+        }
         assert_eq!(
             resolve_webhook_secret("/nonexistent-root"),
             Some("custom-secret".to_string())
