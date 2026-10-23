@@ -106,6 +106,19 @@
       "purpose": "supervised node runtime (the node cannot function without it)"
     },
     {
+      "id": "node-restart",
+      "domain": "runtime",
+      "argv_template": [
+        "/bin/systemctl",
+        "restart",
+        "cynic-node"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "restart the node receiver after rotation or deploy (measured 2026-10-23: secret rotation and binary deploy both end here; absolute path required by the sudoers membrane)"
+    },
+    {
       "id": "pct-clone",
       "domain": "hypervisor",
       "argv_template": [
