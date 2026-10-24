@@ -30,7 +30,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 7263
+      "loc": 7262
     },
     "cynic-build": {
       "consumers": [
@@ -618,7 +618,7 @@
         "cynic-node",
         "cynic-proxmox",
         "cynic-storage",
-        "cynic-vcs-providers"
+        "cynic-vcs"
       ],
       "depends_on": [
         "cynic-protocol",
@@ -704,8 +704,7 @@
         "cynic-protocol",
         "cynic-proxmox",
         "cynic-secrets",
-        "cynic-vcs",
-        "cynic-vcs-providers"
+        "cynic-vcs"
       ],
       "depends_on": [],
       "dev_depends_on": [],
@@ -718,12 +717,12 @@
       "consumers": [
         "cynic-cli",
         "cynic-host",
-        "cynic-node",
-        "cynic-vcs-providers"
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-network",
         "cynic-protocol",
+        "cynic-secrets",
         "cynic-types"
       ],
       "dev_depends_on": [
@@ -732,7 +731,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 10222
+      "loc": 13113
     },
     "cynic-workload": {
       "consumers": [
@@ -786,7 +785,6 @@
     "cynic-eval",
     "cynic-kernel",
     "cynic-pool",
-    "cynic-vcs-providers",
     "cynic-inference",
     "cynic-lifecycle",
     "cynic-market",
@@ -1001,9 +999,9 @@
     "crates": 38,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 403812,
+    "loc_total": 403808,
     "pending_disposition": 3,
-    "runtime_edges": 170,
+    "runtime_edges": 166,
     "unjustified": 0,
     "upward_edges": 11
   },
