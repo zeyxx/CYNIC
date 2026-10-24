@@ -1394,6 +1394,7 @@ name = "cynic-traces"
 version = "0.9.0"
 dependencies = [
  "chrono",
+ "cynic-protocol",
  "regex",
  "rusqlite",
  "serde",

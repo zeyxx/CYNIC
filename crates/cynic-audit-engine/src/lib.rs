@@ -243,6 +243,44 @@ pub fn append_audit_history(report: &AuditReportV2, history_path: &Path) -> Resu
     Ok(())
 }
 
+/// Read all audit reports from a persistent history file (JSON Lines format).
+///
+/// Returns an empty vector if the file does not exist yet. Skips empty lines
+/// and parses each line as a versioned `AuditReportV2`.
+pub fn read_audit_history(history_path: &Path) -> Result<Vec<AuditReportV2>, String> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    if !history_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let file = File::open(history_path)
+        .map_err(|e| format!("failed to open audit history at {:?}: {}", history_path, e))?;
+    let reader = BufReader::new(file);
+    let mut reports = Vec::new();
+
+    for (index, line_result) in reader.lines().enumerate() {
+        let line = line_result
+            .map_err(|e| format!("failed to read line {} from {:?}: {}", index + 1, history_path, e))?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let report = serde_json::from_str::<AuditReportV2>(trimmed).map_err(|e| {
+            format!(
+                "invalid JSON on line {} in {:?}: {}",
+                index + 1,
+                history_path,
+                e
+            )
+        })?;
+        reports.push(report);
+    }
+
+    Ok(reports)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,5 +318,17 @@ mod tests {
 
         let parsed: AuditReportV2 = serde_json::from_str(lines[0]).expect("deserialize line 1");
         assert_eq!(parsed.summary.status, "ok");
+
+        let read_back = read_audit_history(&history_file).expect("read_audit_history");
+        assert_eq!(read_back.len(), 2);
+        assert_eq!(read_back[0].summary.status, "ok");
+    }
+
+    #[test]
+    fn test_read_audit_history_nonexistent_returns_empty() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let history_file = temp_dir.path().join("does_not_exist.jsonl");
+        let read_back = read_audit_history(&history_file).expect("read_audit_history");
+        assert!(read_back.is_empty());
     }
 }

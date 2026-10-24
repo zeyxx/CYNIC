@@ -30,7 +30,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 7346
+      "loc": 7396
     },
     "cynic-build": {
       "consumers": [
@@ -113,7 +113,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 44663
+      "loc": 44704
     },
     "cynic-consensus": {
       "consumers": [
@@ -285,7 +285,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 93495
+      "loc": 93332
     },
     "cynic-huggingface": {
       "consumers": [
@@ -599,6 +599,7 @@
         "cynic-solana-pay",
         "cynic-storage",
         "cynic-supervisor",
+        "cynic-traces",
         "cynic-vcs",
         "cynic-workload",
         "cynic-zeroclaw-solana"
@@ -741,12 +742,14 @@
       "consumers": [
         "cynic-eval"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "cynic-protocol"
+      ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 3527
+      "loc": 3683
     },
     "cynic-tui": {
       "consumers": [
@@ -863,7 +866,6 @@
   "extraction_order": [
     "cynic-forensics",
     "cynic-huggingface",
-    "cynic-traces",
     "cynic-tui",
     "cynic-types",
     "cynic-knowledge",
@@ -878,6 +880,7 @@
     "cynic-secrets",
     "cynic-solana-pay",
     "cynic-supervisor",
+    "cynic-traces",
     "cynic-channel",
     "cynic-consensus",
     "cynic-domain-ops",
@@ -1120,9 +1123,9 @@
     "crates": 44,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 405811,
+    "loc_total": 405895,
     "pending_disposition": 3,
-    "runtime_edges": 185,
+    "runtime_edges": 186,
     "unjustified": 0,
     "upward_edges": 12
   },
