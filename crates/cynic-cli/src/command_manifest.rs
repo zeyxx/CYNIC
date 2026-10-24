@@ -262,7 +262,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node enrollment check [--config <path>] [--json]",
                     "cynic node enrollment issue --request <req> --authority <auth> [--token-file <path>] --signing-key <key> [--output <path>] [--json]",
                     "cynic node consensus status [--json]",
-                    "cynic node observe [--registry <path>] [--fail-on-warning] [--fail-on-critical] [--json]",
+                    "cynic node observe [--registry <path>] [--fail-on-warning] [--fail-on-critical] [--record] [--json]",
                     "cynic node registry observation [--registry <path>] [--output <path>] [--json]",
                     "cynic node host cpu [--json]",
                     "cynic node host memory [--json]",

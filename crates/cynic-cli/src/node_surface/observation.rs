@@ -11,11 +11,13 @@ pub(crate) fn execute_observe(
     registry: &str,
     fail_on_warning: bool,
     fail_on_critical: bool,
+    record: bool,
 ) -> ExitCode {
     crate::network_surface::execution::execute_observe(
         registry,
         fail_on_warning,
         fail_on_critical,
+        record,
     )
 }
 

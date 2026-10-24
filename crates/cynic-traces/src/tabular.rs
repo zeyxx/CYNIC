@@ -1138,6 +1138,52 @@ pub fn validate_build_settlement_records(
     validate_record_maps(&schema, records)
 }
 
+/// Pure diagnostic probe parsing rustc / cargo stderr to extract failing crate and bounded diagnostic tail.
+pub fn parse_cargo_failure(stderr: &str) -> (Option<String>, String) {
+    let mut failing_crate = None;
+    for line in stderr.lines() {
+        let trimmed = line.trim();
+        // Pattern 1: "error: could not compile `cynic-host` (lib)" or "error: could not compile `cynic-host`"
+        if let Some(rest) = trimmed.strip_prefix("error: could not compile `") {
+            if let Some(crate_name) = rest.split('`').next() {
+                failing_crate = Some(crate_name.to_string());
+                break;
+            }
+        }
+        // Pattern 2: "error: could not compile cynic-host"
+        if let Some(rest) = trimmed.strip_prefix("error: could not compile ") {
+            if let Some(crate_name) = rest.split_whitespace().next() {
+                let clean = crate_name.trim_matches('`').trim_matches('\'');
+                failing_crate = Some(clean.to_string());
+                break;
+            }
+        }
+        // Pattern 3: " --> crates/cynic-host/src/lib.rs:10:5"
+        if failing_crate.is_none() && trimmed.starts_with("--> ") {
+            if let Some(path_part) = trimmed.strip_prefix("--> ") {
+                let parts: Vec<&str> = path_part.split('/').collect();
+                if parts.len() >= 2 && parts[0] == "crates" {
+                    failing_crate = Some(parts[1].to_string());
+                }
+            }
+        }
+    }
+
+    // Bound the stderr tail to 2048 bytes
+    const MAX_BYTES: usize = 2048;
+    let tail = if stderr.len() <= MAX_BYTES {
+        stderr.to_string()
+    } else {
+        let mut start = stderr.len() - MAX_BYTES;
+        while start < stderr.len() && !stderr.is_char_boundary(start) {
+            start += 1;
+        }
+        stderr[start..].to_string()
+    };
+
+    (failing_crate, tail)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1629,5 +1675,22 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         let rep2 = validate_build_settlement_records(&[s2]);
         assert!(rep2.passed);
         assert_eq!(rep2.valid_rows, 1);
+    }
+
+    #[test]
+    fn test_parse_cargo_failure_extraction() {
+        let rustc_stderr = r#"
+   Compiling cynic-host v0.1.0 (/var/lib/cynic/checkouts/cynic-9d065b05/crates/cynic-host)
+error[E0425]: cannot find function `canonical_target` in this scope
+  --> crates/cynic-host/src/lib.rs:42:5
+   |
+42 |     canonical_target();
+   |     ^^^^^^^^^^^^^^^^ not found in this scope
+
+error: could not compile `cynic-host` (lib) due to 1 previous error
+"#;
+        let (failing_crate, tail) = parse_cargo_failure(rustc_stderr);
+        assert_eq!(failing_crate.as_deref(), Some("cynic-host"));
+        assert!(tail.contains("cannot find function `canonical_target`"));
     }
 }
