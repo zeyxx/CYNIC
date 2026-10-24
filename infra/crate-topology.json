@@ -636,6 +636,9 @@
       "layer": "L1",
       "loc": 1398
     },
+    "cynic-supervisor": {
+      "layer": "L1"
+    },
     "cynic-secrets": {
       "consumers": [
         "cynic-cli",
@@ -1038,7 +1041,8 @@
       "cynic-pkg",
       "cynic-proxmox",
       "cynic-release",
-      "cynic-sandbox"
+      "cynic-sandbox",
+      "cynic-supervisor"
     ],
     "L2": [
       "cynic-askesis",
