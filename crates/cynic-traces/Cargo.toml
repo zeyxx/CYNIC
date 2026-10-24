@@ -9,6 +9,7 @@ publish = false
 description = "Session-trace ingestion: canonical entities for agent trajectories with conservation proof"
 
 [dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
 serde.workspace = true
 serde_json.workspace = true
 regex.workspace = true

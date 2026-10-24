@@ -247,3 +247,13 @@ fn the_derived_key_inventory_matches_what_is_rendered() {
         }
     }
 }
+
+/// Regeneration helper: write the rendered document to disk when explicitly called.
+#[test]
+#[ignore]
+fn regenerate_topology_from_substrate() {
+    let root = workspace_root();
+    let rendered = topology_generate::render_text(&root).expect("render");
+    let path = root.join(topology_generate::TOPOLOGY_DOC);
+    std::fs::write(&path, rendered).expect("write");
+}

@@ -1,5 +1,6 @@
 mod artefact_rule;
 pub mod debt_ledger;
+pub mod history;
 mod module_inversion_rule;
 pub mod path_rules;
 pub mod prose_citation_rule;
@@ -29,6 +30,7 @@ use self::runtime_divergence::RuntimeDivergenceRule;
 use self::runtime_path_literal_rule::RuntimePathLiteralRule;
 use self::scanner::scan_workspace;
 pub use self::scanner::{HostObservation, WorkspaceSourceIndex};
+pub use debt_ledger::reconcile_debt_ledger;
 
 /// The RUN-001 body, callable from a fixture.
 ///
@@ -209,3 +211,5 @@ pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
 pub fn run_path_audit(root: &Path) -> AuditReportV2 {
     run_rules(root, default_path_rules())
 }
+
+pub use history::{append_audit_history, read_audit_history};

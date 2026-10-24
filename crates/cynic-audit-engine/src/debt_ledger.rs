@@ -283,3 +283,91 @@ fn recompute_summary(report: &mut AuditReportV2) {
         ((passed as f64 / total as f64) * 100.0) as u8
     };
 }
+
+/// Reconcile `infra/audit-debt-ledger.json` against the current physical substrate.
+///
+/// Removes paid/stale entries and records current observed violation identities.
+pub fn reconcile_debt_ledger(root: &Path) -> Result<usize, String> {
+    let raw_report = crate::evaluate_workspace_rules(root);
+    let path = root.join(LEDGER_PATH);
+    let text = fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read {}: {}", LEDGER_PATH, e))?;
+    let mut doc: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("failed to parse {}: {}", LEDGER_PATH, e))?;
+
+    let mut observed_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut observed_meta: BTreeMap<String, (String, &'static str)> = BTreeMap::new();
+
+    for v in &raw_report.violations {
+        let ident = identity(v);
+        *observed_counts.entry(ident.clone()).or_insert(0) += 1;
+        let parts: Vec<&str> = v.code.split('-').collect();
+        let rule_id = if parts.len() >= 2 {
+            format!("{}-{}", parts[0], parts[1])
+        } else {
+            v.code.clone()
+        };
+        let sev_str = match v.severity {
+            AuditSeverity::Critical => "critical",
+            AuditSeverity::Warning => "warning",
+            AuditSeverity::Debt => "debt",
+            AuditSeverity::Info => "info",
+        };
+        observed_meta.entry(ident).or_insert((rule_id, sev_str));
+    }
+
+    let mut new_entries = Vec::new();
+    let mut by_rule: BTreeMap<String, usize> = BTreeMap::new();
+    let mut total_crit = 0;
+    let mut total_warn = 0;
+    let mut total_debt = 0;
+
+    for (ident, count) in &observed_counts {
+        let (rule_id, sev_str) = observed_meta
+            .get(ident)
+            .map(|(r, s)| (r.clone(), *s))
+            .unwrap_or_else(|| ("ARCH-001".to_string(), "debt"));
+        *by_rule.entry(rule_id.clone()).or_insert(0) += *count;
+        match sev_str {
+            "critical" => total_crit += *count,
+            "warning" => total_warn += *count,
+            _ => total_debt += *count,
+        }
+
+        let mut entry = serde_json::Map::new();
+        entry.insert("identity".to_string(), serde_json::Value::String(ident.clone()));
+        entry.insert("count".to_string(), serde_json::Value::Number((*count as u64).into()));
+        entry.insert("rule".to_string(), serde_json::Value::String(rule_id));
+        entry.insert("severity".to_string(), serde_json::Value::String(sev_str.to_string()));
+        new_entries.push(serde_json::Value::Object(entry));
+    }
+
+    let measured_total = observed_counts.values().sum::<usize>();
+    let measured_identities = observed_counts.len();
+
+    let mut measured_obj = serde_json::Map::new();
+    measured_obj.insert("note".to_string(), serde_json::Value::String("Reconciled with physical substrate".to_string()));
+    measured_obj.insert("total".to_string(), serde_json::Value::Number((measured_total as u64).into()));
+    measured_obj.insert("critical".to_string(), serde_json::Value::Number((total_crit as u64).into()));
+    measured_obj.insert("debt".to_string(), serde_json::Value::Number((total_debt as u64).into()));
+    measured_obj.insert("warning".to_string(), serde_json::Value::Number((total_warn as u64).into()));
+    measured_obj.insert("identities".to_string(), serde_json::Value::Number((measured_identities as u64).into()));
+
+    let mut by_rule_map = serde_json::Map::new();
+    for (k, v) in by_rule {
+        by_rule_map.insert(k, serde_json::Value::Number((v as u64).into()));
+    }
+    measured_obj.insert("by_rule".to_string(), serde_json::Value::Object(by_rule_map));
+
+    if let Some(doc_obj) = doc.as_object_mut() {
+        doc_obj.insert("measured".to_string(), serde_json::Value::Object(measured_obj));
+        doc_obj.insert("entries".to_string(), serde_json::Value::Array(new_entries));
+    }
+
+    let formatted = serde_json::to_string_pretty(&doc)
+        .map_err(|e| format!("failed to serialize updated ledger: {}", e))? + "\n";
+    fs::write(&path, formatted)
+        .map_err(|e| format!("failed to write {}: {}", LEDGER_PATH, e))?;
+
+    Ok(measured_identities)
+}

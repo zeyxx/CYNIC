@@ -1,1687 +1,1916 @@
 {
-  "schema": "cynic.audit_debt_ledger.v1",
-  "status": "normative",
+  "entries": [
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/path_rules.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/retired_metaphor_rule.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/runtime_divergence.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/runtime_path_literal_rule.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology_generate.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/adapters/http.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/agent_request.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/agent_workload.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/fleet.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/route_convergence.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/workload_grant.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build_workflow.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/builder_pool.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/deploy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/gate_scope.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/harness.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/release_publication.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/runner.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/runtime_release.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/build.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/agent_exposure_audit/checks.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/agent_surface/coordination.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/audit_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/branch_audit.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/build_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/build_surface/archive.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/build_surface/pool.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/build_surface/runner.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/chat_surface/runtime.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/collaborator_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/command_manifest.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/coordination_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/deps_surface_probe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/external_audit.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/federation_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/host_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/inference_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/knowledge_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_audit/scan.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_surface/execution.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_host_audit.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/activation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/admin.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/agent.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/compute.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/privilege_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_paths.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_surface/inference_surface/local_runtime.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/secret_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/source_surface/release_deployment_cli.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/supervise_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/surface_registry/assembler.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/workload_observation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-consensus/src/peer/engine.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-consensus/src/peer/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-domain-ops/src/adapters/cloudflare/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-domain-ops/src/adapters/porkbun/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-domain-ops/src/runner.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/bench/retrieval_gain.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/emergence_gallery.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/judgment.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/sweep/empirical_store.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-finance/src/types.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-forensics/src/types.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_build_artefact.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_build_cache.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_disk.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_integration.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_observation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_secret_use_gate.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/agent_runtime/probe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/conformance.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/build_discovery/probe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/disk/build_runner/policy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/ecosystem_package/integration_apply.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/ecosystem_package/integration_port.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/metrics/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/packages.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/pool_eligibility.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/pool_metrics.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/principal.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/privilege.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/services.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/federation_runtime.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/fleet_network_observer.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/build_runner.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/lifecycle/registry.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/source_snapshot/apply.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/host_bootstrap_evidence.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/host_exec_cli/network_actuate.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/host_exec_policy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/network_actuation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/node_identity_workflow.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/peer_validator.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/privilege/pve_helper.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/privilege/transport_caps.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/registry/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/registry/validate.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/registry_divergence_probe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/repo_access.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_execution_context.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_harness.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_layout.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_metrics.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_network_preflight.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_secret_install.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/service_supervisor_observation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/source_control.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/source_sync/observe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/storage_identity/enrollment.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/tmux_session_supervision.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/toolchain/policy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/transport.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/usecases/tests.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/vertical_conformance.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-huggingface/src/adapters/cli.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/embedding/http.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/inference/http_chat_client.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/local/process_supervisor.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/local/systemd_user.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/chat_endpoint.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/chat_service.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/profile_bootstrap.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/vault_consolidate.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/hf/adapters/cli.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/domain_task_queue.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/runtime_plan.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel-soc/src/soc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/holders.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/rpc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/wallet.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/ccm/engine.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/escore/aggregator.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/stimulus.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-kernel/src/domain/probe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-knowledge/src/domain/epistemic_grounding.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-knowledge/src/domain/scorer.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-lifecycle/src/activation_evidence.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-lifecycle/src/diagnostics.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-lifecycle/src/kernel_release/reconcile.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-market/src/market_loop.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-mcp/src/server.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/discovery.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/firewall_policy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/fleet_membership/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/mesh_plan.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/probe.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/types.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/bootstrap_federation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_activation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_control.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_enrollment.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_identity.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/pre_os.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/headscale/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/http_node_control.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/http_runtime_artifact_transport.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/local_agent_workload_store.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/local_agent_workspace_observer.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/local_build_workspace.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/qemu_guest_agent_network_runner.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/registry/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/tokio_build_execution.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/config/load.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/config/tests.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/dns_contract.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/fleet_inventory.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/network_actuator_status.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/network_mesh_apply_plan.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/network_repair.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/node_control_runtime.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/ports/build_runner.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/ports/build_runner_adapter.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/task_health.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/bootstrap_seed_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_pull.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_scheduler/execute.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_scheduler/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_scheduler/prepare.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_submission_orchestrator_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/builder_http.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/collaborator_trust_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/external_project_audit_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/federation_membership_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/network_sync_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/node_control_plane_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/notification_outbox_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/observe_node_uc.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-pkg/src/release_deployment.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/agent_coordination.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/agent_coordination/predicates.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/agent_host_sandbox.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/autoresearch.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/candidate_opportunity.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/capacity.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/constitutional_court.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/coordination_lease.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/coordination_score.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/domain_ops.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/error_catalog.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/federation_membership.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/fleet_heartbeat.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/framework.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/outcomes.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/privilege/catalog.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/publication_policy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/registry_claim_audit.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/runtime_placement.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/runtime_seed.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/runtime_takeover.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/sanitize.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/secret_use.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/supervision.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/task_pipeline.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/workload_signature.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/agent_host_observer.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/proxmox_clone.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/proxmox_control.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-release/src/deploy_orchestrator.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-release/src/deploy_remote.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-secrets/src/adapters/file.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/book/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/lifecycle.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/local_spool.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/projection/mod.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/wal/frame.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-supervisor/src/parent.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-traces/src/adapters/hermes/normalizer.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-traces/src/adapters/store_sqlite.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-traces/src/tabular.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-providers/src/forgejo_token.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-providers/src/forgejo_webhook_server.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/development_genesis.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/external_source.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/git_topology_observer.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/publication.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_control.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_worktree.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_worktree_inventory.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/admission.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/agent_scheduler.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/agent_skill.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/delivery.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/tests.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/workspace_lifecycle.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|tests/support/move_not_copy.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|tests/support/orphan_sources.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|tests/support/source_island.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-build (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-eval (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-finance (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-inference (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-intel (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-node-protocol (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-storage (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-vcs (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-vcs-providers (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-lifecycle (L1) depends on cynic-build (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-lifecycle (L1) depends on cynic-storage (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-network (L1) depends on cynic-finance (L2)",
+      "rule": "ARCH-004",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-005-INVERSION-GREW|Module inversion `cynic-node|usecases -> config` was recorded 2x and is now observed 3x. The list may only shrink.",
+      "rule": "ARCH-005",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-005-NEW-INVERSION|New module inversion `cynic-inference|application -> hf` (4 edge(s)), first at crates/cynic-inference/src/application/hf_discovery.rs:12. A lower layer depending on a concrete module means the boundary is missing.",
+      "rule": "ARCH-005",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-005-NEW-INVERSION|New module inversion `cynic-traces|usecases -> session` (1 edge(s)), first at crates/cynic-traces/src/usecases.rs:12. A lower layer depending on a concrete module means the boundary is missing.",
+      "rule": "ARCH-005",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-005-NEW-INVERSION|New module inversion `cynic-vcs|ports -> repo_access` (1 edge(s)), first at crates/cynic-vcs/src/ports.rs:10. A lower layer depending on a concrete module means the boundary is missing.",
+      "rule": "ARCH-005",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-005-STALE-ENTRY|infra/module-inversion-ledger.json records `cynic-intel-soc|ports -> rules` but no such edge was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "ARCH-005",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-lxc-exec-bridge` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "rule": "ART-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-network-actuator` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "rule": "ART-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-node-enroll` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "rule": "ART-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-pool` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "rule": "ART-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `zeroclaw-solana-demo` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "rule": "ART-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-001-UNDECLARED-ARTIFACT|The workspace declares a `[[bin]]` named `cynic-host-exec` that infra/runtime-basket.json does not account for. A binary produced by the compiler but absent from the contract is a deployment artefact nobody agreed to ship.",
+      "rule": "ART-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-proxmox/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
+      "rule": "ART-002",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-NEW-METAPHOR|Retired biological metaphor in crates/cynic-cli/src/deps_surface_specs.rs (1 occurrence(s), first at crates/cynic-cli/src/deps_surface_specs.rs:29): organism. Use the canonical term instead: organ -> component, dog -> evaluator, organism -> deployment, organic -> candidate, metabolism -> throughput, metabolic -> throughput, genome -> baseline.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records crates/cynic-cli/src/dependency/specs.rs (1 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records crates/cynic-knowledge/src/adapters/epistemic_harvester.rs (3 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records docs/public/facts.live.json (6 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records infra/github-interactions-graph.json (1 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records infra/repos-zeyxx-github.json (2 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path crates/cynic-cli/src/dependency/specs.rs which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path crates/cynic-knowledge/src/adapters/epistemic_harvester.rs which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path docs/public/facts.live.json which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path infra/github-interactions-graph.json which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path infra/repos-zeyxx-github.json which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-cli/src/inference_surface.rs:336 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
+      "rule": "PATH-002",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-cli/src/inference_surface.rs:340 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
+      "rule": "PATH-002",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:25 cites path infra/autoresearch_report.json which does not exist in the working tree",
+      "rule": "PATH-002",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:26 cites path infra/rate_classify_report.json which does not exist in the working tree",
+      "rule": "PATH-002",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-inference/src/domain/chat_trace.rs:4 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
+      "rule": "PATH-002",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/external_audit.rs:544 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/profiles/build_runner.rs:77 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node-protocol/src/node_service_unit.rs:91 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:263 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:376 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:416 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:433 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` — code must cite machine-readable authority (contract, Rust type, or test), never prose",
+      "rule": "PROSE-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "RUN-001-CYNIC-UNIT-UNDECLARED|4 unit(s) belong to this project and are absent from infra/registry.json: cynic-dns-service, hermes-agent-executor, hermes-gemini-briefing, surreal",
+      "rule": "RUN-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|7 service(s) declared in infra/registry.json have no unit on this host: cynic-node, embedding-server, forgejo-backend, headscale, node-receiver, runtime-artifact-store, surrealdb",
+      "rule": "RUN-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "RUN-001-NO-PROVENANCE|1 binary/binaries built by this project carry no commit and no digest, so nothing              can say what code is running: /usr/local/bin/cynic-kernel",
+      "rule": "RUN-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in crates/cynic-audit-engine/src/runtime_path_literal_rule.rs",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in crates/cynic-cli/src/external_audit.rs",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in crates/cynic-node/src/ports/build_runner_adapter.rs",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in crates/cynic-proxmox/src/adapters/proxmox_clone.rs",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in crates/cynic-proxmox/src/adapters/proxmox_control.rs",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in crates/cynic-types/src/paths.rs",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/capabilities/catalog.json",
+      "rule": "SEC-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/workspace-paths.json",
+      "rule": "SEC-001",
+      "severity": "critical"
+    }
+  ],
+  "identity_policy": {
+    "default_identity": "code|message",
+    "default_reason": "the 15 ARCH-004 edges share one span.file_path and differ only by message, so keying on the file would collapse 15 distinct violations into one and hide a partial repair",
+    "measured_identity": "code|span.file_path",
+    "measured_reason": "the message embeds a line count that changes on any edit; keying on it would force regeneration on every edit and turn a deliberate act into muscle memory",
+    "measured_rules": [
+      "ARCH-001-HOTSPOT"
+    ]
+  },
+  "measured": {
+    "by_rule": {
+      "ARCH-001": 253,
+      "ARCH-004": 12,
+      "ARCH-005": 5,
+      "ART-001": 6,
+      "ART-002": 1,
+      "NAM-001": 6,
+      "PATH-001": 10,
+      "PATH-002": 5,
+      "PATH-004": 7,
+      "PROSE-001": 1,
+      "RUN-001": 3,
+      "SEC-001": 9
+    },
+    "critical": 52,
+    "debt": 259,
+    "identities": 312,
+    "note": "Reconciled with physical substrate",
+    "total": 318,
+    "warning": 7
+  },
   "purpose": "Declared, counted, shrink-only ledger of audit violations present at ratification. Read by audit_engine::apply_debt_ledger. A violation whose identity is absent here fails the gate; a ledger entry with no observed violation also fails the gate, because paid debt left in the ledger hides that the ledger is stale.",
+  "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
   "rule": {
     "growth": "blocked -- a new identity, or a count above the recorded one, fails",
     "shrink": "required -- an entry with no observed violation must be deleted",
     "why_not_a_threshold": "A threshold is a policy that erodes: it tolerates the next violation by construction. An exact per-identity count does not, because any increase is a distinct, named failure."
   },
-  "identity_policy": {
-    "measured_rules": [
-      "ARCH-001-HOTSPOT"
-    ],
-    "measured_identity": "code|span.file_path",
-    "measured_reason": "the message embeds a line count that changes on any edit; keying on it would force regeneration on every edit and turn a deliberate act into muscle memory",
-    "default_identity": "code|message",
-    "default_reason": "the 15 ARCH-004 edges share one span.file_path and differ only by message, so keying on the file would collapse 15 distinct violations into one and hide a partial repair"
-  },
-  "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
-  "measured": {
-    "note": "Observation at ratification. Regenerated only by deliberate act. cynic-observer removed 2026-10-04: 3 hotspot entries deleted with the crate. Reconciled 2026-10-17 on convergence-single-binary-paths: deleted 230 stale PATH-004 identities paid by the CynicPaths migration, recorded 18 survivors; other rules untouched (pre-existing drift).",
-    "total": 276,
-    "critical": 16,
-    "debt": 200,
-    "warning": 60,
-    "identities": 275,
-    "by_rule": {
-      "ARCH-001": 200,
-      "ARCH-004": 14,
-      "ARCH-005": 3,
-      "ART-001": 5,
-      "ART-002": 2,
-      "PATH-001": 8,
-      "PATH-002": 3,
-      "PATH-004": 34,
-      "PROSE-001": 1,
-      "RUN-001": 3,
-      "SEC-001": 3
-    }
-  },
-  "entries": [
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/path_rules.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/runtime_divergence.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology_generate.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/agent_request.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/agent_workload.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/fleet.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/route_convergence.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/workload_grant.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build_workflow.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/harness.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/release_publication.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/runner.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/runtime_release.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/build.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/agent_exposure_audit/checks.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/agent_surface/coordination.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/audit_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/branch_audit.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/chat_surface/runtime.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/command_manifest.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/deps_surface_probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/inference_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/knowledge_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_audit/scan.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_surface/execution.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_host_audit.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/compute.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/privilege_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_paths.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_surface/inference_surface/local_runtime.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/secret_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/surface_registry/assembler.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/workload_observation.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-consensus/src/peer/engine.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-consensus/src/peer/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-domain-cloudflare/src/adapter.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-domain-ops/src/runner.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/emergence_gallery.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/judgment.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/sweep/empirical_store.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-forensics/src/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-forensics/src/types.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_build_cache.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_disk.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_integration.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_observation.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/adapters/local_secret_use_gate.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/agent_runtime/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/bridge.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/conformance.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/build_discovery/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/ecosystem_package/integration_apply.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/ecosystem_package/integration_port.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/metrics/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/packages.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/principal.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/privilege.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/services.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/federation_runtime.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/fleet_network_observer.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/build_runner.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/lifecycle/registry.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/source_snapshot/apply.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/host_bootstrap_evidence.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/host_exec_cli/network_actuate.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/host_exec_policy.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/network_actuation.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/peer_validator.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/privilege/pve_helper.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/privilege/transport_caps.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/profiles/families.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/registry/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/registry/validate.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/registry_divergence_probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/repo_access.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_execution_context.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_harness.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_layout.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_metrics.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_network_preflight.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/runtime_secret_install.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/service_supervisor_observation.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/source_control.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/source_sync/observe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/storage_identity/enrollment.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/tmux_session_supervision.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/toolchain/policy.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/transport.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/usecases/tests.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/vertical_conformance.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-huggingface/src/adapters/cli.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/inference/http_chat_client.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/local/process_supervisor.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/local/systemd_user.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/chat_endpoint.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/chat_service.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/profile_bootstrap.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/vault_consolidate.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/domain_task_queue.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/runtime_plan.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel-soc/src/soc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/holders.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/rpc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/adapters/helius/wallet.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/ccm/engine.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/escore/aggregator.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel/src/stimulus.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-kernel/src/domain/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-lifecycle/src/activation_evidence.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-lifecycle/src/diagnostics.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-lifecycle/src/kernel_release/reconcile.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-market/src/market_loop.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-mcp/src/server.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/discovery.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/firewall_policy.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/fleet_membership/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/types.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/bootstrap_federation.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_activation.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_control.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_enrollment.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/node_identity.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node-protocol/src/pre_os.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/headscale/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/http_node_control.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/http_runtime_artifact_transport.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/local_agent_workspace_observer.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/qemu_guest_agent_network_runner.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/registry/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/dns_contract.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/fleet_inventory.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/network_actuator_status.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/network_mesh_apply_plan.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/network_repair.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/node_control_runtime.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/ports/build_runner.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/ports/build_runner_adapter.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/task_health.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/bootstrap_seed_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_pull.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_scheduler/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/build_submission_orchestrator_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/builder_http.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/federation_membership_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/node_control_plane_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/notification_outbox_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/observe_node_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-pkg/src/release_deployment.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/agent_coordination.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/agent_coordination/predicates.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/agent_host_sandbox.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/autoresearch.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/constitutional_court.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/coordination_lease.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/coordination_score.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/domain_ops.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/error_catalog.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/federation_membership.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/fleet_heartbeat.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/framework.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/organic_opportunity.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/outcomes.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/privilege/catalog.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/publication_policy.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/registry_claim_audit.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/runtime_placement.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/runtime_seed.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/runtime_takeover.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/sanitize.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/secret_use.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/task_pipeline.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/agent_host_observer.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/proxmox_control.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-secrets/src/adapters/file.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/book/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/lifecycle.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/local_spool.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/projection/mod.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/wal/frame.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-providers/src/forgejo_token.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-providers/src/forgejo_webhook_server.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/development_genesis.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/git_topology_observer.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/publication.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_control.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_worktree_inventory.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/admission.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/agent_skill.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/delivery.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/tests.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/workspace_lifecycle.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|tests/support/move_not_copy.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|tests/support/orphan_sources.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|tests/support/source_island.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-discovery-host (L1) depends on cynic-build (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-discovery-host (L1) depends on cynic-discovery (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-build (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-eval (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-finance (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-inference (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-intel (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-node-protocol (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-storage (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-vcs (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-vcs-providers (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-lifecycle (L1) depends on cynic-build (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-lifecycle (L1) depends on cynic-storage (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-network (L1) depends on cynic-finance (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
-      "identity": "ARCH-005-NEW-INVERSION|New module inversion `cynic-vcs|ports -> repo_access` (1 edge(s)), first at crates/cynic-vcs/src/ports.rs:10. A lower layer depending on a concrete module means the boundary is missing.",
-      "count": 1,
-      "rule": "ARCH-005",
-      "severity": "warning"
-    },
-    {
-      "identity": "ARCH-005-STALE-ENTRY|infra/module-inversion-ledger.json records `cynic-inference|domain -> math` but no such edge was observed. Paid debt left in the list hides that the list is stale.",
-      "count": 1,
-      "rule": "ARCH-005",
-      "severity": "warning"
-    },
-    {
-      "identity": "ARCH-005-STALE-ENTRY|infra/module-inversion-ledger.json records `cynic-inference|ports -> infra` but no such edge was observed. Paid debt left in the list hides that the list is stale.",
-      "count": 1,
-      "rule": "ARCH-005",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-lxc-exec-bridge` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "count": 1,
-      "rule": "ART-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-network-actuator` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "count": 1,
-      "rule": "ART-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-node-enroll` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "count": 1,
-      "rule": "ART-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-pool` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "count": 1,
-      "rule": "ART-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `zeroclaw-solana-demo` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "count": 1,
-      "rule": "ART-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-proxmox/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
-      "count": 1,
-      "rule": "ART-002",
-      "severity": "warning"
-    },
-    {
-      "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-surreal/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
-      "count": 1,
-      "rule": "ART-002",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|contracts/foundation.json declares path infra/systemd which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/module-inversion-ledger.json declares path crates/cynic-inference/src/application/peer_attach.rs which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/module-inversion-ledger.json declares path crates/cynic-inference/src/domain/matrix_sweep/empirical_store.rs which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/module-inversion-ledger.json declares path crates/cynic-inference/src/ports/model_registry_port.rs which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/cynic-kernel.service which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/cynic-node.service which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/installed/cynic-kernel.service which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/installed/cynic-node.service which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:25 cites path infra/autoresearch_report.json which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-002",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:28 cites path infra/rate_classify_report.json which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-002",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-protocol/src/runtime/layers.rs:181 cites path infra/surreal_init.surql which does not exist in the working tree",
-      "count": 1,
-      "rule": "PATH-002",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/path_rules.rs:18 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/runtime_divergence.rs:224 embeds runtime path /opt/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/scanner.rs:238 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-build/src/compressor.rs:61 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/local_build_artefact.rs:2 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-network/src/dns_resolver.rs:6 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/agent_host_sandbox.rs:364 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/agent_host_sandbox.rs:383 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/agent_host_sandbox.rs:384 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/builder_rbac.rs:48 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:106 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:111 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:112 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:113 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:11 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:27 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` — code must cite machine-readable authority (contract, Rust type, or test), never prose",
-      "count": 1,
-      "rule": "PROSE-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "RUN-001-CREDENTIAL-IN-UNIT|1 unit file(s) hold a credential value in cleartext. The value is not reported: file and variable name only. /etc/systemd/system/forgejo.service [FORGEJO__INSTALL_KEY]",
-      "count": 1,
-      "rule": "RUN-001",
-      "severity": "critical"
-    },
-    {
-      "identity": "RUN-001-CYNIC-UNIT-UNDECLARED|1 unit(s) belong to this project and are absent from infra/registry.json: cynic-kernel-proxy",
-      "count": 1,
-      "rule": "RUN-001",
-      "severity": "critical"
-    },
-    {
-      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|6 service(s) declared in infra/registry.json have no unit on this host: cynic-kernel, embedding-server, forgejo-backend, headscale, runtime-artifact-store, surrealdb",
-      "count": 1,
-      "rule": "RUN-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/workspace-paths.json",
-      "count": 1,
-      "rule": "SEC-001",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/rules.rs:353 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface.rs:194 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface/reclaim.rs:78 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/storage.rs:30 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/defaults.rs:126 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:263 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:375 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:415 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:432 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/usecases/network_sync_uc.rs:19 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/usecases/network_sync_uc.rs:26 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/retention.rs:34 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:137 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:30 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:38 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:87 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:94 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    },
-    {
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:97 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
-      "count": 1,
-      "rule": "PATH-004",
-      "severity": "warning"
-    }
-  ]
+  "schema": "cynic.audit_debt_ledger.v1",
+  "status": "normative"
 }
