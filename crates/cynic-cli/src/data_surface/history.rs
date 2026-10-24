@@ -36,7 +36,7 @@ pub fn read_history_reports(path: &Path) -> Result<Vec<TabularValidationReport>,
 pub fn execute_history(limit: usize, json: bool, verify: bool) -> ExitCode {
     if verify {
         let evidence_root = Path::new("evidence");
-        let store = match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root) {
+        let store = match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root, "local-node") {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Error opening evidence journal at '{}': {}", evidence_root.display(), e);
@@ -44,7 +44,8 @@ pub fn execute_history(limit: usize, json: bool, verify: bool) -> ExitCode {
             }
         };
 
-        let (entries, violations) = store.verify_offline();
+        let violations = store.verify_offline();
+        let entries = store.read_all().unwrap_or_default();
         if json {
             let res = serde_json::json!({
                 "schema": "cynic.evidence.journal_verification.v1",
