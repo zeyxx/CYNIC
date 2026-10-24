@@ -153,6 +153,41 @@
           "disposition": "stale root-owned copy; NOT writable by the principal"
         }
       }
+    },
+    {
+      "hostname": "cynic-compute-01",
+      "registry_node_id": "cynic-compute-01",
+      "os": "Debian (systemd)",
+      "ssh_target": "cynic@192.168.0.25",
+      "principal": "cynic",
+      "deploy_path": "${state_root}/bin/cynic",
+      "deploy_path_resolved": "/var/lib/cynic/bin/cynic",
+      "path_owner": "cynic:cynic",
+      "layout": "flat",
+      "layout_detail": {
+        "swap": "atomic rename over the live file (no releases/ or current/ tree on this machine)",
+        "note": "measured 2026-10-25: /var/lib/cynic/releases does not exist; the binaries were placed by hand. Adopting the releases/ + current layout is a separate, explicit step."
+      },
+      "backup_pattern": "binary.bak-<sha>",
+      "readback": {
+        "sha256_command": "sha256sum /var/lib/cynic/bin/cynic",
+        "identity_command": "/var/lib/cynic/bin/cynic version --json",
+        "smoke_command": "/var/lib/cynic/bin/cynic source status --json",
+        "smoke_expect": "exit code 0"
+      },
+      "services_using": [
+        {
+          "unit": "cynic-node.service",
+          "exec": "/var/lib/cynic/bin/cynic-node",
+          "note": "build_runner control plane, health http://192.168.0.25:9090/health (200 measured 2026-10-25). The daemon is the cynic-node binary (sha256 4ba74af21c7f55fd, 2026-10-23), a separate file: a cynic CLI deploy does not replace it or restart this unit."
+        }
+      ],
+      "measured": {
+        "observed_at": "2026-10-25",
+        "deploy_path_sha256": "998ddf12236bb715cd307618a134f38381debfefadba0d5054989a03c7c13f7e",
+        "deploy_path_git_sha": "42e56f5f1f19b7cd7ef0560255129bf7a439f82f",
+        "deploy_path_profile": "release"
+      }
     }
   ],
   "anti_rules": [

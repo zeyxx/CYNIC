@@ -11,7 +11,8 @@
   "canary_order": [
     "builder",
     "cortex",
-    "cynic-agent-host"
+    "cynic-agent-host",
+    "cynic-compute-01"
   ],
   "per_step_gates": {
     "health": [
