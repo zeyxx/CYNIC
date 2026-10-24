@@ -10,9 +10,9 @@ use cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs;
 /// Collect gate proofs from the host and admit the sync decision.
 ///
 /// Mandatory gates evaluated:
-/// - `cargo_check` — workspace compiles
 /// - `secret_lint` — no secrets in source
 /// - `git_clean` — worktree clean (no dirty files)
+/// - `build_proof` — builder converged on this commit (SSOT for compilation)
 pub fn admit_source_sync(root: &Path, decision: &SyncDecision) -> SourceAdmissionReport {
     let gate_proofs = collect_host_gate_proofs(root);
 
