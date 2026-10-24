@@ -160,7 +160,29 @@ pub fn execute_history_query(sql: &str, json: bool) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    // 5. Query
+    // 5. Read and add node telemetry table if available
+    let telemetry_schema = cynic_traces::tabular::node_telemetry_schema();
+    let telemetry_path = Path::new("evidence/node_telemetry.jsonl");
+    let telemetry_records = if telemetry_path.exists() {
+        std::fs::read_to_string(telemetry_path)
+            .ok()
+            .and_then(|c| cynic_traces::tabular::parse_jsonl_records(&c).ok())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    if let Err(e) = projection.add_table_from_schema(telemetry_schema.clone(), Some("telemetry")) {
+        eprintln!("Error adding telemetry table to projection: {}", e);
+        return ExitCode::FAILURE;
+    }
+
+    if let Err(e) = projection.insert_records_into_table("telemetry", &telemetry_schema, &telemetry_records) {
+        eprintln!("Error inserting telemetry records into projection: {}", e);
+        return ExitCode::FAILURE;
+    }
+
+    // 6. Query
     let query_result = match projection.query(sql) {
         Ok(res) => res,
         Err(e) => {
@@ -180,11 +202,12 @@ pub fn execute_history_query(sql: &str, json: bool) -> ExitCode {
     } else {
         print_ascii_table(&query_result);
         println!(
-            "\n[data query:history] {} row(s) returned in {}ms (available tables: 'reports'/'history'/'data' ({} rows), 'journal' ({} rows))",
+            "\n[data query:history] {} row(s) returned in {}ms (available tables: 'reports'/'history'/'data' ({} rows), 'journal' ({} rows), 'telemetry' ({} rows))",
             query_result.row_count,
             query_result.elapsed_ms,
             report_records.len(),
-            journal_records.len()
+            journal_records.len(),
+            telemetry_records.len()
         );
     }
 
@@ -230,8 +253,11 @@ pub fn resolve_schema(schema_arg: Option<&str>) -> Result<TabularSchema, String>
         "journal" | "proofs" | "proof" | "evidence" => {
             Ok(cynic_traces::tabular::evidence_journal_entry_schema())
         }
+        "telemetry" | "telemetries" | "node_telemetry" | "heartbeat" => {
+            Ok(cynic_traces::tabular::node_telemetry_schema())
+        }
         other => Err(format!(
-            "Unknown schema '{}'. Expected canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim', 'history', 'journal') or path to JSON schema file.",
+            "Unknown schema '{}'. Expected canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim', 'history', 'journal', 'telemetry') or path to JSON schema file.",
             other
         )),
     }
@@ -325,6 +351,10 @@ mod tests {
         assert_eq!(
             resolve_schema(Some("journal")).unwrap().schema_id,
             "cynic.evidence.entry.v1"
+        );
+        assert_eq!(
+            resolve_schema(Some("telemetry")).unwrap().schema_id,
+            "cynic.node.telemetry.v1"
         );
         assert!(resolve_schema(None).is_err());
         assert!(resolve_schema(Some("unknown_xyz")).is_err());

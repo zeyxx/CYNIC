@@ -10,19 +10,28 @@ use cynic_protocol::tabular::{
 use super::history::append_history_report;
 
 pub fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record: bool) -> ExitCode {
-    let schema_str = match std::fs::read_to_string(schema_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Error: Cannot read schema file '{}': {}", schema_path.display(), e);
-            return ExitCode::FAILURE;
+    let schema: TabularSchema = if schema_path.exists() && schema_path.is_file() {
+        let schema_str = match std::fs::read_to_string(schema_path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Error: Cannot read schema file '{}': {}", schema_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+        };
+        match serde_json::from_str(&schema_str) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Error: Invalid schema JSON in '{}': {}", schema_path.display(), e);
+                return ExitCode::FAILURE;
+            }
         }
-    };
-
-    let schema: TabularSchema = match serde_json::from_str(&schema_str) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Error: Invalid schema JSON in '{}': {}", schema_path.display(), e);
-            return ExitCode::FAILURE;
+    } else {
+        match super::query::resolve_schema(Some(&schema_path.to_string_lossy())) {
+            Ok(s) => s,
+            Err(_) => {
+                eprintln!("Error: Cannot resolve schema from '{}'. Expected valid JSON schema file or canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim', 'history', 'journal', 'telemetry').", schema_path.display());
+                return ExitCode::FAILURE;
+            }
         }
     };
 
@@ -181,6 +190,9 @@ pub fn execute_schema(kind: &str) -> ExitCode {
         "natcat" | "insurance" => cynic_traces::tabular::natcat_claims_schema(),
         "session" | "sessions" | "session_summary" => cynic_traces::tabular::session_summary_schema(),
         "turn" | "turns" | "session_turn" => cynic_traces::tabular::session_turn_schema(),
+        "history" | "reports" | "report" | "validation" => cynic_traces::tabular::tabular_validation_report_schema(),
+        "journal" | "proofs" | "proof" | "evidence" => cynic_traces::tabular::evidence_journal_entry_schema(),
+        "telemetry" | "node_telemetry" | "heartbeat" => cynic_traces::tabular::node_telemetry_schema(),
         _ => cynic_traces::tabular::session_summary_schema(),
     };
 
