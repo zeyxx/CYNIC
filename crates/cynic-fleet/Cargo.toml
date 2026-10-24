@@ -9,6 +9,7 @@ publish = false
 description = "Fleet projection: node grants and coordination activity assembled as pure data, rendered as HTML"
 
 [dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
 serde.workspace = true
 serde_json.workspace = true
 

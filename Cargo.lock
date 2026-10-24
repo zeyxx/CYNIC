@@ -724,11 +724,13 @@ dependencies = [
  "cynic-build",
  "cynic-consensus",
  "cynic-discovery",
+ "cynic-discovery-host",
  "cynic-domain-ops",
  "cynic-eval",
  "cynic-fleet",
  "cynic-forensics",
  "cynic-host",
+ "cynic-huggingface",
  "cynic-inference",
  "cynic-intel",
  "cynic-intel-soc",
@@ -858,6 +860,7 @@ dependencies = [
 name = "cynic-fleet"
 version = "0.9.0"
 dependencies = [
+ "cynic-protocol",
  "serde",
  "serde_json",
 ]

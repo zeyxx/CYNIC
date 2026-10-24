@@ -53,6 +53,16 @@ pub fn assemble(
     }
 }
 
+impl cynic_protocol::DataReport for FleetReport {
+    fn schema_id(&self) -> &'static str {
+        FLEET_REPORT_SCHEMA
+    }
+
+    fn to_export_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| e.to_string())
+    }
+}
+
 /// Short cert hash for dense surfaces (TUI table, HTML code cell).
 pub fn short_hash(raw: &str) -> String {
     let hex: String = raw
@@ -220,5 +230,17 @@ mod tests {
     fn short_hash_without_colon_falls_back() {
         assert_eq!(short_hash("plain"), "plain");
         assert_eq!(short_hash("sha256:abcdef1299"), "abcdef12");
+    }
+
+    #[test]
+    fn test_fleet_report_data_report_contract() {
+        use cynic_protocol::DataReport;
+        let report = sample();
+        assert_eq!(report.schema_id(), FLEET_REPORT_SCHEMA);
+        let json = report.to_export_json().expect("export json");
+        assert!(json.contains("cynic.fleet.report.v1"));
+        let parsed: FleetReport = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.schema, FLEET_REPORT_SCHEMA);
+        assert_eq!(parsed.nodes.len(), 1);
     }
 }
