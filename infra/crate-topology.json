@@ -82,7 +82,6 @@
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
-        "cynic-intel-soc",
         "cynic-kernel",
         "cynic-knowledge",
         "cynic-lifecycle",
@@ -298,6 +297,7 @@
         "cynic-zeroclaw-solana"
       ],
       "depends_on": [
+        "cynic-network",
         "cynic-protocol",
         "cynic-secrets",
         "cynic-solana-pay"
@@ -306,22 +306,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 10739
-    },
-    "cynic-intel-soc": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-network",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 618
+      "loc": 11333
     },
     "cynic-kernel": {
       "consumers": [
@@ -430,7 +415,7 @@
         "cynic-cli",
         "cynic-host",
         "cynic-inference",
-        "cynic-intel-soc",
+        "cynic-intel",
         "cynic-node",
         "cynic-pkg",
         "cynic-vcs"
@@ -458,7 +443,6 @@
         "cynic-finance",
         "cynic-host",
         "cynic-inference",
-        "cynic-intel-soc",
         "cynic-kernel",
         "cynic-lifecycle",
         "cynic-lxc",
@@ -548,7 +532,6 @@
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
-        "cynic-intel-soc",
         "cynic-kernel",
         "cynic-lifecycle",
         "cynic-lxc",
@@ -846,19 +829,18 @@
     "cynic-channel",
     "cynic-consensus",
     "cynic-domain-ops",
-    "cynic-intel",
     "cynic-network",
-    "cynic-intel-soc",
+    "cynic-intel",
     "cynic-pkg",
     "cynic-storage",
     "cynic-vcs",
     "cynic-workload",
-    "cynic-zeroclaw-solana",
     "cynic-build",
     "cynic-eval",
     "cynic-kernel",
     "cynic-pool",
     "cynic-vcs-providers",
+    "cynic-zeroclaw-solana",
     "cynic-inference",
     "cynic-lifecycle",
     "cynic-market",
@@ -1050,7 +1032,6 @@
       "cynic-finance",
       "cynic-inference",
       "cynic-intel",
-      "cynic-intel-soc",
       "cynic-market",
       "cynic-node-protocol",
       "cynic-pool",
@@ -1079,12 +1060,12 @@
   "measured": {
     "acyclic": true,
     "binaries": 5,
-    "crates": 42,
+    "crates": 41,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 403949,
+    "loc_total": 403925,
     "pending_disposition": 3,
-    "runtime_edges": 179,
+    "runtime_edges": 176,
     "unjustified": 0,
     "upward_edges": 12
   },
