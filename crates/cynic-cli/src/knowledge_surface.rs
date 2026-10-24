@@ -489,9 +489,14 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     ExitCode::SUCCESS
                 }
             } else {
-                let mut target_endpoint = endpoint.unwrap_or_else(
+                let Some(mut target_endpoint) = endpoint.or_else(
                     cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint,
-                );
+                ) else {
+                    eprintln!(
+                        "No inference endpoint: pass --endpoint, set CYNIC_INFERENCE_URL, or declare inference-server in infra/registry.json"
+                    );
+                    return ExitCode::FAILURE;
+                };
                 if !target_endpoint.contains("/chat/completions") {
                     if !target_endpoint.ends_with('/') {
                         target_endpoint.push('/');

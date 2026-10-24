@@ -532,7 +532,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 .map(|reg| cynic_network::extract_allowed_ports_from_registry(reg, Some(&node_id)))
                 .unwrap_or_else(|| vec![22, 3030, 44196, 51820, 9090]);
 
-            let alerts = cynic_intel_soc::analyze_network_telemetry(
+            let alerts = cynic_intel::soc::analyze_network_telemetry(
                 &snapshot,
                 &allowed_ports,
                 max_handshake_age_secs * 1000,
