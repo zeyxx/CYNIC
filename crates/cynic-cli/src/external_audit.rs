@@ -28,7 +28,7 @@ use cynic_node::usecases::external_project_audit_uc::{
     audit_external_project, ExternalProjectAuditRequest,
 };
 use cynic_vcs::{ExternalProvider, ExternalRepoRef, ExternalSourcePort};
-use cynic_vcs_providers::{ForgejoExternalSourceAdapter, GitHubExternalSourceAdapter};
+use cynic_vcs::providers::{ForgejoExternalSourceAdapter, GitHubExternalSourceAdapter};
 
 // ── External project audit orchestration ───────────────────────────────────────
 
