@@ -14,20 +14,46 @@ use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
 
-pub use cynic_protocol::host_substrate::capabilities::{
-    DnsProviderCapability, HostCapabilities, IdentityCapability, NameServiceCapability,
-    NetworkManagerCapability, PackageManagerCapability, RouteToolCapability,
-    ServiceManagerCapability, WireguardToolCapability,
-};
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostCapabilities {
+    pub identity: IdentityCapability,
+    pub name_service: NameServiceCapability,
+    pub service_manager: ServiceManagerCapability,
+    pub package_manager: PackageManagerCapability,
+    pub route_tool: RouteToolCapability,
+    pub wireguard_tool: WireguardToolCapability,
+    pub network_manager: NetworkManagerCapability,
+    pub dns_provider: DnsProviderCapability,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IdentityCapability {
+    pub hostname_path: String,
+    pub hostname_command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NameServiceCapability {
+    pub resolver_command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceManagerCapability {
+    pub kind: String,
+    pub command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackageManagerCapability {
+    pub kind: PackageManagerKind,
+    pub installer: String,
+    pub query: String,
+    pub rpm_query: String,
+}
 
 pub use cynic_protocol::detection::PackageManagerKind;
 
-pub trait PackageManagerKindExt {
-    fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String>;
-    fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String>;
-}
-
-impl PackageManagerKindExt for PackageManagerKind {
+impl PackageManagerKind {
 
     /// The argv that QUERIES whether a package is installed.
     ///
@@ -42,7 +68,7 @@ impl PackageManagerKindExt for PackageManagerKind {
     /// `install ok installed`. The old form reported an installed
     /// package as absent, which blocked the packages domain on a host
     /// whose packages were all present.
-    fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
+    pub fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => vec![
                 layout.dpkg_query_bin(),
@@ -74,7 +100,7 @@ impl PackageManagerKindExt for PackageManagerKind {
         }
     }
 
-    fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
+    pub fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => {
                 let mut argv = vec![
@@ -121,6 +147,29 @@ impl PackageManagerKindExt for PackageManagerKind {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RouteToolCapability {
+    pub command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WireguardToolCapability {
+    pub command: String,
+    pub mesh_interface: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetworkManagerCapability {
+    pub command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnsProviderCapability {
+    pub provider: String,
+    pub command: String,
+    pub service_unit: String,
+    pub resolved_unit: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostRuntimeLayout {
