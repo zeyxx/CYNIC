@@ -31,6 +31,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
+    /// Print the full command manifest (machine-readable).
     Commands {
         #[arg(long)]
         json: bool,
