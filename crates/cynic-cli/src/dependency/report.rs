@@ -1,8 +1,8 @@
-use crate::deps_surface_model::{
+use crate::dependency::model::{
     DepsReport, DepsSummary, PinEntry, PrincipalLayoutView, PythonToolingView, ToolingAuthorityView,
 };
-use crate::deps_surface_probe::probe_and_evaluate;
-use crate::deps_surface_specs::specs;
+use crate::dependency::probe::probe_and_evaluate;
+use crate::dependency::specs::specs;
 use cynic_host::domain::ecosystem_package::{
     PrincipalInstallLayout, RunAs, ToolingAuthorityFamily, ToolingInstallProvenance,
     observe_python_tooling, python_cli_policy, resolve_principal_install_layout,
@@ -47,7 +47,7 @@ pub(crate) fn build_deps_report(
     }
 }
 
-fn summarize(deps: &[crate::deps_surface_model::DepEntry]) -> DepsSummary {
+fn summarize(deps: &[crate::dependency::model::DepEntry]) -> DepsSummary {
     let mut summary = DepsSummary {
         observed: 0,
         missing: 0,
@@ -89,7 +89,7 @@ fn summarize(deps: &[crate::deps_surface_model::DepEntry]) -> DepsSummary {
 }
 
 fn next_steps(
-    deps: &[crate::deps_surface_model::DepEntry],
+    deps: &[crate::dependency::model::DepEntry],
     summary: &DepsSummary,
     layout: &PrincipalInstallLayout,
 ) -> Vec<String> {
@@ -170,7 +170,7 @@ fn principal_view(layout: &PrincipalInstallLayout) -> PrincipalLayoutView {
     }
 }
 
-fn tooling_authorities(deps: &[crate::deps_surface_model::DepEntry]) -> Vec<ToolingAuthorityView> {
+fn tooling_authorities(deps: &[crate::dependency::model::DepEntry]) -> Vec<ToolingAuthorityView> {
     deps.iter()
         .filter_map(|dep| {
             let family = dep.tooling_authority_family?;

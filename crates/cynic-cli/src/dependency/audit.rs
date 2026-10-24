@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::deps_surface_model::DepsReport;
+use crate::dependency::model::DepsReport;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DepsAuditReport {

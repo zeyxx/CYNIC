@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::deps_surface_model::{PinEntry, PinsFile};
+use crate::dependency::model::{PinEntry, PinsFile};
 
 pub(crate) fn load_pins() -> (PathBuf, Vec<PinEntry>) {
     let path = resolve_pins_path();

@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use crate::deps_surface_model::{
+use crate::dependency::model::{
     HumanValidation, UpgradeCandidate, UpgradeMode, UpgradeReport, UpgradeResult,
 };
-use crate::deps_surface_pins::load_pins;
-use crate::deps_surface_plan::build_plan;
-use crate::deps_surface_render::print_upgrade_human;
-use crate::deps_surface_report::build_deps_report;
+use crate::dependency::pins::load_pins;
+use crate::dependency::plan::build_plan;
+use crate::dependency::render::print_upgrade_human;
+use crate::dependency::report::build_deps_report;
 use cynic_host::domain::ecosystem_package::{
     apply_for_dep, has_auto_handler, resolve_principal_install_layout,
 };

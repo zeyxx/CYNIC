@@ -1,4 +1,4 @@
-use crate::deps_surface_model::{
+use crate::dependency::model::{
     DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, VersionFrom,
 };
 use cynic_host::domain::ecosystem_package::{
@@ -237,11 +237,11 @@ fn format_python_provenance(
     .to_string()
 }
 
-fn mode_from_channel(channel: ProviderChannel) -> crate::deps_surface_model::UpgradeMode {
+fn mode_from_channel(channel: ProviderChannel) -> crate::dependency::model::UpgradeMode {
     match channel {
-        ProviderChannel::Scripted => crate::deps_surface_model::UpgradeMode::Scripted,
-        ProviderChannel::External => crate::deps_surface_model::UpgradeMode::External,
-        ProviderChannel::DistroManaged => crate::deps_surface_model::UpgradeMode::DistroManaged,
+        ProviderChannel::Scripted => crate::dependency::model::UpgradeMode::Scripted,
+        ProviderChannel::External => crate::dependency::model::UpgradeMode::External,
+        ProviderChannel::DistroManaged => crate::dependency::model::UpgradeMode::DistroManaged,
     }
 }
 
