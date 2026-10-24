@@ -5,7 +5,7 @@ use crate::domain::services::openrc_service_name;
 use crate::execution::AdmittedHostOperation;
 use crate::ports::{HostCommandResult, HostCommandRunnerPort, HostOperation};
 use crate::process_observation::capture_command;
-use crate::runtime_layout::current_runtime_layout;
+use crate::runtime_layout::{PackageManagerKindExt, current_runtime_layout};
 
 use super::principal_manager::{
     ensure_owned_dir, ensure_supplementary_group_member, ensure_system_group, ensure_system_user,
