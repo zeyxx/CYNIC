@@ -502,7 +502,18 @@ impl EmbeddingBackend {
 
 impl EmbeddingBackend {
     async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
-        self.post_batch_to(self.base_url(), inputs).await
+        let mut last_err = None;
+        for ep in &self.endpoints {
+            match self.post_batch_to(&ep.url, inputs.clone()).await {
+                Ok(res) => return Ok(res),
+                Err(e) => {
+                    last_err = Some(e);
+                }
+            }
+        }
+        Err(last_err.unwrap_or_else(|| {
+            EmbeddingError::Unreachable("no embedding endpoints available".to_string())
+        }))
     }
 
     async fn post_batch_to(
