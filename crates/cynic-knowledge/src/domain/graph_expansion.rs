@@ -84,7 +84,7 @@ pub fn expand_hits_with_graph_query<'a>(
                             if content_lower.contains(term) {
                                 chunk_score += 1;
                             }
-                            for h in &chunk.section_headers {
+                            for h in &chunk.section_hierarchy {
                                 if h.to_lowercase().contains(term) {
                                     chunk_score += 2;
                                 }
