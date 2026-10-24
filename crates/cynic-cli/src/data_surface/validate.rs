@@ -193,6 +193,7 @@ pub fn execute_schema(kind: &str) -> ExitCode {
         "history" | "reports" | "report" | "validation" => cynic_traces::tabular::tabular_validation_report_schema(),
         "journal" | "proofs" | "proof" | "evidence" => cynic_traces::tabular::evidence_journal_entry_schema(),
         "telemetry" | "node_telemetry" | "heartbeat" => cynic_traces::tabular::node_telemetry_schema(),
+        "settlement" | "settlements" | "build" | "builds" => cynic_traces::tabular::build_settlement_schema(),
         _ => cynic_traces::tabular::session_summary_schema(),
     };
 

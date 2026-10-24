@@ -78,6 +78,8 @@ pub fn canonical_target_relative_path(registry_path: &Path) -> Result<String, St
         }
         found.push(path.to_string());
     }
+    found.sort();
+    found.dedup();
     match found.as_slice() {
         [] => Err("build_runner_canonical_target_undeclared".to_string()),
         [path] => Ok(path.clone()),
