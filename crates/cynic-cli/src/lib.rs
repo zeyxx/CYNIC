@@ -12,7 +12,6 @@ pub mod agent_exposure_audit;
 pub mod agent_host_surface;
 pub mod agent_surface;
 pub mod audit_surface;
-pub mod autoresearch_surface;
 pub mod collaborator_surface;
 pub mod fleet_surface;
 pub mod branch_audit;
