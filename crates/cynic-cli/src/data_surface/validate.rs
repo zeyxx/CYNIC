@@ -3,8 +3,9 @@
 use std::path::Path;
 use std::process::ExitCode;
 
+use cynic_protocol::DataReport;
 use cynic_protocol::tabular::{
-    DriftSeverity, SchemaDriftKind, TabularSchema, TabularValidationReport,
+    DriftSeverity, SchemaDriftKind, TabularSchema,
 };
 use super::history::append_history_report;
 
@@ -63,19 +64,26 @@ pub fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record
 
         // Cryptographic sealing in EvidenceJournalStore
         let evidence_root = Path::new("evidence");
-        match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root) {
+        match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root, "local-node") {
             Ok(store) => {
-                let payload_json = serde_json::to_string(&report).unwrap_or_default();
-                let entry = cynic_protocol::evidence_journal::EvidenceJournalEntry::new(
-                    cynic_protocol::tabular::TABULAR_VALIDATION_REPORT_SCHEMA_V1,
-                    payload_json.as_bytes(),
-                    "agent:antigravity:data_validation",
-                    "validation_run",
-                );
-                if let Err(e) = store.append(&entry) {
-                    eprintln!("Warning: Failed to seal evidence journal entry: {}", e);
-                } else if !json {
-                    println!("Sealed Evidence: journal append OK (hash: {:.16}..)", entry.entry_hash);
+                if let Ok(report_bytes) = serde_json::to_vec(&report) {
+                    let digest = cynic_protocol::digest::digest_bytes(&report_bytes);
+                    let now = chrono::Utc::now().timestamp();
+                    match store.append("tabular.validation", &digest, now) {
+                        Ok(outcome) => {
+                            if !json {
+                                println!(
+                                    "Sealed Proof  : {} (seq #{} | hash: {})",
+                                    outcome.segment_path.display(),
+                                    outcome.sequence,
+                                    outcome.entry_hash
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: Failed to seal evidence journal entry: {}", e);
+                        }
+                    }
                 }
             }
             Err(e) => {
@@ -112,34 +120,33 @@ pub fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record
                 let sev = match drift.severity {
                     DriftSeverity::Critical => "CRITICAL",
                     DriftSeverity::Warning => "WARN",
-                    DriftSeverity::Info => "INFO",
                 };
                 match &drift.drift {
-                    SchemaDriftKind::MissingColumn { column } => {
+                    SchemaDriftKind::ColumnMissing { column } => {
                         println!("  - [{}] [{}] Missing required column: '{}'", sev, row_str, column);
                     }
                     SchemaDriftKind::UnexpectedColumn { column } => {
                         println!("  - [{}] [{}] Unexpected column: '{}'", sev, row_str, column);
                     }
-                    SchemaDriftKind::TypeMismatch { column, expected, observed } => {
+                    SchemaDriftKind::TypeMismatch { column, expected, found_sample } => {
                         println!(
                             "  - [{}] [{}] Type mismatch for '{}': expected {}, observed '{}'",
-                            sev, row_str, column, expected, observed
+                            sev, row_str, column, expected, found_sample
                         );
                     }
-                    SchemaDriftKind::MissingRequiredValue { column } => {
+                    SchemaDriftKind::NullViolation { column } => {
                         println!("  - [{}] [{}] Column '{}' is null or empty but marked required", sev, row_str, column);
                     }
                     SchemaDriftKind::MalformedRecord { message } => {
                         println!("  - [{}] [{}] Malformed record: {}", sev, row_str, message);
                     }
-                    SchemaDriftKind::RangeViolation { column, value, min, max } => {
+                    SchemaDriftKind::ValueOutOfRange { column, value, min, max } => {
                         println!(
                             "  - [{}] [{}] Range violation for '{}': value {} outside [{:?}, {:?}]",
                             sev, row_str, column, value, min, max
                         );
                     }
-                    SchemaDriftKind::AllowedValuesViolation { column, value, allowed } => {
+                    SchemaDriftKind::ValueNotAllowed { column, value, allowed } => {
                         println!(
                             "  - [{}] [{}] Value '{}' for '{}' not in allowed values {:?}",
                             sev, row_str, value, column, allowed

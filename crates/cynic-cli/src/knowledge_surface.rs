@@ -448,14 +448,12 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             };
             let hits: Vec<cynic_knowledge::SearchHit<'_>> = match &dense_owned {
                 Some((dense_chunks, dense_vectors, dense_query)) => {
-                    let dense =
-                        cynic_knowledge::top_k_dense(dense_query, dense_chunks, dense_vectors, 20);
-                    let empty_sparse: Vec<cynic_knowledge::SearchHit<'_>> = Vec::new();
-                    let mut fused = cynic_knowledge::fuse_continuous_convex(
-                        &empty_sparse,
+                    let dense = simd_top_k_dense(dense_query, dense_chunks, dense_vectors, 20);
+                    let sparse = index.search(&question, 20);
+                    let mut fused = cynic_knowledge::fuse_reciprocal_ranks(
+                        &sparse,
                         &dense,
-                        1.0,
-                        cynic_knowledge::NormalizationStrategy::CandidateMinMax,
+                        cynic_knowledge::DEFAULT_RRF_K,
                     );
                     fused.truncate(limit);
                     fused
@@ -736,6 +734,46 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
     }
 }
 
+/// Accelerated dense vector search using `cynic_storage::SimdVectorAdapter` with contiguous SIMD cosine buffer.
+pub fn simd_top_k_dense<'a>(
+    query: &[f32],
+    chunks: &'a [cynic_knowledge::DocumentChunk],
+    vectors: &[cynic_knowledge::ChunkVector],
+    k: usize,
+) -> Vec<cynic_knowledge::DenseHit<'a>> {
+    if query.is_empty() || chunks.is_empty() || vectors.is_empty() {
+        return Vec::new();
+    }
+
+    let simd_adapter = cynic_storage::SimdVectorAdapter::new(query.len());
+    let vector_tuples: Vec<(&str, &[f32])> = vectors
+        .iter()
+        .map(|v| (v.chunk_id.as_str(), v.vector.as_slice()))
+        .collect();
+
+    if simd_adapter.insert_batch(&vector_tuples).is_err() {
+        return cynic_knowledge::top_k_dense(query, chunks, vectors, k);
+    }
+
+    let nearest = match simd_adapter.search_nearest(query, k, -1.0) {
+        Ok(hits) => hits,
+        Err(_) => return cynic_knowledge::top_k_dense(query, chunks, vectors, k),
+    };
+
+    let chunk_map: std::collections::HashMap<&str, &'a cynic_knowledge::DocumentChunk> =
+        chunks.iter().map(|c| (c.chunk_id.as_str(), c)).collect();
+
+    nearest
+        .into_iter()
+        .filter_map(|(id, similarity)| {
+            chunk_map.get(id.as_str()).map(|&chunk| cynic_knowledge::DenseHit {
+                chunk,
+                similarity: similarity as f64,
+            })
+        })
+        .collect()
+}
+
 fn find_repo_root(start: &std::path::Path) -> Option<PathBuf> {
     let mut current = start.to_path_buf();
     loop {
@@ -745,5 +783,50 @@ fn find_repo_root(start: &std::path::Path) -> Option<PathBuf> {
         if !current.pop() {
             return None;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_knowledge::{AuthorityTier, ChunkVector, DocumentChunk};
+
+    #[test]
+    fn test_simd_top_k_dense_retrieval() {
+        let c1 = DocumentChunk::new(
+            "doc1.md".to_string(),
+            1,
+            10,
+            vec!["# Spec 1".to_string()],
+            "Content of spec 1".to_string(),
+            AuthorityTier::L1Specification,
+        );
+        let c2 = DocumentChunk::new(
+            "doc2.md".to_string(),
+            1,
+            10,
+            vec!["# Spec 2".to_string()],
+            "Content of spec 2".to_string(),
+            AuthorityTier::L2Design,
+        );
+
+        let v1 = ChunkVector {
+            chunk_id: c1.chunk_id.clone(),
+            vector: vec![1.0, 0.0, 0.0],
+        };
+        let v2 = ChunkVector {
+            chunk_id: c2.chunk_id.clone(),
+            vector: vec![0.0, 1.0, 0.0],
+        };
+
+        let chunks = vec![c1, c2];
+        let vectors = vec![v1, v2];
+
+        // Query aligned with c1
+        let query = vec![1.0, 0.0, 0.0];
+        let hits = simd_top_k_dense(&query, &chunks, &vectors, 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].chunk.chunk_id, chunks[0].chunk_id);
+        assert!((hits[0].similarity - 1.0).abs() < 1e-4);
     }
 }
