@@ -820,37 +820,3 @@ pub(crate) fn chat_tool_policy() -> (Vec<cynic_inference::ToolSpec>, u32) {
     }
 }
 
-/// Rebuild chat client after preferred-alias pin (thin wiring; domain is in bind_*).
-pub(crate) fn rebind_chat_service(
-    store: Arc<dyn ChatSessionStore>,
-    endpoint: &str,
-    model_id: &str,
-    api_key: Option<String>,
-    context_turns: Option<usize>,
-    max_tokens: Option<u32>,
-    temperature: Option<f32>,
-    top_p: Option<f32>,
-    reasoning_profile: &str,
-) -> Result<ChatService, String> {
-    let client = HttpOpenAiChatClient::with_api_key(endpoint, model_id, api_key)
-        .map_err(|e| e.to_string())?
-        .with_runtime_params(max_tokens, temperature, top_p);
-    let (specs, max_tools) = chat_tool_policy();
-    Ok(ChatService::new(
-        store,
-        Arc::new(client),
-        Arc::new(BuiltinToolInvoker),
-        specs,
-        cynic_inference::ChatServiceConfig::new(
-            Some(endpoint.to_string()),
-            Some(model_id.to_string()),
-            max_tools,
-            true,
-        )
-        .context_turns(context_turns)
-        .max_tokens(max_tokens)
-        .temperature(temperature)
-        .top_p(top_p)
-        .reasoning_profile(reasoning_profile),
-    ))
-}
