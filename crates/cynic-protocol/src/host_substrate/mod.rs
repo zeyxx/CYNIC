@@ -10,6 +10,7 @@
 //! - `provisioning`: ephemeral build container provisioning spec and port.
 //! - `vm_disk`: VM disk resizing, SCSI/VirtIO controllers, and size limits.
 
+pub mod capabilities;
 pub mod cpu;
 pub mod disk;
 pub mod fleet_disk;
@@ -19,3 +20,5 @@ pub mod proxmox;
 pub mod provisioning;
 pub mod remote_execution;
 pub mod vm_disk;
+
+pub use capabilities::*;

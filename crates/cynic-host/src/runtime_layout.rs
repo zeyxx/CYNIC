@@ -121,29 +121,6 @@ impl PackageManagerKindExt for PackageManagerKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RouteToolCapability {
-    pub command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WireguardToolCapability {
-    pub command: String,
-    pub mesh_interface: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NetworkManagerCapability {
-    pub command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DnsProviderCapability {
-    pub provider: String,
-    pub command: String,
-    pub service_unit: String,
-    pub resolved_unit: String,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostRuntimeLayout {

@@ -71,6 +71,7 @@ pub mod gasdf;
 pub mod hardening;
 pub mod health_signal;
 pub mod host_substrate;
+pub use host_substrate::capabilities::*;
 pub use host_substrate::cpu;
 pub use host_substrate::disk;
 pub use host_substrate::fleet_disk;

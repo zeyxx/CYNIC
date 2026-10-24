@@ -1,4 +1,4 @@
-use cynic_host::runtime_layout::observed_hostname;
+use crate::adapters::host_observation::observed_hostname;
 use serde::Serialize;
 
 use crate::adapters::host_observation::{
