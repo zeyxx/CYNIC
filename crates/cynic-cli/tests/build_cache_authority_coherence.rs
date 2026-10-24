@@ -33,14 +33,21 @@ fn build_runner_node() -> serde_json::Value {
         .get("nodes")
         .and_then(serde_json::Value::as_array)
         .expect("the registry declares nodes");
+    // The canonical target is fleet-wide and singular: it lives on the
+    // runner that declares a build_lifecycle (the builder). Sibling
+    // runners share the role but not the canonical declaration — see
+    // builder_role_parity.rs for the per-node bar.
     let mut found = nodes
         .iter()
-        .filter(|node| node.get("role").and_then(serde_json::Value::as_str) == Some("build_runner"))
+        .filter(|node| {
+            node.get("role").and_then(serde_json::Value::as_str) == Some("build_runner")
+                && node.get("build_lifecycle").is_some()
+        })
         .collect::<Vec<_>>();
     assert_eq!(
         found.len(),
         1,
-        "exactly one node declares the build_runner role"
+        "exactly one build_runner declares the build_lifecycle"
     );
     found.remove(0).clone()
 }
@@ -76,11 +83,15 @@ fn the_canonical_target_resolves_from_the_registry() {
 }
 
 #[test]
-fn the_canonical_target_is_the_directory_the_runner_uses() {
-    // The runner resolves the cache against the state root. The registry
-    // path is RELATIVE to that same root, so the two are comparable once
-    // joined. This is the assertion that would have caught the
-    // divergence: the runner used one directory, the policy another.
+fn the_canonical_target_is_a_governed_build_targets_profile() {
+    // 2026-10-22: `shared-target` was the Forgejo-runner warm cache until
+    // a reclaim from a stale checkout purged it behind its active writer.
+    // Writers now resolve under `build-targets/<profile>` (scheduler) and
+    // `build-targets/fgate` (gate flow); the registry declares the gate
+    // profile canonical. There is no single "runner directory" anymore, so
+    // this test pins the declared intent instead of a discovery: change
+    // the pin below only when the declared canonical moves — and migrate
+    // the writer first.
     let node = build_runner_node();
     let declared = node
         .pointer("/build_lifecycle/canonical_target_relative_path")
@@ -94,8 +105,8 @@ fn the_canonical_target_is_the_directory_the_runner_uses() {
     );
     assert_eq!(
         from_registry,
-        state_root.join("shared-target"),
-        "the registry's canonical target is the directory the runner writes to"
+        state_root.join("build-targets/fgate"),
+        "the registry's canonical target is the declared gate cache; move it deliberately, with the writer"
     );
 }
 
@@ -135,9 +146,15 @@ fn the_ephemeral_retention_scope_is_declared() {
         .get("scopes")
         .and_then(serde_json::Value::as_array)
         .expect("the retention declares its scopes");
-    assert!(!scopes.is_empty(), "the retention declares at least one scope");
+    assert!(
+        !scopes.is_empty(),
+        "the retention declares at least one scope"
+    );
     let covers_checkouts = scopes.iter().any(|scope| {
-        scope.get("relative_path").and_then(serde_json::Value::as_str) == Some("checkouts")
+        scope
+            .get("relative_path")
+            .and_then(serde_json::Value::as_str)
+            == Some("checkouts")
             && scope.get("kind").and_then(serde_json::Value::as_str) == Some("evidence_checkout")
     });
     assert!(

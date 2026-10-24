@@ -11,7 +11,6 @@ use std::process::ExitCode;
 pub mod agent_host_surface;
 pub mod agent_surface;
 pub mod audit_surface;
-pub mod autoresearch_surface;
 pub mod collaborator_surface;
 pub mod fleet_surface;
 pub mod branch_audit;
@@ -26,6 +25,7 @@ pub mod chat_tui;
 pub mod cli_args;
 pub mod cli_json;
 pub mod command_manifest;
+pub mod data_surface;
 pub mod coordination_ledger;
 pub mod coordination_log;
 pub mod coordination_metrics;
@@ -52,7 +52,6 @@ pub(crate) mod inference_surface;
 pub mod invoice_log;
 pub mod knowledge_surface;
 pub mod mask;
-pub mod mcp_call_proof_index;
 #[cfg(feature = "topology_write")]
 pub mod topology_write;
 

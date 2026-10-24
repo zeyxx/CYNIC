@@ -5,7 +5,7 @@
 
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackagePolicy;
-use crate::domain::services::{ServiceManagerKind, ServicePolicy};
+use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
 use crate::ports::{
     HostContractPort, HostFilesystemPort, HostPackagePort, HostPrincipalPort, HostPrivilegePort,
     HostServicePort,
@@ -64,8 +64,22 @@ impl HostServicePort for BuildRunnerHostProfile {
         ServicePolicy {
             manager: ServiceManagerKind::Systemd,
             unit_dir: current_runtime_layout().service_unit_dir,
-            // Empty until the resident node controller owns a supervisor-agnostic lifecycle.
-            units: vec![],
+            // The receiver unit is declared here so `service-reconcile`
+            // owns its lifecycle (enable/start). Content is NOT declared
+            // here: the unit file is rendered by
+            // `cynic node service generate` and installed by the
+            // operator/capability path; the reconciler never authors bytes.
+            units: vec![ServiceUnitPolicy {
+                service_id: "cynic-node-receiver".to_string(),
+                unit_name: "cynic-node.service".to_string(),
+                enable_on_boot: true,
+                restart_mode: "always".to_string(),
+                source: "/var/lib/cynic/service-units/cynic-node.service".to_string(),
+                health_port: Some(9090),
+                process_name: Some("cynic-node".to_string()),
+                supervisor_provider: None,
+                health_kind: None,
+            }],
             // The registry is the authority for what a node retires.
             retired_units: Vec::new(),
         }
@@ -93,6 +107,18 @@ mod tests {
     fn build_runner_does_not_require_mesh_packages_or_units() {
         let profile = BuildRunnerHostProfile;
         assert!(profile.desired_packages().bootstrap_packages.is_empty());
-        assert!(profile.desired_services().units.is_empty());
+    }
+
+    #[test]
+    fn build_runner_declares_the_node_receiver_unit() {
+        let units = BuildRunnerHostProfile.desired_services().units;
+        assert_eq!(units.len(), 1);
+        let unit = &units[0];
+        assert_eq!(unit.unit_name, "cynic-node.service");
+        assert!(unit.enable_on_boot);
+        assert_eq!(
+            unit.source,
+            "/var/lib/cynic/service-units/cynic-node.service"
+        );
     }
 }

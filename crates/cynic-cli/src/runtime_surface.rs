@@ -601,7 +601,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 json,
             ),
             RuntimeStorageCommand::Ping { json: _, endpoint } => {
-                let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
+                let ep = endpoint.map(|s| s.to_string()).or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok()).or_else(|| std::env::var("SURREALDB_URL").ok()).unwrap_or_else(|| resolve_surrealdb_endpoint());
                 let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
                 let client = cynic_storage::SurrealHttpClient::new(config);
                 match cynic_storage::SurrealStoragePort::check_health(&client) {
@@ -614,7 +614,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 sql,
                 endpoint,
             } => {
-                let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
+                let ep = endpoint.map(|s| s.to_string()).or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok()).or_else(|| std::env::var("SURREALDB_URL").ok()).unwrap_or_else(|| resolve_surrealdb_endpoint());
                 let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
                 let client = cynic_storage::SurrealHttpClient::new(config);
                 match cynic_storage::SurrealStoragePort::execute_sql(&client, &sql) {
@@ -765,6 +765,51 @@ pub(crate) fn execute_harness_progress(
     Ok(())
 }
 
+/// Resolve the SurrealDB endpoint from the registry (no hardcoded IP).
+/// Falls back to 127.0.0.1:8000 if the registry is unreadable.
+pub(crate) fn resolve_surrealdb_endpoint() -> String {
+    let reg_path = crate::registry_path(None);
+    if let Ok(content) = std::fs::read_to_string(&reg_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) {
+                for node in nodes {
+                    let role = node
+                        .get("role")
+                        .and_then(|r| r.as_str())
+                        .unwrap_or_default();
+                    let id = node.get("id").and_then(|r| r.as_str()).unwrap_or_default();
+                    let services = node.get("services").and_then(|s| s.as_array());
+                    let has_surreal = services
+                        .map(|svcs| {
+                            svcs.iter().any(|s| {
+                                s.get("name").and_then(|n| n.as_str()) == Some("surrealdb")
+                            })
+                        })
+                        .unwrap_or(false);
+                    if role == "storage_primary" || id.contains("surrealdb") || has_surreal {
+                        let ip = node
+                            .get("network")
+                            .and_then(cynic_network::plane_vocabulary::best_plane_address)
+                            .unwrap_or("127.0.0.1");
+                        let port = services
+                            .and_then(|svcs| {
+                                svcs.iter()
+                                    .find(|s| {
+                                        s.get("name").and_then(|n| n.as_str()) == Some("surrealdb")
+                                    })
+                                    .and_then(|s| s.get("port"))
+                                    .and_then(|p| p.as_u64())
+                            })
+                            .unwrap_or(8000);
+                        return format!("http://{ip}:{port}");
+                    }
+                }
+            }
+        }
+    }
+    "http://127.0.0.1:8000".to_string()
+}
+
 pub(crate) fn execute_storage_credential_sync(
     json: bool,
     endpoint: Option<&str>,
@@ -778,50 +823,7 @@ pub(crate) fn execute_storage_credential_sync(
         .map(|s| s.to_string())
         .or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok())
         .or_else(|| std::env::var("SURREALDB_URL").ok())
-        .unwrap_or_else(|| {
-            let reg_path = crate::registry_path(None);
-            if let Ok(content) = std::fs::read_to_string(&reg_path) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) {
-                        for node in nodes {
-                            let role = node
-                                .get("role")
-                                .and_then(|r| r.as_str())
-                                .unwrap_or_default();
-                            let id = node.get("id").and_then(|r| r.as_str()).unwrap_or_default();
-                            let services = node.get("services").and_then(|s| s.as_array());
-                            let has_surreal = services
-                                .map(|svcs| {
-                                    svcs.iter().any(|s| {
-                                        s.get("name").and_then(|n| n.as_str()) == Some("surrealdb")
-                                    })
-                                })
-                                .unwrap_or(false);
-                            if role == "storage_primary" || id.contains("surrealdb") || has_surreal
-                            {
-                                let ip = node
-                                    .get("network")
-                                    .and_then(cynic_network::plane_vocabulary::best_plane_address)
-                                    .unwrap_or("127.0.0.1");
-                                let port = services
-                                    .and_then(|svcs| {
-                                        svcs.iter()
-                                            .find(|s| {
-                                                s.get("name").and_then(|n| n.as_str())
-                                                    == Some("surrealdb")
-                                            })
-                                            .and_then(|s| s.get("port"))
-                                            .and_then(|p| p.as_u64())
-                                    })
-                                    .unwrap_or(8000);
-                                return format!("http://{ip}:{port}");
-                            }
-                        }
-                    }
-                }
-            }
-            "http://127.0.0.1:8000".to_string()
-        });
+        .unwrap_or_else(resolve_surrealdb_endpoint);
 
     let spec = StorageCredentialSpec {
         username: "root".into(),

@@ -140,6 +140,22 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "fleet",
+                commands: vec![
+                    "cynic fleet observe [--user <u>] [--json]",
+                    "cynic fleet remediate <runner> --action <gc-disk|restart-probe> --yes [--user <u>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "data",
+                commands: vec![
+                    "cynic data validate --schema <path> --file <path> [--json] [--record]",
+                    "cynic data schema [--kind <kind>]",
+                    "cynic data history [--limit <limit>] [--json] [--verify]",
+                    "cynic data query --file <path> [--schema <schema>] --sql <query> [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "secret",
                 commands: vec![
                     "cynic secret status [--json]",
@@ -224,16 +240,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic agent claim --agent-id <id> --target <path> [--claim-type <file|crate>] [--ttl-seconds <n>] [--budget-actions <n>] [--budget-wall-seconds <n>] [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
-                    "cynic agent session-context [--registry <path>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "idea",
-                commands: vec![
-                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
-                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
+                    "cynic agent session context [--registry <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -241,17 +248,33 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
                     "cynic node activate --node-id <id> [--yes] [--json]",
-                    "cynic node identity-init --key-path <path> [--json]",
-                    "cynic node node-identity --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
-                    "cynic node csr-create --node-id <id> --role <role> [--key-path <path>] [--json]",
-                    "cynic node cert-inspect [--cert-path <path>] [--json]",
-                    "cynic node cert-verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
-                    "cynic node host-audit [--json] [--max-commits <n>]",
+                    "cynic node identity init [--key-path <path>] [--json]",
+                    "cynic node identity run --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
+                    "cynic node csr create --node-id <id> --role <role> [--key-path <path>] [--json]",
+                    "cynic node cert inspect [--cert-path <path>] [--json]",
+                    "cynic node cert verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
+                    "cynic node enrollment check [--config <path>] [--json]",
+                    "cynic node enrollment issue --request <req> --authority <auth> [--token-file <path>] --signing-key <key> [--output <path>] [--json]",
+                    "cynic node consensus status [--json]",
+                    "cynic node observe [--registry <path>] [--fail-on-warning] [--fail-on-critical] [--json]",
+                    "cynic node registry observation [--registry <path>] [--output <path>] [--json]",
                     "cynic node host cpu [--json]",
                     "cynic node host memory [--json]",
+                    "cynic node host audit [--json] [--max-commits <n>]",
                     "cynic node host disk status [--json]",
                     "cynic node host disk clean [--apply] [--json]",
                     "cynic node host capacity [--json]",
+                    "cynic node agent scheduler observe --node-id <id> --scheduler-epoch <n> --step-id <id> --budgets <json> --lifecycle <json> --output <path> [--json]",
+                    "cynic node agent scheduler step --observation <path> [--state-root <path>] [--json]",
+                    "cynic node agent workload status --workload-id <id> [--state-root <path>] [--json]",
+                    "cynic node agent workload transition --request <json> [--state-root <path>] [--apply] [--json]",
+                    "cynic node agent workspace [--request <json>] [--json]",
+                    "cynic node agent workspace lifecycle --workload-id <id> [--json]",
+                    "cynic node build workload grant verify --grant <json> --workload-record <json> --authority-public-key <hex> --node-id <id> --source-commit <sha> --action <action> [--json]",
+                    "cynic node storage reconcile [--state-dir <path>] [--apply] [--json]",
+                    "cynic node source admission plan --request <json> --observation <json> [--json]",
+                    "cynic node source bootstrap --node <id> --repository <url> --source <src> --revision <rev> [--apply] [--json]",
+                    "cynic node source materialize --request <json> [--apply] [--json]",
                     "cynic node compute provision --vmid <n> --hostname <name> --template-volid <volid> [--ip-cidr <cidr> --gateway <ip> --nameserver <ip> --features <flag>] [--node <name>] [--apply [--hypervisor <ssh-target>]]",
                 ],
             },
@@ -342,7 +365,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic build run --json",
                     "cynic build submit --json",
-                    "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
+                    "cynic build drain [--builder-url <url>] [--json]",
+                    "cynic build restart --desired-sha256 <hex> [--builder-url <url>] [--json]",
+                    "cynic build trigger --commit <sha> [--phase check|build|activate|test] [--package <pkg>] [--host <ssh>] [--runner <node>] [--scope full|auto] [--json]",
                     "cynic build pool eligibility [--node <id>] [--observed-labels a,b] [--json]",
                     "cynic build pool memory [--json]",
                     "cynic build proofs list [--commit <sha>] [--limit N] [--json]",
@@ -377,15 +402,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "idea",
-                commands: vec![
-                    "cynic idea list [--json] [--domain <domain>] [--status <status>] [--freshness <freshness>] [--ledger <path>]",
-                    "cynic idea add --title <title> [--description <text>] [--domain <domain>] [--status <status>] [--freshness <freshness>] [--idea-id <id>] [--json] [--ledger <path>]",
-                    "cynic idea status --idea-id <idea-id> [--status <status>] [--freshness <freshness>] [--json] [--ledger <path>]",
-                    "cynic idea consume --idea-id <idea-id> --consumer <consumer> [--json] [--ledger <path>]",
-                ],
-            },
-            CommandDomain {
                 name: "wiki",
                 commands: vec![
                     "cynic wiki list [--kind <kind>] [--status <status>] [--registry <path>] [--json]",
@@ -403,6 +419,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic coordination ack <msg_id> [--state delivered|opened] [--json]",
                     "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
                     "cynic coordination metrics [--json] [--claims <path>] [--log <path>] [--root <path>]",
+                ],
+            },
+            CommandDomain {
+                name: "data",
+                commands: vec![
+                    "cynic data validate --schema <path> --file <path> [--json] [--record]",
+                    "cynic data schema [--kind <kind>]",
+                    "cynic data history [--limit <limit>] [--json] [--verify]",
+                    "cynic data query --file <path> [--schema <schema>] --sql <query> [--json]",
                 ],
             },
         ],
@@ -461,6 +486,7 @@ mod tests {
         let cli = Cli::command();
         let manifest = commands_manifest();
         let mut checked = 0usize;
+        let mut ghosts: Vec<String> = Vec::new();
         for domain in &manifest.domains {
             for command in &domain.commands {
                 let path = command
@@ -483,16 +509,23 @@ mod tests {
                     let found = current
                         .get_subcommands()
                         .find(|s| s.get_name() == segment.as_str());
-                    assert!(
-                        found.is_some(),
-                        "manifest command `{}` (domain `{}`) does not resolve at segment {depth}: `{segment}`",
-                        command,
-                        domain.name
-                    );
+                    if found.is_none() {
+                        ghosts.push(format!(
+                            "`{command}` (domain `{}`) fails at segment {depth}: `{segment}`",
+                            domain.name
+                        ));
+                        break;
+                    }
                     current = found.unwrap();
                 }
             }
         }
+        assert!(
+            ghosts.is_empty(),
+            "manifest lists {} command(s) clap cannot resolve:\n{}",
+            ghosts.len(),
+            ghosts.join("\n")
+        );
         assert!(
             checked > 100,
             "manifest command resolution checked too few commands: {checked}"

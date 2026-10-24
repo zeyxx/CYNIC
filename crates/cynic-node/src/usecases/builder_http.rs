@@ -2,6 +2,7 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     Json, Router,
@@ -26,6 +27,9 @@ use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, EvidenceEnvelope,
     MutationAdmission, SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
+use cynic_protocol::supervision::{
+    DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
+};
 use cynic_workload::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
 
 use crate::config::NodeControlConfig;
@@ -47,6 +51,11 @@ pub struct BuilderHttpConfig {
     pub repository_id: String,
     /// Secret-free source transport URI for that repository.
     pub transport_uri: String,
+    /// Symlink path to the installed node binary (e.g.
+    /// `/var/lib/cynic/bin/cynic-node`). The restart signal hashes its
+    /// target to verify the desired binary is installed before bouncing.
+    /// `None` means the running binary is the only reference.
+    pub binary_link_path: Option<String>,
     /// Absolute path of the `node-control.toml` this builder booted from.
     /// `POST /admin/reload` re-reads exactly this file; the path itself is
     /// startup state and never reloads.
@@ -83,6 +92,10 @@ struct AppState {
     /// the trailing 24h window.
     collisions: Arc<Mutex<CollisionCounter>>,
     evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
+    /// Commanded-stop lifecycle (`POST /admin/drain`). Starts `Active`;
+    /// drain sets `Draining` (new admissions get 503), the waiter sets
+    /// `Stopped` and exits(0) once no workload is in flight.
+    drain: Arc<Mutex<SupervisorState>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,15 +155,19 @@ pub fn app(
         store,
         collisions,
         evidence,
+        drain: Arc::new(Mutex::new(SupervisorState::Active)),
     };
     Router::new()
         .route("/health", get(health))
         .route("/status", get(status))
+        .route("/capacity", get(capacity))
+        .route("/admin/restart", post(admin_restart))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
+        .route("/admin/drain", post(admin_drain))
         .route("/admin/identity", get(identity))
         .route("/admin/evidence", get(admin_evidence))
         .route("/admin/reload", post(admin_reload))
@@ -212,9 +229,25 @@ pub struct ExecResponse {
 /// can drive external builds over HTTP instead of SSH. The command is executed
 /// via `sh -c` with `current_dir` set to `work_dir` when non-empty.
 async fn exec(
-    State(_state): State<AppState>,
-    Json(payload): Json<ExecRequest>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<ExecResponse>, (StatusCode, String)> {
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "exec unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid exec signature".into()));
+    }
+    let payload: ExecRequest = serde_json::from_slice(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
     if payload.command.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -262,6 +295,7 @@ async fn submit_workload(
     State(state): State<AppState>,
     Json(payload): Json<AgentBuildSubmission>,
 ) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
+    drain_gate(&state)?;
     let commit_sha = payload.commit_sha.trim().to_string();
     if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err((
@@ -814,6 +848,170 @@ async fn admin_reload(
     }
 }
 
+/// Live pressure gauge for data-centric placement.
+///
+/// Serves what only this node knows: how many workloads are in flight
+/// right now and the 1-minute load average. Declared capacity (cpu,
+/// ram) lives in the registry the client already reads — the client
+/// joins both sides into pressure = (in_flight + load) / capacity and
+/// routes to the lowest gauge. No gauge, no flow: store errors fail
+/// closed with 503 so the client treats this node as unreadable.
+async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    let active = state
+        .store
+        .active_records()
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    let in_flight = active
+        .iter()
+        .filter(|record| !record.state.terminal())
+        .count() as u64;
+    let load_average_1m = sysinfo::System::load_average().one;
+    Ok(Json(serde_json::json!({
+        "schema": "cynic.builder.capacity.v1",
+        "node_id": state.config.node_id,
+        "in_flight": in_flight,
+        "load_average_1m": load_average_1m,
+    })))
+}
+
+/// Remote restart signal: ditch SSH, let the node bounce itself.
+///
+/// Auth mirrors the webhook (HMAC, fail-closed without secret, header
+/// `x-cynic-signature`). The body names the desired installed binary by
+/// sha256. The node bounces only when the installed target already
+/// matches: install first, then signal — never the reverse. The bounce
+/// is a clean exit(0); systemd `Restart=always` relaunches the new
+/// binary. Every outcome persists a restart receipt in the evidence
+/// store, so restarts are logged where proofs live, not scattered in
+/// journals nobody reads.
+#[derive(Debug, Deserialize)]
+pub struct RestartSignal {
+    pub desired_sha256: String,
+}
+
+/// Pure restart decision — the testable core, no I/O.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RestartDecision {
+    AlreadyConverged,
+    Proceed { old_hash: String, new_hash: String },
+    Refused { reason: String },
+}
+
+pub fn decide_restart(
+    running_hash: &str,
+    installed_hash: Option<&str>,
+    desired: &str,
+) -> RestartDecision {
+    let well_formed = desired.len() == 64 && desired.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if !well_formed {
+        return RestartDecision::Refused {
+            reason: "bad desired digest: want 64 hex chars".to_string(),
+        };
+    }
+    if running_hash.eq_ignore_ascii_case(desired) {
+        return RestartDecision::AlreadyConverged;
+    }
+    match installed_hash {
+        Some(installed) if installed.eq_ignore_ascii_case(desired) => RestartDecision::Proceed {
+            old_hash: running_hash.to_string(),
+            new_hash: desired.to_string(),
+        },
+        _ => RestartDecision::Refused {
+            reason: "installed binary does not match desired; install first, then signal"
+                .to_string(),
+        },
+    }
+}
+
+fn sha256_of_file(path: &std::path::Path) -> Option<String> {
+    let bytes = std::fs::read(path).ok()?;
+    use sha2::Digest;
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(&bytes);
+    Some(hex::encode(hasher.finalize()))
+}
+
+async fn admin_restart(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "restart signal unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid restart signature".into()));
+    }
+    let signal: RestartSignal = serde_json::from_slice(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
+    let running_hash = std::env::current_exe()
+        .ok()
+        .and_then(|path| sha256_of_file(&path))
+        .unwrap_or_default();
+    let installed_hash = state
+        .config
+        .binary_link_path
+        .as_ref()
+        .and_then(|link| std::fs::canonicalize(link).ok())
+        .and_then(|target| sha256_of_file(&target));
+    match decide_restart(
+        &running_hash,
+        installed_hash.as_deref(),
+        &signal.desired_sha256,
+    ) {
+        RestartDecision::AlreadyConverged => Ok(Json(serde_json::json!({
+            "schema": "cynic.node.restart_receipt.v1",
+            "node_id": state.config.node_id,
+            "outcome": "already-converged",
+            "running_sha256": running_hash,
+        }))),
+        RestartDecision::Refused { reason } => Err((StatusCode::CONFLICT, reason)),
+        RestartDecision::Proceed { old_hash, new_hash } => {
+            let receipt = serde_json::json!({
+                "schema": "cynic.node.restart_receipt.v1",
+                "node_id": state.config.node_id,
+                "outcome": "restarting",
+                "old_sha256": old_hash,
+                "new_sha256": new_hash,
+            });
+            persist_restart_receipt(&state, &receipt);
+            // Let the response flush before the process exits; systemd
+            // relaunches the new binary under Restart=always.
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                std::process::exit(0);
+            });
+            Ok(Json(receipt))
+        }
+    }
+}
+
+fn persist_restart_receipt(state: &AppState, receipt: &serde_json::Value) {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let observed_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let envelope = cynic_protocol::build_evidence_envelope_with_lineage(
+        &state.config.node_id,
+        "cynic-node/restart-signal",
+        observed_at,
+        vec!["admin-restart".to_string()],
+        None,
+        receipt,
+    );
+    if let Ok(envelope) = envelope {
+        let _ = state.evidence.persist(&envelope);
+    }
+}
+
 async fn get_proof(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -985,6 +1183,10 @@ async fn webhook_forgejo(
     if !verify_webhook_signature(secret, &body, signature) {
         return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
     }
+
+    // A commanded stop never admits new work; auth runs first so unauthenticated
+    // callers learn nothing about drain state beyond 401.
+    drain_gate(&state)?;
 
     let payload: ForgejoPayload = serde_json::from_slice(&body)
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
@@ -1170,6 +1372,228 @@ async fn webhook_forgejo(
     }))
 }
 
+/// 503 while the builder is draining: a commanded stop never admits new work.
+///
+/// A poisoned lock degrades to `Unknown`, which admits — the pure predicate
+/// refuses `Draining` only, so a broken lock must not wedge the builder shut
+/// by itself.
+fn drain_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
+    let current = state
+        .drain
+        .lock()
+        .map(|guard| *guard)
+        .unwrap_or(SupervisorState::Unknown);
+    if drain_blocks_admission(current) {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "builder draining: no new workloads admitted".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Persist one drain receipt and read it back. Fail-closed like the release
+/// publication path: a transition without a stored receipt is a 500, never a
+/// silent claim.
+fn persist_drain_receipt(state: &AppState, receipt: &DrainReceipt) -> Result<String, String> {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    let envelope = build_evidence_envelope(
+        &format!("node:drain:{}", receipt.node_id),
+        &format!("cynic-node/builder-http:{}", receipt.node_id),
+        receipt.observed_at_unix_ms,
+        vec!["admin:drain".to_string()],
+        receipt,
+    )?;
+    state.evidence.persist(&envelope)?;
+    if state.evidence.read(&envelope.digest)? != Some(envelope.clone()) {
+        return Err("drain_receipt_evidence_read_back_mismatch".to_string());
+    }
+    Ok(envelope.digest)
+}
+
+/// Pure drain response shaper: no store, no I/O. Tested without HTTP.
+/// `receipt_digest` is `None` exactly when no transition happened (idempotent
+/// status read), so no receipt was persisted.
+fn shape_drain_response(receipt: &DrainReceipt, receipt_digest: Option<&str>) -> serde_json::Value {
+    serde_json::json!({
+        "schema": receipt.schema,
+        "node_id": receipt.node_id,
+        "state": receipt.transition_to,
+        "transition_from": receipt.transition_from,
+        "in_flight": receipt.in_flight,
+        "observed_at_unix_ms": receipt.observed_at_unix_ms,
+        "receipt_digest": receipt_digest,
+    })
+}
+
+/// Exit(0) after a short grace so the in-flight HTTP response flushes first.
+fn spawn_clean_exit() {
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        std::process::exit(0);
+    });
+}
+
+/// Background waiter spawned once per drain: polls the workload store every
+/// second and, once nothing is in flight, persists the drained receipt and
+/// exits(0) so `systemd Restart=always` relaunches a fresh `Active` builder.
+///
+/// No timeout by design: a silent deadline would kill builds mid-flight,
+/// which is exactly what drain exists to prevent. An unobservable store
+/// counts as busy — the waiter never exits blind — and a receipt that fails
+/// to persist retries on the next poll instead of exiting unproven.
+fn spawn_drain_waiter(state: AppState) {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            let in_flight = match state.store.active_records() {
+                Ok(records) => records.len(),
+                Err(_) => continue,
+            };
+            let current = state
+                .drain
+                .lock()
+                .map(|guard| *guard)
+                .unwrap_or(SupervisorState::Unknown);
+            match decide_drain(current, in_flight) {
+                DrainDecision::Complete => {
+                    if let Ok(mut guard) = state.drain.lock() {
+                        *guard = SupervisorState::Stopped;
+                    }
+                    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
+                    let receipt = DrainReceipt::new(
+                        &state.config.node_id,
+                        SupervisorState::Draining,
+                        SupervisorState::Stopped,
+                        0,
+                        now_ms,
+                    );
+                    if persist_drain_receipt(&state, &receipt).is_ok() {
+                        spawn_clean_exit();
+                        return;
+                    }
+                }
+                DrainDecision::AlreadyStopped => return,
+                _ => {}
+            }
+        }
+    });
+}
+
+/// Commanded stop: `POST /admin/drain`.
+///
+/// Auth is the same HMAC-SHA256 as the Forgejo webhook
+/// (`verify_webhook_signature`) over the raw body, presented in
+/// `x-cynic-signature`, failing closed without a configured secret.
+/// `/admin/restart` reuses this exact verifier and header when it lands —
+/// drain is its safety precondition (no bounce may kill a build mid-flight),
+/// so both share one secret and one header, never two.
+///
+/// Semantics: stop admitting new workloads (503), let in-flight finish, then
+/// clean exit(0) for `systemd Restart=always`. Every state change persists a
+/// `cynic.node.drain_receipt.v1` receipt; repeated calls while draining are
+/// idempotent status reads, not new transitions, so they persist nothing.
+/// A resumed builder is simply the relaunched process starting `Active`.
+async fn admin_drain(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let Some(secret) = state.config.webhook_secret.clone() else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "admin authentication unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-cynic-signature")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !verify_webhook_signature(&secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid admin signature".into()));
+    }
+
+    // `active_records()` returns non-terminal workloads only: its length is
+    // the in-flight count. Unobservable store fails closed with no state
+    // change — without a count there is no safe transition to record.
+    let in_flight = state.store.active_records().map(|records| records.len()).map_err(|error| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("workload store unobservable: {}", error.code),
+        )
+    })?;
+    let current = state
+        .drain
+        .lock()
+        .map(|guard| *guard)
+        .unwrap_or(SupervisorState::Unknown);
+    let now_ms = Utc::now().timestamp_millis().max(0) as u128;
+    match decide_drain(current, in_flight) {
+        DrainDecision::StartDraining { in_flight } => {
+            let receipt = DrainReceipt::new(
+                &state.config.node_id,
+                current,
+                SupervisorState::Draining,
+                in_flight,
+                now_ms,
+            );
+            // Persist before flipping the flag: no transition without a receipt.
+            let digest = persist_drain_receipt(&state, &receipt).map_err(|error| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("drain receipt not stored: {error}"),
+                )
+            })?;
+            if let Ok(mut guard) = state.drain.lock() {
+                *guard = SupervisorState::Draining;
+            }
+            spawn_drain_waiter(state.clone());
+            Ok(Json(shape_drain_response(&receipt, Some(&digest))))
+        }
+        DrainDecision::Wait { in_flight } => {
+            let receipt = DrainReceipt::new(
+                &state.config.node_id,
+                SupervisorState::Draining,
+                SupervisorState::Draining,
+                in_flight,
+                now_ms,
+            );
+            Ok(Json(shape_drain_response(&receipt, None)))
+        }
+        DrainDecision::Complete => {
+            let receipt = DrainReceipt::new(
+                &state.config.node_id,
+                current,
+                SupervisorState::Stopped,
+                0,
+                now_ms,
+            );
+            // Persist before flipping the flag: no transition without a receipt.
+            let digest = persist_drain_receipt(&state, &receipt).map_err(|error| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("drain receipt not stored: {error}"),
+                )
+            })?;
+            if let Ok(mut guard) = state.drain.lock() {
+                *guard = SupervisorState::Stopped;
+            }
+            spawn_clean_exit();
+            Ok(Json(shape_drain_response(&receipt, Some(&digest))))
+        }
+        DrainDecision::AlreadyStopped => {
+            let receipt = DrainReceipt::new(
+                &state.config.node_id,
+                SupervisorState::Stopped,
+                SupervisorState::Stopped,
+                0,
+                now_ms,
+            );
+            Ok(Json(shape_drain_response(&receipt, None)))
+        }
+    }
+}
+
 pub async fn run_http_server(
     config: BuilderHttpConfig,
     control: NodeControlConfig,
@@ -1217,6 +1641,50 @@ mod tests {
         admit_build_agent_request, canonical_argv_from_build_action,
         BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
     };
+
+    const RUNNING: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const INSTALLED: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    #[test]
+    fn restart_refuses_malformed_desired_digest() {
+        assert!(matches!(
+            decide_restart(RUNNING, Some(INSTALLED), "not-hex"),
+            RestartDecision::Refused { .. }
+        ));
+    }
+
+    #[test]
+    fn restart_converged_when_running_matches_desired() {
+        assert_eq!(
+            decide_restart(RUNNING, Some(INSTALLED), RUNNING),
+            RestartDecision::AlreadyConverged
+        );
+    }
+
+    #[test]
+    fn restart_proceeds_when_installed_matches_desired() {
+        assert_eq!(
+            decide_restart(RUNNING, Some(INSTALLED), INSTALLED),
+            RestartDecision::Proceed {
+                old_hash: RUNNING.to_string(),
+                new_hash: INSTALLED.to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn restart_refuses_when_installed_differs_from_desired() {
+        // Install first, then signal — never the reverse. A bounce into
+        // the same old binary is a no-op with downtime.
+        assert!(matches!(
+            decide_restart(RUNNING, Some(RUNNING), INSTALLED),
+            RestartDecision::Refused { .. }
+        ));
+        assert!(matches!(
+            decide_restart(RUNNING, None, INSTALLED),
+            RestartDecision::Refused { .. }
+        ));
+    }
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
@@ -1336,6 +1804,26 @@ mod tests {
         let json = serde_json::to_value(&resp).unwrap();
         assert_eq!(json["exit_code"], 2);
         assert_eq!(json["stderr"], "error");
+    }
+
+    #[test]
+    fn drain_response_shape_names_state_and_digest() {
+        let receipt = DrainReceipt::new(
+            "node-1",
+            SupervisorState::Active,
+            SupervisorState::Draining,
+            2,
+            1_700_000_000_000,
+        );
+        let shaped = shape_drain_response(&receipt, Some("sha256:abc"));
+        assert_eq!(shaped["schema"], "cynic.node.drain_receipt.v1");
+        assert_eq!(shaped["state"], "draining");
+        assert_eq!(shaped["transition_from"], "active");
+        assert_eq!(shaped["in_flight"], 2);
+        assert_eq!(shaped["receipt_digest"], "sha256:abc");
+        // Idempotent status reads persist nothing: no digest.
+        let shaped = shape_drain_response(&receipt, None);
+        assert!(shaped["receipt_digest"].is_null());
     }
 
     #[test]

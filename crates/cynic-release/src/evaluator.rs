@@ -152,10 +152,10 @@ mod tests {
             gates: GatesCatalog {
                 mandatory: vec![
                     GateDefinition {
-                        name: "cargo_check".to_string(),
-                        description: "Compiles".to_string(),
-                        command: "cargo check".to_string(),
-                        pass_condition: "0".to_string(),
+                        name: "build_proof".to_string(),
+                        description: "Builder converged".to_string(),
+                        command: "cynic build proofs".to_string(),
+                        pass_condition: "converged".to_string(),
                     },
                     GateDefinition {
                         name: "secret_lint".to_string(),
@@ -196,9 +196,9 @@ mod tests {
         };
         let proofs = vec![
             GateProofRecord {
-                name: "cargo_check".to_string(),
+                name: "build_proof".to_string(),
                 passed: true,
-                detail: "ok".to_string(),
+                detail: "converged".to_string(),
                 observed_at_unix_s: 100,
             },
             GateProofRecord {
@@ -225,9 +225,9 @@ mod tests {
         };
         let proofs = vec![
             GateProofRecord {
-                name: "cargo_check".to_string(),
+                name: "build_proof".to_string(),
                 passed: false,
-                detail: "syntax error".to_string(),
+                detail: "blocked".to_string(),
                 observed_at_unix_s: 100,
             },
             GateProofRecord {
@@ -271,7 +271,7 @@ mod tests {
     fn relay_rejected_when_blocked() {
         let verdict = ReleaseEligibilityVerdict::Blocked {
             schema: "cynic.release_verdict.v1",
-            reasons: vec!["cargo_check failed".to_string()],
+            reasons: vec!["build_proof failed".to_string()],
             decided_at_unix_s: 100,
         };
         let relay_contract = dummy_relay_contract();

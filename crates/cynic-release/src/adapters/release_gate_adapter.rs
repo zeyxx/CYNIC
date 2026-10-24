@@ -6,12 +6,13 @@ use std::time::SystemTime;
 
 use crate::types::GateProofRecord;
 
-/// Collect raw host gate proofs (git cleanliness, compilation, secret scan).
+/// Collect raw host gate proofs (git cleanliness, secret scan).
 ///
-/// Order is load-bearing: `git_clean` runs FIRST so the gate judges the
-/// tree as committed, and `cargo check` runs with `--locked` so the gate
-/// itself never rewrites `Cargo.lock` (a gate that dirties the tree it
-/// judges always fails its own successor — observed 2026-10-06).
+/// Compilation is NOT checked locally: the builder is the declared SSOT
+/// for build validation (see `build_proof` gate). Running `cargo check`
+/// on the operator host (faulty RAM, no network) was redundant with the
+/// builder proof and produced false negatives in offline mode.
+/// `git_clean` runs FIRST so the gate judges the tree as committed.
 pub fn collect_host_gate_proofs(root: &Path) -> Vec<GateProofRecord> {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -30,16 +31,6 @@ pub fn collect_host_gate_proofs(root: &Path) -> Vec<GateProofRecord> {
         } else {
             "worktree has uncommitted or dirty files".to_string()
         },
-        observed_at_unix_s: now,
-    });
-
-    // 2. cargo check — locked: fail loudly on a stale lock file instead of
-    // silently rewriting it (which would dirty the tree post-judgment).
-    let (cargo_passed, cargo_detail) = run_cargo_check(root);
-    records.push(GateProofRecord {
-        name: "cargo_check".to_string(),
-        passed: cargo_passed,
-        detail: cargo_detail,
         observed_at_unix_s: now,
     });
 
@@ -202,29 +193,6 @@ fn list_release_tags(root: &Path) -> Vec<String> {
         .collect();
     tags.sort_by(|a, b| (b.0, b.1, b.2).cmp(&(a.0, a.1, a.2)));
     tags.into_iter().map(|(_, _, _, tag)| tag).collect()
-}
-
-fn run_cargo_check(root: &Path) -> (bool, String) {
-    let output = Command::new("cargo")
-        .args(["check", "--workspace", "--quiet", "--offline", "--locked"])
-        .current_dir(root)
-        .output();
-    match output {
-        Ok(o) if o.status.success() => (true, "workspace compiles cleanly".to_string()),
-        Ok(o) => {
-            let stderr = String::from_utf8_lossy(&o.stderr);
-            let hint: String = stderr
-                .lines()
-                .rev()
-                .find(|l| !l.trim().is_empty())
-                .unwrap_or("cargo check failed")
-                .chars()
-                .take(200)
-                .collect();
-            (false, format!("cargo check failed: {hint}"))
-        }
-        Err(e) => (false, format!("cargo check could not run: {e}")),
-    }
 }
 
 fn run_secret_lint(root: &Path) -> bool {

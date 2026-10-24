@@ -26,7 +26,6 @@ use self::session::{AgentSessionCommand, execute_agent_session};
 
 pub mod coordination;
 pub mod intent;
-pub mod render;
 pub mod scan;
 pub mod session;
 pub mod types;

@@ -20,6 +20,7 @@ pub mod node_control;
 pub mod node_enrollment;
 pub mod node_execution_mode;
 pub mod node_identity;
+pub mod node_service_unit;
 pub mod peer_resolver;
 pub mod pre_os;
 pub mod runtime_takeover_activation;

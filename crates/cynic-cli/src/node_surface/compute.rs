@@ -267,8 +267,44 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                 wireguard_pubkey: pubkey,
             };
 
-            let base_url = std::env::var("HEADSCALE_URL")
-                .unwrap_or_else(|_| "http://10.10.10.101:8080".to_string());
+            let base_url = std::env::var("HEADSCALE_URL").unwrap_or_else(|_| {
+                let reg_path = crate::registry_path(None);
+                if let Ok(content) = std::fs::read_to_string(&reg_path) {
+                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) {
+                            for node in nodes {
+                                let role = node
+                                    .get("role")
+                                    .and_then(|r| r.as_str())
+                                    .unwrap_or_default();
+                                let id = node.get("id").and_then(|r| r.as_str()).unwrap_or_default();
+                                if role == "mesh_coordinator" || id.contains("headscale") {
+                                    let ip = node
+                                        .get("network")
+                                        .and_then(|n| n.get("service"))
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("127.0.0.1");
+                                    let port = node
+                                        .get("services")
+                                        .and_then(|s| s.as_array())
+                                        .and_then(|svcs| {
+                                            svcs.iter()
+                                                .find(|s| {
+                                                    s.get("name").and_then(|n| n.as_str())
+                                                        == Some("headscale")
+                                                })
+                                                .and_then(|s| s.get("port"))
+                                                .and_then(|p| p.as_u64())
+                                        })
+                                        .unwrap_or(8080);
+                                    return format!("http://{ip}:{port}");
+                                }
+                            }
+                        }
+                    }
+                }
+                "http://127.0.0.1:8080".to_string()
+            });
             let config = HeadscaleConfig::new(base_url, "headscale-api-key", "HEADSCALE_API_KEY");
             let mesh_client = match HeadscaleClient::new(config) {
                 Ok(client) => client,

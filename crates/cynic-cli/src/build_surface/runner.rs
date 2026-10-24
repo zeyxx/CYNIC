@@ -13,8 +13,11 @@ pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
 }
 
 /// Classify a commit's diff into the minimal gate (local `git diff`,
-/// read-only). Unresolvable diff fails open to Full: never skip silently.
-pub(crate) fn resolve_gate_scope(commit: &str) -> cynic_build::gate_scope::GateScope {
+/// read-only). Returns the scope plus the changed paths (for fmt checks).
+/// Unresolvable diff fails open to Full: never skip silently.
+pub(crate) fn resolve_gate_scope(
+    commit: &str,
+) -> (cynic_build::gate_scope::GateScope, Vec<String>) {
     use cynic_build::gate_scope::{GateScope, decide_gate_scope};
     let output = std::process::Command::new("git")
         .args(["diff", "--name-only", &format!("{commit}^"), commit])
@@ -23,12 +26,64 @@ pub(crate) fn resolve_gate_scope(commit: &str) -> cynic_build::gate_scope::GateS
         Ok(out) if out.status.success() => {
             let text = String::from_utf8_lossy(&out.stdout);
             let paths: Vec<&str> = text.lines().collect();
-            decide_gate_scope(&paths)
+            let owned: Vec<String> = paths.iter().map(|p| p.to_string()).collect();
+            (decide_gate_scope(&paths), owned)
         }
-        _ => GateScope::Full {
-            reason: "commit diff unresolvable locally".to_string(),
-        },
+        _ => (
+            GateScope::Full {
+                reason: "commit diff unresolvable locally".to_string(),
+            },
+            Vec::new(),
+        ),
     }
+}
+
+/// Format gate on the touched Rust files (standalone rustfmt, no cargo:
+/// instant, negligible RAM). Red blocks before any builder second burns.
+pub(crate) fn check_rustfmt(paths: &[String]) -> Result<(), String> {
+    let rs: Vec<&String> = paths
+        .iter()
+        .filter(|p| p.ends_with(".rs") && !p.contains("target/"))
+        .collect();
+    if rs.is_empty() {
+        return Ok(());
+    }
+    let status = std::process::Command::new("rustfmt")
+        .arg("--check")
+        .args(rs)
+        .status()
+        .map_err(|e| format!("rustfmt unavailable ({e}); format unchecked"))?;
+    if status.success() {
+        eprintln!("gate-scope: rustfmt clean on {} files", paths.len());
+        Ok(())
+    } else {
+        Err("rustfmt --check red: run rustfmt on the touched files".to_string())
+    }
+}
+
+/// Consumers lookup over infra/crate-topology.json (sibling of the
+/// registry file). Missing/unparsable topology fails open to Full.
+pub(crate) fn topology_consumers(
+    registry: &str,
+) -> Option<impl Fn(&str) -> Vec<String>> {
+    let path = std::path::Path::new(registry)
+        .parent()
+        .map(|parent| parent.join("crate-topology.json"))?;
+    let raw = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let crates = value.get("crates")?.as_object()?.clone();
+    Some(move |name: &str| {
+        crates
+            .get(name)
+            .and_then(|c| c.get("consumers"))
+            .and_then(|c| c.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
 }
 
 /// Run one apps/<suite> pytest tree locally (no builder dispatch).
@@ -132,6 +187,59 @@ pub(crate) fn submit_build(
     Ok(())
 }
 
+/// Read the admin secret from the environment. Never from argv: process
+/// lists leak argv to every local user, and a secret in shell history
+/// outlives the signal.
+fn admin_secret() -> Result<String, String> {
+    std::env::var("CYNIC_ADMIN_SECRET")
+        .map_err(|_| "CYNIC_ADMIN_SECRET is not set; export it before signaling".to_string())
+        .and_then(|secret| {
+            if secret.trim().is_empty() {
+                Err("CYNIC_ADMIN_SECRET is empty; refusing an unsigned signal".to_string())
+            } else {
+                Ok(secret)
+            }
+        })
+}
+
+fn render_admin_reply(reply: &serde_json::Value, json: bool) -> Result<(), String> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(reply).map_err(|error| error.to_string())?
+        );
+    } else {
+        println!(
+            "{}",
+            reply
+                .get("outcome")
+                .and_then(|outcome| outcome.as_str())
+                .unwrap_or("signaled")
+        );
+    }
+    Ok(())
+}
+
+/// Send a drain signal to a builder node: stop admitting, finish
+/// in-flight, then exit for supervised relaunch.
+pub(crate) fn drain_node(builder_url: &str, json: bool) -> Result<(), String> {
+    let secret = admin_secret()?;
+    let reply = cynic_build::admin_signal::send_drain(builder_url, &secret)?;
+    render_admin_reply(&reply, json)
+}
+
+/// Send a restart signal to a builder node. The node bounces only when
+/// the installed binary already matches `desired_sha256`.
+pub(crate) fn restart_node(
+    builder_url: &str,
+    desired_sha256: &str,
+    json: bool,
+) -> Result<(), String> {
+    let secret = admin_secret()?;
+    let reply = cynic_build::admin_signal::send_restart(builder_url, &secret, desired_sha256)?;
+    render_admin_reply(&reply, json)
+}
+
 /// Package scope flows into the builder payload and the runner honors it
 /// (`cargo --package` in the trigger adapter, `--package` plus `--lib` in
 /// the proof adapter). This predicate exists only to name that rule.
@@ -156,23 +264,47 @@ pub(crate) fn trigger_build(
     match scope {
         "full" => {}
         "auto" => match resolve_gate_scope(commit) {
-            cynic_build::gate_scope::GateScope::Nothing { reason } => {
+            (cynic_build::gate_scope::GateScope::Nothing { reason }, _) => {
                 println!("gate-scope: nothing to prove ({reason})");
                 return Ok(());
             }
-            cynic_build::gate_scope::GateScope::PythonSuite { suite } => {
+            (cynic_build::gate_scope::GateScope::PythonSuite { suite }, _) => {
                 return run_python_suite(&suite);
             }
-            cynic_build::gate_scope::GateScope::ValidateOnly { files } => {
+            (cynic_build::gate_scope::GateScope::ValidateOnly { files }, _) => {
                 return validate_json_files(&files);
             }
-            cynic_build::gate_scope::GateScope::RustCheck { packages } => {
-                if package.is_none() && packages.len() == 1 {
-                    eprintln!("gate-scope: narrowing check to {}", packages[0]);
-                    package = Some(packages[0].clone());
+            (cynic_build::gate_scope::GateScope::RustCheck { packages }, paths) => {
+                check_rustfmt(&paths)?;
+                if package.is_none() {
+                    match topology_consumers(registry) {
+                        Some(consumers) => {
+                            let closed = cynic_build::gate_scope::expand_with_consumers(
+                                &packages, &consumers,
+                            );
+                            if closed.len() > cynic_build::gate_scope::CLOSURE_CAP {
+                                eprintln!(
+                                    "gate-scope: full (closure {} > cap {})",
+                                    closed.len(),
+                                    cynic_build::gate_scope::CLOSURE_CAP
+                                );
+                            } else {
+                                eprintln!("gate-scope: narrowing check to {}", closed.join(","));
+                                package = Some(closed.join(","));
+                            }
+                        }
+                        None => {
+                            if packages.len() == 1 {
+                                eprintln!("gate-scope: narrowing check to {}", packages[0]);
+                                package = Some(packages[0].clone());
+                            } else {
+                                eprintln!("gate-scope: full (no topology, multi-crate)");
+                            }
+                        }
+                    }
                 }
             }
-            cynic_build::gate_scope::GateScope::Full { reason } => {
+            (cynic_build::gate_scope::GateScope::Full { reason }, _) => {
                 eprintln!("gate-scope: full ({reason})");
             }
         },
@@ -461,10 +593,37 @@ pub(crate) fn prove_build(
     package: Option<String>,
     phase: &str,
     filter: Option<String>,
+    scope: &str,
     host: &str,
     user: &str,
     json: bool,
 ) -> Result<(), String> {
+    if scope != "full" && scope != "auto" {
+        return Err(format!("invalid proof scope: {scope} (full|auto)"));
+    }
+    if scope == "auto" {
+        return prove_build_scoped(commit, package, phase, filter, host, user, json);
+    }
+    let report = run_one_proof(commit, package, phase, filter, host, user)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|e| format!("serialize proof: {e}"))?
+        );
+    } else {
+        println!("build proof {}: {:?}", report.source_commit, report.status);
+    }
+    Ok(())
+}
+
+fn run_one_proof(
+    commit: &str,
+    package: Option<String>,
+    phase: &str,
+    filter: Option<String>,
+    host: &str,
+    user: &str,
+) -> Result<cynic_build::build_proof::BuildProofReport, String> {
     let proof_phase = match phase {
         "check" => BuildProofPhase::Check,
         "test" => BuildProofPhase::Test { filter },
@@ -475,16 +634,181 @@ pub(crate) fn prove_build(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    let report = cynic_node::cli_factory::prove_build_blocking(&request, host, user)?;
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&report).map_err(|e| format!("serialize proof: {e}"))?
-        );
-    } else {
-        println!("build proof {}: {:?}", report.source_commit, report.status);
+    cynic_node::cli_factory::prove_build_blocking(&request, host, user)
+}
+
+/// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
+/// Failure fails open (empty marker = caller falls back to Full).
+fn scoped_diff_paths(commit: &str) -> Option<Vec<String>> {
+    let output = std::process::Command::new("git")
+        .args(["diff", "--name-only", &format!("{commit}^"), commit])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
     }
-    Ok(())
+    let text = String::from_utf8_lossy(&output.stdout);
+    Some(text.lines().map(str::to_string).collect())
+}
+
+/// Crate-topology consumers lookup from the enclosing repo checkout.
+/// None when the topology file is missing — the plan then skips narrowing.
+fn scoped_topology_consumers() -> Option<impl Fn(&str) -> Vec<String>> {
+    let top = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
+    let path = std::path::Path::new(&top).join("infra/crate-topology.json");
+    let raw = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let crates = value.get("crates")?.as_object()?.clone();
+    Some(move |name: &str| {
+        crates
+            .get(name)
+            .and_then(|c| c.get("consumers"))
+            .and_then(|c| c.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
+}
+
+fn prove_build_scoped(
+    commit: &str,
+    package: Option<String>,
+    phase: &str,
+    filter: Option<String>,
+    host: &str,
+    user: &str,
+    json: bool,
+) -> Result<(), String> {
+    use cynic_build::gate_scope::{ProofPhaseKind, resolve_proof_plan};
+    let plan_phase = match phase {
+        "check" => ProofPhaseKind::Check,
+        "test" => ProofPhaseKind::Test,
+        other => return Err(format!("invalid proof phase: {other}")),
+    };
+    let diff_paths = scoped_diff_paths(commit).unwrap_or_default();
+    let diff_refs: Vec<&str> = diff_paths.iter().map(String::as_str).collect();
+    // Unresolvable diff fails open to Full (workspace proof), never silent.
+    let diff_ok = scoped_diff_paths(commit).is_some();
+    let no_consumers = |_: &str| Vec::new();
+    let plan = if diff_ok {
+        match scoped_topology_consumers() {
+            Some(consumers) => resolve_proof_plan(
+                true,
+                package.as_deref(),
+                plan_phase,
+                filter.as_deref(),
+                &diff_refs,
+                &consumers,
+            ),
+            None => resolve_proof_plan(
+                true,
+                package.as_deref(),
+                plan_phase,
+                filter.as_deref(),
+                &diff_refs,
+                &no_consumers,
+            ),
+        }
+    } else {
+        cynic_build::gate_scope::ProofPlan::Proofs {
+            packages: vec![],
+            phase: plan_phase,
+            filter: filter.clone(),
+        }
+    };
+    execute_proof_plan(commit, phase, host, user, json, plan)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_proof_plan(
+    commit: &str,
+    phase: &str,
+    host: &str,
+    user: &str,
+    json: bool,
+    plan: cynic_build::gate_scope::ProofPlan,
+) -> Result<(), String> {
+    use cynic_build::gate_scope::{LocalProofKind, ProofPlan};
+    match plan {
+        ProofPlan::Refused { reason } => Err(format!("proof call refused: {reason}")),
+        ProofPlan::Local { kind, reason } => {
+            match kind {
+                LocalProofKind::Nothing => {}
+                LocalProofKind::ValidateJson { files } => validate_json_files(&files)?,
+                LocalProofKind::PythonSuite { suite } => run_python_suite(&suite)?,
+            }
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({"scope": "auto", "plan": "local", "reason": reason})
+                );
+            } else {
+                println!("gate-scope: {reason}");
+            }
+            Ok(())
+        }
+        ProofPlan::Proofs {
+            packages,
+            phase: _,
+            filter,
+        } => {
+            let pkgs: Vec<Option<String>> = if packages.is_empty() {
+                vec![None]
+            } else {
+                packages.into_iter().map(Some).collect()
+            };
+            let mut receipts = Vec::new();
+            for pkg in pkgs {
+                receipts.push(run_one_proof(
+                    commit,
+                    pkg,
+                    phase,
+                    filter.clone(),
+                    host,
+                    user,
+                )?);
+            }
+            let failed = receipts
+                .iter()
+                .filter(|r| {
+                    !matches!(
+                        r.status,
+                        cynic_build::build_proof::BuildProofStatus::Converged
+                    )
+                })
+                .count();
+            if json {
+                let report = cynic_build::build_proof::ProofScopeReport {
+                    schema: cynic_build::build_proof::PROOF_SCOPE_REPORT_SCHEMA.to_string(),
+                    source_commit: commit.to_string(),
+                    scope: "auto".to_string(),
+                    reason: "diff-scoped proof set".to_string(),
+                    receipts,
+                };
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report)
+                        .map_err(|e| format!("serialize scope report: {e}"))?
+                );
+            } else {
+                for r in &receipts {
+                    println!("build proof {}: {:?}", r.source_commit, r.status);
+                }
+            }
+            if failed > 0 {
+                return Err(format!("{failed} scoped proof(s) failed for {commit}"));
+            }
+            Ok(())
+        }
+    }
 }
 
 pub(crate) fn run_build(

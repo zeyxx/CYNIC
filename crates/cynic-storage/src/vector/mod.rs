@@ -129,6 +129,11 @@ impl SimdVectorAdapter {
         }
     }
 
+    /// Return the embedding dimension of the store.
+    pub fn dimension(&self) -> usize {
+        self.state.read().dimension
+    }
+
     /// Return the total number of vectors in the store.
     pub fn len(&self) -> usize {
         self.state.read().len()
@@ -137,6 +142,36 @@ impl SimdVectorAdapter {
     /// Check if the store is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Inserts a batch of (id, vector) pairs into the contiguous buffer with a single write lock.
+    pub fn insert_batch(&self, items: &[(&str, &[f32])]) -> Result<usize, StorageError> {
+        let mut state = self.state.write();
+        for (id, vec) in items {
+            state.insert(id, vec)?;
+        }
+        Ok(items.len())
+    }
+
+    /// Loads vectors from an iterator of (id, vector) into the contiguous buffer.
+    pub fn load_vectors(&self, vectors: impl IntoIterator<Item = (String, Vec<f32>)>) -> Result<usize, StorageError> {
+        let mut state = self.state.write();
+        let mut count = 0;
+        for (id, vec) in vectors {
+            state.insert(&id, &vec)?;
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    /// Search for the top-k nearest vectors using cosine similarity.
+    pub fn search_nearest(
+        &self,
+        query: &[f32],
+        k: usize,
+        threshold: f32,
+    ) -> Result<Vec<(String, f32)>, StorageError> {
+        self.state.read().search_nearest(query, k, threshold)
     }
 }
 
@@ -198,5 +233,28 @@ mod tests {
         let store = SimdVectorAdapter::new(384);
         let err = store.insert_vector("invalid", &[0.1; 128]);
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn simd_vector_batch_insertion_and_loading() {
+        let store = SimdVectorAdapter::new(3);
+        assert_eq!(store.dimension(), 3);
+
+        let v1 = [1.0, 0.0, 0.0];
+        let v2 = [0.0, 1.0, 0.0];
+        let inserted = store
+            .insert_batch(&[("doc1", &v1), ("doc2", &v2)])
+            .expect("batch");
+        assert_eq!(inserted, 2);
+        assert_eq!(store.len(), 2);
+
+        let extra = vec![("doc3".to_string(), vec![0.0, 0.0, 1.0])];
+        let loaded = store.load_vectors(extra).expect("load");
+        assert_eq!(loaded, 1);
+        assert_eq!(store.len(), 3);
+
+        let hits = store.search_nearest(&[0.0, 0.0, 1.0], 1, 0.9).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "doc3");
     }
 }

@@ -57,6 +57,37 @@ pub fn remote_cache_roots(state_root: &str) -> RemoteCacheRoots {
     }
 }
 
+/// Scope a profile target root to one checkout.
+///
+/// WHY: `<root>/build-targets/<profile>` shared across per-SHA checkouts
+/// poisons cargo's unit fingerprints — a module added in SHA B resolves
+/// against SHA A's stale artifacts and the test profile dies with E0432
+/// while check passes. One directory per checkout keeps the warm cache
+/// (same SHA rebuilds reuse it, sccache absorbs the rest) without letting
+/// two source sets share one fingerprint space.
+///
+/// The name is the checkout's final path component (`cynic-<12hex>`), never
+/// a caller invention. A hostile or empty name (`..`, `/`, blank) yields
+/// `None` and the caller keeps the unscoped root rather than writing
+/// outside the cache.
+pub fn scoped_target_dir(profile_target_root: &str, checkout_name: &str) -> Option<String> {
+    let name = checkout_name.trim();
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+    {
+        return None;
+    }
+    Some(format!(
+        "{}/{}",
+        profile_target_root.trim_end_matches('/'),
+        name
+    ))
+}
+
 /// Extract the `state_root` from a `cynic runtime paths --json` read-back.
 ///
 /// The payload is a JSON object with a `state_root` string field. The parse
@@ -107,10 +138,26 @@ mod tests {
     #[test]
     fn the_state_root_is_read_from_the_runner_payload() {
         let payload = r#"{"schema":"cynic.runtime_paths.v1","state_root":"/var/lib/cynic"}"#;
+        assert_eq!(parse_state_root(payload).as_deref(), Some("/var/lib/cynic"));
+    }
+
+    #[test]
+    fn the_target_dir_scopes_to_the_checkout_name() {
         assert_eq!(
-            parse_state_root(payload),
-            Some("/var/lib/cynic".to_string())
+            scoped_target_dir("/var/lib/cynic/build-targets/fgate", "cynic-655786214746"),
+            Some("/var/lib/cynic/build-targets/fgate/cynic-655786214746".to_string())
         );
+    }
+
+    #[test]
+    fn a_hostile_checkout_name_falls_back_to_none() {
+        for hostile in ["", "  ", ".", "..", "a/b", "a\\b", "cynic-\0x"] {
+            assert_eq!(
+                scoped_target_dir("/var/lib/cynic/build-targets/fgate", hostile),
+                None,
+                "checkout name must never escape the cache: {hostile:?}"
+            );
+        }
     }
 
     #[test]

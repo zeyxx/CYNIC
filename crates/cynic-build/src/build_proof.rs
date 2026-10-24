@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 pub const BUILD_PROOF_REQUEST_SCHEMA: &str = "cynic.build_proof_request.v1";
 pub const BUILD_PROOF_REPORT_SCHEMA: &str = "cynic.build_proof_report.v1";
 pub const BUILD_PROOF_CARD_SCHEMA_V1: &str = "cynic.build_proof_card.v1";
+pub const PROOF_SCOPE_REPORT_SCHEMA: &str = "cynic.proof_scope_report.v1";
 
 /// Compact public-proof card (futarchic audience projection).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,6 +115,18 @@ pub struct BuildProofReport {
     /// See `tests_passed`.
     #[serde(default)]
     pub tests_failed: Option<u64>,
+}
+
+/// One commit, one verdict: the scope decision plus every receipt it ran.
+/// Emitted only by `--scope auto`; the default full path keeps the single
+/// `BuildProofReport` shape unchanged.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProofScopeReport {
+    pub schema: String,
+    pub source_commit: String,
+    pub scope: String,
+    pub reason: String,
+    pub receipts: Vec<BuildProofReport>,
 }
 
 impl BuildProofReport {

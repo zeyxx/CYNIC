@@ -102,6 +102,7 @@ pub async fn run_builder_runtime(
         webhook_secret: config.webhook_secret,
         repository_id: config.repository_id,
         transport_uri: config.transport_uri,
+        binary_link_path: std::env::var("CYNIC_BINARY_LINK_PATH").ok(),
         config_path: config.config_path,
     };
 

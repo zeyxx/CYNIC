@@ -30,7 +30,7 @@ pub use ports::{
     DomainProjector, ProjectionCoordinatorPort, StateTransaction, StoragePort, VectorStorePort,
     WalJournalPort,
 };
-pub use projection::SqliteProjectionAdapter;
+pub use projection::{SqliteProjectionAdapter, TabularMemoryProjection, TabularQueryResult};
 pub use types::{
     AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash256, IntegrityReport,
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,

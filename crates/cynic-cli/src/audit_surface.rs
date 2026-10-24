@@ -36,7 +36,7 @@ pub(crate) fn execute_audit_node(command: &AuditNodeCommand) -> ExitCode {
     }
 }
 
-#[derive(clap::Subcommand, Debug)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum AuditGateCommand {
     /// Verify a machine-readable gate receipt artifact (audit the audit).
     Receipt {
@@ -47,7 +47,7 @@ pub(crate) enum AuditGateCommand {
     },
 }
 
-#[derive(clap::Subcommand, Debug)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum AuditCommand {
     /// Audit core crates architecture boundary tests and entrypoint line limits.
     Crate {
@@ -116,6 +116,14 @@ pub(crate) enum AuditCommand {
     All {
         #[arg(long)]
         json: bool,
+    },
+    /// View audit execution history and compliance trends.
+    History {
+        #[arg(long)]
+        json: bool,
+        /// Maximum number of recent reports to display.
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
     },
     /// Observe host environment conformance against declared capability contracts.
     Conformance {
@@ -383,6 +391,8 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             // is emitted below. The three checks answer different questions.
             let root = crate::rust_source::workspace_root();
             let engine = cynic_audit_engine::run_workspace_audit(&root);
+            let history_path = root.join("evidence/audit_history.jsonl");
+            let _ = cynic_audit_engine::append_audit_history(&engine, &history_path);
 
             let all_passed = crate_report.blocked_count == 0
                 && !secret_obs.has_findings()
@@ -459,6 +469,37 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 } else {
                     ExitCode::FAILURE
                 }
+            }
+        }
+        AuditCommand::History { json, limit } => {
+            let root = crate::rust_source::workspace_root();
+            let history_path = root.join("evidence/audit_history.jsonl");
+            match cynic_audit_engine::read_audit_history(&history_path) {
+                Ok(reports) => {
+                    let slice: Vec<_> = reports.into_iter().rev().take(*limit).collect();
+                    if *json {
+                        emit_json(&slice, false)
+                    } else {
+                        println!("=== CYNIC AUDIT HISTORY (latest {}) ===", slice.len());
+                        if slice.is_empty() {
+                            println!("No audit runs recorded yet in evidence/audit_history.jsonl");
+                            return ExitCode::SUCCESS;
+                        }
+                        println!("{:<28} {:<10} {:<10} {:<8} {:<8}", "Timestamp", "Status", "Maturity", "Debt", "Critical");
+                        for r in &slice {
+                            println!(
+                                "{:<28} {:<10} {:<10} {:<8} {:<8}",
+                                &r.generated_at[..std::cmp::min(27, r.generated_at.len())],
+                                r.summary.status,
+                                format!("{}%", r.summary.maturity_score_percent),
+                                r.summary.debt_count,
+                                r.summary.critical_count
+                            );
+                        }
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(e) => fail(e),
             }
         }
         AuditCommand::Conformance { profile } => {

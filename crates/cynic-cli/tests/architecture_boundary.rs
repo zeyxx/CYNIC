@@ -41,8 +41,26 @@ fn cli_audit_crate_verification_passes() {
         report.blocked_count
     );
     assert_eq!(
-        report.crate_count, 46,
-        "Expected 46 crates in architecture audit, found {}",
-        report.crate_count
+        report.crate_count, observed_workspace_crate_count(),
+        "Architecture Violation: audit covered {} crates but the workspace holds {} — silent exclusion or drift!",
+        report.crate_count,
+        observed_workspace_crate_count()
     );
+}
+
+/// Observed workspace inventory: directories under `crates/` holding a
+/// `Cargo.toml`. Never a literal — fusions and deletions (44 today, 46
+/// yesterday) must not red the gate. The audit's own
+/// `workspace_crate_names` observes the same way; this mirrors it from the
+/// test side so the two cannot silently diverge.
+fn observed_workspace_crate_count() -> usize {
+    let crates_root = crate_root().join("..").join("..").join("crates");
+    std::fs::read_dir(&crates_root)
+        .map(|entries| {
+            entries
+                .flatten()
+                .filter(|entry| entry.path().join("Cargo.toml").is_file())
+                .count()
+        })
+        .unwrap_or(0)
 }

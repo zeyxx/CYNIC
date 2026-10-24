@@ -274,6 +274,7 @@ fn build_scheduler_config_defaults_build_jobs_to_none() {
         max_rss_cap_mb: None,
         sccache: None,
         sccache_measured_hit_rate: None,
+        toolchain_bin_dir: None,
     };
     assert_eq!(scheduler.build_jobs, None, "build_jobs must default to None");
     assert_eq!(

@@ -76,6 +76,37 @@ pub struct AuditReportV2 {
     pub residual_unknowns: Vec<String>,
 }
 
+/// Stable versioned export contract for any structured report produced by CYNIC.
+///
+/// Every implementor can emit a self-describing JSON payload whose shape is
+/// pinned to a version identifier. This makes reports consumable by external
+/// tooling (dashboards, scripts, CI gates) without parsing internal formats.
+///
+/// # Invariants
+/// - `schema_id()` MUST return the same constant for all instances of a type.
+/// - `to_export_json()` MUST round-trip through `serde_json` without loss.
+/// - The schema identifier follows `cynic.<domain>.<kind>.v<N>` convention.
+pub trait DataReport {
+    /// Stable schema identifier, e.g. `"cynic.audit_report.v2"`.
+    fn schema_id(&self) -> &'static str;
+
+    /// Serialize the report to a canonical JSON string.
+    ///
+    /// Implementations should use `serde_json::to_string` on `self` directly.
+    /// The output is suitable for appending to a JSONL history log.
+    fn to_export_json(&self) -> Result<String, String>;
+}
+
+impl DataReport for AuditReportV2 {
+    fn schema_id(&self) -> &'static str {
+        AUDIT_REPORT_SCHEMA_V2
+    }
+
+    fn to_export_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|e| e.to_string())
+    }
+}
+
 pub trait BoundedMutationContract {
     type DesiredState;
     type ObservedState;
@@ -134,5 +165,10 @@ mod tests {
         let serialized = serde_json::to_string(&report).expect("serialize");
         let deserialized: AuditReportV2 = serde_json::from_str(&serialized).expect("deserialize");
         assert_eq!(report, deserialized);
+
+        // Verify DataReport contract
+        assert_eq!(report.schema_id(), AUDIT_REPORT_SCHEMA_V2);
+        let export_json = report.to_export_json().expect("to_export_json");
+        assert_eq!(export_json, serialized);
     }
 }
