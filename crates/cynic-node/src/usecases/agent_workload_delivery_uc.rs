@@ -2,7 +2,7 @@ mod completion;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_workload::{
     AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadDecision, AgentWorkloadDelivery,
     AgentWorkloadDeliveryAcceptance, AgentWorkloadRecord, AgentWorkloadState,

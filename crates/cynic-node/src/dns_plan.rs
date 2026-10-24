@@ -1,4 +1,4 @@
-use cynic_host::install_contract::{ROOT_OWNERSHIP, owner_string};
+use cynic_protocol::install_contract::{ROOT_OWNERSHIP, owner_string};
 use serde::Serialize;
 
 use crate::dns_contract::{

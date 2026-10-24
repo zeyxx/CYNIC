@@ -20,41 +20,9 @@ pub use cynic_protocol::host_substrate::capabilities::{
     ServiceManagerCapability, WireguardToolCapability,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PackageManagerKind {
-    Apt,
-    Apk,
-    Dnf,
-    Rpm,
-    Winget,
-    Choco,
-    Unknown,
-}
+pub use cynic_protocol::detection::PackageManagerKind;
 
 impl PackageManagerKind {
-    pub fn parse(value: &str) -> Self {
-        match value {
-            "apt" | "apt-get" | "debian" | "ubuntu" => Self::Apt,
-            "apk" | "alpine" => Self::Apk,
-            "dnf" => Self::Dnf,
-            "rpm" => Self::Rpm,
-            "winget" | "windows" => Self::Winget,
-            "choco" | "chocolatey" => Self::Choco,
-            _ => Self::Unknown,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Apt => "apt",
-            Self::Apk => "apk",
-            Self::Dnf => "dnf",
-            Self::Rpm => "rpm",
-            Self::Winget => "winget",
-            Self::Choco => "choco",
-            Self::Unknown => "unknown",
-        }
-    }
 
     /// The argv that QUERIES whether a package is installed.
     ///

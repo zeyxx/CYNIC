@@ -2,7 +2,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use cynic_host::install_contract::{
+use cynic_protocol::install_contract::{
     MODE_0644, MODE_0755, ROOT_OWNERSHIP, mode_map, owner_string, root_owned_path,
 };
 

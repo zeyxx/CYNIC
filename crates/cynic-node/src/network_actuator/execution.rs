@@ -114,7 +114,7 @@ mod tests {
         NetworkCommandInvocation, NetworkCommandSurface, argv_command, expectation,
         package_presence_command,
     };
-    use cynic_host::install_contract::{MODE_0755, root_owned_path};
+    use cynic_protocol::install_contract::{MODE_0755, root_owned_path};
 
     #[test]
     fn expand_command_rejects_non_executable_surfaces() {

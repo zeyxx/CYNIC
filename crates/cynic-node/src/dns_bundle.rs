@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use cynic_host::install_contract::{ROOT_OWNERSHIP, owner_string};
+use cynic_protocol::install_contract::{ROOT_OWNERSHIP, owner_string};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 

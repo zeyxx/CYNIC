@@ -6,7 +6,7 @@ use std::path::Path;
 
 use chrono::Utc;
 use cynic_host::filesystem_observation::{path_executable, path_exists, path_mode_equals};
-use cynic_host::install_contract::{MODE_0440, MODE_0644};
+use cynic_protocol::install_contract::{MODE_0440, MODE_0644};
 use cynic_host::runtime_layout::current_runtime_layout;
 use serde_json::Value;
 
