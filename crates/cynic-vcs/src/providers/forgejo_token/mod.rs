@@ -302,4 +302,3 @@ impl Default for ForgejoTokenRuntimeSpec {
     }
 }
 
-/// Observe the token through the injected port + emit a convergence plan.

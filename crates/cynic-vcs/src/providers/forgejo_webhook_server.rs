@@ -22,7 +22,8 @@ use serde::Serialize;
 use sha2::Sha256;
 
 use super::forgejo_webhook::{
-    ForgejoHandlerConfig, handle_forgejo_payload, validate_source_commit,
+    ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
+    validate_source_commit,
 };
 
 /// Configuration for the Forgejo webhook server.
@@ -183,7 +184,7 @@ fn handle_webhook_request(
         Ok(text) => text,
         Err(_) => return error_result("invalid UTF-8 in request body"),
     };
-    let payload: crate::forgejo_webhook::ForgejoPayload = match serde_json::from_str(body_text) {
+    let payload: ForgejoPayload = match serde_json::from_str(body_text) {
         Ok(payload) => payload,
         Err(error) => {
             return error_result(&format!("failed to parse Forgejo payload: {error}"));
@@ -194,7 +195,7 @@ fn handle_webhook_request(
     let handler_result = handle_forgejo_payload(&payload, &ForgejoHandlerConfig::default());
 
     match handler_result {
-        crate::forgejo_webhook::ForgejoHandlerResult::Triggered {
+        ForgejoHandlerResult::Triggered {
             workload_id: _,
             source_commit,
         } => {
@@ -233,7 +234,7 @@ fn handle_webhook_request(
                 signature_verified,
             )
         }
-        crate::forgejo_webhook::ForgejoHandlerResult::Skipped { reason } => WebhookTriggerResult {
+        ForgejoHandlerResult::Skipped { reason } => WebhookTriggerResult {
             status: "skipped".to_string(),
             source_commit: None,
             workload_id: None,
