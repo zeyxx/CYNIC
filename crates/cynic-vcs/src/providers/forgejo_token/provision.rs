@@ -1,20 +1,13 @@
 //! Forgejo token observation and provisioning logic.
 
-use std::path::PathBuf;
-
-use cynic_types::paths::CynicPaths;
 use crate::forgejo_token::{
-    plan_forgejo_token_convergence, validate_forgejo_token_spec,
-    ForgejoTokenActionKind, ForgejoTokenAuthState, ForgejoTokenMetadata,
-    ForgejoTokenObservation, ForgejoTokenPlan, ForgejoTokenProvisionReport,
-    ForgejoTokenSpec, ForgejoTokenStatusReport,
-    FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenProvisionReport,
+    ForgejoTokenSpec, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
 };
 
 use super::api::*;
 use super::{
-    forgejo_token_directory, forgejo_token_path, observe_forgejo_token,
-    ForgejoTokenApiPort, ForgejoTokenRuntimeSpec,
+    forgejo_token_path, ForgejoTokenApiPort, ForgejoTokenRuntimeSpec,
 };
 
 /// This is the runtime entry point for `cynic forgejo token-status`.
@@ -215,8 +208,8 @@ pub fn rotate_forgejo_token(
 
 fn blocked_rotation_report(
     spec: &ForgejoTokenSpec,
-    port: &dyn ForgejoTokenApiPort,
-    before: ForgejoTokenObservation,
+    _port: &dyn ForgejoTokenApiPort,
+    _before: ForgejoTokenObservation,
     reason: &str,
 ) -> ForgejoTokenProvisionReport {
     ForgejoTokenProvisionReport {
