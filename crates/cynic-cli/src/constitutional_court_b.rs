@@ -36,7 +36,8 @@ pub struct CourtLoopResult {
 
 pub struct CourtB {
     budget_tokens: u64,
-    authority_level: String,
+    #[cfg(test)]
+    pub authority_level: String,
     phase: String,
 }
 
@@ -44,6 +45,7 @@ impl Default for CourtB {
     fn default() -> Self {
         Self {
             budget_tokens: DEFAULT_BUDGET_TOKENS,
+            #[cfg(test)]
             authority_level: "ReadOnlyPropose".to_string(),
             phase: "manual".to_string(),
         }
@@ -54,6 +56,7 @@ impl CourtB {
     pub fn new(budget_tokens: u64, phase: impl Into<String>) -> Self {
         Self {
             budget_tokens,
+            #[cfg(test)]
             authority_level: "ReadOnlyPropose".to_string(),
             phase: phase.into(),
         }

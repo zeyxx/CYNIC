@@ -44,6 +44,7 @@ pub(crate) struct WorkflowRun {
     pub updated_at: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Deserialize)]
 struct RunsResponse {
     #[serde(default)]
