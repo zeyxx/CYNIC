@@ -922,6 +922,74 @@ pub fn validate_epistemic_claim_records(
     validate_record_maps(&schema, records)
 }
 
+/// Canonical TabularSchema for TabularValidationReport records.
+pub fn tabular_validation_report_schema() -> TabularSchema {
+    TabularSchema::new(
+        cynic_protocol::tabular::TABULAR_VALIDATION_REPORT_SCHEMA_V1,
+        1,
+        vec![
+            ColumnDefinition::new("schema", DataColumnType::Text, true),
+            ColumnDefinition::new("target_schema_id", DataColumnType::Text, true),
+            ColumnDefinition::new("target_schema_version", DataColumnType::Integer, true),
+            ColumnDefinition::new("total_rows", DataColumnType::Integer, true),
+            ColumnDefinition::new("valid_rows", DataColumnType::Integer, true),
+            ColumnDefinition::new("invalid_rows", DataColumnType::Integer, true),
+            ColumnDefinition::new("passed", DataColumnType::Boolean, true),
+            ColumnDefinition::new("drifts_count", DataColumnType::Integer, true),
+        ],
+    )
+}
+
+/// Convert a TabularValidationReport into a canonical record map.
+pub fn validation_report_to_record_map(
+    report: &TabularValidationReport,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    map.insert("schema".to_string(), serde_json::json!(report.schema));
+    map.insert("target_schema_id".to_string(), serde_json::json!(report.target_schema_id));
+    map.insert("target_schema_version".to_string(), serde_json::json!(report.target_schema_version));
+    map.insert("total_rows".to_string(), serde_json::json!(report.total_rows));
+    map.insert("valid_rows".to_string(), serde_json::json!(report.valid_rows));
+    map.insert("invalid_rows".to_string(), serde_json::json!(report.invalid_rows));
+    map.insert("passed".to_string(), serde_json::json!(report.passed));
+    map.insert("drifts_count".to_string(), serde_json::json!(report.drifts.len()));
+    map
+}
+
+/// Canonical TabularSchema for EvidenceJournalEntry cryptographic records.
+pub fn evidence_journal_entry_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.evidence.entry.v1",
+        1,
+        vec![
+            ColumnDefinition::new("schema", DataColumnType::Text, true),
+            ColumnDefinition::new("sequence", DataColumnType::Integer, true),
+            ColumnDefinition::new("node_id", DataColumnType::Text, true),
+            ColumnDefinition::new("event_type", DataColumnType::Text, true),
+            ColumnDefinition::new("payload_digest", DataColumnType::Text, true),
+            ColumnDefinition::new("entry_hash", DataColumnType::Text, true),
+            ColumnDefinition::new("prev_hash", DataColumnType::Text, true),
+            ColumnDefinition::new("sealed_at_unix_s", DataColumnType::Integer, true),
+        ],
+    )
+}
+
+/// Convert an EvidenceJournalEntry into a canonical record map.
+pub fn evidence_journal_entry_to_record_map(
+    entry: &cynic_protocol::evidence_journal::EvidenceJournalEntry,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    map.insert("schema".to_string(), serde_json::json!(entry.schema));
+    map.insert("sequence".to_string(), serde_json::json!(entry.sequence));
+    map.insert("node_id".to_string(), serde_json::json!(entry.node_id));
+    map.insert("event_type".to_string(), serde_json::json!(entry.event_type));
+    map.insert("payload_digest".to_string(), serde_json::json!(entry.payload_digest));
+    map.insert("entry_hash".to_string(), serde_json::json!(entry.entry_hash));
+    map.insert("prev_hash".to_string(), serde_json::json!(entry.prev_hash));
+    map.insert("sealed_at_unix_s".to_string(), serde_json::json!(entry.sealed_at_unix_s));
+    map
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1309,5 +1377,33 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         let rep_claim_direct = validate_epistemic_claim_records(&[c1]);
         assert!(rep_claim_direct.passed);
         assert_eq!(rep_claim_direct.valid_rows, 1);
+    }
+
+    #[test]
+    fn test_tabular_validation_report_and_journal_schemas() {
+        let rep_schema = tabular_validation_report_schema();
+        let mut sample_report = TabularValidationReport::new("cynic.test.v1", 1);
+        sample_report.total_rows = 10;
+        sample_report.valid_rows = 10;
+        let rep_map = validation_report_to_record_map(&sample_report);
+        let res = validate_record_maps(&rep_schema, &[rep_map]);
+        assert!(res.passed);
+        assert_eq!(res.valid_rows, 1);
+
+        let journal_schema = evidence_journal_entry_schema();
+        let sample_entry = cynic_protocol::evidence_journal::EvidenceJournalEntry {
+            schema: "cynic.evidence.entry.v1".to_string(),
+            sequence: 1,
+            node_id: "node-1".to_string(),
+            event_type: "test.event".to_string(),
+            payload_digest: "payload-digest-1".to_string(),
+            entry_hash: "hash-1".to_string(),
+            prev_hash: "genesis".to_string(),
+            sealed_at_unix_s: 1700000000,
+        };
+        let journal_map = evidence_journal_entry_to_record_map(&sample_entry);
+        let res_journal = validate_record_maps(&journal_schema, &[journal_map]);
+        assert!(res_journal.passed);
+        assert_eq!(res_journal.valid_rows, 1);
     }
 }

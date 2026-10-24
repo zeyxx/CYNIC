@@ -33,7 +33,11 @@ pub fn read_history_reports(path: &Path) -> Result<Vec<TabularValidationReport>,
     Ok(reports)
 }
 
-pub fn execute_history(limit: usize, json: bool, verify: bool) -> ExitCode {
+pub fn execute_history(limit: usize, json: bool, verify: bool, sql: Option<&str>) -> ExitCode {
+    if let Some(query_str) = sql {
+        return super::query::execute_history_query(query_str, json);
+    }
+
     if verify {
         let evidence_root = Path::new("evidence");
         let store = match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root, "local-node") {
