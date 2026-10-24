@@ -148,7 +148,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic data validate --schema <path> --file <path> [--json] [--record]",
                     "cynic data schema [--kind <kind>]",
-                    "cynic data history [--limit <limit>] [--json]",
+                    "cynic data history [--limit <limit>] [--json] [--verify]",
                 ],
             },
             CommandDomain {
@@ -428,8 +428,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "data",
                 commands: vec![
-                    "cynic data validate --schema <path> --file <path> [--json]",
+                    "cynic data validate --schema <path> --file <path> [--json] [--record]",
                     "cynic data schema [--kind <kind>]",
+                    "cynic data history [--limit <limit>] [--json] [--verify]",
                 ],
             },
         ],

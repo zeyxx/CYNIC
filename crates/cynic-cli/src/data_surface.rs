@@ -39,6 +39,9 @@ pub enum DataCommand {
         /// Output history as JSON
         #[arg(long)]
         json: bool,
+        /// Verify the cryptographic integrity of the cold-evidence journal chain
+        #[arg(long)]
+        verify: bool,
     },
 }
 
@@ -46,7 +49,7 @@ pub fn execute_data(command: DataCommand) -> ExitCode {
     match command {
         DataCommand::Validate { schema, file, json, record } => execute_validate(&schema, &file, json, record),
         DataCommand::Schema { kind } => execute_schema(&kind),
-        DataCommand::History { limit, json } => execute_history(limit, json),
+        DataCommand::History { limit, json, verify } => execute_history(limit, json, verify),
     }
 }
 
@@ -101,6 +104,35 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record: bo
             eprintln!("Warning: Failed to record validation run to evidence history: {}", e);
         } else if !json {
             println!("Recorded to   : {}", history_path.display());
+        }
+
+        // Cryptographic sealing in EvidenceJournalStore
+        let evidence_root = Path::new("evidence");
+        match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root, "local-node") {
+            Ok(store) => {
+                if let Ok(report_bytes) = serde_json::to_vec(&report) {
+                    let digest = cynic_protocol::digest::digest_bytes(&report_bytes);
+                    let now = chrono::Utc::now().timestamp();
+                    match store.append("tabular.validation", &digest, now) {
+                        Ok(outcome) => {
+                            if !json {
+                                println!(
+                                    "Sealed Proof  : {} (seq #{} | hash: {})",
+                                    outcome.segment_path.display(),
+                                    outcome.sequence,
+                                    outcome.entry_hash
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: Failed to seal evidence journal entry: {}", e);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Cannot open evidence journal store: {}", e);
+            }
         }
     }
 
@@ -242,7 +274,53 @@ fn read_history_reports(path: &Path) -> Result<Vec<TabularValidationReport>, Str
     Ok(reports)
 }
 
-fn execute_history(limit: usize, json: bool) -> ExitCode {
+fn execute_history(limit: usize, json: bool, verify: bool) -> ExitCode {
+    if verify {
+        let evidence_root = Path::new("evidence");
+        let store = match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root, "local-node") {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Error opening evidence journal at '{}': {}", evidence_root.display(), e);
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let violations = store.verify_offline();
+        let entries = store.read_all().unwrap_or_default();
+        let is_valid = violations.is_empty();
+
+        if json {
+            let res = serde_json::json!({
+                "schema": "cynic.evidence.journal_verification.v1",
+                "valid": is_valid,
+                "total_sealed_entries": entries.len(),
+                "violations": violations,
+            });
+            println!("{}", serde_json::to_string_pretty(&res).unwrap_or_default());
+        } else {
+            println!("=== CYNIC Cold Evidence Journal Verification ===");
+            println!("Journal Root   : {}", evidence_root.display());
+            println!("Total Entries  : {}", entries.len());
+            println!("Violations     : {}", violations.len());
+            println!(
+                "Chain Status   : {}",
+                if is_valid {
+                    "100% VALID (cryptographically unbroken)"
+                } else {
+                    "COMPROMISED"
+                }
+            );
+
+            if !is_valid {
+                for v in &violations {
+                    println!("  - Breach: {}", v);
+                }
+            }
+        }
+
+        return if is_valid { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+    }
+
     let history_path = Path::new("evidence/data_validation_history.jsonl");
     let reports = match read_history_reports(history_path) {
         Ok(r) => r,
