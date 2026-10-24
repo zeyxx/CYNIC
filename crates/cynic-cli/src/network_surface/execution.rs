@@ -482,8 +482,65 @@ use cynic_node::usecases::network_actuation_target_uc::{
 use cynic_host::runtime_harness::runtime_harness_catalog;
 use cynic_lifecycle::LocalArgvRunner;
 
-pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
+fn record_node_telemetry_heartbeat(observation: &observe::NodeObservation) {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    let telemetry = cynic_traces::tabular::node_telemetry_record(
+        &observation.hostname,
+        &observation.hostname,
+        None,
+        &observation.status.as_str(),
+        &observation.severity.as_str(),
+        observation.capabilities.provider_fallback_active,
+        observation.capabilities.synapse_route_active,
+        observation.capabilities.wireguard_active,
+        observation.capabilities.critical_dns_ok,
+        observation.capabilities.critical_tcp_open,
+        observation.blockers.len(),
+        now_ms,
+    );
+
+    let path = std::path::Path::new("evidence/node_telemetry.jsonl");
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(line) = serde_json::to_string(&telemetry) {
+        use std::io::Write;
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+        {
+            let _ = writeln!(file, "{line}");
+        }
+    }
+
+    let evidence_root = std::path::Path::new("evidence");
+    if let Ok(store) = cynic_storage::evidence_journal_file::EvidenceJournalStore::open(
+        evidence_root,
+        &observation.hostname,
+    ) {
+        if let Ok(record_bytes) = serde_json::to_vec(&telemetry) {
+            let digest = cynic_protocol::digest::digest_bytes(&record_bytes);
+            let now_s = (now_ms / 1000) as i64;
+            let _ = store.append("node.telemetry", &digest, now_s);
+        }
+    }
+}
+
+pub fn execute_observe(
+    registry: &str,
+    fail_on_warning: bool,
+    fail_on_critical: bool,
+    record: bool,
+) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));
+    if record {
+        record_node_telemetry_heartbeat(&observation);
+    }
     let should_fail = (fail_on_warning && observation.is_warning_or_worse())
         || (fail_on_critical && observation.is_critical());
     emit_json("observe", &observation, should_fail)
