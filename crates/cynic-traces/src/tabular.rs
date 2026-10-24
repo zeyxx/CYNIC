@@ -866,6 +866,62 @@ pub fn validate_sessions(schema: &TabularSchema, sessions: &[NormalizedSession])
     validate_record_maps(schema, &records)
 }
 
+/// Projects raw chunk fields into a `cynic.document_chunk.v1` record map.
+pub fn document_chunk_record(
+    chunk_id: &str,
+    source_path: &str,
+    line_start: usize,
+    line_end: usize,
+    char_length: usize,
+    authority: &str,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    map.insert("chunk_id".to_string(), serde_json::Value::String(chunk_id.to_string()));
+    map.insert("source_path".to_string(), serde_json::Value::String(source_path.to_string()));
+    map.insert("line_start".to_string(), serde_json::json!(line_start as i64));
+    map.insert("line_end".to_string(), serde_json::json!(line_end as i64));
+    map.insert("char_length".to_string(), serde_json::json!(char_length as i64));
+    map.insert("authority".to_string(), serde_json::Value::String(authority.to_string()));
+    map
+}
+
+/// Validates an array of document chunk record maps against `document_chunk_schema()`.
+pub fn validate_document_chunk_records(
+    records: &[serde_json::Map<String, serde_json::Value>],
+) -> TabularValidationReport {
+    let schema = document_chunk_schema();
+    validate_record_maps(&schema, records)
+}
+
+/// Projects raw claim fields into a `cynic.epistemic_claim.v1` record map.
+pub fn epistemic_claim_record(
+    id: &str,
+    category: &str,
+    statement: &str,
+    status: &str,
+    evidence: &str,
+    verify_command: Option<&str>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    map.insert("id".to_string(), serde_json::Value::String(id.to_string()));
+    map.insert("category".to_string(), serde_json::Value::String(category.to_string()));
+    map.insert("statement".to_string(), serde_json::Value::String(statement.to_string()));
+    map.insert("status".to_string(), serde_json::Value::String(status.to_string()));
+    map.insert("evidence".to_string(), serde_json::Value::String(evidence.to_string()));
+    if let Some(cmd) = verify_command {
+        map.insert("verify_command".to_string(), serde_json::Value::String(cmd.to_string()));
+    }
+    map
+}
+
+/// Validates an array of epistemic claim record maps against `epistemic_claim_schema()`.
+pub fn validate_epistemic_claim_records(
+    records: &[serde_json::Map<String, serde_json::Value>],
+) -> TabularValidationReport {
+    let schema = epistemic_claim_schema();
+    validate_record_maps(&schema, records)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1215,5 +1271,43 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         let rep_bad = validate_json_content(&claim_schema, invalid_claim_json);
         assert!(!rep_bad.passed);
         assert_eq!(rep_bad.invalid_rows, 1);
+
+        // Native records builder & validator test
+        let r1 = document_chunk_record(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "crates/cynic-traces/src/tabular.rs",
+            10,
+            50,
+            1500,
+            "L1Specification",
+        );
+        let rep_direct = validate_document_chunk_records(&[r1]);
+        assert!(rep_direct.passed);
+        assert_eq!(rep_direct.valid_rows, 1);
+
+        // Invalid chunk (starvation length < 60 chars)
+        let r_starved = document_chunk_record(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "tiny.md",
+            1,
+            2,
+            25, // < 60
+            "L3Operation",
+        );
+        let rep_starved = validate_document_chunk_records(&[r_starved]);
+        assert!(!rep_starved.passed);
+        assert_eq!(rep_starved.invalid_rows, 1);
+
+        let c1 = epistemic_claim_record(
+            "claim:test",
+            "competence",
+            "antigravity adheres to zero-hyphen CLI policy",
+            "demonstrated",
+            "crates/cynic-cli/src/command_manifest.rs",
+            Some("cargo test -p cynic-cli --lib command_manifest"),
+        );
+        let rep_claim_direct = validate_epistemic_claim_records(&[c1]);
+        assert!(rep_claim_direct.passed);
+        assert_eq!(rep_claim_direct.valid_rows, 1);
     }
 }
