@@ -1,0 +1,325 @@
+{
+  "schema": "cynic.author_profile.v1",
+  "identity": {
+    "handle": "zeyxx",
+    "github_login": "zeyxx",
+    "headline_fr": "Architecte Systèmes Souverains & Orchestrateur d'Agents IA — R&D Autodidacte",
+    "headline_en": "Sovereign Systems Architect & AI Agent Orchestrator — Self-Taught R&D",
+    "summary_fr": "Autodidacte. Je ne code plus manuellement depuis plusieurs années : je conçois, spécifie, arbitre et relis des systèmes produits par des agents de codage LLM. Discipline de preuve appliquée à chaque mutation : ce que je n'ai pas écrit n'est pas revendiqué. CYNIC (44 crates Rust, >400k LOC) est le laboratoire de cette méthode.",
+    "summary_en": "Self-taught systems architect. I no longer write code manually: I design, specify, arbitrate, and review systems produced by LLM coding agents. Strict proof discipline applied to every mutation: what I did not write, I do not claim. CYNIC (44 Rust crates, >400k LOC) is the living laboratory of this method.",
+    "disclosure_fr": "Déclaration de mode de développement : le candidat orchestre des systèmes complexes via des agents de codage IA (Claude Code, Gemini, Codex, Hermes) guidés par des spécifications formelles, des contrats machine-readable et des invariants d'architecture exécutables. Seul Python a été écrit à la main dans les premières années (2023-2024). Rust, TypeScript, Go et Solidity sont pilotés conceptuellement avec preuve de relecture.",
+    "disclosure_en": "Development Mode Disclosure: The author architects and orchestrates complex distributed systems through AI coding agents (Claude Code, Gemini, Codex, Hermes) guided by formal specifications, machine-readable contracts, and executable architecture boundaries. Only Python was authored by hand in early years (2023-2024). Rust, TypeScript, Go, and Solidity are conceptually driven with strict verification and read-back proofs.",
+    "links": {
+      "github": "https://github.com/zeyxx",
+      "github_cynic": "https://github.com/zeyxx/CYNIC"
+    }
+  },
+  "skills": [
+    {
+      "id": "ai_agents",
+      "label_fr": "Outillage IA et agents",
+      "label_en": "AI Tooling & Multi-Agent Orchestration",
+      "basis": "exercised",
+      "depth": "in_progress",
+      "domain": "ai_agents",
+      "note_fr": "Compétence exercée directement : orchestration d'agents sans agent dans la boucle.",
+      "note_en": "Primary exercised skill: directing coding agents, prompt architectures, and consensus loops.",
+      "items_fr": [
+        {
+          "text": "Orchestration d'agents de codage (Claude Code, Gemini, Codex, Hermes)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Conception de protocoles d'agents (claims, leases, preuve par relecture)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Rédaction de spécifications et contrats machine-readable",
+          "basis": "exercised"
+        },
+        {
+          "text": "Model Context Protocol (MCP)",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Orchestration of coding agents (Claude Code, Gemini, Codex, Hermes)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Agent protocol design (claims, leases, read-back proofs)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Writing specifications and machine-readable contracts",
+          "basis": "exercised"
+        },
+        {
+          "text": "Model Context Protocol (MCP)",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "systems",
+      "label_fr": "Systèmes bas-niveau",
+      "label_en": "Low-Layer Systems & Consensus",
+      "basis": "understood",
+      "depth": "anchored",
+      "domain": "systems",
+      "note_fr": "Cœur du socle CYNIC : autorisation, isolation, consensus.",
+      "note_en": "Core of CYNIC substrate: authorization, isolation, state machine replication.",
+      "items_fr": [
+        {
+          "text": "Linux (cgroups, PSI, /proc)",
+          "basis": "understood"
+        },
+        {
+          "text": "Machine à états répliquée (SMR)",
+          "basis": "understood"
+        },
+        {
+          "text": "Conception de systèmes distribués",
+          "basis": "understood"
+        },
+        {
+          "text": "Isolation de processus (LXC/QEMU)",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Linux internals (cgroups, PSI, /proc)",
+          "basis": "understood"
+        },
+        {
+          "text": "State Machine Replication (SMR)",
+          "basis": "understood"
+        },
+        {
+          "text": "Distributed systems design",
+          "basis": "understood"
+        },
+        {
+          "text": "Process isolation (LXC/QEMU)",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "rust",
+      "label_fr": "Rust",
+      "label_en": "Rust Architecture & Invariants",
+      "basis": "understood",
+      "depth": "anchored",
+      "domain": "systems",
+      "note_fr": "Architecture de 44 crates, zéro-I/O domain, ports et adaptateurs.",
+      "note_en": "44-crate workspace architecture, pure zero-I/O domain core, ports & adapters.",
+      "items_fr": [
+        {
+          "text": "Crates et workspaces modulaires",
+          "basis": "understood"
+        },
+        {
+          "text": "Ports et adaptateurs (DAG strict)",
+          "basis": "understood"
+        },
+        {
+          "text": "Cœur domaine zéro-I/O (FCIS)",
+          "basis": "understood"
+        },
+        {
+          "text": "Tests d'architecture exécutables",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Modular crates and workspace topology",
+          "basis": "understood"
+        },
+        {
+          "text": "Strict downward DAG ports and adapters",
+          "basis": "understood"
+        },
+        {
+          "text": "Zero-I/O domain core (FCIS)",
+          "basis": "understood"
+        },
+        {
+          "text": "Executable architecture boundary tests",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "blockchain",
+      "label_fr": "Blockchain & Protocoles",
+      "label_en": "Blockchain & Protocol Engineering",
+      "basis": "understood",
+      "depth": "anchored",
+      "domain": "blockchain",
+      "note_fr": "Solana / SPL, Ethereum EVM, mécanismes de confidentialité (mixers, pools).",
+      "note_en": "Solana / SPL, Ethereum EVM, privacy mechanisms, on-chain fee relays.",
+      "items_fr": [
+        {
+          "text": "Solana / SPL & transactions sans gaz (GASdf)",
+          "basis": "understood"
+        },
+        {
+          "text": "Ethereum / EVM, devnet Kurtosis (PEF)",
+          "basis": "understood"
+        },
+        {
+          "text": "Mécanismes de confidentialité (mixers, Dandelion)",
+          "basis": "understood"
+        },
+        {
+          "text": "Oracles et frais on-chain",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Solana / SPL & gasless relay (GASdf)",
+          "basis": "understood"
+        },
+        {
+          "text": "Ethereum / EVM, Kurtosis devnets (PEF)",
+          "basis": "understood"
+        },
+        {
+          "text": "Privacy mechanisms (mixers, Dandelion pools)",
+          "basis": "understood"
+        },
+        {
+          "text": "On-chain oracles and fee markets",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "label_fr": "Infrastructure et opérations",
+      "label_en": "Infrastructure & Sovereign DevOps",
+      "basis": "understood",
+      "depth": null,
+      "domain": "infra",
+      "note_fr": "Maillage WireGuard, Proxmox LXC, GitOps, DNS déterministe.",
+      "note_en": "WireGuard mesh, Proxmox LXC virtualization, GitOps release gates.",
+      "items_fr": [
+        {
+          "text": "Maillage WireGuard / Headscale",
+          "basis": "understood"
+        },
+        {
+          "text": "Proxmox / LXC & QEMU",
+          "basis": "understood"
+        },
+        {
+          "text": "systemd et supervision de daemons",
+          "basis": "understood"
+        },
+        {
+          "text": "Forgejo auto-hébergé & CI hermétique",
+          "basis": "understood"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "WireGuard / Headscale mesh networking",
+          "basis": "understood"
+        },
+        {
+          "text": "Proxmox / LXC & QEMU virtualization",
+          "basis": "understood"
+        },
+        {
+          "text": "systemd daemon supervision",
+          "basis": "understood"
+        },
+        {
+          "text": "Self-hosted Forgejo & hermetic CI",
+          "basis": "understood"
+        }
+      ]
+    },
+    {
+      "id": "languages",
+      "label_fr": "Langages",
+      "label_en": "Programming Languages",
+      "basis": "exposition",
+      "depth": null,
+      "domain": "systems",
+      "note_fr": "Python écrit à la main ; Rust, TS et Bash pilotés par agents ; Kotlin, Solidity et Go en exposition.",
+      "note_en": "Python authored by hand; Rust, TS, Bash agent-steered; Kotlin, Solidity, Go surveyed.",
+      "items_fr": [
+        {
+          "text": "Python — écrit à la main (2023-2024)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Rust — piloté conceptuellement via agents",
+          "basis": "understood"
+        },
+        {
+          "text": "TypeScript / JavaScript — piloté via agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Bash / Shell — piloté via agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Go, Solidity, Kotlin — exposition mesurée",
+          "basis": "exposition"
+        }
+      ],
+      "items_en": [
+        {
+          "text": "Python — authored by hand (2023-2024)",
+          "basis": "exercised"
+        },
+        {
+          "text": "Rust — conceptually driven through agents",
+          "basis": "understood"
+        },
+        {
+          "text": "TypeScript / JavaScript — driven through agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Bash / Shell — driven through agents",
+          "basis": "understood"
+        },
+        {
+          "text": "Go, Solidity, Kotlin — surveyed exposure",
+          "basis": "exposition"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "date": "2026-03-14",
+      "title": "Gemini 3 Paris Hackathon (Cerebral Valley)",
+      "description_fr": "Démonstration du prototype CYNIC (premier commit 4 jours plus tôt) : moteur de jugement épistémique trait Dog + Judge borné à φ⁻¹ = 61.8% sur des positions d'échecs.",
+      "description_en": "Demonstrated early CYNIC prototype (committed 4 days prior): epistemic judgment engine Dog + Judge trait bounded at φ⁻¹ = 61.8% on chess positions.",
+      "proof_reference": "CYNIC@2affadd8:HACKATHON-RULES.md"
+    },
+    {
+      "date": "2026-06-18",
+      "title": "VivaTech Paris (10e édition)",
+      "description_fr": "Pitch de CYNIC comme organisme d'arbitrage autonome pour agents LLM.",
+      "description_en": "Pitching CYNIC as an autonomous arbitration organism for LLM agents.",
+      "proof_reference": "CYNIC@8575ee61:docs/vivatech_2026_pitch_cynic.md"
+    },
+    {
+      "date": "2026-10-13",
+      "title": "NVIDIA Paris Sovereign AI Session",
+      "description_fr": "Présentation des architectures d'inférence locale et de distillation de micro-modèles.",
+      "description_en": "Presentation of local inference and micro-model distillation architectures."
+    }
+  ]
+}

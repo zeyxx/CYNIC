@@ -9,10 +9,9 @@ use std::process::Command;
 
 use crate::adapters::topology::load_workspace_geometry;
 use crate::domain::epistemic_facts::{
-    AuthorIdentity, AuthorshipNature, CalibratedSkillGroup, CalibratedSkillItem, ClaimCategory, ClaimStatus,
-    EpistemicFactLedger, HistoricalEvent, InteractionCategory, InteractionRecord, InteractionsGraph,
-    RepoEra, RepoProvenance, SkillBasis, SkillDepth, TechnicalDomain, VerifiableClaim,
-    EPISTEMIC_FACTS_SCHEMA_V1,
+    AuthorProfile, AuthorshipNature, ClaimCategory, ClaimStatus, EpistemicFactLedger,
+    InteractionCategory, InteractionRecord, InteractionsGraph, RepoEra, RepoProvenance,
+    TechnicalDomain, VerifiableClaim, AUTHOR_PROFILE_SCHEMA_V1, EPISTEMIC_FACTS_SCHEMA_V1,
 };
 
 #[derive(serde::Deserialize)]
@@ -352,11 +351,30 @@ fn run_cmd_stdout(cmd: &str, args: &[&str], dir: &Path) -> Option<String> {
         })
 }
 
+/// Loads the declarative author profile. Fails closed: a missing or malformed
+/// profile is an error, never a built-in default.
+pub fn load_author_profile(workspace_root: &Path) -> Result<AuthorProfile, String> {
+    let path = workspace_root.join("contracts/author-profile.json");
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| format!("author profile {}: {e}", path.display()))?;
+    let profile: AuthorProfile = serde_json::from_str(&raw)
+        .map_err(|e| format!("author profile {}: {e}", path.display()))?;
+    if profile.schema != AUTHOR_PROFILE_SCHEMA_V1 {
+        return Err(format!(
+            "author profile {}: schema {} != {}",
+            path.display(),
+            profile.schema,
+            AUTHOR_PROFILE_SCHEMA_V1
+        ));
+    }
+    Ok(profile)
+}
+
 /// Harvests live verifiable facts from the active CYNIC workspace.
 pub fn harvest_live_ledger(
     workspace_root: &Path,
     gh_repos_json: Option<&str>,
-) -> EpistemicFactLedger {
+) -> Result<EpistemicFactLedger, String> {
     let now = chrono_or_fallback_timestamp();
 
     // 1. Crate Geometry
@@ -587,201 +605,20 @@ pub fn harvest_live_ledger(
         },
     ];
 
-    // 6. Identity
-    let mut links = HashMap::new();
-    links.insert("github".to_string(), "https://github.com/zeyxx".to_string());
-    links.insert("github_cynic".to_string(), "https://github.com/zeyxx/CYNIC".to_string());
-    links.insert("linkedin".to_string(), "https://linkedin.com/in/titouancorneloup/".to_string());
+    // 6-8. Identity, skills, events: declared by the author, never invented here.
+    let profile = load_author_profile(workspace_root)?;
 
-    let identity = AuthorIdentity {
-        full_name: "Titouan Corneloup".to_string(),
-        handle: "zeyxx".to_string(),
-        github_login: "zeyxx".to_string(),
-        email: "titouan.corneloup@protonmail.com".to_string(),
-        location: "Paris / Île-de-France".to_string(),
-        headline_fr: "Architecte Systèmes Souverains & Orchestrateur d'Agents IA — R&D Autodidacte".to_string(),
-        headline_en: "Sovereign Systems Architect & AI Agent Orchestrator — Self-Taught R&D".to_string(),
-        summary_fr: "Autodidacte. Je ne code plus manuellement depuis plusieurs années : je conçois, spécifie, arbitre et relis des systèmes produits par des agents de codage LLM. Discipline de preuve appliquée à chaque mutation : ce que je n'ai pas écrit n'est pas revendiqué. CYNIC (44 crates Rust, >400k LOC) est le laboratoire de cette méthode.".to_string(),
-        summary_en: "Self-taught systems architect. I no longer write code manually: I design, specify, arbitrate, and review systems produced by LLM coding agents. Strict proof discipline applied to every mutation: what I did not write, I do not claim. CYNIC (44 Rust crates, >400k LOC) is the living laboratory of this method.".to_string(),
-        disclosure_fr: "Déclaration de mode de développement : le candidat orchestre des systèmes complexes via des agents de codage IA (Claude Code, Gemini, Codex, Hermes) guidés par des spécifications formelles, des contrats machine-readable et des invariants d'architecture exécutables. Seul Python a été écrit à la main dans les premières années (2023-2024). Rust, TypeScript, Go et Solidity sont pilotés conceptuellement avec preuve de relecture.".to_string(),
-        disclosure_en: "Development Mode Disclosure: The author architects and orchestrates complex distributed systems through AI coding agents (Claude Code, Gemini, Codex, Hermes) guided by formal specifications, machine-readable contracts, and executable architecture boundaries. Only Python was authored by hand in early years (2023-2024). Rust, TypeScript, Go, and Solidity are conceptually driven with strict verification and read-back proofs.".to_string(),
-        links,
-    };
-
-    // 7. Calibrated Skills
-    let skills = vec![
-        CalibratedSkillGroup {
-            id: "ai_agents".to_string(),
-            label_fr: "Outillage IA et agents".to_string(),
-            label_en: "AI Tooling & Multi-Agent Orchestration".to_string(),
-            basis: SkillBasis::Exercised,
-            depth: Some(SkillDepth::InProgress),
-            domain: TechnicalDomain::AiAgents,
-            note_fr: Some("Compétence exercée directement : orchestration d'agents sans agent dans la boucle.".to_string()),
-            note_en: Some("Primary exercised skill: directing coding agents, prompt architectures, and consensus loops.".to_string()),
-            items_fr: vec![
-                CalibratedSkillItem { text: "Orchestration d'agents de codage (Claude Code, Gemini, Codex, Hermes)".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Conception de protocoles d'agents (claims, leases, preuve par relecture)".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Rédaction de spécifications et contrats machine-readable".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Model Context Protocol (MCP)".to_string(), basis: SkillBasis::Understood },
-            ],
-            items_en: vec![
-                CalibratedSkillItem { text: "Orchestration of coding agents (Claude Code, Gemini, Codex, Hermes)".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Agent protocol design (claims, leases, read-back proofs)".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Writing specifications and machine-readable contracts".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Model Context Protocol (MCP)".to_string(), basis: SkillBasis::Understood },
-            ],
-        },
-        CalibratedSkillGroup {
-            id: "systems".to_string(),
-            label_fr: "Systèmes bas-niveau".to_string(),
-            label_en: "Low-Layer Systems & Consensus".to_string(),
-            basis: SkillBasis::Understood,
-            depth: Some(SkillDepth::Anchored),
-            domain: TechnicalDomain::Systems,
-            note_fr: Some("Cœur du socle CYNIC : autorisation, isolation, consensus.".to_string()),
-            note_en: Some("Core of CYNIC substrate: authorization, isolation, state machine replication.".to_string()),
-            items_fr: vec![
-                CalibratedSkillItem { text: "Linux (cgroups, PSI, /proc)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Machine à états répliquée (SMR)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Conception de systèmes distribués".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Isolation de processus (LXC/QEMU)".to_string(), basis: SkillBasis::Understood },
-            ],
-            items_en: vec![
-                CalibratedSkillItem { text: "Linux internals (cgroups, PSI, /proc)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "State Machine Replication (SMR)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Distributed systems design".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Process isolation (LXC/QEMU)".to_string(), basis: SkillBasis::Understood },
-            ],
-        },
-        CalibratedSkillGroup {
-            id: "rust".to_string(),
-            label_fr: "Rust".to_string(),
-            label_en: "Rust Architecture & Invariants".to_string(),
-            basis: SkillBasis::Understood,
-            depth: Some(SkillDepth::Anchored),
-            domain: TechnicalDomain::Systems,
-            note_fr: Some("Architecture de 44 crates, zéro-I/O domain, ports et adaptateurs.".to_string()),
-            note_en: Some("44-crate workspace architecture, pure zero-I/O domain core, ports & adapters.".to_string()),
-            items_fr: vec![
-                CalibratedSkillItem { text: "Crates et workspaces modulaires".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Ports et adaptateurs (DAG strict)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Cœur domaine zéro-I/O (FCIS)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Tests d'architecture exécutables".to_string(), basis: SkillBasis::Understood },
-            ],
-            items_en: vec![
-                CalibratedSkillItem { text: "Modular crates and workspace topology".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Strict downward DAG ports and adapters".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Zero-I/O domain core (FCIS)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Executable architecture boundary tests".to_string(), basis: SkillBasis::Understood },
-            ],
-        },
-        CalibratedSkillGroup {
-            id: "blockchain".to_string(),
-            label_fr: "Blockchain & Protocoles".to_string(),
-            label_en: "Blockchain & Protocol Engineering".to_string(),
-            basis: SkillBasis::Understood,
-            depth: Some(SkillDepth::Anchored),
-            domain: TechnicalDomain::Blockchain,
-            note_fr: Some("Solana / SPL, Ethereum EVM, mécanismes de confidentialité (mixers, pools).".to_string()),
-            note_en: Some("Solana / SPL, Ethereum EVM, privacy mechanisms, on-chain fee relays.".to_string()),
-            items_fr: vec![
-                CalibratedSkillItem { text: "Solana / SPL & transactions sans gaz (GASdf)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Ethereum / EVM, devnet Kurtosis (PEF)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Mécanismes de confidentialité (mixers, Dandelion)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Oracles et frais on-chain".to_string(), basis: SkillBasis::Understood },
-            ],
-            items_en: vec![
-                CalibratedSkillItem { text: "Solana / SPL & gasless relay (GASdf)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Ethereum / EVM, Kurtosis devnets (PEF)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Privacy mechanisms (mixers, Dandelion pools)".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "On-chain oracles and fee markets".to_string(), basis: SkillBasis::Understood },
-            ],
-        },
-        CalibratedSkillGroup {
-            id: "infra".to_string(),
-            label_fr: "Infrastructure et opérations".to_string(),
-            label_en: "Infrastructure & Sovereign DevOps".to_string(),
-            basis: SkillBasis::Understood,
-            depth: None,
-            domain: TechnicalDomain::Infra,
-            note_fr: Some("Maillage WireGuard, Proxmox LXC, GitOps, DNS déterministe.".to_string()),
-            note_en: Some("WireGuard mesh, Proxmox LXC virtualization, GitOps release gates.".to_string()),
-            items_fr: vec![
-                CalibratedSkillItem { text: "Maillage WireGuard / Headscale".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Proxmox / LXC & QEMU".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "systemd et supervision de daemons".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Forgejo auto-hébergé & CI hermétique".to_string(), basis: SkillBasis::Understood },
-            ],
-            items_en: vec![
-                CalibratedSkillItem { text: "WireGuard / Headscale mesh networking".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Proxmox / LXC & QEMU virtualization".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "systemd daemon supervision".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Self-hosted Forgejo & hermetic CI".to_string(), basis: SkillBasis::Understood },
-            ],
-        },
-        CalibratedSkillGroup {
-            id: "languages".to_string(),
-            label_fr: "Langages".to_string(),
-            label_en: "Programming Languages".to_string(),
-            basis: SkillBasis::Exposition,
-            depth: None,
-            domain: TechnicalDomain::Systems,
-            note_fr: Some("Python écrit à la main ; Rust, TS et Bash pilotés par agents ; Kotlin, Solidity et Go en exposition.".to_string()),
-            note_en: Some("Python authored by hand; Rust, TS, Bash agent-steered; Kotlin, Solidity, Go surveyed.".to_string()),
-            items_fr: vec![
-                CalibratedSkillItem { text: "Python — écrit à la main (2023-2024)".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Rust — piloté conceptuellement via agents".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "TypeScript / JavaScript — piloté via agents".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Bash / Shell — piloté via agents".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Go, Solidity, Kotlin — exposition mesurée".to_string(), basis: SkillBasis::Exposition },
-            ],
-            items_en: vec![
-                CalibratedSkillItem { text: "Python — authored by hand (2023-2024)".to_string(), basis: SkillBasis::Exercised },
-                CalibratedSkillItem { text: "Rust — conceptually driven through agents".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "TypeScript / JavaScript — driven through agents".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Bash / Shell — driven through agents".to_string(), basis: SkillBasis::Understood },
-                CalibratedSkillItem { text: "Go, Solidity, Kotlin — surveyed exposure".to_string(), basis: SkillBasis::Exposition },
-            ],
-        },
-    ];
-
-    // 8. Milestone Events
-    let events = vec![
-        HistoricalEvent {
-            date: "2026-03-14".to_string(),
-            title: "Gemini 3 Paris Hackathon (Cerebral Valley)".to_string(),
-            description_fr: "Démonstration du prototype CYNIC (premier commit 4 jours plus tôt) : moteur de jugement épistémique trait Dog + Judge borné à φ⁻¹ = 61.8% sur des positions d'échecs.".to_string(),
-            description_en: "Demonstrated early CYNIC prototype (committed 4 days prior): epistemic judgment engine Dog + Judge trait bounded at φ⁻¹ = 61.8% on chess positions.".to_string(),
-            proof_reference: "CYNIC@2affadd8:HACKATHON-RULES.md".to_string(),
-        },
-        HistoricalEvent {
-            date: "2026-06-18".to_string(),
-            title: "VivaTech Paris (10e édition)".to_string(),
-            description_fr: "Pitch de CYNIC comme organisme d'arbitrage autonome pour agents LLM.".to_string(),
-            description_en: "Pitching CYNIC as an autonomous arbitration organism for LLM agents.".to_string(),
-            proof_reference: "CYNIC@8575ee61:docs/vivatech_2026_pitch_cynic.md".to_string(),
-        },
-        HistoricalEvent {
-            date: "2026-10-13".to_string(),
-            title: "NVIDIA Paris Sovereign AI Session".to_string(),
-            description_fr: "Présentation des architectures d'inférence locale et de distillation de micro-modèles.".to_string(),
-            description_en: "Presentation of local inference and micro-model distillation architectures.".to_string(),
-            proof_reference: "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_FR.md:377".to_string(),
-        },
-    ];
-
-    EpistemicFactLedger {
+    Ok(EpistemicFactLedger {
         schema: EPISTEMIC_FACTS_SCHEMA_V1.to_string(),
         generated_at: now,
-        identity,
+        identity: profile.identity,
         summary_metrics,
         claims,
         repos,
-        skills,
-        events,
+        skills: profile.skills,
+        events: profile.events,
         interactions,
-    }
+    })
 }
 
 fn chrono_or_fallback_timestamp() -> String {

@@ -39,7 +39,7 @@ pub use continuous_fusion::{
     fuse_continuous_convex, min_max_normalize, EmpiricalCdf, NormalizationStrategy,
 };
 pub use epistemic_facts::{
-    AuthorIdentity, AuthorshipNature, CalibratedSkillGroup, CalibratedSkillItem, ClaimCategory, ClaimStatus,
+    AuthorIdentity, AuthorProfile, AuthorshipNature, CalibratedSkillGroup, CalibratedSkillItem, ClaimCategory, ClaimStatus,
     EpistemicFactLedger, HistoricalEvent, InteractionCategory, InteractionRecord, InteractionsGraph,
     RepoEra, RepoProvenance, SkillBasis, SkillDepth, TechnicalDomain, VerifiableClaim,
     EPISTEMIC_FACTS_SCHEMA_V1, INTERACTIONS_GRAPH_SCHEMA_V1,

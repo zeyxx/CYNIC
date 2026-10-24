@@ -90,6 +90,18 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Harvest live verifiable facts and generate the public epistemic surface (HTML + Markdown).
+    Surface {
+        /// Optional destination directory for public_surface.html and public_surface.md [default: docs/public]
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Verify all measurable claims and output PASS/FAIL verdicts.
+        #[arg(long)]
+        verify: bool,
+        /// Output live fact ledger as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -738,6 +750,241 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        KnowCommand::Surface { out_dir, verify, json } => {
+            let ledger = match cynic_knowledge::harvest_live_ledger(&repo_root, None) {
+                Ok(ledger) => ledger,
+                Err(e) => {
+                    eprintln!("Failed to harvest the facts ledger: {}", e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            if json {
+                return crate::emit_json(&ledger, false);
+            }
+            let out_dir = out_dir.unwrap_or_else(|| repo_root.join("docs/public"));
+            if let Err(e) = std::fs::create_dir_all(&out_dir) {
+                eprintln!("Failed to create output directory {}: {}", out_dir.display(), e);
+                return ExitCode::FAILURE;
+            }
+
+            let md = cynic_knowledge::render_public_surface_markdown(&ledger);
+            let html = cynic_knowledge::render_public_surface_html(&ledger);
+
+            let md_path = out_dir.join("public_surface.md");
+            let html_path = out_dir.join("public_surface.html");
+            let json_path = out_dir.join("facts.live.json");
+
+            if let Err(e) = std::fs::write(&md_path, &md) {
+                eprintln!("Failed to write {}: {}", md_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+            if let Err(e) = std::fs::write(&html_path, &html) {
+                eprintln!("Failed to write {}: {}", html_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+            if let Ok(json_str) = serde_json::to_string_pretty(&ledger) {
+                let _ = std::fs::write(&json_path, json_str);
+            }
+
+            println!("=== CYNIC Epistemic Surface Generated ===");
+            println!("  Markdown : {}", md_path.display());
+            println!("  HTML     : {}", html_path.display());
+            println!("  JSON     : {}", json_path.display());
+            println!("  Repos    : {} repos across 4 eras", ledger.repos.len());
+            println!(
+                "  Crates   : {} (LOC: {})",
+                ledger.summary_metrics.get("cynic_crates").unwrap_or(&0),
+                ledger.summary_metrics.get("cynic_loc").unwrap_or(&0)
+            );
+            println!("  Commits  : {}", ledger.summary_metrics.get("total_commits").unwrap_or(&0));
+
+            if verify {
+                println!("\n=== Verifiable Claims Verification ===");
+                for claim in &ledger.claims {
+                    let status_badge = match claim.status {
+                        cynic_knowledge::ClaimStatus::Demonstrated => "\x1b[32mPASS\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Implemented => "\x1b[34mIMPL\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Partial => "\x1b[33mPART\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Aspirational => "\x1b[35mASPI\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Unknown => "\x1b[33mUNKN\x1b[0m",
+                    };
+                    println!("  [{}] {:<28} {}", status_badge, claim.id, claim.statement);
+                }
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// Accelerated dense vector search using `cynic_storage::SimdVectorAdapter` with contiguous SIMD cosine buffer.
+pub fn simd_top_k_dense<'a>(
+    query: &[f32],
+    chunks: &'a [cynic_knowledge::DocumentChunk],
+    vectors: &[cynic_knowledge::ChunkVector],
+    k: usize,
+) -> Vec<cynic_knowledge::DenseHit<'a>> {
+    if query.is_empty() || chunks.is_empty() || vectors.is_empty() {
+        return Vec::new();
+    }
+
+    let simd_adapter = cynic_storage::SimdVectorAdapter::new(query.len());
+    let vector_tuples: Vec<(&str, &[f32])> = vectors
+        .iter()
+        .map(|v| (v.chunk_id.as_str(), v.vector.as_slice()))
+        .collect();
+
+    if simd_adapter.insert_batch(&vector_tuples).is_err() {
+        return cynic_knowledge::top_k_dense(query, chunks, vectors, k);
+    }
+
+    let nearest = match simd_adapter.search_nearest(query, k, -1.0) {
+        Ok(hits) => hits,
+        Err(_) => return cynic_knowledge::top_k_dense(query, chunks, vectors, k),
+    };
+
+    let chunk_map: std::collections::HashMap<&str, &'a cynic_knowledge::DocumentChunk> =
+        chunks.iter().map(|c| (c.chunk_id.as_str(), c)).collect();
+
+    nearest
+        .into_iter()
+        .filter_map(|(id, similarity)| {
+            chunk_map.get(id.as_str()).map(|&chunk| cynic_knowledge::DenseHit {
+                chunk,
+                similarity: similarity as f64,
+            })
+        })
+        .collect()
+}
+
+/// Resolve the cache path according to CynicPaths authority.
+pub fn resolve_knowledge_cache_path() -> PathBuf {
+    let system_path = cynic_types::CynicPaths::system_knowledge_cache_path();
+    let system_usable = system_path
+        .parent()
+        .map(std::fs::create_dir_all)
+        .is_some_and(|result| result.is_ok());
+    if system_usable {
+        system_path
+    } else {
+        cynic_types::CynicPaths::user_knowledge_cache_path()
+    }
+}
+
+/// Retrieve dense corpus chunks, vectors, and query vector using configured embedding engine.
+pub fn retrieve_dense_corpus_and_query(
+    repo_root: &std::path::Path,
+    cache: &cynic_knowledge::CorpusCacheRecord,
+    query: &str,
+) -> Result<
+    (
+        Vec<cynic_knowledge::DocumentChunk>,
+        Vec<cynic_knowledge::ChunkVector>,
+        Vec<f32>,
+    ),
+    String,
+> {
+    tokio::task::block_in_place(|| {
+        let backend =
+            cynic_inference::adapters::embedding::http::EmbeddingBackend::from_env()
+                .map_err(|e| format!("no embedding engine: {e}"))?;
+        let engine = backend.base_urls().join(",");
+        let bridge =
+            cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge::probe(
+                backend,
+                "know dense retrieval",
+            )
+            .map_err(|e| format!("embedding probe failed: {e}"))?;
+        let pipeline = cynic_eval::bench::retrieval_gain::TextPipeline {
+            max_chars: 1000,
+            doc_prefix: String::new(),
+            query_prefix: String::new(),
+            doc_template: "{body}".into(),
+        };
+        let model =
+            std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into());
+        let engine_key: String = engine
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let vector_cache_path = repo_root.join(
+            cynic_eval::bench::retrieval_gain::vector_cache_filename_for(
+                &format!("{model}@{engine_key}"),
+                &pipeline.tag(),
+            ),
+        );
+        let mut vector_cache = cynic_knowledge::load_vector_cache(
+            &vector_cache_path,
+            &model,
+            &pipeline.tag(),
+            &engine,
+        )
+        .unwrap_or_else(|| {
+            cynic_knowledge::VectorCacheRecord::new(&model, &pipeline.tag(), &engine)
+        });
+        let mut chunks: Vec<_> = cache.chunks_by_path().into_values().flatten().collect();
+        chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
+        let templated = cynic_eval::bench::retrieval_gain::TemplatedEmbedder::new(
+            &bridge,
+            &pipeline,
+            32,
+            &|_, _| {},
+        );
+        let (vectors, reused, embedded) = cynic_knowledge::vectorize_chunks_cached(
+            &templated,
+            &chunks,
+            &mut vector_cache,
+            &|_, _| {},
+        )
+        .map_err(|e| format!("corpus vectorization failed: {e}"))?;
+        if embedded > 0 {
+            if let Err(e) =
+                cynic_knowledge::save_vector_cache(&vector_cache_path, &vector_cache)
+            {
+                eprintln!("warning: vector cache save failed: {e}");
+            }
+            eprintln!("dense index: {reused} reused, {embedded} embedded");
+        }
+        let query_text = pipeline.query_text(query);
+        let mut query_vectors =
+            cynic_knowledge::ChunkEmbedder::embed_batch(&templated, &[query_text.as_str()])
+                .map_err(|e| format!("query embed failed: {e}"))?;
+        let query_vector = query_vectors
+            .pop()
+            .ok_or_else(|| "query embed returned nothing".to_string())?;
+        Ok((chunks, vectors, query_vector))
+    })
+}
+
+/// Hybrid retrieval combining sparse BM25 and dense SIMD cosine search via RRF.
+pub fn hybrid_retrieve<'a>(
+    query: &str,
+    limit: usize,
+    index: &'a cynic_knowledge::LexicalIndex,
+    dense_triple: &'a Option<(
+        Vec<cynic_knowledge::DocumentChunk>,
+        Vec<cynic_knowledge::ChunkVector>,
+        Vec<f32>,
+    )>,
+) -> Vec<cynic_knowledge::SearchHit<'a>> {
+    match dense_triple {
+        Some((dense_chunks, dense_vectors, dense_query)) => {
+            let dense = simd_top_k_dense(dense_query, dense_chunks, dense_vectors, 20);
+            let sparse = index.search(query, 20);
+            let mut fused = cynic_knowledge::fuse_reciprocal_ranks(
+                &sparse,
+                &dense,
+                cynic_knowledge::DEFAULT_RRF_K,
+            );
+            fused.truncate(limit);
+            fused
+        }
+        None => index.search(query, limit),
     }
 }
 

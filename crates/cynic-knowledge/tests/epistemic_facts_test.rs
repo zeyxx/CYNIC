@@ -64,7 +64,7 @@ fn live_epistemic_ledger_harvesting_and_chunking() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let repo_root = manifest_dir.parent().unwrap().parent().unwrap();
 
-    let ledger = harvest_live_ledger(repo_root, None);
+    let ledger = harvest_live_ledger(repo_root, None).expect("author profile must load");
 
     assert_eq!(ledger.schema, EPISTEMIC_FACTS_SCHEMA_V1);
     assert_eq!(ledger.repos.len(), 35);
@@ -103,7 +103,8 @@ fn live_epistemic_ledger_harvesting_and_chunking() {
 
     // Verify rendering surfaces
     let md = render_public_surface_markdown(&ledger);
-    assert!(md.contains("Titouan Corneloup"));
+    assert!(md.contains(&ledger.identity.handle));
+    assert!(!md.contains("Titouan"), "public surface must stay pseudonymous");
     assert!(md.contains("Live Substrate Receipts"));
     assert!(md.contains("The 4-Era GitHub Odyssey"));
     assert!(md.contains("GitHub Interactions & Ecosystem Graph"));
@@ -112,7 +113,8 @@ fn live_epistemic_ledger_harvesting_and_chunking() {
 
     let html = render_public_surface_html(&ledger);
     assert!(html.contains("<!DOCTYPE html>"));
-    assert!(html.contains("Titouan Corneloup"));
+    assert!(html.contains(&ledger.identity.handle));
+    assert!(!html.contains("Titouan"), "public surface must stay pseudonymous");
     assert!(html.contains("CYNIC Epistemic Engine"));
     assert!(html.contains("badge-demonstrated"));
     assert!(html.contains("badge-bounty"));
@@ -156,4 +158,20 @@ fn github_interactions_graph_parsing_and_categorization() {
     let holdex_ci = graph.items.iter().find(|i| i.repository == "sollama58/HolDex" && i.number == 6).expect("holdex PR");
     assert_eq!(holdex_ci.category, InteractionCategory::PartnerFeature);
     assert_eq!(holdex_ci.state, "merged");
+}
+
+#[test]
+fn author_profile_is_declarative_and_pseudonymous() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir.parent().unwrap().parent().unwrap();
+
+    let profile = cynic_knowledge::load_author_profile(repo_root).expect("author profile must load");
+    assert_eq!(profile.identity.handle, "zeyxx");
+    assert!(profile.identity.full_name.is_none(), "pseudonymous profile must not name the author");
+    assert!(profile.identity.email.is_none(), "pseudonymous profile must not publish an email");
+    assert!(profile.identity.location.is_none(), "pseudonymous profile must not publish a location");
+    assert!(!profile.identity.links.contains_key("linkedin"), "linkedin url embeds the real name");
+
+    let missing = repo_root.join("does-not-exist");
+    assert!(cynic_knowledge::load_author_profile(&missing).is_err(), "missing profile must fail closed");
 }
