@@ -172,12 +172,6 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/deps_surface_probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/inference_surface.rs",
       "count": 1,
       "rule": "ARCH-001",

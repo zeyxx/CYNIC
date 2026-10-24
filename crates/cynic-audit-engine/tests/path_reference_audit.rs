@@ -76,7 +76,7 @@ const KNOWN: &[&str] = &[
     // convention, not a hidden placement — but unlike clap defaults the
     // shape is indistinguishable from a coded placement, so the rule is
     // right to track it and this entry records the decision explicitly.
-    "crates/cynic-cli/src/deps_surface_upgrade.rs",
+    "crates/cynic-cli/src/dependency/mod.rs",
     // Deliberate identity convention: default_key_path/default_cert_path
     // fall back to /etc/cynic/node-identity.key|.cert, always behind an
     // explicit key_path override (unwrap_or_else at every call site).

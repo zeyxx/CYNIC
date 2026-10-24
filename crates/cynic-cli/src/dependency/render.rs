@@ -1,5 +1,6 @@
-use crate::dependency::audit::DepsAuditReport;
-use crate::dependency::model::{DepsPlanReport, DepsReport, UpgradeMode, UpgradeReport};
+use crate::dependency::model::{
+    DepsAuditReport, DepsPlanReport, DepsReport, UpgradeMode, UpgradeReport,
+};
 use cynic_host::domain::ecosystem_package::{
     ProviderChannel, ToolingAuthorityFamily, ToolingInstallProvenance,
 };

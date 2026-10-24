@@ -50,7 +50,6 @@
     {"path": "crates/cynic-cli/src/branch_audit.rs", "count": 1, "evidence": "crates/cynic-cli/src/branch_audit.rs:2", "terms": "organism"},
     {"path": "crates/cynic-cli/src/build_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/build_surface.rs:132", "terms": "metabolic"},
     {"path": "crates/cynic-cli/src/build_surface/invoice.rs", "count": 2, "evidence": "crates/cynic-cli/src/build_surface/invoice.rs:1", "terms": "metabolic"},
-    {"path": "crates/cynic-cli/src/deps_surface_specs.rs", "count": 1, "evidence": "crates/cynic-cli/src/deps_surface_specs.rs:29", "terms": "organism"},
     {"path": "crates/cynic-cli/src/invoice_log.rs", "count": 3, "evidence": "crates/cynic-cli/src/invoice_log.rs:1", "terms": "metabolic"},
     {"path": "crates/cynic-cli/src/node_surface/host/capacity.rs", "count": 1, "evidence": "crates/cynic-cli/src/node_surface/host/capacity.rs:60", "terms": "METABOLIC"},
     {"path": "crates/cynic-cli/src/runtime_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/runtime_surface.rs:73", "terms": "METABOLIC"},

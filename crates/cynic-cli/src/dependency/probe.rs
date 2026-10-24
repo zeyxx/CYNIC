@@ -1,10 +1,12 @@
 use crate::dependency::model::{
-    DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, VersionFrom,
+    DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, UpgradeMode,
+    VersionFrom,
 };
 use cynic_host::domain::ecosystem_package::{
     EcosystemPackageExecutionPort, InstallPrincipalKind, LocalEcosystemPackageExecution,
-    PrincipalInstallLayout, ProviderChannel, observe_python_install_authority,
-    observe_tooling_authority, plan_for_dep, provider_spec, python_cli_policy, resolve_binary,
+    PrincipalInstallLayout, ProviderChannel, PythonInstallProvenance,
+    observe_python_install_authority, observe_tooling_authority, plan_for_dep, provider_spec,
+    python_cli_policy, resolve_binary,
 };
 
 pub(crate) fn probe_and_evaluate(
@@ -59,77 +61,63 @@ fn probe_and_evaluate_with_executor(
         notes: entry.notes.clone(),
     });
 
-    let Some(path) = path else {
-        let optional = pin
-            .map(|entry| entry.required == Some(false))
-            .unwrap_or(false);
-        let python_install_authority = observe_python_install_authority(
-            spec.python_distribution,
-            None,
-            spec.expected_python_provenance,
-        );
-        return DepEntry {
-            id: spec.id,
-            role: spec.role,
-            category: spec.category,
-            tier: if optional { "optional" } else { spec.tier },
-            path: None,
-            version: None,
-            status: "missing".into(),
-            upgrade_mode,
-            channel,
-            install_principal,
-            under_principal: false,
-            tooling_authority_family: spec.tooling_authority_family,
-            tooling_install_provenance: None,
-            expected_tooling_install_provenance: spec.expected_tooling_provenance,
-            python_install_provenance: python_install_authority.observed_provenance,
-            expected_python_install_provenance: python_install_authority.expected_provenance,
-            install_authority_status: python_install_authority.status,
-            canonical_update_authority: python_cli_policy(spec.id).map(|policy| {
-                PythonCliUpdateAuthorityView {
-                    observed_payload_provenance: None,
-                    expected_payload_provenance: python_install_authority
-                        .expected_provenance
-                        .map(format_python_provenance),
-                    canonical_update_command: policy.canonical_update_command.to_string(),
-                    update_authority_note: policy.update_authority_note.to_string(),
-                    normalizable_now: python_cli_normalizable_now(layout, policy.dep_id),
-                    requires_uv: python_cli_requires_uv(policy.dep_id),
-                    requires_runtime_principal: python_cli_requires_runtime_principal(
-                        layout,
-                        policy.dep_id,
-                    ),
-                    can_auto_apply: python_cli_can_auto_apply(layout, policy.dep_id),
-                }
-            }),
-            pin: pin_view,
-            watch,
-        };
+    let (version, status, path_opt) = match path.as_deref() {
+        Some(p) => {
+            let v = read_version(spec, p, executor);
+            let s = evaluate_status(spec.id, v.as_deref(), pin);
+            (v, s, Some(p.to_string()))
+        }
+        None => (None, "missing".to_string(), None),
     };
 
-    let version = read_version(spec, &path, executor);
-    let status = evaluate_status(spec.id, version.as_deref(), pin);
+    let optional = pin.map(|e| e.required == Some(false)).unwrap_or(false);
+    let tier = if path_opt.is_none() && optional { "optional" } else { spec.tier };
+
     let tooling_authority = spec.tooling_authority_family.map(|family| {
         observe_tooling_authority(
             family,
             spec.python_distribution,
-            Some(&path),
+            path.as_deref(),
             spec.expected_tooling_provenance,
         )
     });
     let python_install_authority = observe_python_install_authority(
         spec.python_distribution,
-        Some(&path),
+        path.as_deref(),
         spec.expected_python_provenance,
     );
+
+    let canonical_update_authority = python_cli_policy(spec.id).map(|policy| {
+        PythonCliUpdateAuthorityView {
+            observed_payload_provenance: path_opt.as_ref().and(
+                python_install_authority.observed_provenance.map(format_python_provenance),
+            ),
+            expected_payload_provenance: python_install_authority
+                .expected_provenance
+                .map(format_python_provenance),
+            canonical_update_command: policy.canonical_update_command.to_string(),
+            update_authority_note: policy.update_authority_note.to_string(),
+            normalizable_now: python_cli_normalizable_now(layout, policy.dep_id),
+            requires_uv: python_cli_requires_uv(policy.dep_id),
+            requires_runtime_principal: python_cli_requires_runtime_principal(
+                layout,
+                policy.dep_id,
+            ),
+            can_auto_apply: python_cli_can_auto_apply(layout, policy.dep_id),
+        }
+    });
+
+    let install_authority_status = tooling_authority
+        .as_ref()
+        .map(|a| a.status.clone())
+        .unwrap_or(python_install_authority.status);
 
     DepEntry {
         id: spec.id,
         role: spec.role,
         category: spec.category,
-        tier: spec.tier,
-        path: Some(path),
+        tier,
+        path: path_opt,
         version,
         status,
         upgrade_mode,
@@ -146,44 +134,17 @@ fn probe_and_evaluate_with_executor(
             .or(spec.expected_tooling_provenance),
         python_install_provenance: python_install_authority.observed_provenance,
         expected_python_install_provenance: python_install_authority.expected_provenance,
-        install_authority_status: tooling_authority
-            .map(|a| a.status)
-            .unwrap_or(python_install_authority.status),
-        canonical_update_authority: python_cli_policy(spec.id).map(|policy| {
-            PythonCliUpdateAuthorityView {
-                observed_payload_provenance: python_install_authority
-                    .observed_provenance
-                    .map(format_python_provenance),
-                expected_payload_provenance: python_install_authority
-                    .expected_provenance
-                    .map(format_python_provenance),
-                canonical_update_command: policy.canonical_update_command.to_string(),
-                update_authority_note: policy.update_authority_note.to_string(),
-                normalizable_now: python_cli_normalizable_now(layout, policy.dep_id),
-                requires_uv: python_cli_requires_uv(policy.dep_id),
-                requires_runtime_principal: python_cli_requires_runtime_principal(
-                    layout,
-                    policy.dep_id,
-                ),
-                can_auto_apply: python_cli_can_auto_apply(layout, policy.dep_id),
-            }
-        }),
+        install_authority_status,
+        canonical_update_authority,
         pin: pin_view,
         watch,
     }
 }
 
 fn python_cli_normalizable_now(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
-    if !python_cli_requires_uv(dep_id) {
-        return false;
-    }
-    if !python_cli_uv_in_runtime_layout(layout) {
-        return false;
-    }
-    if python_cli_requires_runtime_principal(layout, dep_id) {
-        return layout.writable;
-    }
-    true
+    python_cli_requires_uv(dep_id)
+        && python_cli_uv_in_runtime_layout(layout)
+        && (!python_cli_requires_runtime_principal(layout, dep_id) || layout.writable)
 }
 
 fn python_cli_uv_in_runtime_layout(layout: &PrincipalInstallLayout) -> bool {
@@ -218,59 +179,44 @@ fn python_cli_can_auto_apply(layout: &PrincipalInstallLayout, dep_id: &str) -> b
         .unwrap_or(false)
 }
 
-fn format_python_provenance(
-    provenance: cynic_host::domain::ecosystem_package::PythonInstallProvenance,
-) -> String {
+fn format_python_provenance(provenance: PythonInstallProvenance) -> String {
     match provenance {
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::UvTool => "uv_tool",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::UvVenv => "uv_venv",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::VirtualEnv => "virtual_env",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::Pipx => "pipx",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::PipUserSite => {
-            "pip_user_site"
-        }
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::SystemPython => {
-            "system_python"
-        }
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::Unknown => "unknown",
+        PythonInstallProvenance::UvTool => "uv_tool",
+        PythonInstallProvenance::UvVenv => "uv_venv",
+        PythonInstallProvenance::VirtualEnv => "virtual_env",
+        PythonInstallProvenance::Pipx => "pipx",
+        PythonInstallProvenance::PipUserSite => "pip_user_site",
+        PythonInstallProvenance::SystemPython => "system_python",
+        PythonInstallProvenance::Unknown => "unknown",
     }
     .to_string()
 }
 
-fn mode_from_channel(channel: ProviderChannel) -> crate::dependency::model::UpgradeMode {
+fn mode_from_channel(channel: ProviderChannel) -> UpgradeMode {
     match channel {
-        ProviderChannel::Scripted => crate::dependency::model::UpgradeMode::Scripted,
-        ProviderChannel::External => crate::dependency::model::UpgradeMode::External,
-        ProviderChannel::DistroManaged => crate::dependency::model::UpgradeMode::DistroManaged,
+        ProviderChannel::Scripted => UpgradeMode::Scripted,
+        ProviderChannel::External => UpgradeMode::External,
+        ProviderChannel::DistroManaged => UpgradeMode::DistroManaged,
     }
 }
 
 fn channel_for_dep(id: &str) -> ProviderChannel {
-    provider_spec(id)
-        .map(|spec| spec.channel)
-        .unwrap_or(ProviderChannel::External)
+    provider_spec(id).map(|s| s.channel).unwrap_or(ProviderChannel::External)
 }
 
 fn principal_for_dep(id: &str) -> InstallPrincipalKind {
-    provider_spec(id)
-        .map(|spec| spec.principal)
-        .unwrap_or(InstallPrincipalKind::OperatorLocal)
+    provider_spec(id).map(|s| s.principal).unwrap_or(InstallPrincipalKind::OperatorLocal)
 }
 
 fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> String {
+    let _ = id;
     let Some(pin) = pin else {
-        return if version.is_some() {
-            "observed".into()
-        } else {
-            "unknown".into()
-        };
+        return if version.is_some() { "observed".into() } else { "unknown".into() };
     };
 
     if let Some(capability) = &pin.min_capability {
         return match version {
-            Some(value) if value.contains(capability) || value.contains("inference-start") => {
-                "ok".into()
-            }
+            Some(v) if v.contains(capability) || v.contains("inference-start") => "ok".into(),
             Some(_) => "stale".into(),
             None => "unknown".into(),
         };
@@ -278,19 +224,15 @@ fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> S
 
     if let Some(want) = &pin.commit {
         return match version {
-            Some(value) if value.contains(want.as_str()) => "ok".into(),
+            Some(v) if v.contains(want.as_str()) => "ok".into(),
             Some(_) => "stale".into(),
             None => "unknown".into(),
         };
     }
 
     if let Some(min_build) = pin.min_build {
-        let Some(value) = version else {
-            return "unknown".into();
-        };
-        let Some(observed_build) = extract_build_number(value) else {
-            return "unknown".into();
-        };
+        let Some(value) = version else { return "unknown".into(); };
+        let Some(observed_build) = extract_build_number(value) else { return "unknown".into(); };
         if observed_build < min_build {
             return "stale".into();
         }
@@ -303,9 +245,7 @@ fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> S
     }
 
     if let Some(min_version) = &pin.min_version {
-        let Some(value) = version else {
-            return "unknown".into();
-        };
+        let Some(value) = version else { return "unknown".into(); };
         return match cmp_loose_version(value, min_version) {
             Some(std::cmp::Ordering::Less) => "stale".into(),
             Some(_) => "ok".into(),
@@ -313,31 +253,17 @@ fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> S
         };
     }
 
-    let _ = id;
-    if version.is_some() {
-        "ok".into()
-    } else {
-        "observed".into()
-    }
+    if version.is_some() { "ok".into() } else { "observed".into() }
 }
 
 fn extract_build_number(s: &str) -> Option<u64> {
-    for part in s.split(|c: char| !c.is_ascii_digit()) {
-        if part.len() >= 3 && part.len() <= 6 {
-            if let Ok(value) = part.parse::<u64>() {
-                if value >= 100 {
-                    return Some(value);
-                }
-            }
-        }
-    }
-    None
+    s.split(|c: char| !c.is_ascii_digit())
+        .find(|part| (3..=6).contains(&part.len()) && part.parse::<u64>().map(|v| v >= 100).unwrap_or(false))
+        .and_then(|part| part.parse::<u64>().ok())
 }
 
 fn cmp_loose_version(observed: &str, min: &str) -> Option<std::cmp::Ordering> {
-    let observed = parse_version_triple(observed)?;
-    let min = parse_version_triple(min)?;
-    Some(observed.cmp(&min))
+    Some(parse_version_triple(observed)?.cmp(&parse_version_triple(min)?))
 }
 
 fn parse_version_triple(s: &str) -> Option<(u64, u64, u64)> {
@@ -409,9 +335,6 @@ fn read_version(
                     .map(|line| line.trim().to_string())
             }),
     };
-    // Commit-pinned native binaries (llama-server --version reports
-    // "unknown"): the installer writes `<binary>.commit` next to the
-    // binary; the pinned commit travels inside the version string.
     if spec.id == "llama.cpp" {
         if let Ok(raw) = std::fs::read_to_string(format!("{path}.commit")) {
             let commit = raw.trim().to_string();
@@ -426,10 +349,8 @@ fn read_version(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        PrincipalInstallLayout, python_cli_normalizable_now, python_cli_uv_in_runtime_layout,
-    };
-    use cynic_host::domain::ecosystem_package::InstallPrincipalKind;
+    use super::*;
+    use cynic_host::domain::ecosystem_package::RunAs;
     use std::fs::File;
     use std::path::PathBuf;
 
@@ -441,7 +362,7 @@ mod tests {
             bin_dir: home.join(".local/bin"),
             src_dir: home.join(".local/share/cynic/src"),
             share_dir: home.join(".local/share/cynic"),
-            run_as: cynic_host::domain::ecosystem_package::RunAs::Current,
+            run_as: RunAs::Current,
             writable,
             notes: vec![],
         }
