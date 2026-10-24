@@ -36,6 +36,7 @@ pub mod source_worktree_cli;
 pub mod source_worktree_inventory;
 pub mod stack;
 pub mod sync;
+pub use providers::signed_exec;
 
 #[cfg(test)]
 mod source_worktree_inventory_tests;
