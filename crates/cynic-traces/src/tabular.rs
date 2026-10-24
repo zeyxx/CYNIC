@@ -568,6 +568,71 @@ pub fn validate_tabular_file(
     }
 }
 
+/// Append a tabular validation report to an evidence journal (JSON Lines format).
+pub fn append_tabular_report(report: &TabularValidationReport, history_path: &Path) -> Result<(), String> {
+    if let Some(parent) = history_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                format!(
+                    "Failed to create parent directory for tabular validation history at {:?}: {}",
+                    parent, e
+                )
+            })?;
+        }
+    }
+
+    let json_line = serde_json::to_string(report)
+        .map_err(|e| format!("Failed to serialize TabularValidationReport: {}", e))?;
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(history_path)
+        .map_err(|e| format!("Failed to open tabular validation history at {:?}: {}", history_path, e))?;
+
+    use std::io::Write;
+    writeln!(file, "{}", json_line)
+        .map_err(|e| format!("Failed to write to tabular validation history at {:?}: {}", history_path, e))?;
+
+    file.flush()
+        .map_err(|e| format!("Failed to flush tabular validation history at {:?}: {}", history_path, e))?;
+
+    Ok(())
+}
+
+/// Read all tabular validation reports from an evidence journal file (JSON Lines format).
+pub fn read_tabular_reports(history_path: &Path) -> Result<Vec<TabularValidationReport>, String> {
+    if !history_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let file = std::fs::File::open(history_path)
+        .map_err(|e| format!("Failed to open tabular validation history at {:?}: {}", history_path, e))?;
+    let reader = std::io::BufReader::new(file);
+    use std::io::BufRead;
+    let mut reports = Vec::new();
+
+    for (index, line_result) in reader.lines().enumerate() {
+        let line = line_result
+            .map_err(|e| format!("Failed to read line {} from {:?}: {}", index + 1, history_path, e))?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let report = serde_json::from_str::<TabularValidationReport>(trimmed).map_err(|e| {
+            format!(
+                "Invalid JSON on line {} in {:?}: {}",
+                index + 1,
+                history_path,
+                e
+            )
+        })?;
+        reports.push(report);
+    }
+
+    Ok(reports)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -789,5 +854,33 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
             SchemaDriftKind::PatternMismatch { column, value, .. }
                 if column == "asset_code" && value == "AST-BAD"
         )));
+    }
+
+    #[test]
+    fn test_tabular_validation_history_append_and_read() {
+        let temp_dir = std::env::temp_dir().join(format!("cynic_tabular_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let history_path = temp_dir.join("sub/dir/test_history.jsonl");
+
+        let mut report1 = TabularValidationReport::new("cynic.test.v1", 1);
+        report1.total_rows = 5;
+        report1.valid_rows = 5;
+        report1.passed = true;
+
+        let mut report2 = TabularValidationReport::new("cynic.test.v1", 1);
+        report2.total_rows = 3;
+        report2.invalid_rows = 1;
+        report2.passed = false;
+
+        assert!(append_tabular_report(&report1, &history_path).is_ok());
+        assert!(append_tabular_report(&report2, &history_path).is_ok());
+
+        let loaded = read_tabular_reports(&history_path).expect("read reports");
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].total_rows, 5);
+        assert!(loaded[0].passed);
+        assert_eq!(loaded[1].invalid_rows, 1);
+        assert!(!loaded[1].passed);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

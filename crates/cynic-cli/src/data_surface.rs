@@ -22,6 +22,9 @@ pub enum DataCommand {
         /// Output validation report as JSON
         #[arg(long)]
         json: bool,
+        /// Record validation run in evidence history (evidence/data_validation_history.jsonl)
+        #[arg(long)]
+        record: bool,
     },
     /// Emit a canonical TabularSchema contract for reference
     Schema {
@@ -29,16 +32,26 @@ pub enum DataCommand {
         #[arg(long, default_value = "asset")]
         kind: String,
     },
+    /// View historical tabular validation runs from evidence history
+    History {
+        /// Limit number of historical records to display
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Output history as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 pub fn execute_data(command: DataCommand) -> ExitCode {
     match command {
-        DataCommand::Validate { schema, file, json } => execute_validate(&schema, &file, json),
+        DataCommand::Validate { schema, file, json, record } => execute_validate(&schema, &file, json, record),
         DataCommand::Schema { kind } => execute_schema(&kind),
+        DataCommand::History { limit, json } => execute_history(limit, json),
     }
 }
 
-fn execute_validate(schema_path: &Path, file_path: &Path, json: bool) -> ExitCode {
+fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record: bool) -> ExitCode {
     let schema_str = match std::fs::read_to_string(schema_path) {
         Ok(s) => s,
         Err(e) => {
@@ -62,6 +75,15 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool) -> ExitCod
             return ExitCode::FAILURE;
         }
     };
+
+    if record {
+        let history_path = Path::new("evidence/data_validation_history.jsonl");
+        if let Err(e) = cynic_traces::tabular::append_tabular_report(&report, history_path) {
+            eprintln!("Warning: Failed to record validation run to evidence history: {}", e);
+        } else if !json {
+            println!("Recorded to   : {}", history_path.display());
+        }
+    }
 
     if json {
         match serde_json::to_string_pretty(&report) {
@@ -235,5 +257,56 @@ fn execute_schema(kind: &str) -> ExitCode {
             eprintln!("Error serializing sample schema: {}", e);
             ExitCode::FAILURE
         }
+    }
+}
+
+fn execute_history(limit: usize, json: bool) -> ExitCode {
+    let history_path = Path::new("evidence/data_validation_history.jsonl");
+    let reports = match cynic_traces::tabular::read_tabular_reports(history_path) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Error reading tabular history from '{}': {}", history_path.display(), e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    if json {
+        let slice: Vec<_> = reports.iter().rev().take(limit).collect();
+        match serde_json::to_string_pretty(&slice) {
+            Ok(s) => {
+                println!("{}", s);
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("Error serializing history JSON: {}", e);
+                ExitCode::FAILURE
+            }
+        }
+    } else {
+        println!("=== CYNIC Tabular Validation History ===");
+        println!("History Log   : {}", history_path.display());
+        println!("Total Runs    : {}", reports.len());
+        println!("Display Limit : {}", limit);
+        println!();
+
+        if reports.is_empty() {
+            println!("No validation runs recorded yet in {}", history_path.display());
+        } else {
+            for (idx, report) in reports.iter().rev().take(limit).enumerate() {
+                let status_str = if report.passed { "PASSED" } else { "FAILED" };
+                println!(
+                    "#{:<3} [{}] Schema: {} (v{}) | Total Rows: {} | Valid: {} | Invalid: {} | Drifts: {}",
+                    idx + 1,
+                    status_str,
+                    report.target_schema_id,
+                    report.target_schema_version,
+                    report.total_rows,
+                    report.valid_rows,
+                    report.invalid_rows,
+                    report.drifts.len()
+                );
+            }
+        }
+        ExitCode::SUCCESS
     }
 }
