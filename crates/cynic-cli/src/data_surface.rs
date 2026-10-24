@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use cynic_protocol::tabular::{
-    ColumnDefinition, DataColumnType, DriftSeverity, SchemaDriftKind, TabularSchema,
-    TabularValidationReport,
+    DriftSeverity, SchemaDriftKind, TabularSchema, TabularValidationReport,
 };
 
 #[derive(Subcommand, Debug, Clone)]
@@ -195,77 +194,11 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record: bo
 
 fn execute_schema(kind: &str) -> ExitCode {
     let schema = match kind {
-        "node" | "nodes" | "registry" | "inventory" => TabularSchema::new(
-            "cynic.node_inventory.v1",
-            1,
-            vec![
-                ColumnDefinition::new("id", DataColumnType::Text, true)
-                    .with_description("Unique identifier of the node (hostname)")
-                    .with_pattern(r"^[a-z0-9-]+$"),
-                ColumnDefinition::new("name", DataColumnType::Text, true)
-                    .with_description("Display name of the node"),
-                ColumnDefinition::new("role", DataColumnType::Text, false)
-                    .with_description("Node architectural role (hypervisor, cortex_host, builder, etc.)"),
-                ColumnDefinition::new("status", DataColumnType::Text, true)
-                    .with_description("Observed or candidate status")
-                    .with_allowed_values(vec![
-                        "observed".into(),
-                        "candidate".into(),
-                        "stub".into(),
-                        "decommissioned".into(),
-                    ]),
-                ColumnDefinition::new("deploy_target", DataColumnType::Boolean, true)
-                    .with_description("Whether this node accepts direct workload deployment"),
-            ],
-        )
-        .with_strict_columns(false),
-        "claim" | "claims" | "natcat" => TabularSchema::new(
-            "cynic.natcat_claims.v1",
-            1,
-            vec![
-                ColumnDefinition::new("claim_id", DataColumnType::Text, true)
-                    .with_description("Unique identifier of the insurance claim")
-                    .with_pattern(r"^CLM-[0-9]{4}-[0-9]{3,}$"),
-                ColumnDefinition::new("event_type", DataColumnType::Text, true)
-                    .with_description("Peril type: FLOOD, STORM, DROUGHT, EARTHQUAKE, WILDFIRE")
-                    .with_allowed_values(vec![
-                        "FLOOD".into(),
-                        "STORM".into(),
-                        "DROUGHT".into(),
-                        "EARTHQUAKE".into(),
-                        "WILDFIRE".into(),
-                    ]),
-                ColumnDefinition::new("loss_amount", DataColumnType::Float, true)
-                    .with_description("Estimated or settled loss in EUR")
-                    .with_range(Some(0.0), None),
-                ColumnDefinition::new("settled", DataColumnType::Boolean, true)
-                    .with_description("Settlement flag"),
-                ColumnDefinition::new("event_date", DataColumnType::TimestampIso, true)
-                    .with_description("Date or timestamp of the catastrophe"),
-            ],
-        )
-        .with_strict_columns(true),
-        _ => TabularSchema::new(
-            "cynic.it_asset.v1",
-            1,
-            vec![
-                ColumnDefinition::new("asset_id", DataColumnType::Text, true)
-                    .with_description("Unique asset identifier")
-                    .with_pattern(r"^AST-[0-9]{4,}$"),
-                ColumnDefinition::new("hostname", DataColumnType::Text, true)
-                    .with_description("FQDN of the asset"),
-                ColumnDefinition::new("ip_address", DataColumnType::Text, false)
-                    .with_description("Primary IP address"),
-                ColumnDefinition::new("criticality", DataColumnType::Integer, true)
-                    .with_description("Business impact score (1 to 5)")
-                    .with_range(Some(1.0), Some(5.0)),
-                ColumnDefinition::new("compliant", DataColumnType::Boolean, true)
-                    .with_description("SSI compliance status"),
-                ColumnDefinition::new("last_audit", DataColumnType::TimestampIso, false)
-                    .with_description("Last security audit scan timestamp"),
-            ],
-        )
-        .with_strict_columns(true),
+        "node" | "nodes" | "registry" | "inventory" => cynic_traces::tabular::node_inventory_schema(),
+        "claim" | "claims" | "natcat" => cynic_traces::tabular::natcat_claims_schema(),
+        "session" | "sessions" | "session_summary" => cynic_traces::tabular::session_summary_schema(),
+        "turn" | "turns" | "session_turn" => cynic_traces::tabular::session_turn_schema(),
+        _ => cynic_traces::tabular::session_summary_schema(),
     };
 
     match serde_json::to_string_pretty(&schema) {

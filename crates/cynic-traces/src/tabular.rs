@@ -12,6 +12,8 @@ use cynic_protocol::tabular::{
     TabularSchema, TabularValidationReport,
 };
 
+use crate::session::NormalizedSession;
+
 /// Pure RFC-4180 compliant CSV parser for zero-I/O validation.
 pub fn parse_csv_records(input: &str) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
     let mut rows: Vec<Vec<String>> = Vec::new();
@@ -623,6 +625,174 @@ pub fn validate_json_content(schema: &TabularSchema, json_str: &str) -> TabularV
     }
 }
 
+/// Canonical schema for node inventory and topology.
+pub fn node_inventory_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.node_inventory.v1",
+        1,
+        vec![
+            ColumnDefinition::new("id", DataColumnType::Text, true)
+                .with_description("Unique identifier of the node (hostname)")
+                .with_pattern(r"^[a-z0-9-]+$"),
+            ColumnDefinition::new("name", DataColumnType::Text, true)
+                .with_description("Display name of the node"),
+            ColumnDefinition::new("role", DataColumnType::Text, false)
+                .with_description("Node architectural role (hypervisor, cortex_host, builder, etc.)"),
+            ColumnDefinition::new("status", DataColumnType::Text, true)
+                .with_description("Observed or candidate status")
+                .with_allowed_values(vec![
+                    "observed".into(),
+                    "candidate".into(),
+                    "stub".into(),
+                    "decommissioned".into(),
+                ]),
+            ColumnDefinition::new("deploy_target", DataColumnType::Boolean, true)
+                .with_description("Whether this node accepts direct workload deployment"),
+        ],
+    )
+    .with_strict_columns(false)
+}
+
+/// Canonical schema for catastrophe insurance claims.
+pub fn natcat_claims_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.natcat_claims.v1",
+        1,
+        vec![
+            ColumnDefinition::new("claim_id", DataColumnType::Text, true)
+                .with_description("Unique identifier of the insurance claim")
+                .with_pattern(r"^CLM-[0-9]{4}-[0-9]{3,}$"),
+            ColumnDefinition::new("event_type", DataColumnType::Text, true)
+                .with_description("Peril type: FLOOD, STORM, DROUGHT, EARTHQUAKE, WILDFIRE")
+                .with_allowed_values(vec![
+                    "FLOOD".into(),
+                    "STORM".into(),
+                    "DROUGHT".into(),
+                    "EARTHQUAKE".into(),
+                    "WILDFIRE".into(),
+                ]),
+            ColumnDefinition::new("loss_amount", DataColumnType::Float, true)
+                .with_description("Estimated or settled loss in EUR")
+                .with_range(Some(0.0), None),
+            ColumnDefinition::new("settled", DataColumnType::Boolean, true)
+                .with_description("Settlement flag"),
+            ColumnDefinition::new("event_date", DataColumnType::TimestampIso, true)
+                .with_description("Date or timestamp of the catastrophe"),
+        ],
+    )
+    .with_strict_columns(true)
+}
+
+/// Canonical schema for agent session trace summaries.
+pub fn session_summary_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.session_summary.v1",
+        1,
+        vec![
+            ColumnDefinition::new("session_uid", DataColumnType::Text, true)
+                .with_description("Unique identifier of the normalized session")
+                .with_pattern(r"^[a-zA-Z0-9_\-\.:]+$"),
+            ColumnDefinition::new("harness", DataColumnType::Text, true)
+                .with_description("Harness originating the trace")
+                .with_allowed_values(vec![
+                    "hermes".into(),
+                    "claude".into(),
+                    "codestory".into(),
+                    "antigravity".into(),
+                    "gemini".into(),
+                    "cursor".into(),
+                    "copilot".into(),
+                    "aider".into(),
+                    "openai".into(),
+                ]),
+            ColumnDefinition::new("source_ref", DataColumnType::Text, true)
+                .with_description("Source file or URI of the raw trace"),
+            ColumnDefinition::new("turns", DataColumnType::Integer, true)
+                .with_description("Total conversation turns")
+                .with_range(Some(0.0), None),
+            ColumnDefinition::new("tools", DataColumnType::Integer, true)
+                .with_description("Total tool executions")
+                .with_range(Some(0.0), None),
+            ColumnDefinition::new("reasoning", DataColumnType::Integer, true)
+                .with_description("Total reasoning trace blocks")
+                .with_range(Some(0.0), None),
+            ColumnDefinition::new("edges", DataColumnType::Integer, true)
+                .with_description("Total causal DAG edges")
+                .with_range(Some(0.0), None),
+            ColumnDefinition::new("status", DataColumnType::Text, true)
+                .with_description("Invariant validation status")
+                .with_allowed_values(vec![
+                    "ok".into(),
+                    "failed".into(),
+                    "partial".into(),
+                    "contract_violation".into(),
+                ]),
+        ],
+    )
+    .with_strict_columns(false)
+}
+
+/// Canonical schema for individual conversation turns in a session.
+pub fn session_turn_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.session_turn.v1",
+        1,
+        vec![
+            ColumnDefinition::new("turn_uid", DataColumnType::Text, true)
+                .with_description("Unique identifier of the conversation turn")
+                .with_pattern(r"^[a-zA-Z0-9_\-\.:]+$"),
+            ColumnDefinition::new("session_uid", DataColumnType::Text, true)
+                .with_description("Reference to the parent session UID")
+                .with_pattern(r"^[a-zA-Z0-9_\-\.:]+$"),
+            ColumnDefinition::new("index", DataColumnType::Integer, true)
+                .with_description("Zero-based sequence index within the session")
+                .with_range(Some(0.0), None),
+            ColumnDefinition::new("role", DataColumnType::Text, true)
+                .with_description("Speaker role")
+                .with_allowed_values(vec![
+                    "user".into(),
+                    "assistant".into(),
+                    "system".into(),
+                    "tool".into(),
+                ]),
+            ColumnDefinition::new("native_model", DataColumnType::Text, false)
+                .with_description("Raw model identifier as reported by the harness"),
+        ],
+    )
+    .with_strict_columns(false)
+}
+
+/// Projects a `NormalizedSession` into a tabular row matching `session_summary_schema()`.
+pub fn session_to_summary_record(session: &NormalizedSession) -> serde_json::Map<String, serde_json::Value> {
+    let stats = session.stats();
+    let mut map = serde_json::Map::new();
+    map.insert("session_uid".to_string(), serde_json::Value::String(session.session_uid.clone()));
+    map.insert("harness".to_string(), serde_json::Value::String(session.harness.clone()));
+    map.insert("source_ref".to_string(), serde_json::Value::String(session.source_ref.clone()));
+    map.insert("turns".to_string(), serde_json::json!(stats.turns as i64));
+    map.insert("tools".to_string(), serde_json::json!(stats.tools as i64));
+    map.insert("reasoning".to_string(), serde_json::json!(stats.reasoning as i64));
+    map.insert("edges".to_string(), serde_json::json!(stats.edges as i64));
+    map.insert(
+        "status".to_string(),
+        serde_json::Value::String(if session.check().is_ok() {
+            "ok".to_string()
+        } else {
+            "contract_violation".to_string()
+        }),
+    );
+    map
+}
+
+/// Validates a slice of `NormalizedSession` against a tabular schema.
+pub fn validate_sessions(schema: &TabularSchema, sessions: &[NormalizedSession]) -> TabularValidationReport {
+    let records: Vec<serde_json::Map<String, serde_json::Value>> = sessions
+        .iter()
+        .map(session_to_summary_record)
+        .collect();
+    validate_record_maps(schema, &records)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -874,5 +1044,49 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         assert!(!rep_bad.passed);
         assert_eq!(rep_bad.invalid_rows, 1);
         assert_eq!(rep_bad.drifts.len(), 2);
+    }
+
+    #[test]
+    fn test_session_summary_schema_and_session_validation() {
+        let schema = session_summary_schema();
+        assert_eq!(schema.schema_id, "cynic.session_summary.v1");
+
+        let s1 = NormalizedSession {
+            session_uid: "sess_123".to_string(),
+            harness: "hermes".to_string(),
+            source_ref: "hermes_union.sqlite".to_string(),
+            turns: vec![],
+            tools: vec![],
+            reasoning: vec![],
+            edges: vec![],
+            states: vec![],
+            human: vec![],
+            native_meta: std::collections::HashMap::new(),
+        };
+
+        let report = validate_sessions(&schema, &[s1]);
+        assert!(report.passed);
+        assert_eq!(report.total_rows, 1);
+        assert_eq!(report.valid_rows, 1);
+        assert_eq!(report.invalid_rows, 0);
+
+        // Invalid harness drift test
+        let s2 = NormalizedSession {
+            session_uid: "sess_456".to_string(),
+            harness: "unknown_harness_xyz".to_string(),
+            source_ref: "dummy.json".to_string(),
+            turns: vec![],
+            tools: vec![],
+            reasoning: vec![],
+            edges: vec![],
+            states: vec![],
+            human: vec![],
+            native_meta: std::collections::HashMap::new(),
+        };
+
+        let report2 = validate_sessions(&schema, &[s2]);
+        assert!(!report2.passed);
+        assert_eq!(report2.invalid_rows, 1);
+        assert_eq!(report2.drifts.len(), 1);
     }
 }
