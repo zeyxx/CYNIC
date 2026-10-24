@@ -83,4 +83,44 @@ impl DocumentChunk {
             self.section_hierarchy.join(" > ")
         }
     }
+
+    /// Converts this chunk into a canonical tabular record map matching schema `cynic.document_chunk.v1`.
+    pub fn to_record_map(&self) -> serde_json::Map<String, serde_json::Value> {
+        let mut map = serde_json::Map::new();
+        map.insert("chunk_id".to_string(), serde_json::Value::String(self.chunk_id.clone()));
+        map.insert("source_path".to_string(), serde_json::Value::String(self.source_path.clone()));
+        map.insert("line_start".to_string(), serde_json::json!(self.line_start as i64));
+        map.insert("line_end".to_string(), serde_json::json!(self.line_end as i64));
+        map.insert("char_length".to_string(), serde_json::json!(self.content.chars().count() as i64));
+        map.insert("authority".to_string(), serde_json::Value::String(format!("{:?}", self.authority)));
+        map
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_document_chunk_to_record_map() {
+        let chunk = DocumentChunk::new(
+            "docs/foundation/AGENTS.md".to_string(),
+            1,
+            25,
+            vec!["# Minimal Agent Protocol".to_string()],
+            "CYNIC is a low-layer sovereign Rust runtime for multi-agent systems.".to_string(),
+            AuthorityTier::L0Constitution,
+        );
+
+        let map = chunk.to_record_map();
+        assert_eq!(map.get("source_path").unwrap(), "docs/foundation/AGENTS.md");
+        assert_eq!(map.get("line_start").unwrap(), 1);
+        assert_eq!(map.get("line_end").unwrap(), 25);
+        assert_eq!(map.get("authority").unwrap(), "L0Constitution");
+        assert_eq!(
+            map.get("char_length").unwrap(),
+            chunk.content.chars().count() as i64
+        );
+        assert_eq!(map.get("chunk_id").unwrap(), chunk.chunk_id.as_str());
+    }
 }
