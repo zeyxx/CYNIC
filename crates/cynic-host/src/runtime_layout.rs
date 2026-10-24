@@ -53,7 +53,12 @@ pub struct PackageManagerCapability {
 
 pub use cynic_protocol::detection::PackageManagerKind;
 
-impl PackageManagerKind {
+pub trait PackageManagerKindExt {
+    fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String>;
+    fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String>;
+}
+
+impl PackageManagerKindExt for PackageManagerKind {
 
     /// The argv that QUERIES whether a package is installed.
     ///
@@ -68,7 +73,7 @@ impl PackageManagerKind {
     /// `install ok installed`. The old form reported an installed
     /// package as absent, which blocked the packages domain on a host
     /// whose packages were all present.
-    pub fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
+    fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => vec![
                 layout.dpkg_query_bin(),
@@ -100,7 +105,7 @@ impl PackageManagerKind {
         }
     }
 
-    pub fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
+    fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => {
                 let mut argv = vec![
