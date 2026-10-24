@@ -18,10 +18,14 @@ pub struct BuilderRuntimeConfig {
     pub repository_id: String,
     /// Secret-free source transport URI for that repository.
     pub transport_uri: String,
+    /// Absolute path of the `node-control.toml` the builder booted from.
+    /// `POST /admin/reload` re-reads exactly this file.
+    pub config_path: String,
 }
 
 pub(crate) fn builder_runtime_config_from(
     node_config: &config::NodeControlConfig,
+    config_path: &str,
 ) -> BuilderRuntimeConfig {
     // Repository identity comes from the declared build-scheduler config;
     // the transport URI is derived from the registry-declared repository
@@ -78,11 +82,13 @@ pub(crate) fn builder_runtime_config_from(
         webhook_secret: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
         repository_id: repo_id,
         transport_uri,
+        config_path: config_path.to_string(),
     }
 }
 
 pub async fn run_builder_runtime(
     config: BuilderRuntimeConfig,
+    control: &config::NodeControlConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
     shutdown: CancellationToken,
 ) -> Result<(), String> {
@@ -97,9 +103,10 @@ pub async fn run_builder_runtime(
         repository_id: config.repository_id,
         transport_uri: config.transport_uri,
         binary_link_path: std::env::var("CYNIC_BINARY_LINK_PATH").ok(),
+        config_path: config.config_path,
     };
 
-    run_http_server(http_config, store, listen_addr, shutdown)
+    run_http_server(http_config, control.clone(), store, listen_addr, shutdown)
         .await
         .map_err(|e| e.to_string())
 }

@@ -19,7 +19,9 @@ reqwest = { version = "0.13.4", features = ["json"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 tracing.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
-cynic-solana-pay = { path = "../cynic-solana-pay" }
+cynic-network = { path = "../cynic-network" }
+qrcodegen = "1.8"
+url.workspace = true
 cynic-secrets = { path = "../cynic-secrets" }
 regex = "1"
 

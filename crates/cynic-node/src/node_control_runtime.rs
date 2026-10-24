@@ -46,6 +46,7 @@ fn load_or_create_incarnation(control: &config::NodeControlConfig) -> Result<Str
 
 pub async fn start_tasks(
     control: config::NodeControlConfig,
+    config_path: &str,
     shutdown: CancellationToken,
 ) -> Result<Vec<tokio::task::JoinHandle<()>>, String> {
     let adapter = HttpNodeControlAdapter::new(
@@ -275,17 +276,21 @@ pub async fn start_tasks(
     if builder_activation.starts_builder_http {
         // Canonical constructor (§481: one source of truth for the config
         // projection; keeps repository_id/transport_uri law in one place).
-        let builder_config =
-            crate::usecases::builder_runtime::builder_runtime_config_from(&scheduler_control);
+        let builder_config = crate::usecases::builder_runtime::builder_runtime_config_from(
+            &scheduler_control,
+            config_path,
+        );
         let builder_store = Arc::new(LocalAgentWorkloadStore::new(
             scheduler_control
                 .agent_workload_state_root
                 .join("agent-scheduler/workloads"),
         ));
         let builder_shutdown = shutdown.clone();
+        let builder_control = scheduler_control.clone();
         tasks.push(tokio::spawn(async move {
             if let Err(error) = crate::usecases::builder_runtime::run_builder_runtime(
                 builder_config,
+                &builder_control,
                 builder_store,
                 builder_shutdown,
             )
@@ -414,7 +419,7 @@ pub async fn run(config_path: &str, check: bool) -> ExitCode {
     }
     let shutdown = CancellationToken::new();
     install_signal_handler(shutdown.clone());
-    let tasks = match start_tasks(control, shutdown.clone()).await {
+    let tasks = match start_tasks(control, config_path, shutdown.clone()).await {
         Ok(tasks) => tasks,
         Err(error) => {
             tracing::error!("{error}");

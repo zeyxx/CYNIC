@@ -70,6 +70,7 @@ impl EpistemicCoverageVerdict {
 pub struct EpistemicAssemblyConfig {
     pub min_confidence: f64,
     pub min_term_coverage: f64,
+    pub neural_confidence_floor: f64,
     pub max_sources: usize,
     pub max_context_chars: usize,
     pub lost_in_the_middle_reordering: bool,
@@ -80,6 +81,7 @@ impl Default for EpistemicAssemblyConfig {
         Self {
             min_confidence: DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD,
             min_term_coverage: DEFAULT_MIN_TERM_COVERAGE_RATIO,
+            neural_confidence_floor: 0.70,
             max_sources: 5,
             max_context_chars: 8_000,
             lost_in_the_middle_reordering: true,
@@ -89,10 +91,8 @@ impl Default for EpistemicAssemblyConfig {
 
 /// Extracts non-stopword alphanumeric tokens from text.
 pub fn extract_query_terms(text: &str) -> Vec<String> {
-    let stop_words: HashSet<&'static str> = [
-        "the", "a", "an", "is", "are", "in", "on", "of", "to", "for", "and", "or", "by", "with",
-        "how", "what", "which", "de", "le", "la", "les", "du", "des", "en", "et", "ou", "pour",
-        "par", "sur", "dans", "un", "une", "est", "sont", // Syntax noise keywords
+    let domain_noise: HashSet<&'static str> = [
+        // Syntax noise keywords
         "pub", "struct", "impl", "fn", "let", "mut", "enum", "trait", "type", "mod",
         // Pervasive domain baseline words (filter to isolate salient informative terms)
         "cynic", "cortex", "system", "code", "file", "json",
@@ -105,7 +105,11 @@ pub fn extract_query_terms(text: &str) -> Vec<String> {
             t.trim_matches(|c: char| !c.is_alphanumeric())
                 .to_lowercase()
         })
-        .filter(|t| t.len() >= 3 && !stop_words.contains(t.as_str()))
+        .filter(|t| {
+            t.len() >= 3
+                && !domain_noise.contains(t.as_str())
+                && !crate::domain::scorer::is_stop_word(t.as_str())
+        })
         .collect()
 }
 
@@ -255,16 +259,20 @@ pub fn assemble_epistemic_context<'a>(
     }
 
     if best_term_coverage < config.min_term_coverage {
-        return EpistemicCoverageVerdict::Uncovered {
-            rejection_token: UNCOVERED_REJECTION_TOKEN.to_string(),
-            confidence: top_confidence,
-            term_coverage: best_term_coverage,
-            reason: format!(
-                "insufficient query term coverage across pool: {:.1}% < {:.1}% threshold",
-                best_term_coverage * 100.0,
-                config.min_term_coverage * 100.0
-            ),
-        };
+        let is_neural_confident =
+            top_confidence <= 1.0 && top_confidence >= config.neural_confidence_floor;
+        if !is_neural_confident {
+            return EpistemicCoverageVerdict::Uncovered {
+                rejection_token: UNCOVERED_REJECTION_TOKEN.to_string(),
+                confidence: top_confidence,
+                term_coverage: best_term_coverage,
+                reason: format!(
+                    "insufficient query term coverage across pool: {:.1}% < {:.1}% threshold",
+                    best_term_coverage * 100.0,
+                    config.min_term_coverage * 100.0
+                ),
+            };
+        }
     }
 
     // Epistemic Guard 2: Minimum confidence threshold check (calibrated on continuous fusion score scale)

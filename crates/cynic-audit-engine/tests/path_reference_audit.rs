@@ -50,6 +50,8 @@ fn report() -> cynic_protocol::AuditReportV2 {
 /// are deleted here rather than satisfied: keeping them would mean deleting a
 /// source file to keep a test green, which is the opposite of the point.
 const KNOWN: &[&str] = &[
+    "crates/cynic-host/src/profiles/build_runner.rs",
+    "crates/cynic-node-protocol/src/node_service_unit.rs",
     "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",
     "crates/cynic-inference/src/domain/chat.rs",
     "crates/cynic-vcs-providers/src/forgejo_webhook.rs",
@@ -76,7 +78,7 @@ const KNOWN: &[&str] = &[
     // convention, not a hidden placement — but unlike clap defaults the
     // shape is indistinguishable from a coded placement, so the rule is
     // right to track it and this entry records the decision explicitly.
-    "crates/cynic-cli/src/deps_surface_upgrade.rs",
+    "crates/cynic-cli/src/dependency/mod.rs",
     // Deliberate identity convention: default_key_path/default_cert_path
     // fall back to /etc/cynic/node-identity.key|.cert, always behind an
     // explicit key_path override (unwrap_or_else at every call site).

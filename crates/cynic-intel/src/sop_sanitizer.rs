@@ -4,7 +4,7 @@
 //! JSON parameter verification, and risk scoring for agent inputs before
 //! executing SOP actions.
 
-use cynic_solana_pay::{SopSanitizationInput, SopSanitizationResult};
+use crate::domain::solana::{SopSanitizationInput, SopSanitizationResult};
 
 /// Known high-confidence prompt injection patterns and adversarial phrases.
 const ADVERSARIAL_PATTERNS: &[&str] = &[

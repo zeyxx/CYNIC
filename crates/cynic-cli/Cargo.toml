@@ -42,7 +42,6 @@ cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
-cynic-vcs-providers = { path = "../cynic-vcs-providers" }
 cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
@@ -54,12 +53,8 @@ cynic-askesis = { path = "../cynic-askesis" }
 cynic-domain-ops = { path = "../cynic-domain-ops" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-intel = { path = "../cynic-intel" }
-cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
-cynic-discovery-host = { path = "../cynic-discovery-host" }
-cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-traces = { path = "../cynic-traces" }
-cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }

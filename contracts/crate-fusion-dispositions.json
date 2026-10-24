@@ -114,8 +114,26 @@
       "test_loc": [0, 0],
       "direct_dependents": [2, 1],
       "public_items": [0, 3],
-      "disposition": "fuse into one, or keep both deliberately",
-      "rationale": "Discovery-host already depends on discovery. Map names them for renames to node-discovery and host-discovery (different layers). Evidence genuinely ambiguous — owner's call. Do not rename first and decide later."
+      "disposition": "fused into cynic-discovery (Plan 4 BURN)",
+      "rationale": "cynic-discovery-host was an exact duplicate of cynic-discovery/src/host.rs. Fused into cynic-discovery."
+    },
+    {
+      "crate": "cynic-solana-pay + cynic-zeroclaw-solana",
+      "src_loc": [471, 254],
+      "test_loc": [40, 46],
+      "direct_dependents": [2, 1],
+      "public_items": [8, 4],
+      "disposition": "fused into cynic-intel (Plan 4 BURN)",
+      "rationale": "Micro-crates tightly coupled to cynic-intel as their sole consumer. Consolidated into cynic-intel::domain::solana and cynic-intel::adapters::solana_plugin."
+    },
+    {
+      "crate": "cynic-vcs-providers",
+      "src_loc": 2872,
+      "test_loc": 22,
+      "direct_dependents": 2,
+      "public_items": 7,
+      "disposition": "fused into cynic-vcs (Plan 4 BURN)",
+      "rationale": "Reintegrated into cynic-vcs under cynic-vcs::providers. Upward layer debt cynic-host -> cynic-vcs-providers paid."
     }
   ],
   "control": {

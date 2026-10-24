@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Titouan Corneloup (@zeyxx) — Sovereign Epistemic Surface</title>
+  <style>
+
+    :root {
+      --bg: #070709;
+      --card-bg: #0e0e13;
+      --border: #1c1c24;
+      --border-accent: #2e303e;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #10b981;
+      --cyan: #38bdf8;
+      --amber: #f59e0b;
+      --purple: #a855f7;
+      --code-bg: #14141c;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 24px 16px;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+    .hud-title {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hud-title::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent);
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .headline {
+      font-size: 14px;
+      color: var(--cyan);
+      margin-bottom: 16px;
+    }
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .meta-bar a {
+      color: var(--text);
+      text-decoration: underline;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 24px 0 36px 0;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      transition: border-color 0.15s ease;
+    }
+    .metric-card:hover {
+      border-color: var(--border-accent);
+    }
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+    section {
+      margin-bottom: 40px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 3px solid var(--accent);
+      padding-left: 10px;
+    }
+    .disclosure-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--purple);
+      padding: 16px 20px;
+      border-radius: 6px;
+      margin-bottom: 24px;
+      color: var(--text-muted);
+      font-size: 12.5px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-demonstrated { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-implemented { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-partial { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-aspirational { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-basis-exercised { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .badge-basis-understood { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .badge-basis-exposure { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+    .badge-compiler { background: rgba(232, 121, 249, 0.15); color: #e879f9; border: 1px solid rgba(232, 121, 249, 0.3); }
+    .badge-bounty { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-protocol { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-partner { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .badge-governance { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .badge-state-merged { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-state-open { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-state-closed { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); }
+    
+    .timeline-era {
+      margin-bottom: 24px;
+    }
+    .era-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--cyan);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .repos-table, .claims-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .repos-table th, .repos-table td,
+    .claims-table th, .claims-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .repos-table th, .claims-table th {
+      background: #111117;
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+    }
+    .repos-table tr:hover, .claims-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .repo-link {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .repo-link:hover { text-decoration: underline; color: var(--accent); }
+    
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .skill-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+    .skill-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .skill-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .skill-items {
+      list-style: none;
+    }
+    .skill-items li {
+      margin-bottom: 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .code-receipt {
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #cbd5e1;
+      border: 1px solid var(--border);
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      margin-top: 40px;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="hud-title">CYNIC Epistemic Engine &bull; Sovereign Surface</div>
+      <h1>Titouan Corneloup <span style="color: var(--text-dim); font-weight: 400;">(@zeyxx)</span></h1>
+      <div class="headline">Sovereign Systems Architect & AI Agent Orchestrator — Self-Taught R&D</div>
+      <div class="meta-bar">
+        <span>📍 Paris / Île-de-France</span>
+        <span>🔗 <a href="https://github.com/zeyxx" target="_blank">github.com/zeyxx</a></span>
+        <span>✉️ titouan.corneloup@protonmail.com</span>
+        <span>⏱️ Generated: 2026-10-23T11:10:37Z</span>
+      </div>
+    </header>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value">35</div>
+        <div class="metric-label">Total Repositories</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">44</div>
+        <div class="metric-label">arch_boundaries</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">26</div>
+        <div class="metric-label">External PRs</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">3535</div>
+        <div class="metric-label">typed_commits</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">9</div>
+        <div class="metric-label">Ecosystems</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">41</div>
+        <div class="metric-label">Crates in DAG</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">5</div>
+        <div class="metric-label">Security & Bugs</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">38</div>
+        <div class="metric-label">JSON Contracts</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">4582</div>
+        <div class="metric-label">VCS Commits</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">4565</div>
+        <div class="metric-label">Verified Tests</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">453</div>
+        <div class="metric-label">GitHub PRs</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">181</div>
+        <div class="metric-label">Active Coding Days</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">388421</div>
+        <div class="metric-label">CYNIC Rust LOC</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">0</div>
+        <div class="metric-label">git add . violations</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">272</div>
+        <div class="metric-label">markdown_docs</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Method & Development Disclosure</h2>
+      <div class="disclosure-box">
+        <p>Development Mode Disclosure: The author architects and orchestrates complex distributed systems through AI coding agents (Claude Code, Gemini, Codex, Hermes) guided by formal specifications, machine-readable contracts, and executable architecture boundaries. Only Python was authored by hand in early years (2023-2024). Rust, TypeScript, Go, and Solidity are conceptually driven with strict verification and read-back proofs.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>The 4-Era GitHub Odyssey (35 Repositories)</h2>
+      <div class="timeline-era">
+        <div class="era-title">🔹 Awakening & NSI (2023 - early 2024)</div>
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Repository</th>
+              <th>Language</th>
+              <th>Domain</th>
+              <th>Authorship / Origin</th>
+              <th>Created</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/aquarium" target="_blank">aquarium</a> 🔒</td>
+              <td><code>Python</code></td>
+              <td><code>data_ml</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2024-01</code></td>
+              <td>Projet NSI n°2</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/NASA-Apis" target="_blank">NASA-Apis</a> 🔒</td>
+              <td><code>Python</code></td>
+              <td><code>data_ml</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2023-11</code></td>
+              <td>Projet NSI n°1</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="timeline-era">
+        <div class="era-title">🔹 Offensive & Pentest (Late 2025)</div>
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Repository</th>
+              <th>Language</th>
+              <th>Domain</th>
+              <th>Authorship / Origin</th>
+              <th>Created</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/mindcraft" target="_blank">mindcraft</a> 🔒</td>
+              <td><code>HTML</code></td>
+              <td><code>data_ml</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-11</code></td>
+              <td>jeu de stratégie </td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/sieve-app" target="_blank">sieve-app</a> 🔒</td>
+              <td><code>TypeScript</code></td>
+              <td><code>data_ml</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-11</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/EfficazPentest" target="_blank">EfficazPentest</a> 🔒</td>
+              <td><code>Python</code></td>
+              <td><code>security</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-10</code></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="timeline-era">
+        <div class="era-title">🔹 Solana Trenches & MEV (Dec 2025 - Feb 2026)</div>
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Repository</th>
+              <th>Language</th>
+              <th>Domain</th>
+              <th>Authorship / Origin</th>
+              <th>Created</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/GASdf" target="_blank">GASdf</a> </td>
+              <td><code>JavaScript</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-12</code></td>
+              <td>GASdf - pay fees in shitcoins. Powered by $ASDFASDFA.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/zeyxx" target="_blank">zeyxx</a> </td>
+              <td><code>—</code></td>
+              <td><code>infra</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-12</code></td>
+              <td>Cybersecurity & Systems Engineering | Autonomous AI Agents, Rust, Protocol Security</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/awesome-solana-ai" target="_blank">awesome-solana-ai</a> </td>
+              <td><code>—</code></td>
+              <td><code>ai_agents</code></td>
+              <td><span class="badge badge-partial">Audit (solana-foundation/awesome-solana-ai)</span></td>
+              <td><code>2026-01</code></td>
+              <td>Public repo of AI tooling to help build on Solana</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/HolDex" target="_blank">HolDex</a> </td>
+              <td><code>JavaScript</code></td>
+              <td><code>market_intel</code></td>
+              <td><span class="badge badge-implemented">Co-Dev (100 commits)</span></td>
+              <td><code>2025-12</code></td>
+              <td>An open-source DexScreener alternative, powered by ASDFASDFA</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/upptime-gasdf" target="_blank">upptime-gasdf</a> </td>
+              <td><code>JSON</code></td>
+              <td><code>infra</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-01</code></td>
+              <td>Uptime monitoring & status page for GASdf | Powered by Upptime</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-brain" target="_blank">asdf-brain</a> </td>
+              <td><code>JavaScript</code></td>
+              <td><code>infra</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-01</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-manifesto" target="_blank">asdf-manifesto</a> </td>
+              <td><code>—</code></td>
+              <td><code>infra</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-01</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/claude-mem" target="_blank">claude-mem</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>ai_agents</code></td>
+              <td><span class="badge badge-implemented">Co-Dev (3 commits)</span></td>
+              <td><code>2026-01</code></td>
+              <td>A Claude Code plugin that automatically captures everything Claude does during your coding sessions, compresses it with AI (using Claude's agent-sdk), and injects relevant context back into future sessions.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/solana-keychain" target="_blank">solana-keychain</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-partial">Audit (solana-foundation/solana-keychain)</span></td>
+              <td><code>2026-01</code></td>
+              <td>Framework-agnostic Solana transaction signing with multiple backends. Unified trait interface, async-first design, and feature-gated compilation for minimal dependencies.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-oracle" target="_blank">asdf-oracle</a> </td>
+              <td><code>JavaScript</code></td>
+              <td><code>market_intel</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-12</code></td>
+              <td>Real-time oracle dashboard for asdfasdfa</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/ASDev" target="_blank">ASDev</a> </td>
+              <td><code>JavaScript</code></td>
+              <td><code>market_intel</code></td>
+              <td><span class="badge badge-implemented">Co-Dev (17 commits)</span></td>
+              <td><code>2025-12</code></td>
+              <td>ASDev - A Pumpfun Launching Platform with built-in airdrop rewards.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-burn-engine" target="_blank">asdf-burn-engine</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-09</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-validator" target="_blank">asdf-validator</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-12</code></td>
+              <td>Track creator fees for Pump.fun tokens.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-vanity-grinder" target="_blank">asdf-vanity-grinder</a> </td>
+              <td><code>Rust</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-12</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/asdf-validator-lite" target="_blank">asdf-validator-lite</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2025-12</code></td>
+              <td>Track creator fees for a single Pump.fun token with Proof-of-History</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/ASDForecast" target="_blank">ASDForecast</a> </td>
+              <td><code>HTML</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-partial">Audit (sollama58/ASDForecast)</span></td>
+              <td><code>2025-12</code></td>
+              <td>Prediction market for Solana, built for ASDFASDFA. Fees towards ASDF BBB.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="timeline-era">
+        <div class="era-title">🔹 Sovereign Rust & Multi-Agents (Feb 2026 - Present)</div>
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Repository</th>
+              <th>Language</th>
+              <th>Domain</th>
+              <th>Authorship / Origin</th>
+              <th>Created</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/CYNIC" target="_blank">CYNIC</a> </td>
+              <td><code>Rust</code></td>
+              <td><code>systems</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-02</code></td>
+              <td>Sovereign low-layer Rust runtime, epistemic consensus, and multi-agent coordination organism</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/hermes-antigravity" target="_blank">hermes-antigravity</a> </td>
+              <td><code>Python</code></td>
+              <td><code>ai_agents</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-09</code></td>
+              <td>Google Antigravity / Cloud Code Assist inference provider plugin for Hermes Agent</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/hermes-agent" target="_blank">hermes-agent</a> </td>
+              <td><code>Python</code></td>
+              <td><code>ai_agents</code></td>
+              <td><span class="badge badge-partial">Audit (NousResearch/hermes-agent)</span></td>
+              <td><code>2026-10</code></td>
+              <td>The agent that grows with you</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/hermes-utls-parity" target="_blank">hermes-utls-parity</a> 🔒</td>
+              <td><code>Go</code></td>
+              <td><code>infra</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-10</code></td>
+              <td>Local TLS/HTTP2 fingerprint parity research lab (loopback-only, never contacts Google). Extracted from hermes-antigravity.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/cynic-skills" target="_blank">cynic-skills</a> 🔒</td>
+              <td><code>—</code></td>
+              <td><code>ai_agents</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-02</code></td>
+              <td>Agent Skills for CYNIC — the cynical dog that judges everything. 36-dimension scoring, burn analysis, philosophical wisdom. φ-bounded at 61.8%.</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/privacy-ethereum-framework" target="_blank">privacy-ethereum-framework</a> 🔒</td>
+              <td><code>Python</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-08</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/KAIROS" target="_blank">KAIROS</a> 🔒</td>
+              <td><code>Python</code></td>
+              <td><code>market_intel</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-03</code></td>
+              <td>KAIROS — autonomous trading agent for Solana memecoins + Hyperliquid perps</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/blitz-and-chill" target="_blank">blitz-and-chill</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>market_intel</code></td>
+              <td><span class="badge badge-partial">Audit (upstream)</span></td>
+              <td><code>2026-06</code></td>
+              <td>Blitz & Chill — Social chess, mobile-first, play with friends for stakes</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/CultScreener" target="_blank">CultScreener</a> </td>
+              <td><code>JavaScript</code></td>
+              <td><code>market_intel</code></td>
+              <td><span class="badge badge-partial">Audit (sollama58/CultScreener)</span></td>
+              <td><code>2026-04</code></td>
+              <td>A utility to view true cults on Solana</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/percolator-prog" target="_blank">percolator-prog</a> </td>
+              <td><code>Rust</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-partial">Audit (aeyakovenko/percolator-prog)</span></td>
+              <td><code>2026-06</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/percolator-cli" target="_blank">percolator-cli</a> </td>
+              <td><code>TypeScript</code></td>
+              <td><code>blockchain</code></td>
+              <td><span class="badge badge-partial">Audit (aeyakovenko/percolator-cli)</span></td>
+              <td><code>2026-05</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/kyon-android" target="_blank">kyon-android</a> 🔒</td>
+              <td><code>Kotlin</code></td>
+              <td><code>systems</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-05</code></td>
+              <td>Aboie (KYON) — Android anti-spam app powered by CYNIC kernel</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/tailscale-mcp" target="_blank">tailscale-mcp</a> 🔒</td>
+              <td><code>Go</code></td>
+              <td><code>ai_agents</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-03</code></td>
+              <td>MCP server that turns your Tailscale network into an AI-native operations layer</td>
+            </tr>
+            <tr>
+              <td><a class="repo-link" href="https://github.com/zeyxx/CYNIC-legacy" target="_blank">CYNIC-legacy</a> </td>
+              <td><code>Python</code></td>
+              <td><code>systems</code></td>
+              <td><span class="badge badge-demonstrated">Original</span></td>
+              <td><code>2026-01</code></td>
+              <td>κυνικός - Collective AI consciousness for Claude Code | Memory · Judgment · Patterns | φ distrusts φ</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>GitHub Interactions & Ecosystem Graph (453 PRs &bull; 8 Issues &bull; 9 Ecosystems)</h2>
+      <div class="timeline-era">
+        <div class="era-title" style="color: #f43f5e;">🛡️ High-Impact Security Audits & Compiler Bugs</div>
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Target Repository</th>
+              <th>Ref</th>
+              <th>Status</th>
+              <th>Discovery / Vulnerability Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-bounty">SECURITY BOUNTY</span></td>
+              <td><code>aeyakovenko/percolator-cli</code></td>
+              <td><a class="repo-link" href="https://github.com/aeyakovenko/percolator-cli/pull/80" target="_blank">#80</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>PoC Bounty 6 Bankrupt-Recycling Exploit</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-bounty">SECURITY BOUNTY</span></td>
+              <td><code>aeyakovenko/percolator-prog</code></td>
+              <td><a class="repo-link" href="https://github.com/aeyakovenko/percolator-prog/issues/110" target="_blank">#110</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>CRITICAL: 100,000,000x Price Manipulation (Retire Flip) + 1000x Notional Understatement</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-bounty">SECURITY BOUNTY</span></td>
+              <td><code>aeyakovenko/percolator-cli</code></td>
+              <td><a class="repo-link" href="https://github.com/aeyakovenko/percolator-cli/issues/79" target="_blank">#79</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>Bounty 6: Bankrupt-Recycling via TradeNoCpi (Insurance Drain)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-bounty">SECURITY BOUNTY</span></td>
+              <td><code>aeyakovenko/percolator</code></td>
+              <td><a class="repo-link" href="https://github.com/aeyakovenko/percolator/issues/63" target="_blank">#63</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>Bounty-5: Phantom Fee Attack — Domain Budget Inflation via Discarded Fee Return Values</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-compiler">COMPILER BUG</span></td>
+              <td><code>rust-lang/rust</code></td>
+              <td><a class="repo-link" href="https://github.com/rust-lang/rust/issues/156563" target="_blank">#156563</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>Upstream rustc 1.95.0 SIGSEGV in LLVM FastISel::selectInstruction with codegen-units=1</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="timeline-era">
+        <div class="era-title">🌐 External Protocol Contributions & Ecosystem PRs</div>
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Target Repository</th>
+              <th>Ref</th>
+              <th>Status</th>
+              <th>Contribution Title</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>NousResearch/hermes-agent</code></td>
+              <td><a class="repo-link" href="https://github.com/NousResearch/hermes-agent/pull/137941" target="_blank">#137941</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>catalog: add antigravity (native direct-API provider, v1.5.0)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>NousResearch/hermes-agent</code></td>
+              <td><a class="repo-link" href="https://github.com/NousResearch/hermes-agent/pull/137309" target="_blank">#137309</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>catalog: add antigravity (native direct-API provider, v1.5.0)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>NousResearch/hermes-agent</code></td>
+              <td><a class="repo-link" href="https://github.com/NousResearch/hermes-agent/pull/133591" target="_blank">#133591</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>catalog: add antigravity (native direct-API Antigravity provider)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>Ihceen/privacy-ethereum-framework</code></td>
+              <td><a class="repo-link" href="https://github.com/Ihceen/privacy-ethereum-framework/pull/2" target="_blank">#2</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>feat(titouan): industrial + Sybil joint (draft — do not merge main yet)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>Ihceen/privacy-ethereum-framework</code></td>
+              <td><a class="repo-link" href="https://github.com/Ihceen/privacy-ethereum-framework/pull/1" target="_blank">#1</a></td>
+              <td><span class="badge badge-state-merged">merged</span></td>
+              <td>feat: industrial defenses (strict groth16, P1–P3) + threat prisms</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>Ragnar-no-sleep/blitz-and-chill</code></td>
+              <td><a class="repo-link" href="https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/16" target="_blank">#16</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>Integrate Talaria PoH gateway on current solo QR base</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>Ragnar-no-sleep/blitz-and-chill</code></td>
+              <td><a class="repo-link" href="https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/12" target="_blank">#12</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat(cynic): PoIH bridge — game_completion -> CYNIC /observe</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>Ragnar-no-sleep/blitz-and-chill</code></td>
+              <td><a class="repo-link" href="https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/11" target="_blank">#11</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat(poh): /api/verify — wallet → PoH check for SOL raffle integration</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/CultScreener</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/CultScreener/pull/5" target="_blank">#5</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>feat(holderBehavior): add CYNIC behavioral signals — accumulatorRatio + organicGrowth</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>Ragnar-no-sleep/blitz-and-chill</code></td>
+              <td><a class="repo-link" href="https://github.com/Ragnar-no-sleep/blitz-and-chill/pull/10" target="_blank">#10</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat(poh): rejection labeling — K15 glaive + HMAC ip hash + threat model</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/CultScreener</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/CultScreener/pull/4" target="_blank">#4</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>feat: use @asdf-forge/constants for token mints</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/CultScreener</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/CultScreener/pull/3" target="_blank">#3</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>feat(share): rich embeds for X/Twitter + theme support</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/CultScreener</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/CultScreener/pull/2" target="_blank">#2</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat(share): rich dynamic embeds for X/Twitter with theme support</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/CultScreener</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/CultScreener/pull/1" target="_blank">#1</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat(share): enable rich dynamic embeds for X (Twitter) using sharp</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>kilyaaan/polymarket-bot</code></td>
+              <td><a class="repo-link" href="https://github.com/kilyaaan/polymarket-bot/pull/1" target="_blank">#1</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>feat: v6 Late Trend strategy + repo cleanup</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>solana-foundation/awesome-solana-ai</code></td>
+              <td><a class="repo-link" href="https://github.com/solana-foundation/awesome-solana-ai/pull/13" target="_blank">#13</a></td>
+              <td><span class="badge badge-state-merged">merged</span></td>
+              <td>Add CYNIC to AI Agents</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/7" target="_blank">#7</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>fix(helius): Critical API credit explosion fix + Harmony v2.0 + Webhook improvements</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/6" target="_blank">#6</a></td>
+              <td><span class="badge badge-state-merged">merged</span></td>
+              <td>chore: Add CI pipeline, tests, and latest features</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/5" target="_blank">#5</a></td>
+              <td><span class="badge badge-state-merged">merged</span></td>
+              <td>feat: Distributed Node Network with Ed25519 Signatures (Clean)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>thedotmack/claude-mem</code></td>
+              <td><a class="repo-link" href="https://github.com/thedotmack/claude-mem/pull/608" target="_blank">#608</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>refactor: multi-project ChromaSync + fix: cleanup leaked SDK processes</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/4" target="_blank">#4</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat: Distributed Node Network with Ed25519 Signatures</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/3" target="_blank">#3</a></td>
+              <td><span class="badge badge-state-closed">closed</span></td>
+              <td>feat: Distributed Node Network with Ed25519 Signatures</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/2" target="_blank">#2</a></td>
+              <td><span class="badge badge-state-merged">merged</span></td>
+              <td>feat: K-Score v10 + Harmony E-Score + Security Hardening</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/HolDex</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/HolDex/pull/1" target="_blank">#1</a></td>
+              <td><span class="badge badge-state-merged">merged</span></td>
+              <td>K-Score v8 + Credit Rating System</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-partner">PARTNER FEATURE</span></td>
+              <td><code>sollama58/ASDForecast</code></td>
+              <td><a class="repo-link" href="https://github.com/sollama58/ASDForecast/pull/1" target="_blank">#1</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>feat: Add ASDF lottery system with activity requirement (v121.0)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-protocol">PROTOCOL CONTRIBUTION</span></td>
+              <td><code>NousResearch/hermes-agent</code></td>
+              <td><a class="repo-link" href="https://github.com/NousResearch/hermes-agent/issues/133512" target="_blank">#133512</a></td>
+              <td><span class="badge badge-state-open">open</span></td>
+              <td>[Feature]: no public API for a plugin to register an external OAuth provider with hermes auth</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Calibrated Competencies Matrix</h2>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-header">
+            <div class="skill-name">AI Tooling & Multi-Agent Orchestration</div>
+            <span class="badge badge-basis-exercised">exercised</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">Primary exercised skill: directing coding agents, prompt architectures, and consensus loops.</div>
+          <ul class="skill-items">
+            <li><span class="badge badge-basis-exercised" style="font-size: 9px;">exercised</span> <span>Orchestration of coding agents (Claude Code, Gemini, Codex, Hermes)</span></li>
+            <li><span class="badge badge-basis-exercised" style="font-size: 9px;">exercised</span> <span>Agent protocol design (claims, leases, read-back proofs)</span></li>
+            <li><span class="badge badge-basis-exercised" style="font-size: 9px;">exercised</span> <span>Writing specifications and machine-readable contracts</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Model Context Protocol (MCP)</span></li>
+          </ul>
+        </div>
+        <div class="skill-card">
+          <div class="skill-header">
+            <div class="skill-name">Low-Layer Systems & Consensus</div>
+            <span class="badge badge-basis-understood">understood</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">Core of CYNIC substrate: authorization, isolation, state machine replication.</div>
+          <ul class="skill-items">
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Linux internals (cgroups, PSI, /proc)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>State Machine Replication (SMR)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Distributed systems design</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Process isolation (LXC/QEMU)</span></li>
+          </ul>
+        </div>
+        <div class="skill-card">
+          <div class="skill-header">
+            <div class="skill-name">Rust Architecture & Invariants</div>
+            <span class="badge badge-basis-understood">understood</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">44-crate workspace architecture, pure zero-I/O domain core, ports & adapters.</div>
+          <ul class="skill-items">
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Modular crates and workspace topology</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Strict downward DAG ports and adapters</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Zero-I/O domain core (FCIS)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Executable architecture boundary tests</span></li>
+          </ul>
+        </div>
+        <div class="skill-card">
+          <div class="skill-header">
+            <div class="skill-name">Blockchain & Protocol Engineering</div>
+            <span class="badge badge-basis-understood">understood</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">Solana / SPL, Ethereum EVM, privacy mechanisms, on-chain fee relays.</div>
+          <ul class="skill-items">
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Solana / SPL & gasless relay (GASdf)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Ethereum / EVM, Kurtosis devnets (PEF)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Privacy mechanisms (mixers, Dandelion pools)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>On-chain oracles and fee markets</span></li>
+          </ul>
+        </div>
+        <div class="skill-card">
+          <div class="skill-header">
+            <div class="skill-name">Infrastructure & Sovereign DevOps</div>
+            <span class="badge badge-basis-understood">understood</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">WireGuard mesh, Proxmox LXC virtualization, GitOps release gates.</div>
+          <ul class="skill-items">
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>WireGuard / Headscale mesh networking</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Proxmox / LXC & QEMU virtualization</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>systemd daemon supervision</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Self-hosted Forgejo & hermetic CI</span></li>
+          </ul>
+        </div>
+        <div class="skill-card">
+          <div class="skill-header">
+            <div class="skill-name">Programming Languages</div>
+            <span class="badge badge-basis-exposure">exposure</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 10px;">Python authored by hand; Rust, TS, Bash agent-steered; Kotlin, Solidity, Go surveyed.</div>
+          <ul class="skill-items">
+            <li><span class="badge badge-basis-exercised" style="font-size: 9px;">exercised</span> <span>Python — authored by hand (2023-2024)</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Rust — conceptually driven through agents</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>TypeScript / JavaScript — driven through agents</span></li>
+            <li><span class="badge badge-basis-understood" style="font-size: 9px;">understood</span> <span>Bash / Shell — driven through agents</span></li>
+            <li><span class="badge badge-basis-exposure" style="font-size: 9px;">exposure</span> <span>Go, Solidity, Kotlin — surveyed exposure</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Verifiable Claims Ledger (Physical Receipts)</h2>
+      <table class="claims-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Claim ID</th>
+            <th>Assertion</th>
+            <th>Physical Evidence</th>
+            <th>Deterministic Command</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>cynic.zero_git_add_all</code></td>
+            <td>Strict hygienic staging: zero commits in history use untracked 'git add -A' or 'git add .'</td>
+            <td><code class="code-receipt">git log commit subjects</code></td>
+            <td><code class="code-receipt">git log --format='%s' | grep -ciE 'add -A|add \.$'</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>cynic.workspace_crates</code></td>
+            <td>CYNIC workspace contains 41 modular crates adhering to strict downward DAG topology</td>
+            <td><code class="code-receipt">Cargo.toml workspace & infra/crate-topology.json</code></td>
+            <td><code class="code-receipt">ls crates | wc -l</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>cynic.total_loc_rust</code></td>
+            <td>CYNIC substrate volume comprises 388421 physical lines of Rust</td>
+            <td><code class="code-receipt">git ls-files '*.rs'</code></td>
+            <td><code class="code-receipt">git ls-files '*.rs' | xargs cat | wc -l</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>cynic.arch_boundaries</code></td>
+            <td>100% of workspace crates enforce executable architecture boundary tests forbidding illegal upward dependencies</td>
+            <td><code class="code-receipt">tests/architecture_boundary.rs across crates</code></td>
+            <td><code class="code-receipt">git ls-files | grep -c 'architecture_boundary.rs$'</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>cynic.machine_contracts</code></td>
+            <td>Runtime authority governed by 38 machine-readable normative JSON contracts</td>
+            <td><code class="code-receipt">contracts/*.json</code></td>
+            <td><code class="code-receipt">ls contracts/*.json | wc -l</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>author.github_repos</code></td>
+            <td>Track record spans 35 public and private repositories across 4 distinct evolutionary eras</td>
+            <td><code class="code-receipt">GitHub API @zeyxx / infra/repos-zeyxx-github.json</code></td>
+            <td><code class="code-receipt">gh repo list zeyxx --limit 100 --json name | jq length</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>author.external_security_bounties</code></td>
+            <td>Discovered and submitted 4 critical smart contract vulnerabilities and price manipulation exploits (Anatoly Yakovenko / Percolator Bounties 5 & 6, 100,000,000x price manipulation PoC)</td>
+            <td><code class="code-receipt">aeyakovenko/percolator-prog#110, percolator-cli#79, percolator#63, percolator-cli#80</code></td>
+            <td><code class="code-receipt">jq '.external_issues[] | select(.repository.nameWithOwner | contains("aeyakovenko"))' infra/github-interactions-graph.json</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>author.upstream_compiler_bug</code></td>
+            <td>Discovered and documented upstream compiler SIGSEGV crash in rustc 1.95.0 LLVM FastISel code generation</td>
+            <td><code class="code-receipt">rust-lang/rust#156563</code></td>
+            <td><code class="code-receipt">jq '.external_issues[] | select(.repository.nameWithOwner == "rust-lang/rust")' infra/github-interactions-graph.json</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-demonstrated">DEMONSTRATED</span></td>
+            <td><code>author.external_ecosystems</code></td>
+            <td>Contributed across 9 external ecosystems spanning 26 external Pull Requests and 5 critical upstream issues</td>
+            <td><code class="code-receipt">GitHub API @zeyxx / infra/github-interactions-graph.json</code></td>
+            <td><code class="code-receipt">jq '.summary.external_ecosystems | length' infra/github-interactions-graph.json</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+            <td><code>cynic.zero_io_core</code></td>
+            <td>Functional Core / Imperative Shell (FCIS): pure domain logic isolated from I/O ports</td>
+            <td><code class="code-receipt">Domain modules compile without async runtimes or network dependencies</code></td>
+            <td><code class="code-receipt">cynic audit crate --json</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-partial">PARTIAL</span></td>
+            <td><code>cynic.kani_model_checking</code></td>
+            <td>Kani formal verification proofs for consensus invariants in cynic-node</td>
+            <td><code class="code-receipt">crates/cynic-node/src/verification.rs (present in source, not replayed in standard CI)</code></td>
+            <td><span style="color: var(--text-dim);">n/a</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      <div>Schema: <code>cynic.facts.live.v1</code> &bull; Pure Zero-I/O Rust Engine</div>
+      <div>Grounded in physical receipts. No mutation without read-back proof.</div>
+    </footer>
+  </div>
+</body>
+</html>

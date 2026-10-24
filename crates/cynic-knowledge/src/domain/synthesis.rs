@@ -75,11 +75,25 @@ DIRECTIVES IMPÉRATIVES :
         }
     }
 
-    /// Résout dynamiquement l'URL de l'endpoint d'inférence via CynicPaths et inference.toml.
-    pub fn resolve_local_inference_endpoint() -> String {
+    /// Résout dynamiquement l'URL de l'endpoint d'inférence souverain.
+    /// Ordre d'autorité :
+    /// 1. `CYNIC_INFERENCE_URL` (override explicite d'environnement).
+    /// 2. `inference-server` résolu dynamiquement depuis le registre canonique (`infra/registry.json`).
+    /// 3. Configuration d'inférence locale (`inference.toml` via `cynic_types::CynicPaths`).
+    pub fn resolve_local_inference_endpoint() -> Option<String> {
         if let Ok(env_url) = std::env::var("CYNIC_INFERENCE_URL") {
-            return env_url;
+            let trimmed = env_url.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
         }
+
+        if let Some(endpoint) =
+            crate::adapters::resolve_service_endpoint_from_registry("inference-server")
+        {
+            return Some(endpoint);
+        }
+
         let cfg_path = cynic_types::CynicPaths::inference_config_path();
         if let Ok(content) = std::fs::read_to_string(&cfg_path) {
             if let Ok(toml_val) = toml::from_str::<toml::Value>(&content) {
@@ -87,12 +101,13 @@ DIRECTIVES IMPÉRATIVES :
                     for b in backends {
                         if let Some(base_url) = b.get("base_url").and_then(|u| u.as_str()) {
                             let trimmed = base_url.trim_end_matches('/');
-                            return format!("{}/chat/completions", trimmed);
+                            return Some(format!("{}/chat/completions", trimmed));
                         }
                     }
                 }
             }
         }
-        "http://127.0.0.1:8088/v1/chat/completions".to_string()
+
+        None
     }
 }

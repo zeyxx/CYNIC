@@ -1,10 +1,15 @@
 #![allow(dead_code)]
 mod defaults;
 mod load;
+pub mod reload;
 mod types;
 
 #[allow(unused_imports)]
 pub use load::*;
+pub use reload::{
+    RELOAD_RECEIPT_SCHEMA, ReloadDecision, ReloadOutcome, ReloadReceipt, canonical_digest,
+    decide_reload, diff_toml_values, parse_node_control_str, requires_restart,
+};
 pub use types::*;
 
 /// Canonical fallback repository id for build surfaces that lack an explicit

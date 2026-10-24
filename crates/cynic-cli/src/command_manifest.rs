@@ -134,6 +134,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator onboard <collaborator_id> --handle <gh> [--display-name <name>] [--project <slug>] [--note <text>] --yes [--registry <path>]",
+                    "cynic collaborator watch [--project <slug>] [--forgejo-url <url>] [--github-token <t>] [--forgejo-token <t>] [--json]",
+                    "cynic fleet observe [--user <u>] [--json]",
+                    "cynic fleet remediate <runner> --action <gc-disk|restart-probe> --yes [--user <u>] [--json]",
                 ],
             },
             CommandDomain {
@@ -238,15 +241,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
                     "cynic agent session context [--registry <path>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "idea",
-                commands: vec![
-                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
-                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -405,6 +399,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "know",
                 commands: vec![
                     "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
+                    "cynic know surface [--out-dir <path>] [--verify] [--json]",
                 ],
             },
             CommandDomain {

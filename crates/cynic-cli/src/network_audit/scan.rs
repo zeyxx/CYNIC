@@ -41,8 +41,8 @@ struct NodeEntry {
 #[derive(Debug, Deserialize)]
 struct NetworkEntry {
     synapse: Option<String>,
-    management: Option<String>,
-    dns: Option<Vec<String>>,
+    _management: Option<String>,
+    _dns: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,7 +51,7 @@ struct ServiceEntry {
     endpoint_host: Option<String>,
     network_plane: Option<String>,
     port: Option<u16>,
-    scheme: Option<String>,
+    _scheme: Option<String>,
 }
 
 /// Build the network audit from declared registry + runtime probes.

@@ -160,16 +160,6 @@
       "roles": [],
       "consumers": [],
       "note": "DEAD: zero external consumers. Candidate for deletion."
-    },
-    {
-      "id": "zeroclaw-solana-demo",
-      "crate": "cynic-zeroclaw-solana",
-      "binary": "zeroclaw-solana-demo",
-      "audience": "tooling",
-      "install_path": null,
-      "roles": [],
-      "consumers": [],
-      "note": "DEAD: zero external consumers. Candidate for deletion."
     }
   ],
   "bundle_rules": {

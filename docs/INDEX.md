@@ -14,6 +14,7 @@ Authority: contracts/foundation.json §docs
    - `CRATE_RULES.md` — Rust crate boundaries, pure logic vs I/O separation.
 
 2. **`docs/specs/`** : Active normative technical specifications.
+   - `CYNIC_SOVEREIGN_GPS_SPEC.md` — Master architectural compass, 4-layer sovereign stack, crate quadrant topology, and convergence milestones.
    - `2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md` — Single source of truth for ongoing refactoring and milestones.
    - `SPEC-CYNIC-STORAGE-V1.md` — Storage hierarchy (K1–K8) and evidence journal contracts.
    - `SOLANA_ANCHOR_ARCHITECTURE_SPEC.md` — Anchor on-chain settlement and integration.
@@ -29,6 +30,13 @@ Authority: contracts/foundation.json §docs
    - `NETWORK_ENROLLMENT.md` — Mandatory network enrollment gate: status machine, per-plane probes, registry record. No IP/route/peer/workload before enrollment.
    - `POOL_ELIGIBILITY.md` — Build pool eligibility: declared pool labels + proven toolchain. A node may not take a build job unless both bricks pass.
    - `BASE_ENROLLMENT.md` — Base enrollment as the precondition for any role: identity, reachability, accountability. No role, no label, no workload before it.
+
+4. **`docs/public/` & `docs/articles/`** : Public Epistemic Surface & Autobiographical Canon.
+   - `docs/public/public_surface.html` — Live sovereign public surface (standalone dark terminal HTML, zero external CDN): 35 repos across 4 eras, 453 PRs (26 external across 9 ecosystems), 8 issues (Anatoly Yakovenko bounties, upstream Rust compiler bug), calibrated skills matrix, and verified claims ledger.
+   - `docs/public/public_surface.md` — GitHub-flavored markdown export of the 4-era odyssey, interaction graph, and verified claims ledger (`cynic.facts.live.v1`).
+   - `docs/public/facts.live.json` — Machine-verifiable JSON ledger of live metrics and physical substrate proofs.
+   - `docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_FR.md` — Foundational manifesto / autopsy (French).
+   - `docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_EN.md` — Mirror parity English translation.
 
 ---
 

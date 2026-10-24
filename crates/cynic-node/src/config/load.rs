@@ -73,7 +73,7 @@ pub fn load_node_control(path: &str) -> Result<NodeControlConfig, String> {
     Ok(cfg.node_control)
 }
 
-fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
+pub(crate) fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
     cfg.kernel_url = expand_env_vars(&cfg.kernel_url)?;
     cfg.node_id = expand_env_vars(&cfg.node_id)?;
     cfg.enrollment_seed_id = expand_env_vars(&cfg.enrollment_seed_id)?;

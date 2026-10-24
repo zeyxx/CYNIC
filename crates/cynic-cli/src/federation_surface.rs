@@ -59,8 +59,8 @@ pub(crate) struct EnrollStatusCommand {
     pub no_ssh: bool,
 }
 
+#[cfg(test)]
 impl FederationCommand {
-    /// Execute the federation command.
     pub(crate) fn execute(&self, reconciliation: &FederationReconciliation) -> Result<(), String> {
         match self {
             FederationCommand::Status(cmd) => cmd.execute(reconciliation),
@@ -223,7 +223,7 @@ struct EnrollRegistry {
 #[derive(Deserialize)]
 struct EnrollNode {
     id: String,
-    role: Option<String>,
+    _role: Option<String>,
     status: Option<String>,
     network: Option<EnrollNetwork>,
     transports: Option<EnrollTransports>,

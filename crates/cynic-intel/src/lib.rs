@@ -4,6 +4,7 @@ pub mod adapters;
 pub mod autoresearch;
 pub mod ccm;
 pub mod compliance;
+pub mod domain;
 pub mod domain_enrichment;
 pub mod epistemic;
 pub mod escore;
@@ -13,12 +14,21 @@ pub mod kscore;
 pub mod ports;
 pub mod rug_prefilter;
 pub mod rug_risk;
+pub mod soc;
 pub mod solana_safety_dog;
 pub mod sop_sanitizer;
 pub mod stimulus;
 pub mod token_postprocessor;
 pub mod wallet_enrichment;
 pub mod wallet_judgment;
+
+pub mod solana {
+    pub use crate::adapters::solana_plugin::{
+        ZeroClawSolanaPayOutput, ZeroClawSolanaPlugin, ZeroClawToolDefinition,
+    };
+    pub use crate::domain::solana::*;
+}
+
 pub use adapters::helius::HeliusEnricher;
 pub use cynic_protocol::Epoch;
 pub use ports::*;

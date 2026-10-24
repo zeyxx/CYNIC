@@ -86,3 +86,11 @@ cynic-demo.html
 *.docx
 *.xlsx
 *.pdf
+
+# Odyssey private/confidential working notes
+/docs/articles/odyssey/*[nN][oO][tT][eE][sS]*
+/docs/articles/odyssey/*[rR]electu*
+/docs/articles/odyssey/*.private.*
+/docs/articles/odyssey/*.draft.*
+/docs/articles/odyssey/COULISSES_*
+

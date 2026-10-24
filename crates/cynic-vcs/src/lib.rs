@@ -18,6 +18,7 @@ pub mod git_topology_observer;
 pub mod isolated_worktree;
 pub mod parse;
 pub mod ports;
+pub mod providers;
 pub mod publication;
 pub mod pull_request;
 pub mod reconcile;
@@ -35,6 +36,7 @@ pub mod source_worktree_cli;
 pub mod source_worktree_inventory;
 pub mod stack;
 pub mod sync;
+pub use providers::signed_exec;
 
 #[cfg(test)]
 mod source_worktree_inventory_tests;

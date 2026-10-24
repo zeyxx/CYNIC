@@ -191,6 +191,16 @@ impl CynicPaths {
         Self::user_cache_dir().join("corpus_cache.json")
     }
 
+    /// Preferred system path of the sovereign rerank score cache (rerank_cache.json). Pure.
+    pub fn system_rerank_cache_path() -> PathBuf {
+        Self::state_dir().join("knowledge/rerank_cache.json")
+    }
+
+    /// Per-user fallback of the sovereign rerank score cache (~/.cache/cynic/rerank_cache.json). Pure.
+    pub fn user_rerank_cache_path() -> PathBuf {
+        Self::user_cache_dir().join("rerank_cache.json")
+    }
+
     /// Vérifie si un chemin donné pointe vers l'arborescence système cynic.
     pub fn is_under_system_root(path: &Path) -> bool {
         path.starts_with(Self::DEFAULT_SYSTEM_ROOT)

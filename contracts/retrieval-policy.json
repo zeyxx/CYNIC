@@ -1,0 +1,93 @@
+{
+  "schema": "cynic.retrieval_policy.v1",
+  "active_profile": "balanced",
+  "description": "Declarative canonical registry for sovereign RAG retrieval parameters and profiles. Governs hybrid fusion, neural reranking, graph expansion, and epistemic guard thresholds without code recompilation.",
+  "profiles": {
+    "balanced": {
+      "description": "Calibrated balanced hybrid retrieval: BM25 + Dense Q8 embeddings with neural cross-encoder rerank and topological graph expansion.",
+      "candidate_k": 50,
+      "fusion_alpha": 0.80,
+      "normalization": "CandidateMinMax",
+      "rerank_pool_cap": 24,
+      "rerank_timeout_ms": 15000,
+      "graph_max_expansion": 2,
+      "min_term_coverage": 0.30,
+      "neural_confidence_floor": 0.70,
+      "max_sources": 5,
+      "max_context_chars": 8000,
+      "lost_in_the_middle": false
+    },
+    "high_precision": {
+      "description": "High precision profile: stricter lexical match, smaller candidate pool, tight context bounds for mission-critical facts.",
+      "candidate_k": 30,
+      "fusion_alpha": 0.60,
+      "normalization": "CandidateMinMax",
+      "rerank_pool_cap": 16,
+      "rerank_timeout_ms": 10000,
+      "graph_max_expansion": 1,
+      "min_term_coverage": 0.50,
+      "neural_confidence_floor": 0.75,
+      "max_sources": 4,
+      "max_context_chars": 6000,
+      "lost_in_the_middle": false
+    },
+    "high_recall": {
+      "description": "Broad recall profile: wider initial scan, larger neural pool, deeper graph traversal and lost-in-the-middle context packing.",
+      "candidate_k": 100,
+      "fusion_alpha": 0.85,
+      "normalization": "CandidateMinMax",
+      "rerank_pool_cap": 48,
+      "rerank_timeout_ms": 25000,
+      "graph_max_expansion": 3,
+      "min_term_coverage": 0.20,
+      "neural_confidence_floor": 0.65,
+      "max_sources": 8,
+      "max_context_chars": 12000,
+      "lost_in_the_middle": true
+    },
+    "lexical_only": {
+      "description": "Pure deterministic BM25 lexical search with graph expansion, bypasses all neural models for zero-GPU operation.",
+      "candidate_k": 50,
+      "fusion_alpha": 0.0,
+      "normalization": "CandidateMinMax",
+      "rerank_pool_cap": 0,
+      "rerank_timeout_ms": 0,
+      "graph_max_expansion": 2,
+      "min_term_coverage": 0.40,
+      "neural_confidence_floor": 1.0,
+      "max_sources": 5,
+      "max_context_chars": 8000,
+      "lost_in_the_middle": false
+    },
+    "dense_only": {
+      "description": "Dense semantic cosine search only with neural cross-encoder reranking.",
+      "candidate_k": 50,
+      "fusion_alpha": 1.0,
+      "normalization": "CandidateMinMax",
+      "rerank_pool_cap": 24,
+      "rerank_timeout_ms": 15000,
+      "graph_max_expansion": 2,
+      "min_term_coverage": 0.25,
+      "neural_confidence_floor": 0.70,
+      "max_sources": 5,
+      "max_context_chars": 8000,
+      "lost_in_the_middle": false
+    },
+    "geodesic_deep": {
+      "description": "Deep multi-hop causal graph diffusion (spec R1 delta): wider candidate intake and 4-hop parent contract expansion.",
+      "candidate_k": 80,
+      "fusion_alpha": 0.80,
+      "normalization": "CandidateMinMax",
+      "rerank_pool_cap": 32,
+      "rerank_timeout_ms": 20000,
+      "graph_max_expansion": 4,
+      "min_term_coverage": 0.25,
+      "neural_confidence_floor": 0.68,
+      "max_sources": 7,
+      "max_context_chars": 10000,
+      "lost_in_the_middle": true
+    }
+  },
+  "extra_domain_noise": [],
+  "extra_stop_words": []
+}

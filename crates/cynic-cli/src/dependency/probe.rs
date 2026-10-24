@@ -1,0 +1,396 @@
+use crate::dependency::model::{
+    DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, UpgradeMode,
+    VersionFrom,
+};
+use cynic_host::domain::ecosystem_package::{
+    EcosystemPackageExecutionPort, InstallPrincipalKind, LocalEcosystemPackageExecution,
+    PrincipalInstallLayout, ProviderChannel, PythonInstallProvenance,
+    observe_python_install_authority, observe_tooling_authority, plan_for_dep, provider_spec,
+    python_cli_policy, resolve_binary,
+};
+
+pub(crate) fn probe_and_evaluate(
+    spec: &DepSpec,
+    pin: Option<&PinEntry>,
+    layout: &PrincipalInstallLayout,
+) -> DepEntry {
+    let executor = LocalEcosystemPackageExecution;
+    probe_and_evaluate_with_executor(spec, pin, layout, &executor)
+}
+
+fn probe_and_evaluate_with_executor(
+    spec: &DepSpec,
+    pin: Option<&PinEntry>,
+    layout: &PrincipalInstallLayout,
+    executor: &dyn EcosystemPackageExecutionPort,
+) -> DepEntry {
+    let channel = channel_for_dep(spec.id);
+    let install_principal = principal_for_dep(spec.id);
+    let upgrade_mode = mode_from_channel(channel);
+
+    let mut path = None;
+    let mut under_principal = false;
+    for bin in spec.bins {
+        let observation = resolve_binary(bin, layout);
+        if let Some(resolved_path) = observation.path {
+            under_principal = observation.under_principal;
+            path = Some(resolved_path);
+            break;
+        }
+    }
+    let watch = DepWatch {
+        upstream: spec.upstream,
+        check_hint: spec.check_hint,
+        update_hint: spec.update_hint,
+        update_commands: if let Some(plan) = plan_for_dep(spec.id, "refresh", layout) {
+            plan.summary_commands
+        } else {
+            spec.update_commands
+                .iter()
+                .map(|command| (*command).to_string())
+                .collect()
+        },
+    };
+
+    let pin_view = pin.map(|entry| PinView {
+        min_version: entry.min_version.clone(),
+        min_build: entry.min_build,
+        desired_build: entry.desired_build,
+        min_capability: entry.min_capability.clone(),
+        commit: entry.commit.clone(),
+        notes: entry.notes.clone(),
+    });
+
+    let (version, status, path_opt) = match path.as_deref() {
+        Some(p) => {
+            let v = read_version(spec, p, executor);
+            let s = evaluate_status(spec.id, v.as_deref(), pin);
+            (v, s, Some(p.to_string()))
+        }
+        None => (None, "missing".to_string(), None),
+    };
+
+    let optional = pin.map(|e| e.required == Some(false)).unwrap_or(false);
+    let tier = if path_opt.is_none() && optional { "optional" } else { spec.tier };
+
+    let tooling_authority = spec.tooling_authority_family.map(|family| {
+        observe_tooling_authority(
+            family,
+            spec.python_distribution,
+            path.as_deref(),
+            spec.expected_tooling_provenance,
+        )
+    });
+    let python_install_authority = observe_python_install_authority(
+        spec.python_distribution,
+        path.as_deref(),
+        spec.expected_python_provenance,
+    );
+
+    let canonical_update_authority = python_cli_policy(spec.id).map(|policy| {
+        PythonCliUpdateAuthorityView {
+            observed_payload_provenance: path_opt.as_ref().and(
+                python_install_authority.observed_provenance.map(format_python_provenance),
+            ),
+            expected_payload_provenance: python_install_authority
+                .expected_provenance
+                .map(format_python_provenance),
+            canonical_update_command: policy.canonical_update_command.to_string(),
+            update_authority_note: policy.update_authority_note.to_string(),
+            normalizable_now: python_cli_normalizable_now(layout, policy.dep_id),
+            requires_uv: python_cli_requires_uv(policy.dep_id),
+            requires_runtime_principal: python_cli_requires_runtime_principal(
+                layout,
+                policy.dep_id,
+            ),
+            can_auto_apply: python_cli_can_auto_apply(layout, policy.dep_id),
+        }
+    });
+
+    let install_authority_status = tooling_authority
+        .as_ref()
+        .map(|a| a.status.clone())
+        .unwrap_or(python_install_authority.status);
+
+    DepEntry {
+        id: spec.id,
+        role: spec.role,
+        category: spec.category,
+        tier,
+        path: path_opt,
+        version,
+        status,
+        upgrade_mode,
+        channel,
+        install_principal,
+        under_principal,
+        tooling_authority_family: spec.tooling_authority_family,
+        tooling_install_provenance: tooling_authority
+            .as_ref()
+            .and_then(|a| a.observed_provenance),
+        expected_tooling_install_provenance: tooling_authority
+            .as_ref()
+            .and_then(|a| a.expected_provenance)
+            .or(spec.expected_tooling_provenance),
+        python_install_provenance: python_install_authority.observed_provenance,
+        expected_python_install_provenance: python_install_authority.expected_provenance,
+        install_authority_status,
+        canonical_update_authority,
+        pin: pin_view,
+        watch,
+    }
+}
+
+fn python_cli_normalizable_now(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
+    python_cli_requires_uv(dep_id)
+        && python_cli_uv_in_runtime_layout(layout)
+        && (!python_cli_requires_runtime_principal(layout, dep_id) || layout.writable)
+}
+
+fn python_cli_uv_in_runtime_layout(layout: &PrincipalInstallLayout) -> bool {
+    let uv = resolve_binary("uv", layout);
+    uv.path.is_some() && uv.under_principal
+}
+
+fn python_cli_requires_uv(dep_id: &str) -> bool {
+    python_cli_policy(dep_id)
+        .map(|policy| policy.canonical_update_argv.first() == Some(&"uv"))
+        .unwrap_or(false)
+}
+
+fn python_cli_requires_runtime_principal(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
+    python_cli_policy(dep_id)
+        .map(|policy| {
+            plan_for_dep(dep_id, "policy-check", layout)
+                .map(|plan| {
+                    plan.steps.iter().any(|step| step.as_principal)
+                        || matches!(plan.principal, InstallPrincipalKind::RuntimeUser)
+                })
+                .unwrap_or(false)
+                || policy.dep_id == "huggingface-cli"
+        })
+        .unwrap_or(false)
+}
+
+fn python_cli_can_auto_apply(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
+    python_cli_policy(dep_id)
+        .and_then(|_| plan_for_dep(dep_id, "policy-check", layout))
+        .map(|plan| plan.auto_applicable)
+        .unwrap_or(false)
+}
+
+fn format_python_provenance(provenance: PythonInstallProvenance) -> String {
+    match provenance {
+        PythonInstallProvenance::UvTool => "uv_tool",
+        PythonInstallProvenance::UvVenv => "uv_venv",
+        PythonInstallProvenance::VirtualEnv => "virtual_env",
+        PythonInstallProvenance::Pipx => "pipx",
+        PythonInstallProvenance::PipUserSite => "pip_user_site",
+        PythonInstallProvenance::SystemPython => "system_python",
+        PythonInstallProvenance::Unknown => "unknown",
+    }
+    .to_string()
+}
+
+fn mode_from_channel(channel: ProviderChannel) -> UpgradeMode {
+    match channel {
+        ProviderChannel::Scripted => UpgradeMode::Scripted,
+        ProviderChannel::External => UpgradeMode::External,
+        ProviderChannel::DistroManaged => UpgradeMode::DistroManaged,
+    }
+}
+
+fn channel_for_dep(id: &str) -> ProviderChannel {
+    provider_spec(id).map(|s| s.channel).unwrap_or(ProviderChannel::External)
+}
+
+fn principal_for_dep(id: &str) -> InstallPrincipalKind {
+    provider_spec(id).map(|s| s.principal).unwrap_or(InstallPrincipalKind::OperatorLocal)
+}
+
+fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> String {
+    let _ = id;
+    let Some(pin) = pin else {
+        return if version.is_some() { "observed".into() } else { "unknown".into() };
+    };
+
+    if let Some(capability) = &pin.min_capability {
+        return match version {
+            Some(v) if v.contains(capability) || v.contains("inference-start") => "ok".into(),
+            Some(_) => "stale".into(),
+            None => "unknown".into(),
+        };
+    }
+
+    if let Some(want) = &pin.commit {
+        return match version {
+            Some(v) if v.contains(want.as_str()) => "ok".into(),
+            Some(_) => "stale".into(),
+            None => "unknown".into(),
+        };
+    }
+
+    if let Some(min_build) = pin.min_build {
+        let Some(value) = version else { return "unknown".into(); };
+        let Some(observed_build) = extract_build_number(value) else { return "unknown".into(); };
+        if observed_build < min_build {
+            return "stale".into();
+        }
+        if let Some(desired_build) = pin.desired_build {
+            if observed_build < desired_build {
+                return "desired_upgrade".into();
+            }
+        }
+        return "ok".into();
+    }
+
+    if let Some(min_version) = &pin.min_version {
+        let Some(value) = version else { return "unknown".into(); };
+        return match cmp_loose_version(value, min_version) {
+            Some(std::cmp::Ordering::Less) => "stale".into(),
+            Some(_) => "ok".into(),
+            None => "unknown".into(),
+        };
+    }
+
+    if version.is_some() { "ok".into() } else { "observed".into() }
+}
+
+fn extract_build_number(s: &str) -> Option<u64> {
+    s.split(|c: char| !c.is_ascii_digit())
+        .find(|part| (3..=6).contains(&part.len()) && part.parse::<u64>().map(|v| v >= 100).unwrap_or(false))
+        .and_then(|part| part.parse::<u64>().ok())
+}
+
+fn cmp_loose_version(observed: &str, min: &str) -> Option<std::cmp::Ordering> {
+    Some(parse_version_triple(observed)?.cmp(&parse_version_triple(min)?))
+}
+
+fn parse_version_triple(s: &str) -> Option<(u64, u64, u64)> {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_digit() {
+            let start = i;
+            while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'.') {
+                i += 1;
+            }
+            let slice = &s[start..i];
+            let mut parts = slice.split('.').filter_map(|part| part.parse::<u64>().ok());
+            let major = parts.next()?;
+            let minor = parts.next().unwrap_or(0);
+            let patch = parts.next().unwrap_or(0);
+            return Some((major, minor, patch));
+        }
+        i += 1;
+    }
+    None
+}
+
+fn read_version(
+    spec: &DepSpec,
+    path: &str,
+    executor: &dyn EcosystemPackageExecutionPort,
+) -> Option<String> {
+    let argv = std::iter::once(path.to_string())
+        .chain(spec.version_args.iter().map(|arg| (*arg).to_string()))
+        .collect::<Vec<_>>();
+    let output = executor.execute(&argv, None);
+    if output.spawn_error.is_some() {
+        return None;
+    }
+    let version = match spec.version_from {
+        VersionFrom::HelpPresence => {
+            let stdout = output.stdout.as_str();
+            if stdout.contains("inference-start") {
+                Some("cynic-cli+inference-start".into())
+            } else if output.success() {
+                Some("present-old-surface".into())
+            } else {
+                Some("present".into())
+            }
+        }
+        VersionFrom::StdoutFirstLine => {
+            let line = output
+                .stdout
+                .lines()
+                .next()
+                .or_else(|| output.stderr.lines().next())
+                .unwrap_or("")
+                .trim();
+            if line.is_empty() {
+                None
+            } else {
+                Some(line.chars().take(120).collect())
+            }
+        }
+        VersionFrom::JsonField(field) => serde_json::from_str::<serde_json::Value>(&output.stdout)
+            .ok()
+            .and_then(|value| value.get(field)?.as_str().map(|s| s.to_string()))
+            .or_else(|| {
+                output
+                    .stdout
+                    .lines()
+                    .next()
+                    .map(|line| line.trim().to_string())
+            }),
+    };
+    if spec.id == "llama.cpp" {
+        if let Ok(raw) = std::fs::read_to_string(format!("{path}.commit")) {
+            let commit = raw.trim().to_string();
+            if !commit.is_empty() {
+                let base = version.unwrap_or_else(|| "unknown".to_string());
+                return Some(format!("{base} commit:{commit}"));
+            }
+        }
+    }
+    version
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_host::domain::ecosystem_package::RunAs;
+    use std::fs::File;
+    use std::path::PathBuf;
+
+    fn runtime_layout(home: PathBuf, writable: bool) -> PrincipalInstallLayout {
+        PrincipalInstallLayout {
+            principal: InstallPrincipalKind::RuntimeUser,
+            runtime_user: "cynic".into(),
+            home_dir: home.clone(),
+            bin_dir: home.join(".local/bin"),
+            src_dir: home.join(".local/share/cynic/src"),
+            share_dir: home.join(".local/share/cynic"),
+            run_as: RunAs::Current,
+            writable,
+            notes: vec![],
+        }
+    }
+
+    #[test]
+    fn python_cli_uv_in_runtime_layout_checks_principal_uv_binary() {
+        let home = std::env::temp_dir().join("cynic-test-uv-runtime-home-1");
+        let _ = std::fs::remove_dir_all(&home);
+        let layout = runtime_layout(home.clone(), true);
+        std::fs::create_dir_all(&layout.bin_dir).unwrap();
+        assert!(!python_cli_uv_in_runtime_layout(&layout));
+        File::create(layout.bin_dir.join("uv")).unwrap();
+        assert!(python_cli_uv_in_runtime_layout(&layout));
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn python_cli_normalizable_now_for_hermes_requires_writable_and_runtime_uv() {
+        let home = std::env::temp_dir().join("cynic-test-uv-runtime-home-2");
+        let _ = std::fs::remove_dir_all(&home);
+        let mut layout = runtime_layout(home.clone(), true);
+        std::fs::create_dir_all(&layout.bin_dir).unwrap();
+        File::create(layout.bin_dir.join("uv")).unwrap();
+        assert!(python_cli_normalizable_now(&layout, "hermes-agent"));
+
+        layout.writable = false;
+        assert!(!python_cli_normalizable_now(&layout, "hermes-agent"));
+        let _ = std::fs::remove_dir_all(&home);
+    }
+}

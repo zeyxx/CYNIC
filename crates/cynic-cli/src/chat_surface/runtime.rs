@@ -19,13 +19,13 @@ pub(crate) struct ChatRuntime {
     pub source: String,
     pub detail: String,
     pub session_root: String,
-    pub available_models: Vec<String>,
-    pub context_turns: Option<usize>,
-    pub max_tokens: Option<u32>,
-    pub temperature: Option<f32>,
-    pub top_p: Option<f32>,
-    pub reasoning_profile: String,
-    pub context_source: String,
+    pub _available_models: Vec<String>,
+    pub _context_turns: Option<usize>,
+    pub _max_tokens: Option<u32>,
+    pub _temperature: Option<f32>,
+    pub _top_p: Option<f32>,
+    pub _reasoning_profile: String,
+    pub _context_source: String,
 }
 
 #[derive(Debug)]
@@ -137,13 +137,13 @@ pub(crate) async fn build_chat_runtime(
             source: "mock".into(),
             detail: "explicit mock".into(),
             session_root: root.display().to_string(),
-            available_models: vec!["mock-model".to_string()],
-            context_turns: None,
-            max_tokens: None,
-            temperature: None,
-            top_p: None,
-            reasoning_profile: "mock".into(),
-            context_source: "static".into(),
+            _available_models: vec!["mock-model".to_string()],
+            _context_turns: None,
+            _max_tokens: None,
+            _temperature: None,
+            _top_p: None,
+            _reasoning_profile: "mock".into(),
+            _context_source: "static".into(),
         });
     }
 
@@ -204,16 +204,16 @@ pub(crate) async fn build_chat_runtime(
                     source: format!("{:?}", resolution.source).to_lowercase(),
                     detail: resolution.detail,
                     session_root: root.display().to_string(),
-                    available_models: vec![],
-                    context_turns: params.context_turns,
-                    max_tokens: params.max_tokens,
-                    temperature: params.temperature,
-                    top_p: params.top_p,
-                    reasoning_profile: params
+                    _available_models: vec![],
+                    _context_turns: params.context_turns,
+                    _max_tokens: params.max_tokens,
+                    _temperature: params.temperature,
+                    _top_p: params.top_p,
+                    _reasoning_profile: params
                         .reasoning_profile
                         .clone()
                         .unwrap_or_else(|| "balanced".into()),
-                    context_source: "resolution".into(),
+                    _context_source: "resolution".into(),
                 });
             }
 
@@ -303,16 +303,16 @@ pub(crate) async fn build_chat_runtime(
         source,
         detail,
         session_root: root.display().to_string(),
-        available_models,
-        context_turns: params.context_turns,
-        max_tokens: params.max_tokens,
-        temperature: params.temperature,
-        top_p: params.top_p,
-        reasoning_profile: params
+        _available_models: available_models,
+        _context_turns: params.context_turns,
+        _max_tokens: params.max_tokens,
+        _temperature: params.temperature,
+        _top_p: params.top_p,
+        _reasoning_profile: params
             .reasoning_profile
             .clone()
             .unwrap_or_else(|| "balanced".into()),
-        context_source: params.context_source.clone(),
+        _context_source: params.context_source.clone(),
     })
 }
 
@@ -818,39 +818,4 @@ pub(crate) fn chat_tool_policy() -> (Vec<cynic_inference::ToolSpec>, u32) {
     } else {
         (vec![], 1)
     }
-}
-
-/// Rebuild chat client after preferred-alias pin (thin wiring; domain is in bind_*).
-pub(crate) fn rebind_chat_service(
-    store: Arc<dyn ChatSessionStore>,
-    endpoint: &str,
-    model_id: &str,
-    api_key: Option<String>,
-    context_turns: Option<usize>,
-    max_tokens: Option<u32>,
-    temperature: Option<f32>,
-    top_p: Option<f32>,
-    reasoning_profile: &str,
-) -> Result<ChatService, String> {
-    let client = HttpOpenAiChatClient::with_api_key(endpoint, model_id, api_key)
-        .map_err(|e| e.to_string())?
-        .with_runtime_params(max_tokens, temperature, top_p);
-    let (specs, max_tools) = chat_tool_policy();
-    Ok(ChatService::new(
-        store,
-        Arc::new(client),
-        Arc::new(BuiltinToolInvoker),
-        specs,
-        cynic_inference::ChatServiceConfig::new(
-            Some(endpoint.to_string()),
-            Some(model_id.to_string()),
-            max_tools,
-            true,
-        )
-        .context_turns(context_turns)
-        .max_tokens(max_tokens)
-        .temperature(temperature)
-        .top_p(top_p)
-        .reasoning_profile(reasoning_profile),
-    ))
 }

@@ -1,1 +1,19 @@
-{"schema": "cynic.fleet.capacity.v1", "snapshots": []}
+{
+  "schema": "cynic.fleet.capacity.v1",
+  "snapshots": [
+    {
+      "disk_avail_bytes": 89597304832,
+      "free_ram_bytes": 6715703296,
+      "observed_unix_s": 1792742794,
+      "runner_id": "cynic-builder",
+      "state_root": "/var/lib/cynic"
+    },
+    {
+      "disk_avail_bytes": 89599860736,
+      "free_ram_bytes": 5968142336,
+      "observed_unix_s": 1792742794,
+      "runner_id": "cynic-lxc-embedding",
+      "state_root": "/var/lib/cynic"
+    }
+  ]
+}

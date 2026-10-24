@@ -1,0 +1,298 @@
+{
+  "schema": "cynic.network.discovery_report.v1",
+  "observer_node_id": "cynic-host-cortex",
+  "observed_at_unix_ms": 1792760800501,
+  "observed_at_iso": "2026-10-23T13:06:40.502254+00:00",
+  "nodes": {
+    "cynic-host-proxmox": {
+      "node_id": "cynic-host-proxmox",
+      "node_name": "cynic-host-proxmox",
+      "role": "hypervisor",
+      "candidate_ips": [
+        "10.10.10.1",
+        "192.168.100.1"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 4.18,
+        "protocol": "tcp:22 (ssh)"
+      },
+      "services": []
+    },
+    "cynic-host-cortex": {
+      "node_id": "cynic-host-cortex",
+      "node_name": "cynic-host-cortex",
+      "role": "cortex_host",
+      "candidate_ips": [
+        "192.168.100.2"
+      ],
+      "reachability": {
+        "status": "Unreachable",
+        "last_seen_unix_ms": null
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "endpoint": "http://10.20.0.3:8081",
+          "port": 8081,
+          "status": "excluded",
+          "reason": "cortex host RAM conservation; local embedding service disabled",
+          "latency_ms": null,
+          "fingerprint": null
+        }
+      ]
+    },
+    "local-kernel": {
+      "node_id": "local-kernel",
+      "node_name": "local-kernel",
+      "role": "kernel_primary",
+      "candidate_ips": [
+        "10.10.10.100"
+      ],
+      "reachability": {
+        "status": "Unreachable",
+        "last_seen_unix_ms": null
+      },
+      "services": [
+        {
+          "name": "cynic-kernel",
+          "endpoint": "http://192.168.100.2:3030",
+          "port": 3030,
+          "status": "unreachable",
+          "latency_ms": 0.06,
+          "error": "[Errno 111] Connection refused",
+          "fingerprint": null
+        }
+      ]
+    },
+    "local-builder": {
+      "node_id": "local-builder",
+      "node_name": "local-builder",
+      "role": null,
+      "candidate_ips": [],
+      "reachability": {
+        "status": "Unreachable",
+        "last_seen_unix_ms": null
+      },
+      "services": []
+    },
+    "cynic-lxc-surrealdb": {
+      "node_id": "cynic-lxc-surrealdb",
+      "node_name": "cynic-lxc-surrealdb",
+      "role": "storage_primary",
+      "candidate_ips": [
+        "10.10.10.103"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 0.2,
+        "protocol": "tcp:8000"
+      },
+      "services": [
+        {
+          "name": "surrealdb",
+          "endpoint": "http://10.10.10.103:8000",
+          "port": 8000,
+          "status": "active",
+          "http_status": 200,
+          "latency_ms": 0.2,
+          "http_latency_ms": 14.69,
+          "fingerprint": "SurrealDB",
+          "health_url": "http://10.10.10.103:8000/health"
+        },
+        {
+          "name": "runtime-artifact-store",
+          "endpoint": "http://cynic-storage-primary.synapse.cynic:8443",
+          "port": 8443,
+          "status": "active",
+          "http_status": 0,
+          "latency_ms": 6.64,
+          "http_latency_ms": 15.6,
+          "fingerprint": "<urlopen error [SSL: WRONG_VERSION_NUMBE",
+          "health_url": "https://cynic-storage-primary.synapse.cynic:8443/health"
+        }
+      ]
+    },
+    "cynic-builder": {
+      "node_id": "cynic-builder",
+      "node_name": "cynic-builder",
+      "role": "build_runner",
+      "candidate_ips": [
+        "10.10.10.119"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 0.1,
+        "protocol": "tcp:22 (ssh)"
+      },
+      "services": [
+        {
+          "name": "cynic-node",
+          "endpoint": "http://10.10.10.119:9090",
+          "port": 9090,
+          "status": "unreachable",
+          "latency_ms": 0.14,
+          "error": "[Errno 111] Connection refused",
+          "fingerprint": null
+        }
+      ]
+    },
+    "cynic-lxc-embedding": {
+      "node_id": "cynic-lxc-embedding",
+      "node_name": "cynic-lxc-embedding",
+      "role": "embedding_runner",
+      "candidate_ips": [
+        "10.10.10.106"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 0.18,
+        "protocol": "tcp:22 (ssh)"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "endpoint": "http://10.10.10.106:8080",
+          "port": 8080,
+          "status": "excluded",
+          "reason": "no admin access from any known principal (cynic/titouan/user denied); ceiling unmeasurable; fails closed on long inputs",
+          "latency_ms": null,
+          "fingerprint": null
+        }
+      ]
+    },
+    "cynic-laptop-ax16pro": {
+      "node_id": "cynic-laptop-ax16pro",
+      "node_name": "cynic-laptop-ax16pro",
+      "role": "workstation_portable",
+      "candidate_ips": [
+        "192.168.0.88"
+      ],
+      "reachability": {
+        "status": "Unreachable",
+        "last_seen_unix_ms": null
+      },
+      "services": []
+    },
+    "cynic-agent-host": {
+      "node_id": "cynic-agent-host",
+      "node_name": "cynic-agent-host",
+      "role": "agent_host",
+      "candidate_ips": [
+        "10.10.10.102"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 0.23,
+        "protocol": "tcp:22 (ssh)"
+      },
+      "services": []
+    },
+    "forgejo": {
+      "node_id": "forgejo",
+      "node_name": "forgejo",
+      "role": "forge_primary",
+      "candidate_ips": [
+        "10.10.10.101"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 0.21,
+        "protocol": "tcp:3000"
+      },
+      "services": [
+        {
+          "name": "forgejo-backend",
+          "endpoint": "http://10.10.10.101:3000",
+          "port": 3000,
+          "status": "active",
+          "http_status": 404,
+          "latency_ms": 0.21,
+          "http_latency_ms": 14.98,
+          "fingerprint": "Not found.",
+          "health_url": "http://10.10.10.101:3000/health"
+        }
+      ]
+    },
+    "cynic-lxc-headscale": {
+      "node_id": "cynic-lxc-headscale",
+      "node_name": "cynic-lxc-headscale",
+      "role": "mesh_coordinator",
+      "candidate_ips": [
+        "10.10.10.40"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 0.16,
+        "protocol": "tcp:8080"
+      },
+      "services": [
+        {
+          "name": "headscale",
+          "endpoint": "http://10.10.10.40:8080",
+          "port": 8080,
+          "status": "active",
+          "http_status": 200,
+          "latency_ms": 0.16,
+          "http_latency_ms": 15.43,
+          "fingerprint": "(status: pass)",
+          "health_url": "http://10.10.10.40:8080/health"
+        }
+      ]
+    },
+    "cynic-compute-01": {
+      "node_id": "cynic-compute-01",
+      "node_name": "cynic-compute-01",
+      "role": "embedding_runner",
+      "candidate_ips": [
+        "192.168.0.25"
+      ],
+      "reachability": {
+        "status": "Reachable",
+        "latency_ms": 2.33,
+        "protocol": "tcp:8082"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "endpoint": "http://192.168.0.25:8080",
+          "port": 8080,
+          "status": "active",
+          "http_status": 200,
+          "latency_ms": 223.26,
+          "http_latency_ms": 17.59,
+          "fingerprint": "llama.cpp (status: ok)",
+          "health_url": "http://192.168.0.25:8080/health"
+        },
+        {
+          "name": "cynic-node",
+          "endpoint": "http://192.168.0.25:9090",
+          "port": 9090,
+          "status": "active",
+          "http_status": 200,
+          "latency_ms": 2.62,
+          "http_latency_ms": 16.43,
+          "fingerprint": "ok",
+          "health_url": "http://192.168.0.25:9090/health"
+        },
+        {
+          "name": "reranker-server",
+          "endpoint": "http://192.168.0.25:8082",
+          "port": 8082,
+          "status": "active",
+          "http_status": 200,
+          "latency_ms": 2.33,
+          "http_latency_ms": 17.75,
+          "fingerprint": "llama.cpp (status: ok)",
+          "health_url": "http://192.168.0.25:8082/health"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "total_nodes": 12,
+    "reachable_nodes": 8,
+    "total_services": 11,
+    "active_services": 7
+  }
+}

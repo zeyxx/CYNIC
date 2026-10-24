@@ -7,7 +7,7 @@ use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
 
 pub(crate) mod host_checks;
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum AuditNodeCommand {
     /// Audit node/host integration and commit ledger bounds.
     Host {
@@ -36,7 +36,7 @@ pub(crate) fn execute_audit_node(command: &AuditNodeCommand) -> ExitCode {
     }
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum AuditGateCommand {
     /// Verify a machine-readable gate receipt artifact (audit the audit).
     Receipt {
@@ -47,7 +47,7 @@ pub(crate) enum AuditGateCommand {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum AuditCommand {
     /// Audit core crates architecture boundary tests and entrypoint line limits.
     Crate {
@@ -547,7 +547,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             }
         }
         AuditCommand::Gate { command } => match command {
-            AuditGateCommand::Receipt { path, json } => execute_gate_receipt(&path, *json),
+            AuditGateCommand::Receipt { path, json } => execute_gate_receipt(path, *json),
         },
     }
 }

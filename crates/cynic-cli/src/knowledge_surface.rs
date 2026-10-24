@@ -62,6 +62,18 @@ pub enum KnowCommand {
     Ask {
         /// The question to answer.
         question: String,
+        /// Named retrieval policy profile to use (e.g. balanced, high_precision, high_recall, lexical_only, dense_only).
+        #[arg(long)]
+        profile: Option<String>,
+        /// Override convex fusion alpha parameter (0.0..1.0).
+        #[arg(long)]
+        alpha: Option<f64>,
+        /// Override candidate retrieval k.
+        #[arg(long)]
+        candidate_k: Option<usize>,
+        /// Override neural cross-encoder candidate pool size (0 = disable neural rerank).
+        #[arg(long)]
+        rerank_pool: Option<usize>,
         /// Maximum number of sources to retrieve.
         #[arg(long, default_value = "4")]
         limit: usize,
@@ -77,6 +89,9 @@ pub enum KnowCommand {
         /// Model name for completion.
         #[arg(long, default_value = "default")]
         model: String,
+        /// Force LLM inference even if epistemic ground truth coverage is below threshold.
+        #[arg(long)]
+        force: bool,
         /// Output response as JSON.
         #[arg(long)]
         json: bool,
@@ -90,6 +105,18 @@ pub enum KnowCommand {
         #[arg(long)]
         apply: bool,
         /// Output verdicts as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Harvest live verifiable facts and generate the public epistemic surface (HTML + Markdown).
+    Surface {
+        /// Optional destination directory for public_surface.html and public_surface.md [default: docs/public]
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// Verify all measurable claims and output PASS/FAIL verdicts.
+        #[arg(long)]
+        verify: bool,
+        /// Output live fact ledger as JSON.
         #[arg(long)]
         json: bool,
     },
@@ -344,11 +371,16 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
         }
         KnowCommand::Ask {
             question,
+            profile,
+            alpha,
+            candidate_k,
+            rerank_pool,
             limit,
             commits,
             prompt_only,
             endpoint,
             model,
+            force,
             json,
         } => {
             let cache_path = resolve_knowledge_cache_path();
@@ -366,14 +398,281 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     None
                 }
             };
-            let hits = hybrid_retrieve(&question, limit, &index, &dense_data);
+            let rerank_endpoint = std::env::var("CYNIC_RERANK_URL")
+                .ok()
+                .filter(|u| !u.trim().is_empty())
+                .or_else(|| {
+                    cynic_knowledge::resolve_service_endpoint_from_registry(
+                        "reranker-server",
+                    )
+                });
+
+            // Declarative Retrieval Policy SSOT (contracts/retrieval-policy.json)
+            let retrieval_policy = cynic_knowledge::load_canonical_retrieval_policy(&repo_root);
+            let active_profile = retrieval_policy
+                .resolve_profile(profile.as_deref())
+                .unwrap_or_else(|e| {
+                    eprintln!("warning: {e}; falling back to active profile");
+                    retrieval_policy
+                        .active_profile()
+                        .unwrap_or_else(|_| {
+                            retrieval_policy
+                                .profiles
+                                .values()
+                                .next()
+                                .expect("at least one profile in policy")
+                        })
+                });
+
+            let eff_candidate_k = candidate_k.unwrap_or(active_profile.candidate_k);
+            let eff_alpha = alpha.unwrap_or_else(|| {
+                std::env::var("CYNIC_FUSION_ALPHA")
+                    .ok()
+                    .and_then(|v| v.parse::<f64>().ok())
+                    .unwrap_or(active_profile.fusion_alpha)
+            });
+            let eff_pool_cap = rerank_pool.unwrap_or(active_profile.rerank_pool_cap);
+            let eff_normalization = active_profile.normalization_strategy();
+            let eff_timeout_ms = std::env::var("CYNIC_RERANK_TIMEOUT_MS")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(active_profile.rerank_timeout_ms);
+            let eff_graph_max_expansion = active_profile.graph_max_expansion;
+            let eff_neural_confidence_floor = active_profile.neural_confidence_floor;
+            let eff_min_term_coverage = active_profile.min_term_coverage;
+            let eff_lost_in_the_middle = active_profile.lost_in_the_middle;
+            let eff_max_context_chars = active_profile.max_context_chars;
+
+            eprintln!(
+                "retrieval policy: profile='{}' (alpha={:.2}, candidate_k={}, rerank_pool={}, graph_hops={})",
+                profile.as_deref().unwrap_or(&retrieval_policy.active_profile),
+                eff_alpha,
+                eff_candidate_k,
+                eff_pool_cap,
+                eff_graph_max_expansion
+            );
+
+            let hits: Vec<cynic_knowledge::SearchHit<'_>> = match &dense_data {
+                Some((dense_chunks, dense_vectors, dense_query)) => {
+                    let dense =
+                        cynic_knowledge::top_k_dense(dense_query, dense_chunks, dense_vectors, eff_candidate_k);
+                    let sparse = index.search(&question, eff_candidate_k);
+                    let mut fused = cynic_knowledge::fuse_continuous_convex(
+                        &sparse,
+                        &dense,
+                        eff_alpha,
+                        eff_normalization,
+                    );
+
+                    // SOTA Rung 2: Neural cross-encoder rerank over top candidates.
+                    // Interleave BM25 keyword hits and Dense semantic hits to form a balanced candidate pool.
+                    let mut candidate_set = std::collections::HashSet::new();
+                    let mut candidates = Vec::with_capacity(eff_pool_cap);
+
+                    if eff_pool_cap > 0 {
+                        let max_take = sparse.len().max(dense.len());
+                        for i in 0..max_take {
+                            if let Some(s) = sparse.get(i) {
+                                if candidate_set.insert(s.chunk.chunk_id.as_str()) {
+                                    candidates.push(*s);
+                                    if candidates.len() >= eff_pool_cap {
+                                        break;
+                                    }
+                                }
+                            }
+                            if let Some(d) = dense.get(i) {
+                                if candidate_set.insert(d.chunk.chunk_id.as_str()) {
+                                    candidates.push(cynic_knowledge::SearchHit {
+                                        chunk: d.chunk,
+                                        score: d.similarity as f64,
+                                    });
+                                    if candidates.len() >= eff_pool_cap {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let docs: Vec<&str> =
+                        candidates.iter().map(|h| h.chunk.content.as_str()).collect();
+
+                    let client = if eff_pool_cap > 0 && eff_timeout_ms > 0 {
+                        reqwest::Client::builder()
+                            .timeout(std::time::Duration::from_millis(eff_timeout_ms))
+                            .build()
+                            .ok()
+                    } else {
+                        None
+                    };
+
+                    let rerank_cache_path = cynic_types::CynicPaths::user_rerank_cache_path();
+                    let mut rerank_cache = cynic_knowledge::load_rerank_cache(&rerank_cache_path)
+                        .unwrap_or_else(|| cynic_knowledge::RerankCacheRecord::new("bge-reranker-large"));
+
+                    let mut cached_items = Vec::new();
+                    let mut all_cached = true;
+                    if eff_pool_cap > 0 {
+                        for (idx, cand) in candidates.iter().enumerate() {
+                            if let Some(score) = rerank_cache.get(&question, &cand.chunk.chunk_id) {
+                                cached_items.push(cynic_knowledge::RerankItem {
+                                    index: idx,
+                                    relevance_score: score,
+                                });
+                            } else {
+                                all_cached = false;
+                            }
+                        }
+                    } else {
+                        all_cached = false;
+                    }
+
+                    let mut reranked = Vec::new();
+                    if eff_pool_cap > 0 && all_cached && !cached_items.is_empty() {
+                        reranked = cynic_knowledge::apply_rerank_scores(&candidates, &cached_items);
+                        eprintln!(
+                            "neural rerank: {} candidates retrieved from local score cache",
+                            candidates.len()
+                        );
+                    } else if eff_pool_cap > 0 {
+                        if let Some(ref endpoint) = rerank_endpoint {
+                            if let Some(c) = client {
+                                let payload = serde_json::json!({
+                                    "query": question,
+                                    "documents": docs,
+                                    "top_n": limit,
+                                });
+                                match c.post(endpoint).json(&payload).send().await {
+                                    Ok(resp) if resp.status().is_success() => {
+                                        if let Ok(data) = resp.json::<serde_json::Value>().await {
+                                            if let Some(results) =
+                                                data.get("results").and_then(|r| r.as_array())
+                                            {
+                                                for item in results {
+                                                    if let (Some(idx), Some(score)) = (
+                                                        item.get("index")
+                                                            .and_then(|i| i.as_u64())
+                                                            .map(|i| i as usize),
+                                                        item.get("relevance_score").and_then(|s| s.as_f64()),
+                                                    ) {
+                                                        if let Some(hit) = candidates.get(idx) {
+                                                            reranked.push(cynic_knowledge::SearchHit {
+                                                                chunk: hit.chunk,
+                                                                score,
+                                                            });
+                                                            rerank_cache.insert(&question, &hit.chunk.chunk_id, score);
+                                                        }
+                                                    }
+                                                }
+                                                let _ = cynic_knowledge::save_rerank_cache(&rerank_cache_path, &rerank_cache);
+                                            }
+                                        }
+                                    }
+                                    Ok(resp) => {
+                                        eprintln!("rerank returned HTTP {}", resp.status());
+                                    }
+                                    Err(e) => {
+                                        if !cached_items.is_empty() {
+                                            eprintln!(
+                                                "rerank network error ({e}); using {} cached score(s)",
+                                                cached_items.len()
+                                            );
+                                            reranked = cynic_knowledge::apply_rerank_scores(&candidates, &cached_items);
+                                        } else {
+                                            eprintln!(
+                                                "rerank network error ({e}); falling back to continuous fusion"
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if !reranked.is_empty() {
+                        if let Some(ref ep) = rerank_endpoint {
+                            eprintln!(
+                                "neural rerank: {} candidates reranked via {}",
+                                candidates.len(), ep
+                            );
+                        }
+                        reranked.truncate(limit);
+                        reranked
+                    } else {
+                        fused.truncate(limit);
+                        fused
+                    }
+                }
+                None => index.search(&question, limit),
+            };
 
             // Phase 11.3: Graph-RAG Traversal (link chunks to parent contracts and governing specs)
-            let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
-            let graph = cynic_knowledge::KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
             let chunks_by_path = cache.chunks_by_path();
-            let final_hits =
-                cynic_knowledge::expand_hits_with_graph(&hits, &graph, &chunks_by_path, 2);
+            let final_hits = if eff_graph_max_expansion > 0 {
+                let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
+                let graph = cynic_knowledge::KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
+                cynic_knowledge::expand_hits_with_graph_query(
+                    &hits,
+                    &graph,
+                    &chunks_by_path,
+                    &question,
+                    eff_graph_max_expansion,
+                )
+            } else {
+                hits
+            };
+
+            // Epistemic Grounding Guard: Reject out-of-corpus hallucinations before invoking LLM
+            let min_conf = if rerank_endpoint.is_some() && eff_pool_cap > 0 {
+                0.01 // Neural cross-encoder output scale is 0.0..1.0
+            } else {
+                cynic_knowledge::DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD
+            };
+            let assembly_config = cynic_knowledge::EpistemicAssemblyConfig {
+                min_confidence: min_conf,
+                min_term_coverage: eff_min_term_coverage,
+                neural_confidence_floor: eff_neural_confidence_floor,
+                max_sources: limit + 2,
+                max_context_chars: eff_max_context_chars,
+                lost_in_the_middle_reordering: eff_lost_in_the_middle,
+            };
+            let verdict = cynic_knowledge::assemble_epistemic_context(
+                &question,
+                &final_hits,
+                &assembly_config,
+            );
+
+            if let cynic_knowledge::EpistemicCoverageVerdict::Uncovered {
+                ref rejection_token,
+                ref reason,
+                confidence,
+                term_coverage,
+            } = verdict
+            {
+                if !force {
+                    if json {
+                        let rejection = serde_json::json!({
+                            "schema": "cynic.knowledge.verdict.v1",
+                            "status": "uncovered",
+                            "question": question,
+                            "rejection_token": rejection_token,
+                            "confidence": confidence,
+                            "term_coverage": term_coverage,
+                            "reason": reason,
+                        });
+                        return crate::emit_json(&rejection, false);
+                    } else {
+                        println!("=== CYNIC Knowledge Synthesis Oracle ===");
+                        println!("Question : {}", question);
+                        println!("Statut   : {}", rejection_token);
+                        println!("Raison   : {}", reason);
+                        println!("Conseil  : Utilisez --force pour interroger le modèle malgré l'absence de base factuelle vérifiée.");
+                        return ExitCode::SUCCESS;
+                    }
+                } else if !json {
+                    eprintln!("attention: question non couverte par le corpus ({reason}); contournement forcé par --force");
+                }
+            }
 
             let synthesis_prompt =
                 cynic_knowledge::SynthesisPromptBuilder::build(&question, &final_hits);
@@ -394,9 +693,17 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     ExitCode::SUCCESS
                 }
             } else {
-                let mut target_endpoint = endpoint.unwrap_or_else(
-                    cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint,
-                );
+                let mut target_endpoint = match endpoint
+                    .or_else(cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint)
+                {
+                    Some(ep) => ep,
+                    None => {
+                        eprintln!(
+                            "inference endpoint resolution failed: no inference-server declared in canonical registry (infra/registry.json) or CYNIC_INFERENCE_URL"
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                };
                 if !target_endpoint.contains("/chat/completions") {
                     if !target_endpoint.ends_with('/') {
                         target_endpoint.push('/');
@@ -637,6 +944,63 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 );
                 ExitCode::SUCCESS
             }
+        }
+        KnowCommand::Surface { out_dir, verify, json } => {
+            let ledger = cynic_knowledge::harvest_live_ledger(&repo_root, None);
+            if json {
+                return crate::emit_json(&ledger, false);
+            }
+            let out_dir = out_dir.unwrap_or_else(|| repo_root.join("docs/public"));
+            if let Err(e) = std::fs::create_dir_all(&out_dir) {
+                eprintln!("Failed to create output directory {}: {}", out_dir.display(), e);
+                return ExitCode::FAILURE;
+            }
+
+            let md = cynic_knowledge::render_public_surface_markdown(&ledger);
+            let html = cynic_knowledge::render_public_surface_html(&ledger);
+
+            let md_path = out_dir.join("public_surface.md");
+            let html_path = out_dir.join("public_surface.html");
+            let json_path = out_dir.join("facts.live.json");
+
+            if let Err(e) = std::fs::write(&md_path, &md) {
+                eprintln!("Failed to write {}: {}", md_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+            if let Err(e) = std::fs::write(&html_path, &html) {
+                eprintln!("Failed to write {}: {}", html_path.display(), e);
+                return ExitCode::FAILURE;
+            }
+            if let Ok(json_str) = serde_json::to_string_pretty(&ledger) {
+                let _ = std::fs::write(&json_path, json_str);
+            }
+
+            println!("=== CYNIC Epistemic Surface Generated ===");
+            println!("  Markdown : {}", md_path.display());
+            println!("  HTML     : {}", html_path.display());
+            println!("  JSON     : {}", json_path.display());
+            println!("  Repos    : {} repos across 4 eras", ledger.repos.len());
+            println!(
+                "  Crates   : {} (LOC: {})",
+                ledger.summary_metrics.get("cynic_crates").unwrap_or(&0),
+                ledger.summary_metrics.get("cynic_loc").unwrap_or(&0)
+            );
+            println!("  Commits  : {}", ledger.summary_metrics.get("total_commits").unwrap_or(&0));
+
+            if verify {
+                println!("\n=== Verifiable Claims Verification ===");
+                for claim in &ledger.claims {
+                    let status_badge = match claim.status {
+                        cynic_knowledge::ClaimStatus::Demonstrated => "\x1b[32mPASS\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Implemented => "\x1b[34mIMPL\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Partial => "\x1b[33mPART\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Aspirational => "\x1b[35mASPI\x1b[0m",
+                        cynic_knowledge::ClaimStatus::Unknown => "\x1b[33mUNKN\x1b[0m",
+                    };
+                    println!("  [{}] {:<28} {}", status_badge, claim.id, claim.statement);
+                }
+            }
+            ExitCode::SUCCESS
         }
     }
 }

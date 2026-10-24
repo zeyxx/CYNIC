@@ -3,7 +3,7 @@
 use crate::domain_enrichment::{EnrichmentError, TokenData};
 use crate::solana_safety_dog::SolanaSafetyReport;
 use async_trait::async_trait;
-use cynic_solana_pay::{
+use crate::domain::solana::{
     AllowanceGrant, SolanaPayRequest, SopSanitizationInput, SopSanitizationResult,
 };
 use serde::{Deserialize, Serialize};

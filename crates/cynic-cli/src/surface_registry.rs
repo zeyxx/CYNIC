@@ -1,4 +1,3 @@
-mod assembler;
 mod catalog;
 mod types;
 

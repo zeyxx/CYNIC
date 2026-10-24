@@ -606,7 +606,7 @@
       "responsibility": "Generate a node-local Ed25519 machine identity exactly once, observe only its public commitment and private-file safety, and require post-generation read-back before enrollment may continue."
     },
     {
-      "adapter_module": "deps_surface",
+      "adapter_module": "dependency",
       "anti_responsibilities": [
         "blind self-update without provenance detection",
         "assume one universal package manager",
@@ -634,15 +634,15 @@
       "owner_crate": "cynic-host",
       "owner_modules": [
         "domain::ecosystem_package",
-        "cynic-cli::deps_surface_model",
-        "cynic-cli::deps_surface_specs",
-        "cynic-cli::deps_surface_probe",
-        "cynic-cli::deps_surface_report"
+        "cynic-cli::dependency::model",
+        "cynic-cli::dependency::specs",
+        "cynic-cli::dependency::probe",
+        "cynic-cli::dependency"
       ],
       "responsibility": "Observe dependency authorities, packaging provenance, and normalization readiness for primary runtime/operator components."
     },
     {
-      "adapter_module": "deps_surface",
+      "adapter_module": "dependency",
       "anti_responsibilities": [
         "mutate dependencies without explicit consent",
         "hide shell mutation behind untyped helpers",
@@ -668,7 +668,7 @@
       "owner_crate": "cynic-host",
       "owner_modules": [
         "domain::ecosystem_package",
-        "cynic-cli::deps_surface_upgrade"
+        "cynic-cli::dependency::upgrade"
       ],
       "responsibility": "Preview or execute explicit human-approved dependency upgrades through typed package plans and observed authority."
     },
