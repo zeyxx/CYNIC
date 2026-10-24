@@ -90,6 +90,7 @@ pub(crate) enum NetworkActuationCommand {
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkCommand {
+    /// Audit the declared network chain (DNS, providers, services).
     Chain {
         #[arg(long)]
         registry: Option<String>,
@@ -98,6 +99,7 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         check_provider_connectivity: bool,
     },
+    /// Probe the network runtime (interfaces, addresses, routes).
     Runtime {
         #[arg(long)]
         registry: Option<String>,
@@ -106,6 +108,7 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         check_provider_connectivity: bool,
     },
+    /// Verify network proof bundle against observed state.
     Proof {
         #[arg(long)]
         registry: Option<String>,
@@ -128,14 +131,17 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkActuationCommand,
     },
+    /// Collect network evidence for audit.
     Evidence {
         #[arg(long)]
         registry: Option<String>,
     },
+    /// DNS status, bundle, plan, or activation.
     Dns {
         #[command(subcommand)]
         command: NetworkDnsCommand,
     },
+    /// Mesh planning, bundling, application, and status.
     Mesh {
         #[command(subcommand)]
         command: NetworkMeshCommand,
@@ -145,6 +151,7 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkProviderCommand,
     },
+    /// Network actuator: status, bundle, plan, apply.
     Actuator {
         #[command(subcommand)]
         command: NetworkActuatorCommand,
@@ -247,12 +254,14 @@ pub(crate) use domain::NetworkDomainCommand;
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkMeshCommand {
+    /// Plan a mesh change (dry-run).
     Plan {
         #[arg(long)]
         registry: Option<String>,
         #[arg(long)]
         provider: Option<String>,
     },
+    /// Materialize a mesh bundle to disk.
     Bundle {
         #[arg(long)]
         registry: Option<String>,
@@ -271,6 +280,7 @@ pub(crate) enum NetworkMeshCommand {
         #[command(subcommand)]
         command: NetworkMeshTargetCommand,
     },
+    /// Observe mesh status.
     Status {
         #[arg(long)]
         registry: Option<String>,
@@ -425,6 +435,7 @@ pub(crate) enum NetworkReconcileCommand {
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkProviderFallbackCommand {
+    /// Provider fallback status.
     Status {
         #[arg(long)]
         registry: Option<String>,
@@ -433,6 +444,7 @@ pub(crate) enum NetworkProviderFallbackCommand {
         #[arg(long)]
         check_connectivity: bool,
     },
+    /// List provider fallback hosts.
     Hosts {
         #[arg(long)]
         registry: Option<String>,
@@ -443,22 +455,26 @@ pub(crate) enum NetworkProviderFallbackCommand {
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkActuatorCommand {
+    /// Actuator status.
     Status {
         #[arg(long)]
         registry: Option<String>,
     },
+    /// Materialize an actuator bundle to disk.
     Bundle {
         #[arg(long)]
         registry: Option<String>,
         #[arg(long)]
         output_dir: String,
     },
+    /// Plan an actuator change (dry-run).
     Plan {
         #[arg(long)]
         registry: Option<String>,
         #[arg(long, default_value_t = cynic_host::runtime_layout::current_runtime_layout().network_actuator_bundle_dir)]
         bundle_dir: String,
     },
+    /// Apply an actuator change (--apply required).
     Apply {
         #[arg(long)]
         registry: Option<String>,
