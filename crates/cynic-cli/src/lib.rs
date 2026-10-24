@@ -63,7 +63,6 @@ pub mod topology_write;
 pub mod daemon_surface;
 pub mod supervise_surface;
 pub mod mcp_surface;
-pub mod network_audit;
 pub mod network_notify_surface;
 pub mod network_surface;
 pub mod node_host_audit;
