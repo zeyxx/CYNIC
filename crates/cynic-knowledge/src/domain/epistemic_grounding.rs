@@ -70,6 +70,7 @@ impl EpistemicCoverageVerdict {
 pub struct EpistemicAssemblyConfig {
     pub min_confidence: f64,
     pub min_term_coverage: f64,
+    pub neural_confidence_floor: f64,
     pub max_sources: usize,
     pub max_context_chars: usize,
     pub lost_in_the_middle_reordering: bool,
@@ -80,6 +81,7 @@ impl Default for EpistemicAssemblyConfig {
         Self {
             min_confidence: DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD,
             min_term_coverage: DEFAULT_MIN_TERM_COVERAGE_RATIO,
+            neural_confidence_floor: 0.70,
             max_sources: 5,
             max_context_chars: 8_000,
             lost_in_the_middle_reordering: true,
@@ -257,7 +259,8 @@ pub fn assemble_epistemic_context<'a>(
     }
 
     if best_term_coverage < config.min_term_coverage {
-        let is_neural_confident = top_confidence <= 1.0 && top_confidence >= 0.70;
+        let is_neural_confident =
+            top_confidence <= 1.0 && top_confidence >= config.neural_confidence_floor;
         if !is_neural_confident {
             return EpistemicCoverageVerdict::Uncovered {
                 rejection_token: UNCOVERED_REJECTION_TOKEN.to_string(),

@@ -158,6 +158,7 @@ fn test_epistemic_grounding_live_matrix() {
     let assembly_config = EpistemicAssemblyConfig {
         min_confidence: 40.0,
         min_term_coverage: 0.50,
+        neural_confidence_floor: 0.70,
         max_sources: 5,
         max_context_chars: 8_000,
         lost_in_the_middle_reordering: true,

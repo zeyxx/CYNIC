@@ -8,13 +8,14 @@ pub use adapters::{
     parse_github_repos, parse_interactions_graph, parse_json_contract,
     parse_json_contract_with_authority, parse_markdown_tree, parse_rust_file,
     resolve_service_endpoint_from_registry, save_corpus_cache, sync_workspace_corpus,
-    load_rerank_cache, save_rerank_cache, GitExtractError,
+    load_rerank_cache, save_rerank_cache, load_canonical_retrieval_policy, GitExtractError,
 };
 pub use domain::{
     apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
     expand_hits_with_graph, expand_hits_with_graph_query, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
     normalize_engine, render_public_surface_html, render_public_surface_markdown,
     RerankCacheRecord, RerankItem, RerankRequest, RerankResponse, RERANK_CACHE_SCHEMA_V1,
+    RetrievalPolicy, RetrievalProfile, RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1,
     route_query, save_vector_cache, tokenize, top_k_dense, vectorize_chunks,
     vectorize_chunks_cached, AuthorIdentity, AuthorshipNature, AuthorityOverrides, AuthorityTier, BrokenReference,
     CachedFileRecord, CalibratedSkillGroup, CalibratedSkillItem, ChunkEmbedder, ChunkVector,

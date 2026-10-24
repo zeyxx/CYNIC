@@ -14,6 +14,7 @@ pub mod hybrid_rrf;
 pub mod public_surface;
 pub mod query_routing;
 pub mod rerank;
+pub mod retrieval_policy;
 pub mod scorer;
 pub mod synthesis;
 pub mod vector_cache;
@@ -58,6 +59,9 @@ pub use query_routing::{route_query, QueryRoute, RoutingTable};
 pub use rerank::{
     apply_rerank_scores, RerankCacheRecord, RerankItem, RerankRequest, RerankResponse,
     RERANK_CACHE_SCHEMA_V1,
+};
+pub use retrieval_policy::{
+    RetrievalPolicy, RetrievalProfile, RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1,
 };
 pub use scorer::{bm25_margin, dense_margin, tokenize, LexicalIndex, SearchHit};
 pub use synthesis::{
