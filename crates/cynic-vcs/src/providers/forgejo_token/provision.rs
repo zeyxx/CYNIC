@@ -5,14 +5,17 @@ use std::path::PathBuf;
 use cynic_types::paths::CynicPaths;
 use crate::forgejo_token::{
     plan_forgejo_token_convergence, validate_forgejo_token_spec,
-    ForgejoTokenActionKind, ForgejoTokenMetadata, ForgejoTokenObservation,
-    ForgejoTokenPlan, ForgejoTokenProvisionReport, ForgejoTokenRuntimeSpec,
+    ForgejoTokenActionKind, ForgejoTokenAuthState, ForgejoTokenMetadata,
+    ForgejoTokenObservation, ForgejoTokenPlan, ForgejoTokenProvisionReport,
     ForgejoTokenSpec, ForgejoTokenStatusReport,
     FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
 };
 
 use super::api::*;
-use super::{forgejo_token_directory, forgejo_token_path, observe_forgejo_token, ForgejoTokenApiPort};
+use super::{
+    forgejo_token_directory, forgejo_token_path, observe_forgejo_token,
+    ForgejoTokenApiPort, ForgejoTokenRuntimeSpec,
+};
 
 /// This is the runtime entry point for `cynic forgejo token-status`.
 pub fn observe_forgejo_token_runtime(spec: &ForgejoTokenRuntimeSpec) -> ForgejoTokenObservation {

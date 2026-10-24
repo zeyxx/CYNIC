@@ -10,8 +10,9 @@ use std::path::PathBuf;
 
 use cynic_types::paths::CynicPaths;
 use crate::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenMetadata,
-    ForgejoTokenObservation, ForgejoTokenSpec,
+    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoTokenAuthState, ForgejoTokenMetadata,
+    ForgejoTokenObservation, ForgejoTokenProvisionReport, ForgejoTokenSpec,
 };
 
 use self::api::*;

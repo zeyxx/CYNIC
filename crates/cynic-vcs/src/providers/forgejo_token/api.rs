@@ -3,16 +3,18 @@
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 use std::os::unix::fs::OpenOptionsExt;
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
 use crate::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenMetadata,
+    ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenSpec,
 };
 
+use super::{forgejo_token_directory, forgejo_token_path};
 
-pub(super) fn run_forgejo_tokens_add(
+pub fn run_forgejo_tokens_add(
     spec: &ForgejoTokenSpec,
 ) -> Result<(String, ForgejoTokenMetadata), String> {
     let mut cmd = Command::new("forgejo");
@@ -52,7 +54,7 @@ pub(super) fn run_forgejo_tokens_add(
     Ok((token.to_string(), metadata))
 }
 
-pub(super) fn forgejo_token_is_revoked(principal: &str, token_sha1: &str) -> Result<bool, String> {
+pub fn forgejo_token_is_revoked(principal: &str, token_sha1: &str) -> Result<bool, String> {
     let output = Command::new("forgejo")
         .args(["tokens", principal, "--format", "json"])
         .output()
@@ -70,7 +72,7 @@ pub(super) fn forgejo_token_is_revoked(principal: &str, token_sha1: &str) -> Res
         .any(|entry| entry.get("sha1").and_then(|v| v.as_str()) == Some(token_sha1)))
 }
 
-pub(super) fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
+pub fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
     let output = Command::new("forgejo")
         .args(["tokensDelete", principal])
         .arg(sha1)
@@ -85,7 +87,7 @@ pub(super) fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), St
     Ok(())
 }
 
-pub(super) fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, String> {
+pub fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, String> {
     if token_path != forgejo_token_path().display().to_string() {
         return Err("token API probe requires the canonical token path".to_string());
     }
@@ -104,7 +106,7 @@ pub(super) fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Re
     result
 }
 
-pub(super) fn forgejo_http_create_token(
+pub fn forgejo_http_create_token(
     api_base: &str,
     principal: &str,
     scopes: &str,
@@ -129,7 +131,7 @@ pub(super) fn forgejo_http_create_token(
         .map_err(|e| format!("token creation JSON parse failed: {e}"))
 }
 
-pub(super) fn forgejo_http_token_is_revoked(
+pub fn forgejo_http_token_is_revoked(
     api_base: &str,
     principal: &str,
     token_sha1: &str,
@@ -159,7 +161,7 @@ pub(super) fn forgejo_http_token_is_revoked(
         .any(|entry| entry.get("sha1").and_then(|v| v.as_str()) == Some(token_sha1)))
 }
 
-pub(super) fn forgejo_http_revoke_token(
+pub fn forgejo_http_revoke_token(
     api_base: &str,
     principal: &str,
     sha1: &str,
@@ -181,14 +183,14 @@ pub(super) fn forgejo_http_revoke_token(
     Ok(())
 }
 
-fn extract_token_from_api_response(resp: &serde_json::Value) -> Result<String, String> {
+pub fn extract_token_from_api_response(resp: &serde_json::Value) -> Result<String, String> {
     resp.get("token")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .ok_or_else(|| "API response missing token field".to_string())
 }
 
-fn extract_api_token_material(
+pub fn extract_api_token_material(
     resp: &serde_json::Value,
 ) -> Result<(String, ForgejoTokenMetadata), String> {
     let mut token = extract_token_from_api_response(resp)?;
@@ -202,7 +204,7 @@ fn extract_api_token_material(
     Ok((token, metadata))
 }
 
-fn validate_token_identity(sha1: &str) -> Result<(), String> {
+pub fn validate_token_identity(sha1: &str) -> Result<(), String> {
     if sha1.len() != 40 {
         return Err("Forgejo token identity must be exactly 40 hexadecimal characters".to_string());
     }
@@ -212,7 +214,7 @@ fn validate_token_identity(sha1: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn extract_token_metadata(resp: &serde_json::Value) -> Result<ForgejoTokenMetadata, String> {
+pub fn extract_token_metadata(resp: &serde_json::Value) -> Result<ForgejoTokenMetadata, String> {
     Ok(ForgejoTokenMetadata {
         token_id: resp
             .get("id")
@@ -232,19 +234,19 @@ fn extract_token_metadata(resp: &serde_json::Value) -> Result<ForgejoTokenMetada
     })
 }
 
-fn required_authorization(token: Option<&str>) -> Result<&str, String> {
+pub fn required_authorization(token: Option<&str>) -> Result<&str, String> {
     token
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| "Forgejo HTTP mutation requires Authorization token".to_string())
 }
 
-fn format_api_url(api_base: &str, path: &str) -> String {
+pub fn format_api_url(api_base: &str, path: &str) -> String {
     let base = api_base.trim_end_matches('/');
     let base = base.strip_suffix("/api/v1").unwrap_or(base);
     format!("{base}/api/v1/{}", path.trim_start_matches('/'))
 }
 
-pub(super) fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), String> {
+pub fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), String> {
     if target != forgejo_token_path().display().to_string() {
         return Err(format!(
             "secret target must be canonical path {}",
@@ -308,11 +310,10 @@ pub(super) fn write_protected_secret(target: &str, token: &str, mode: u32) -> Re
     Ok(())
 }
 
-fn http_client() -> Result<reqwest::blocking::Client, String> {
+pub fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| format!("http client build failed: {e}"))
 }
 
-#[cfg(test)]
