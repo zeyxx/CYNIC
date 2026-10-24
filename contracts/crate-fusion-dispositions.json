@@ -114,8 +114,8 @@
       "test_loc": [0, 0],
       "direct_dependents": [2, 1],
       "public_items": [0, 3],
-      "disposition": "fuse into one, or keep both deliberately",
-      "rationale": "Discovery-host already depends on discovery. Map names them for renames to node-discovery and host-discovery (different layers). Evidence genuinely ambiguous — owner's call. Do not rename first and decide later."
+      "disposition": "fused into cynic-discovery (Plan 4 BURN)",
+      "rationale": "cynic-discovery-host was an exact duplicate of cynic-discovery/src/host.rs. Fused into cynic-discovery."
     }
   ],
   "control": {
