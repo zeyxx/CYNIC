@@ -149,6 +149,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic data validate --schema <path> --file <path> [--json] [--record]",
                     "cynic data schema [--kind <kind>]",
                     "cynic data history [--limit <limit>] [--json] [--verify]",
+                    "cynic data query --file <path> [--schema <schema>] --sql <query> [--json]",
                 ],
             },
             CommandDomain {
@@ -431,6 +432,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic data validate --schema <path> --file <path> [--json] [--record]",
                     "cynic data schema [--kind <kind>]",
                     "cynic data history [--limit <limit>] [--json] [--verify]",
+                    "cynic data query --file <path> [--schema <schema>] --sql <query> [--json]",
                 ],
             },
         ],

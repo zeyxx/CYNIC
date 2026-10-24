@@ -1730,18 +1730,6 @@
     },
     {
       "count": 1,
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-cli/src/inference_surface.rs:336 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
-      "rule": "PATH-002",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-cli/src/inference_surface.rs:340 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
-      "rule": "PATH-002",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
       "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:25 cites path infra/autoresearch_report.json which does not exist in the working tree",
       "rule": "PATH-002",
       "severity": "critical"
@@ -1749,12 +1737,6 @@
     {
       "count": 1,
       "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:26 cites path infra/rate_classify_report.json which does not exist in the working tree",
-      "rule": "PATH-002",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-inference/src/domain/chat_trace.rs:4 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
       "rule": "PATH-002",
       "severity": "critical"
     },
@@ -1891,17 +1873,17 @@
       "ART-002": 1,
       "NAM-001": 6,
       "PATH-001": 10,
-      "PATH-002": 5,
+      "PATH-002": 2,
       "PATH-004": 7,
       "PROSE-001": 1,
       "RUN-001": 3,
       "SEC-001": 9
     },
-    "critical": 52,
+    "critical": 49,
     "debt": 259,
-    "identities": 312,
+    "identities": 309,
     "note": "Reconciled with physical substrate",
-    "total": 318,
+    "total": 315,
     "warning": 7
   },
   "purpose": "Declared, counted, shrink-only ledger of audit violations present at ratification. Read by audit_engine::apply_debt_ledger. A violation whose identity is absent here fails the gate; a ledger entry with no observed violation also fails the gate, because paid debt left in the ledger hides that the ledger is stale.",
