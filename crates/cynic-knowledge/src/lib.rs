@@ -12,7 +12,7 @@ pub use adapters::{
 };
 pub use domain::{
     apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
-    expand_hits_with_graph, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
+    expand_hits_with_graph, expand_hits_with_graph_query, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
     normalize_engine, render_public_surface_html, render_public_surface_markdown,
     RerankItem, RerankRequest, RerankResponse,
     route_query, save_vector_cache, tokenize, top_k_dense, vectorize_chunks,

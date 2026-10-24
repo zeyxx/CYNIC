@@ -51,7 +51,7 @@ pub use epistemic_grounding::{
 };
 pub use geometry::{CrateGeometryRecord, WorkspaceGeometry, WORKSPACE_GEOMETRY_SCHEMA_V1};
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
-pub use graph_expansion::expand_hits_with_graph;
+pub use graph_expansion::{expand_hits_with_graph, expand_hits_with_graph_query};
 pub use hybrid_rrf::{fuse_reciprocal_ranks, DenseHit, DEFAULT_RRF_K};
 pub use public_surface::{render_public_surface_html, render_public_surface_markdown};
 pub use query_routing::{route_query, QueryRoute, RoutingTable};

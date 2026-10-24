@@ -112,8 +112,14 @@ impl KnowledgeGraph {
             }
         }
 
-        // 3. Lier les contrats normatifs aux tests de gouvernance connus
+        // 3. Extraire les références contractuelles implicites dans la prose Markdown
+        extract_prose_contract_references(root, &manifest.documents, &mut edges, &mut nodes);
+
+        // 4. Lier les contrats normatifs aux tests de gouvernance connus
         wire_contract_enforcements(&mut edges, &mut nodes);
+
+        // 5. Dépendances topologiques de crates (infra/crate-topology.json)
+        wire_crate_topology(root, &mut edges, &mut nodes);
 
         Self {
             nodes,
@@ -199,5 +205,117 @@ fn wire_contract_enforcements(edges: &mut Vec<KnowledgeEdge>, nodes: &mut HashSe
             kind: KnowledgeEdgeKind::EnforcesContract,
             label: Some("verified_by".to_string()),
         });
+    }
+}
+
+fn collect_text_recursive(
+    sections: &[crate::domain::ast::SectionNode],
+    acc: &mut String,
+) {
+    for sec in sections {
+        acc.push_str(&sec.title);
+        acc.push(' ');
+        acc.push_str(&sec.content);
+        acc.push(' ');
+        collect_text_recursive(&sec.children, acc);
+    }
+}
+
+fn extract_prose_contract_references(
+    root: &Path,
+    documents: &[crate::domain::ast::DocumentTree],
+    edges: &mut Vec<KnowledgeEdge>,
+    nodes: &mut HashSet<String>,
+) {
+    for doc in documents {
+        let mut text_buf = String::new();
+        collect_text_recursive(&doc.root_sections, &mut text_buf);
+        for word in text_buf.split(|c: char| c.is_whitespace() || c == '`' || c == '(' || c == ')' || c == '[' || c == ']' || c == '"' || c == '\'') {
+            if word.starts_with("contracts/") && word.ends_with(".json") {
+                let clean = word.trim_matches(|c: char| c == ',' || c == '.' || c == ';' || c == ':');
+                if root.join(clean).is_file() && doc.source_path != clean {
+                    nodes.insert(clean.to_string());
+                    if !edges.iter().any(|e| e.source == doc.source_path && e.target == clean) {
+                        edges.push(KnowledgeEdge {
+                            source: doc.source_path.clone(),
+                            target: clean.to_string(),
+                            kind: KnowledgeEdgeKind::EnforcesContract,
+                            label: Some("governed_by".to_string()),
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn wire_crate_topology(root: &Path, edges: &mut Vec<KnowledgeEdge>, nodes: &mut HashSet<String>) {
+    let topo_path = root.join("infra/crate-topology.json");
+    if let Ok(bytes) = std::fs::read(&topo_path) {
+        if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+            if let Some(crates) = val.get("crates").and_then(|c| c.as_object()) {
+                for (crate_name, info) in crates {
+                    let crate_path = format!("crates/{}", crate_name);
+                    if root.join(&crate_path).exists() {
+                        nodes.insert(crate_path.clone());
+                        if let Some(deps) = info.get("depends_on").and_then(|d| d.as_array()) {
+                            for dep in deps {
+                                if let Some(dep_name) = dep.as_str() {
+                                    let dep_path = format!("crates/{}", dep_name);
+                                    if root.join(&dep_path).exists() {
+                                        nodes.insert(dep_path.clone());
+                                        if !edges.iter().any(|e| e.source == crate_path && e.target == dep_path) {
+                                            edges.push(KnowledgeEdge {
+                                                source: crate_path.clone(),
+                                                target: dep_path,
+                                                kind: KnowledgeEdgeKind::CrateDependency,
+                                                label: Some("depends_on".to_string()),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_wire_crate_topology_from_json() {
+        let temp_dir = std::env::temp_dir().join(format!("cynic_topo_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(temp_dir.join("infra")).unwrap();
+        fs::create_dir_all(temp_dir.join("crates/crate-a")).unwrap();
+        fs::create_dir_all(temp_dir.join("crates/crate-b")).unwrap();
+
+        let json = r#"{
+            "crates": {
+                "crate-a": {
+                    "depends_on": ["crate-b"]
+                }
+            }
+        }"#;
+        fs::write(temp_dir.join("infra/crate-topology.json"), json).unwrap();
+
+        let mut edges = Vec::new();
+        let mut nodes = HashSet::new();
+        wire_crate_topology(&temp_dir, &mut edges, &mut nodes);
+
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].source, "crates/crate-a");
+        assert_eq!(edges[0].target, "crates/crate-b");
+        assert_eq!(edges[0].kind, KnowledgeEdgeKind::CrateDependency);
+        assert!(nodes.contains("crates/crate-a"));
+        assert!(nodes.contains("crates/crate-b"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }

@@ -590,8 +590,13 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
             let graph = cynic_knowledge::KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
             let chunks_by_path = cache.chunks_by_path();
-            let final_hits =
-                cynic_knowledge::expand_hits_with_graph(&hits, &graph, &chunks_by_path, 2);
+            let final_hits = cynic_knowledge::expand_hits_with_graph_query(
+                &hits,
+                &graph,
+                &chunks_by_path,
+                &question,
+                2,
+            );
 
             let synthesis_prompt =
                 cynic_knowledge::SynthesisPromptBuilder::build(&question, &final_hits);
