@@ -148,7 +148,7 @@ mod tests {
     fn blocked_verdict() -> ReleaseEligibilityVerdict {
         ReleaseEligibilityVerdict::Blocked {
             schema: "cynic.release_verdict.v1",
-            reasons: vec!["cargo_check failed".to_string()],
+            reasons: vec!["build_proof failed".to_string()],
             decided_at_unix_s: 100,
         }
     }

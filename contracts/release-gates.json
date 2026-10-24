@@ -5,13 +5,6 @@
   "gates": {
     "mandatory": [
       {
-        "name": "cargo_check",
-        "description": "Workspace compiles without errors",
-        "command": "cargo check --workspace",
-        "pass_condition": "exit code 0",
-        "reference": "Rust toolchain standard"
-      },
-      {
         "name": "tests",
         "description": "All tests pass",
         "command": "cargo test --workspace",
@@ -62,17 +55,25 @@
     "stages": [
       {
         "name": "local_validation",
-        "gates": ["cargo_check", "tests", "secret_lint", "architecture_boundary"],
+        "gates": [
+          "tests",
+          "secret_lint",
+          "architecture_boundary"
+        ],
         "on_failure": "block release, report failure"
       },
       {
         "name": "optional_artifact_build",
-        "gates": ["build_release"],
+        "gates": [
+          "build_release"
+        ],
         "on_failure": "block release if artifacts required, otherwise warn"
       },
       {
         "name": "builder_cross_validation",
-        "gates": ["builder_validation"],
+        "gates": [
+          "builder_validation"
+        ],
         "on_failure": "block release, report builder failure"
       }
     ]
@@ -109,8 +110,9 @@
       "id": "mandatory_gates_before_tag",
       "rule": "All mandatory gates must pass before a release tag is created on forgejo/main.",
       "notes": [
-        "Mandatory gates: cargo check, tests, secret lint, architecture boundary",
-        "Failure of any mandatory gate blocks the release"
+        "Mandatory gates: tests, secret lint, architecture boundary, build proof (builder SSOT)",
+        "Failure of any mandatory gate blocks the release",
+        "Compilation is verified by build_proof on the builder, not by local cargo check (offline-fragile)"
       ]
     },
     {
