@@ -35,7 +35,7 @@ impl std::fmt::Display for DataColumnType {
 }
 
 /// Definition of a single column in a tabular schema.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ColumnDefinition {
     pub name: String,
     pub data_type: DataColumnType,
@@ -43,6 +43,14 @@ pub struct ColumnDefinition {
     pub required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_values: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_value: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_value: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -56,6 +64,10 @@ impl ColumnDefinition {
             data_type,
             required,
             description: None,
+            allowed_values: None,
+            min_value: None,
+            max_value: None,
+            pattern: None,
         }
     }
 
@@ -63,10 +75,26 @@ impl ColumnDefinition {
         self.description = Some(desc.into());
         self
     }
+
+    pub fn with_allowed_values(mut self, values: Vec<String>) -> Self {
+        self.allowed_values = Some(values);
+        self
+    }
+
+    pub fn with_range(mut self, min: Option<f64>, max: Option<f64>) -> Self {
+        self.min_value = min;
+        self.max_value = max;
+        self
+    }
+
+    pub fn with_pattern(mut self, pat: impl Into<String>) -> Self {
+        self.pattern = Some(pat.into());
+        self
+    }
 }
 
 /// Specification of a tabular schema contract.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TabularSchema {
     pub schema_id: String,
     pub version: u32,
@@ -109,7 +137,7 @@ pub enum DriftSeverity {
 }
 
 /// Specific category of schema or data drift.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SchemaDriftKind {
     /// A required column defined in the schema is missing in the dataset or row.
@@ -126,10 +154,29 @@ pub enum SchemaDriftKind {
     NullViolation { column: String },
     /// Structural row violation (e.g. invalid CSV delimiter, malformed JSON).
     MalformedRecord { message: String },
+    /// Value is not in the enumerated list of allowed values.
+    ValueNotAllowed {
+        column: String,
+        value: String,
+        allowed: Vec<String>,
+    },
+    /// Numeric value is outside the allowed min/max range.
+    ValueOutOfRange {
+        column: String,
+        value: f64,
+        min: Option<f64>,
+        max: Option<f64>,
+    },
+    /// String value does not match regex pattern.
+    PatternMismatch {
+        column: String,
+        value: String,
+        pattern: String,
+    },
 }
 
 /// Recorded instance of schema drift during tabular validation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SchemaDrift {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub row_index: Option<usize>,
@@ -138,7 +185,7 @@ pub struct SchemaDrift {
 }
 
 /// Comprehensive report of tabular validation against a schema contract.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TabularValidationReport {
     pub schema: String,
     pub target_schema_id: String,
@@ -234,5 +281,25 @@ mod tests {
         let json = report.to_export_json().expect("export json");
         let parsed: TabularValidationReport = serde_json::from_str(&json).expect("parse json");
         assert_eq!(report, parsed);
+    }
+
+    #[test]
+    fn test_tabular_schema_with_constraints_roundtrip() {
+        let schema = TabularSchema::new(
+            "cynic.asset_constraints.v1",
+            1,
+            vec![
+                ColumnDefinition::new("status", DataColumnType::Text, true)
+                    .with_allowed_values(vec!["ACTIVE".into(), "RETIRED".into()]),
+                ColumnDefinition::new("score", DataColumnType::Float, true)
+                    .with_range(Some(0.0), Some(100.0)),
+                ColumnDefinition::new("code", DataColumnType::Text, true)
+                    .with_pattern(r"^[A-Z]{3}-\d{4}$"),
+            ],
+        );
+
+        let json = serde_json::to_string(&schema).expect("serialize");
+        let deserialized: TabularSchema = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(schema, deserialized);
     }
 }

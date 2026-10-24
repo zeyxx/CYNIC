@@ -115,6 +115,30 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool) -> ExitCod
                     SchemaDriftKind::MalformedRecord { message } => {
                         println!("  - [{}] [{}] Malformed record: {}", sev, row_str, message);
                     }
+                    SchemaDriftKind::ValueNotAllowed { column, value, allowed } => {
+                        println!(
+                            "  - [{}] [{}] Column '{}' value '{}' not in allowed set: [{}]",
+                            sev, row_str, column, value, allowed.join(", ")
+                        );
+                    }
+                    SchemaDriftKind::ValueOutOfRange { column, value, min, max } => {
+                        let range_desc = match (min, max) {
+                            (Some(min_v), Some(max_v)) => format!("[{}..{}]", min_v, max_v),
+                            (Some(min_v), None) => format!("[{}..]", min_v),
+                            (None, Some(max_v)) => format!("[..{}]", max_v),
+                            (None, None) => "unbounded".to_string(),
+                        };
+                        println!(
+                            "  - [{}] [{}] Column '{}' value {} is out of range {}",
+                            sev, row_str, column, value, range_desc
+                        );
+                    }
+                    SchemaDriftKind::PatternMismatch { column, value, pattern } => {
+                        println!(
+                            "  - [{}] [{}] Column '{}' value '{}' does not match pattern '{}'",
+                            sev, row_str, column, value, pattern
+                        );
+                    }
                 }
             }
         }
@@ -134,13 +158,20 @@ fn execute_schema(kind: &str) -> ExitCode {
             1,
             vec![
                 ColumnDefinition::new("id", DataColumnType::Text, true)
-                    .with_description("Unique identifier of the node (hostname)"),
+                    .with_description("Unique identifier of the node (hostname)")
+                    .with_pattern(r"^[a-z0-9-]+$"),
                 ColumnDefinition::new("name", DataColumnType::Text, true)
                     .with_description("Display name of the node"),
                 ColumnDefinition::new("role", DataColumnType::Text, false)
                     .with_description("Node architectural role (hypervisor, cortex_host, builder, etc.)"),
                 ColumnDefinition::new("status", DataColumnType::Text, true)
-                    .with_description("Observed or candidate status"),
+                    .with_description("Observed or candidate status")
+                    .with_allowed_values(vec![
+                        "observed".into(),
+                        "candidate".into(),
+                        "stub".into(),
+                        "decommissioned".into(),
+                    ]),
                 ColumnDefinition::new("deploy_target", DataColumnType::Boolean, true)
                     .with_description("Whether this node accepts direct workload deployment"),
             ],
@@ -151,11 +182,20 @@ fn execute_schema(kind: &str) -> ExitCode {
             1,
             vec![
                 ColumnDefinition::new("claim_id", DataColumnType::Text, true)
-                    .with_description("Unique identifier of the insurance claim"),
+                    .with_description("Unique identifier of the insurance claim")
+                    .with_pattern(r"^CLM-[0-9]{4}-[0-9]{3,}$"),
                 ColumnDefinition::new("event_type", DataColumnType::Text, true)
-                    .with_description("Peril type: FLOOD, STORM, DROUGHT, EARTHQUAKE"),
+                    .with_description("Peril type: FLOOD, STORM, DROUGHT, EARTHQUAKE, WILDFIRE")
+                    .with_allowed_values(vec![
+                        "FLOOD".into(),
+                        "STORM".into(),
+                        "DROUGHT".into(),
+                        "EARTHQUAKE".into(),
+                        "WILDFIRE".into(),
+                    ]),
                 ColumnDefinition::new("loss_amount", DataColumnType::Float, true)
-                    .with_description("Estimated or settled loss in EUR"),
+                    .with_description("Estimated or settled loss in EUR")
+                    .with_range(Some(0.0), None),
                 ColumnDefinition::new("settled", DataColumnType::Boolean, true)
                     .with_description("Settlement flag"),
                 ColumnDefinition::new("event_date", DataColumnType::TimestampIso, true)
@@ -168,13 +208,15 @@ fn execute_schema(kind: &str) -> ExitCode {
             1,
             vec![
                 ColumnDefinition::new("asset_id", DataColumnType::Text, true)
-                    .with_description("Unique asset identifier"),
+                    .with_description("Unique asset identifier")
+                    .with_pattern(r"^AST-[0-9]{4,}$"),
                 ColumnDefinition::new("hostname", DataColumnType::Text, true)
                     .with_description("FQDN of the asset"),
                 ColumnDefinition::new("ip_address", DataColumnType::Text, false)
                     .with_description("Primary IP address"),
                 ColumnDefinition::new("criticality", DataColumnType::Integer, true)
-                    .with_description("Business impact score (1 to 5)"),
+                    .with_description("Business impact score (1 to 5)")
+                    .with_range(Some(1.0), Some(5.0)),
                 ColumnDefinition::new("compliant", DataColumnType::Boolean, true)
                     .with_description("SSI compliance status"),
                 ColumnDefinition::new("last_audit", DataColumnType::TimestampIso, false)

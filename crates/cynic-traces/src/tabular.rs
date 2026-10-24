@@ -160,6 +160,66 @@ pub fn validate_scalar_value(
     }
 }
 
+/// Validate advanced column constraints (allowed values, range, regex pattern).
+pub fn validate_column_constraints(
+    col_def: &ColumnDefinition,
+    val_str: &str,
+) -> Vec<SchemaDriftKind> {
+    let mut drifts = Vec::new();
+
+    // 1. Allowed values constraint
+    if let Some(allowed) = &col_def.allowed_values {
+        if !allowed.iter().any(|v| v == val_str) {
+            drifts.push(SchemaDriftKind::ValueNotAllowed {
+                column: col_def.name.clone(),
+                value: val_str.to_string(),
+                allowed: allowed.clone(),
+            });
+        }
+    }
+
+    // 2. Numeric range constraint (min / max)
+    if col_def.min_value.is_some() || col_def.max_value.is_some() {
+        if let Ok(num) = val_str.parse::<f64>() {
+            let out_of_min = col_def.min_value.map_or(false, |min| num < min);
+            let out_of_max = col_def.max_value.map_or(false, |max| num > max);
+            if out_of_min || out_of_max {
+                drifts.push(SchemaDriftKind::ValueOutOfRange {
+                    column: col_def.name.clone(),
+                    value: num,
+                    min: col_def.min_value,
+                    max: col_def.max_value,
+                });
+            }
+        }
+    }
+
+    // 3. Regex pattern constraint
+    if let Some(pat) = &col_def.pattern {
+        match regex::Regex::new(pat) {
+            Ok(re) => {
+                if !re.is_match(val_str) {
+                    drifts.push(SchemaDriftKind::PatternMismatch {
+                        column: col_def.name.clone(),
+                        value: val_str.to_string(),
+                        pattern: pat.clone(),
+                    });
+                }
+            }
+            Err(e) => {
+                drifts.push(SchemaDriftKind::MalformedRecord {
+                    message: format!(
+                        "Invalid regex pattern '{}' for column '{}': {}",
+                        pat, col_def.name, e
+                    ),
+                });
+            }
+        }
+    }
+
+    drifts
+}
+
 /// Validate CSV records against a TabularSchema.
 pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularValidationReport {
     let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
@@ -259,6 +319,15 @@ pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularVal
                         },
                     });
                     row_has_error = true;
+                } else {
+                    for drift_kind in validate_column_constraints(col_def, cell) {
+                        report.record_drift(SchemaDrift {
+                            row_index: Some(actual_row_num),
+                            severity: DriftSeverity::Critical,
+                            drift: drift_kind,
+                        });
+                        row_has_error = true;
+                    }
                 }
             }
         }
@@ -387,6 +456,21 @@ pub fn validate_record_maps(
                             },
                         });
                         row_has_error = true;
+                    } else {
+                        let val_repr = match val {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            _ => val.to_string(),
+                        };
+                        for drift_kind in validate_column_constraints(col, &val_repr) {
+                            report.record_drift(SchemaDrift {
+                                row_index: Some(actual_row_num),
+                                severity: DriftSeverity::Critical,
+                                drift: drift_kind,
+                            });
+                            row_has_error = true;
+                        }
                     }
                 }
             }
@@ -623,5 +707,87 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         assert_eq!(report.total_rows, 2);
         assert_eq!(report.valid_rows, 2);
         assert_eq!(report.invalid_rows, 0);
+    }
+
+    #[test]
+    fn test_allowed_values_constraint() {
+        let schema = TabularSchema::new(
+            "cynic.enum_test.v1",
+            1,
+            vec![
+                ColumnDefinition::new("status", DataColumnType::Text, true)
+                    .with_allowed_values(vec!["ACTIVE".into(), "RETIRED".into()]),
+            ],
+        );
+
+        let csv_valid = "status\nACTIVE\nRETIRED\n";
+        let rep_valid = validate_csv_content(&schema, csv_valid);
+        assert!(rep_valid.passed);
+        assert_eq!(rep_valid.valid_rows, 2);
+
+        let csv_invalid = "status\nACTIVE\nUNKNOWN_STATUS\n";
+        let rep_invalid = validate_csv_content(&schema, csv_invalid);
+        assert!(!rep_invalid.passed);
+        assert_eq!(rep_invalid.invalid_rows, 1);
+        assert!(rep_invalid.drifts.iter().any(|d| matches!(
+            &d.drift,
+            SchemaDriftKind::ValueNotAllowed { column, value, .. }
+                if column == "status" && value == "UNKNOWN_STATUS"
+        )));
+    }
+
+    #[test]
+    fn test_range_constraint() {
+        let schema = TabularSchema::new(
+            "cynic.range_test.v1",
+            1,
+            vec![
+                ColumnDefinition::new("score", DataColumnType::Float, true)
+                    .with_range(Some(1.0), Some(5.0)),
+            ],
+        );
+
+        let csv_valid = "score\n1.0\n3.5\n5.0\n";
+        let rep_valid = validate_csv_content(&schema, csv_valid);
+        assert!(rep_valid.passed);
+        assert_eq!(rep_valid.valid_rows, 3);
+
+        let csv_invalid = "score\n0.5\n5.5\n";
+        let rep_invalid = validate_csv_content(&schema, csv_invalid);
+        assert!(!rep_invalid.passed);
+        assert_eq!(rep_invalid.invalid_rows, 2);
+        assert_eq!(rep_invalid.drifts.len(), 2);
+        assert!(rep_invalid.drifts.iter().all(|d| matches!(
+            &d.drift,
+            SchemaDriftKind::ValueOutOfRange { column, .. } if column == "score"
+        )));
+    }
+
+    #[test]
+    fn test_pattern_regex_constraint() {
+        let schema = TabularSchema::new(
+            "cynic.pattern_test.v1",
+            1,
+            vec![
+                ColumnDefinition::new("asset_code", DataColumnType::Text, true)
+                    .with_pattern(r"^AST-\d{4}$"),
+            ],
+        );
+
+        let csv_valid = "asset_code\nAST-1234\nAST-9999\n";
+        let rep_valid = validate_csv_content(&schema, csv_valid);
+        assert!(rep_valid.passed);
+        assert_eq!(rep_valid.valid_rows, 2);
+
+        let csv_invalid = "asset_code\nAST-1234\nAST-BAD\nNOT-AN-AST\n";
+        let rep_invalid = validate_csv_content(&schema, csv_invalid);
+        assert!(!rep_invalid.passed);
+        assert_eq!(rep_invalid.valid_rows, 1);
+        assert_eq!(rep_invalid.invalid_rows, 2);
+        assert!(rep_invalid.drifts.iter().any(|d| matches!(
+            &d.drift,
+            SchemaDriftKind::PatternMismatch { column, value, .. }
+                if column == "asset_code" && value == "AST-BAD"
+        )));
     }
 }
