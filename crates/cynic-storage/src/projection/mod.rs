@@ -1,6 +1,9 @@
 //! Embedded SQLite state projection coordinator implementing `ProjectionCoordinatorPort`.
 //! Manages single-writer transactions, projection watermarks, SMR event replay, and DLQ isolation.
 
+pub mod tabular;
+pub use tabular::{TabularMemoryProjection, TabularQueryResult};
+
 use parking_lot::Mutex;
 use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
