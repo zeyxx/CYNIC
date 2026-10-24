@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout, clippy::print_stderr, dead_code)]
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 //! `cynic-cli` — Portable CYNIC operator CLI library.
 //!
 //! Conforms to the Library-First Pattern (§472): all domain code, command
@@ -30,7 +30,6 @@ pub mod coordination_ledger;
 pub mod coordination_log;
 pub mod coordination_metrics;
 pub mod coordination_surface;
-pub mod constitutional_court_b;
 pub mod constitutional_court_surface;
 pub mod crate_audit;
 pub(crate) mod dependency_surface;

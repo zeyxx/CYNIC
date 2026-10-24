@@ -31,8 +31,6 @@ pub enum Severity {
 
 #[derive(Serialize)]
 pub struct Summary {
-    pub total_files: usize,
-    pub total_lines: usize,
     pub violations_high: usize,
     pub violations_medium: usize,
     pub violations_low: usize,
@@ -41,13 +39,8 @@ pub struct Summary {
 /// Scan the codebase against the 7 design rules.
 pub fn run_doctor(repo_root: &Path) -> Result<DoctorReport, String> {
     let mut violations: Vec<Violation> = Vec::new();
-    let mut total_files: usize = 0;
-    let mut total_lines: usize = 0;
-
     // R1: Files > 400 lines
     let r1 = scan_file_lengths(repo_root, 400)?;
-    total_files = r1.0;
-    total_lines = r1.1;
     if !r1.2.is_empty() {
         violations.push(Violation {
             rule: "R1",
@@ -134,8 +127,6 @@ pub fn run_doctor(repo_root: &Path) -> Result<DoctorReport, String> {
         score: score.max(0.0),
         violations,
         summary: Summary {
-            total_files,
-            total_lines,
             violations_high,
             violations_medium,
             violations_low,

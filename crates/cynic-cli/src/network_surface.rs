@@ -5,7 +5,6 @@ use cynic_types::paths::CynicPaths;
 pub mod execution;
 pub use execution::NetworkCommands;
 
-use crate::registry_path;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 mod actuator;
