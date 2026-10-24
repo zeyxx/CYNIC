@@ -32,7 +32,7 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:38",
+      "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:37",
       "path": "crates/cynic-cli/src/agent_surface/mod.rs",
       "terms": "organism"
     },
@@ -44,7 +44,7 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-cli/src/build_surface.rs:174",
+      "evidence": "crates/cynic-cli/src/build_surface.rs:196",
       "path": "crates/cynic-cli/src/build_surface.rs",
       "terms": "metabolic"
     },
@@ -53,12 +53,6 @@
       "evidence": "crates/cynic-cli/src/build_surface/invoice.rs:1",
       "path": "crates/cynic-cli/src/build_surface/invoice.rs",
       "terms": "metabolic"
-    },
-    {
-      "count": 1,
-      "evidence": "crates/cynic-cli/src/dependency/specs.rs:29",
-      "path": "crates/cynic-cli/src/dependency/specs.rs",
-      "terms": "organism"
     },
     {
       "count": 3,
@@ -247,18 +241,6 @@
       "terms": "dog"
     },
     {
-      "count": 1,
-      "evidence": "crates/cynic-intel-soc/src/ports.rs:8",
-      "path": "crates/cynic-intel-soc/src/ports.rs",
-      "terms": "organism"
-    },
-    {
-      "count": 13,
-      "evidence": "crates/cynic-intel-soc/src/rules.rs:5",
-      "path": "crates/cynic-intel-soc/src/rules.rs",
-      "terms": "organ, organs, dog"
-    },
-    {
       "count": 4,
       "evidence": "crates/cynic-intel/src/adapters/agentic_tool_call_adapter.rs:13",
       "path": "crates/cynic-intel/src/adapters/agentic_tool_call_adapter.rs",
@@ -332,7 +314,7 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-intel/src/lib.rs:16",
+      "evidence": "crates/cynic-intel/src/lib.rs:18",
       "path": "crates/cynic-intel/src/lib.rs",
       "terms": "dog"
     },
@@ -347,6 +329,12 @@
       "evidence": "crates/cynic-intel/src/rug_prefilter.rs:1",
       "path": "crates/cynic-intel/src/rug_prefilter.rs",
       "terms": "dog"
+    },
+    {
+      "count": 10,
+      "evidence": "crates/cynic-intel/src/soc/rules.rs:26",
+      "path": "crates/cynic-intel/src/soc/rules.rs",
+      "terms": "organ"
     },
     {
       "count": 1,
@@ -566,7 +554,7 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-node/src/dns_activation_status.rs:176",
+      "evidence": "crates/cynic-node/src/dns_activation_status.rs:188",
       "path": "crates/cynic-node/src/dns_activation_status.rs",
       "terms": "organ"
     },
@@ -775,10 +763,10 @@
       "terms": "metabolic"
     },
     {
-      "count": 64,
-      "evidence": "infra/audit-debt-ledger.json:1649",
+      "count": 10,
+      "evidence": "infra/audit-debt-ledger.json:1667",
       "path": "infra/audit-debt-ledger.json",
-      "terms": "organic, organ, dog, organism, metabolism, metabolic, genome, Dog, Organic"
+      "terms": "organism, organ, dog, organic, metabolism, metabolic, genome"
     },
     {
       "count": 10,
@@ -800,7 +788,7 @@
     },
     {
       "count": 1,
-      "evidence": "infra/module-inversion-ledger.json:138",
+      "evidence": "infra/module-inversion-ledger.json:122",
       "path": "infra/module-inversion-ledger.json",
       "terms": "dog"
     },
@@ -855,7 +843,7 @@
     "by_term": {
       "DOG": 3,
       "DOg": 1,
-      "Dog": 33,
+      "Dog": 32,
       "Dogs": 7,
       "METABOLIC": 2,
       "Metabolic": 1,
@@ -863,22 +851,22 @@
       "ORGANIC": 1,
       "ORGANISM": 1,
       "Organ": 10,
-      "Organic": 5,
+      "Organic": 4,
       "Organism": 3,
       "Organs": 2,
-      "dog": 49,
+      "dog": 48,
       "dogs": 13,
       "genome": 1,
       "metabolic": 8,
       "metabolism": 3,
       "organ": 36,
       "organic": 19,
-      "organism": 35,
-      "organs": 19
+      "organism": 33,
+      "organs": 18
     },
-    "files": 140,
+    "files": 138,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 959
+    "occurrences": 900
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {

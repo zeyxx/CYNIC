@@ -50,6 +50,8 @@ fn report() -> cynic_protocol::AuditReportV2 {
 /// are deleted here rather than satisfied: keeping them would mean deleting a
 /// source file to keep a test green, which is the opposite of the point.
 const KNOWN: &[&str] = &[
+    "crates/cynic-host/src/profiles/build_runner.rs",
+    "crates/cynic-node-protocol/src/node_service_unit.rs",
     "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",
     "crates/cynic-inference/src/domain/chat.rs",
     "crates/cynic-vcs-providers/src/forgejo_webhook.rs",
