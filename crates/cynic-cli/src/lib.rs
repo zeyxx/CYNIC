@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout, clippy::print_stderr, dead_code)]
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 //! `cynic-cli` — Portable CYNIC operator CLI library.
 //!
 //! Conforms to the Library-First Pattern (§472): all domain code, command
