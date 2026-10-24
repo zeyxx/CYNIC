@@ -687,10 +687,10 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             };
 
             // Phase 11.3: Graph-RAG Traversal (link chunks to parent contracts and governing specs)
+            let chunks_by_path = cache.chunks_by_path();
             let final_hits = if eff_graph_max_expansion > 0 {
                 let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
                 let graph = cynic_knowledge::KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
-                let chunks_by_path = cache.chunks_by_path();
                 cynic_knowledge::expand_hits_with_graph_query(
                     &hits,
                     &graph,
