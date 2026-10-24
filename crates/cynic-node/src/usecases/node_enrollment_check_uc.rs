@@ -74,6 +74,9 @@ pub fn execute_node_enrollment_check(config_path: &str, json: bool) -> ExitCode 
     let read_back = reader.read_back(&control.node_id);
     let (reachable, mut unknowns) = probe_renewal_endpoint(&control.kernel_url);
     unknowns.extend(read_back.unknowns.iter().cloned());
+    let status_path = super::node_enrollment_lifecycle_uc::renewal_status_path(&control.enrollment_grant_path);
+    let renewal_status = super::node_enrollment_lifecycle_uc::load_renewal_status(&status_path);
+
     let summary = summarize_node_enrollment_check(
         &read_back.state,
         read_back.grant_id.clone(),
@@ -93,10 +96,23 @@ pub fn execute_node_enrollment_check(config_path: &str, json: bool) -> ExitCode 
         "grant_expires_at_unix_s": summary.grant_expires_at_unix_s,
         "renewal_endpoint": control.kernel_url,
         "renewal_endpoint_reachable": summary.renewal_endpoint_reachable,
+        "renewal_attempts": renewal_status.as_ref().map(|s| s.attempts_count).unwrap_or(0),
+        "renewal_successes": renewal_status.as_ref().map(|s| s.successes_count).unwrap_or(0),
+        "renewal_failures": renewal_status.as_ref().map(|s| s.failures_count).unwrap_or(0),
+        "last_renewal_error": renewal_status.as_ref().and_then(|s| s.last_error.clone()),
+        "last_renewal_attempt_unix_s": renewal_status.as_ref().and_then(|s| s.last_attempt_unix_s),
         "blockers": summary.blockers,
     });
     if json {
         return emit(&report, summary.status == "ready");
+    }
+    if let Some(ref s) = renewal_status {
+        if s.attempts_count > 0 {
+            println!(
+                "Renewal telemetry : attempts={}, successes={}, failures={}, last_error={:?}",
+                s.attempts_count, s.successes_count, s.failures_count, s.last_error
+            );
+        }
     }
     if summary.status == "ready" {
         println!("READY: enrollment proven for {}", control.node_id);
