@@ -1,8 +1,61 @@
 //! Neural Cross-Encoder Reranker Domain Module
 //! Follows CYNIC FCIS: Pure domain logic for reranking candidate search hits.
 
+use std::collections::HashMap;
+
 use crate::domain::scorer::SearchHit;
 use serde::{Deserialize, Serialize};
+
+pub const RERANK_CACHE_SCHEMA_V1: &str = "cynic.knowledge.rerank_cache.v1";
+
+/// Persistent cache for cross-encoder reranking scores.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RerankCacheRecord {
+    pub schema: String,
+    pub model: String,
+    /// Maps deterministic key `blake3(format!("{query}:{chunk_id}"))` -> relevance_score.
+    pub scores: HashMap<String, f64>,
+}
+
+impl Default for RerankCacheRecord {
+    fn default() -> Self {
+        Self::new("default")
+    }
+}
+
+impl RerankCacheRecord {
+    pub fn new(model: &str) -> Self {
+        Self {
+            schema: RERANK_CACHE_SCHEMA_V1.to_string(),
+            model: model.to_string(),
+            scores: HashMap::new(),
+        }
+    }
+
+    pub fn key(query: &str, chunk_id: &str) -> String {
+        blake3::hash(format!("{query}:{chunk_id}").as_bytes())
+            .to_hex()
+            .to_string()
+    }
+
+    pub fn get(&self, query: &str, chunk_id: &str) -> Option<f64> {
+        let k = Self::key(query, chunk_id);
+        self.scores.get(&k).copied()
+    }
+
+    pub fn insert(&mut self, query: &str, chunk_id: &str, score: f64) {
+        let k = Self::key(query, chunk_id);
+        self.scores.insert(k, score);
+    }
+
+    pub fn len(&self) -> usize {
+        self.scores.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.scores.is_empty()
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RerankItem {
@@ -104,5 +157,16 @@ mod tests {
         assert_eq!(reranked[0].chunk.source_path, "file2.md");
         assert_eq!(reranked[1].chunk.source_path, "file1.md");
         assert_eq!(reranked[0].score, 0.95);
+    }
+
+    #[test]
+    fn test_rerank_cache_insert_and_get() {
+        let mut cache = RerankCacheRecord::new("bge-reranker-large");
+        assert!(cache.is_empty());
+
+        cache.insert("what is cynic", "chunk_123", 0.985);
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.get("what is cynic", "chunk_123"), Some(0.985));
+        assert_eq!(cache.get("other query", "chunk_123"), None);
     }
 }

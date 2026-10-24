@@ -74,6 +74,9 @@ pub enum KnowCommand {
         /// Model name for completion.
         #[arg(long, default_value = "default")]
         model: String,
+        /// Force LLM inference even if epistemic ground truth coverage is below threshold.
+        #[arg(long)]
+        force: bool,
         /// Output response as JSON.
         #[arg(long)]
         json: bool,
@@ -343,6 +346,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             prompt_only,
             endpoint,
             model,
+            force,
             json,
         } => {
             let cache_path = {
@@ -525,8 +529,31 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         .build()
                         .ok();
 
+                    let rerank_cache_path = cynic_types::CynicPaths::user_rerank_cache_path();
+                    let mut rerank_cache = cynic_knowledge::load_rerank_cache(&rerank_cache_path)
+                        .unwrap_or_else(|| cynic_knowledge::RerankCacheRecord::new("bge-reranker-large"));
+
+                    let mut cached_items = Vec::new();
+                    let mut all_cached = true;
+                    for (idx, cand) in candidates.iter().enumerate() {
+                        if let Some(score) = rerank_cache.get(&question, &cand.chunk.chunk_id) {
+                            cached_items.push(cynic_knowledge::RerankItem {
+                                index: idx,
+                                relevance_score: score,
+                            });
+                        } else {
+                            all_cached = false;
+                        }
+                    }
+
                     let mut reranked = Vec::new();
-                    if let Some(ref endpoint) = rerank_endpoint {
+                    if all_cached && !cached_items.is_empty() {
+                        reranked = cynic_knowledge::apply_rerank_scores(&candidates, &cached_items);
+                        eprintln!(
+                            "neural rerank: {} candidates retrieved from local score cache",
+                            candidates.len()
+                        );
+                    } else if let Some(ref endpoint) = rerank_endpoint {
                         if let Some(c) = client {
                             let payload = serde_json::json!({
                                 "query": question,
@@ -551,9 +578,11 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                                                             chunk: hit.chunk,
                                                             score,
                                                         });
+                                                        rerank_cache.insert(&question, &hit.chunk.chunk_id, score);
                                                     }
                                                 }
                                             }
+                                            let _ = cynic_knowledge::save_rerank_cache(&rerank_cache_path, &rerank_cache);
                                         }
                                     }
                                 }
@@ -561,9 +590,17 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                                     eprintln!("rerank returned HTTP {}", resp.status());
                                 }
                                 Err(e) => {
-                                    eprintln!(
-                                        "rerank network error ({e}); falling back to continuous fusion"
-                                    );
+                                    if !cached_items.is_empty() {
+                                        eprintln!(
+                                            "rerank network error ({e}); using {} cached score(s)",
+                                            cached_items.len()
+                                        );
+                                        reranked = cynic_knowledge::apply_rerank_scores(&candidates, &cached_items);
+                                    } else {
+                                        eprintln!(
+                                            "rerank network error ({e}); falling back to continuous fusion"
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -597,6 +634,57 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 &question,
                 2,
             );
+
+            // Epistemic Grounding Guard: Reject out-of-corpus hallucinations before invoking LLM
+            let min_conf = if rerank_endpoint.is_some() {
+                0.01 // Neural cross-encoder output scale is 0.0..1.0
+            } else {
+                cynic_knowledge::DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD
+            };
+            let assembly_config = cynic_knowledge::EpistemicAssemblyConfig {
+                min_confidence: min_conf,
+                min_term_coverage: 0.30,
+                max_sources: limit + 2,
+                max_context_chars: 8_000,
+                lost_in_the_middle_reordering: false,
+            };
+            let verdict = cynic_knowledge::assemble_epistemic_context(
+                &question,
+                &final_hits,
+                &assembly_config,
+            );
+
+            if let cynic_knowledge::EpistemicCoverageVerdict::Uncovered {
+                ref rejection_token,
+                ref reason,
+                confidence,
+                term_coverage,
+            } = verdict
+            {
+                if !force {
+                    if json {
+                        let rejection = serde_json::json!({
+                            "schema": "cynic.knowledge.verdict.v1",
+                            "status": "uncovered",
+                            "question": question,
+                            "rejection_token": rejection_token,
+                            "confidence": confidence,
+                            "term_coverage": term_coverage,
+                            "reason": reason,
+                        });
+                        return crate::emit_json(&rejection, false);
+                    } else {
+                        println!("=== CYNIC Knowledge Synthesis Oracle ===");
+                        println!("Question : {}", question);
+                        println!("Statut   : {}", rejection_token);
+                        println!("Raison   : {}", reason);
+                        println!("Conseil  : Utilisez --force pour interroger le modèle malgré l'absence de base factuelle vérifiée.");
+                        return ExitCode::SUCCESS;
+                    }
+                } else if !json {
+                    eprintln!("attention: question non couverte par le corpus ({reason}); contournement forcé par --force");
+                }
+            }
 
             let synthesis_prompt =
                 cynic_knowledge::SynthesisPromptBuilder::build(&question, &final_hits);

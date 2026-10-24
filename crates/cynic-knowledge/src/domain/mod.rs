@@ -55,7 +55,10 @@ pub use graph_expansion::{expand_hits_with_graph, expand_hits_with_graph_query};
 pub use hybrid_rrf::{fuse_reciprocal_ranks, DenseHit, DEFAULT_RRF_K};
 pub use public_surface::{render_public_surface_html, render_public_surface_markdown};
 pub use query_routing::{route_query, QueryRoute, RoutingTable};
-pub use rerank::{apply_rerank_scores, RerankItem, RerankRequest, RerankResponse};
+pub use rerank::{
+    apply_rerank_scores, RerankCacheRecord, RerankItem, RerankRequest, RerankResponse,
+    RERANK_CACHE_SCHEMA_V1,
+};
 pub use scorer::{bm25_margin, dense_margin, tokenize, LexicalIndex, SearchHit};
 pub use synthesis::{
     CitedSource, SynthesisPrompt, SynthesisPromptBuilder, SYNTHESIS_PROMPT_SCHEMA_V1,
