@@ -3,7 +3,7 @@
 //! Enforces mint allowlists, recipient allowlists, spend caps, base58 format validation,
 //! and produces deterministic risk verdicts for ZeroClaw / CYNIC.
 
-use cynic_solana_pay::{AllowanceGrant, AllowanceGrantPaymentExt, SolanaPayRequest};
+use crate::domain::solana::{AllowanceGrant, AllowanceGrantPaymentExt, SolanaPayRequest};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

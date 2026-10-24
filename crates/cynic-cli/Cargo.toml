@@ -55,7 +55,6 @@ cynic-domain-ops = { path = "../cynic-domain-ops" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-intel = { path = "../cynic-intel" }
 cynic-discovery = { path = "../cynic-discovery" }
-cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }

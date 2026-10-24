@@ -100,8 +100,7 @@
         "cynic-types",
         "cynic-vcs",
         "cynic-vcs-providers",
-        "cynic-workload",
-        "cynic-zeroclaw-solana"
+        "cynic-workload"
       ],
       "dev_depends_on": [
         "cynic-types"
@@ -299,8 +298,7 @@
       "depends_on": [
         "cynic-network",
         "cynic-protocol",
-        "cynic-secrets",
-        "cynic-solana-pay"
+        "cynic-secrets"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -545,12 +543,10 @@
         "cynic-release",
         "cynic-sandbox",
         "cynic-secrets",
-        "cynic-solana-pay",
         "cynic-storage",
         "cynic-supervisor",
         "cynic-vcs",
-        "cynic-workload",
-        "cynic-zeroclaw-solana"
+        "cynic-workload"
       ],
       "depends_on": [
         "cynic-types"
@@ -636,20 +632,6 @@
       "kind": "library",
       "layer": "cross_cutting",
       "loc": 1701
-    },
-    "cynic-solana-pay": {
-      "consumers": [
-        "cynic-intel",
-        "cynic-zeroclaw-solana"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 511
     },
     "cynic-storage": {
       "consumers": [
@@ -792,21 +774,6 @@
       "kind": "library",
       "layer": "cross_cutting",
       "loc": 6383
-    },
-    "cynic-zeroclaw-solana": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-intel",
-        "cynic-protocol",
-        "cynic-solana-pay"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 448
     }
   },
   "extraction_order": [
@@ -1035,12 +1002,10 @@
       "cynic-market",
       "cynic-node-protocol",
       "cynic-pool",
-      "cynic-solana-pay",
       "cynic-storage",
       "cynic-traces",
       "cynic-vcs",
-      "cynic-vcs-providers",
-      "cynic-zeroclaw-solana"
+      "cynic-vcs-providers"
     ],
     "L3": [
       "cynic-kernel",
@@ -1069,20 +1034,11 @@
     "unjustified": 0,
     "upward_edges": 12
   },
-  "pending_disposition": {
-    "cynic-channel": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, not a binary"
-    },
-    "cynic-market": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, not a binary"
-    },
-    "cynic-pool": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, phantom [[bin]] removed 2026-10-06; library-only, candidate for deletion"
-    }
-  },
+  "pending_disposition": [
+    "cynic-channel",
+    "cynic-market",
+    "cynic-pool"
+  ],
   "purpose": "Machine-readable crate dependency topology. Single source of truth for the DAG, the layer assignment, and crate justification. Replaces the prose taxonomy in AGENTS.md and the tables in infra/CANONICAL_CRATE_MAP.md, which can drift from the build graph and from each other and are not executable. A vertical slice names crates; this file gives the topological order to extract them in.",
   "ratification": {
     "date": "2026-09-28",

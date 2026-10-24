@@ -1336,12 +1336,6 @@
       "severity": "warning"
     },
     {
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `zeroclaw-solana-demo` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "count": 1,
-      "rule": "ART-001",
-      "severity": "warning"
-    },
-    {
       "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-proxmox/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
       "count": 1,
       "rule": "ART-002",

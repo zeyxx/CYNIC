@@ -1,16 +1,15 @@
 //! ZeroClaw Plugin implementation for Solana Native Operations & CYNIC Threat Firewall.
 
-use cynic_intel::adapters::SovereignAgenticToolCallAdapter;
-use cynic_intel::ports::AgenticToolCallPort;
 use cynic_protocol::agent_recursion::AgentBudget;
 use cynic_protocol::agentic_tool_call::{
     AgenticToolCallInput, AgenticToolCallResult, AgenticToolCallStatus,
 };
-use cynic_solana_pay::{AllowanceGrant, SolanaPayRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::qr::render_qr_ascii;
+use crate::adapters::SovereignAgenticToolCallAdapter;
+use crate::domain::solana::{render_qr_ascii, AllowanceGrant, SolanaPayRequest};
+use crate::ports::AgenticToolCallPort;
 
 /// Struct representing a ZeroClaw plugin tool definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
