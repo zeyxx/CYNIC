@@ -8,6 +8,7 @@ use crate::emit_json;
 
 #[derive(Subcommand)]
 pub(crate) enum TransportCommand {
+    /// Transport security matrix across declared hosts.
     Matrix,
     /// Transport security posture.
     Security {
@@ -29,6 +30,7 @@ pub(crate) enum TransportSecurityCommand {
 
 #[derive(Subcommand)]
 pub(crate) enum TransportSshCommand {
+    /// Inspect SSH/transport configuration for a host.
     Inspect {
         #[arg(long)]
         host: String,

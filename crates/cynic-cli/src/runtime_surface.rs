@@ -32,6 +32,7 @@ mod validation;
 
 #[derive(Subcommand)]
 pub(crate) enum RuntimeCommand {
+    /// Resolve and display canonical runtime paths (registry, profiles, data).
     Paths {
         #[arg(long)]
         json: bool,
@@ -43,6 +44,7 @@ pub(crate) enum RuntimeCommand {
         #[command(subcommand)]
         command: RuntimeRegistryCommand,
     },
+    /// Validate the declared runtime against observed state.
     Validate {
         #[arg(long)]
         json: bool,
@@ -51,6 +53,7 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         lab_registry: Option<String>,
     },
+    /// Run the runtime conformance suite for a profile.
     Suite {
         #[arg(long)]
         json: bool,
@@ -59,6 +62,7 @@ pub(crate) enum RuntimeCommand {
         #[arg(long, default_value = "fleet")]
         profile: String,
     },
+    /// Plan a runtime change without mutating (dry-run).
     Plan {
         #[arg(long)]
         json: bool,
@@ -80,6 +84,7 @@ pub(crate) enum RuntimeCommand {
         #[command(subcommand)]
         command: RuntimeHarnessCommand,
     },
+    /// Observe host conformance against declared capability contracts.
     Conformance {
         // No local `json` here: ProfileArgs (bootstrap_surface/selection.rs:22)
         // already declares `--json`, and clap panics at startup on a duplicate
@@ -88,6 +93,7 @@ pub(crate) enum RuntimeCommand {
         #[command(flatten)]
         profile: ProfileArgs,
     },
+    /// Generate verified runtime metrics from host conformance observation.
     Metrics {
         // Same duplicate-id collision as Conformance: --json comes from
         // ProfileArgs, not from a second local declaration.
