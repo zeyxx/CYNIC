@@ -1077,6 +1077,67 @@ pub fn validate_node_telemetry_records(
     validate_record_maps(&schema, records)
 }
 
+/// Canonical schema for build settlements, capturing execution outcome, failing crate, and stderr diagnostic tail.
+pub fn build_settlement_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.build.settlement.v1",
+        1,
+        vec![
+            ColumnDefinition::new("workload_id", DataColumnType::Text, true)
+                .with_description("Unique identifier of the build workload"),
+            ColumnDefinition::new("node_id", DataColumnType::Text, true)
+                .with_description("Runner node that executed or attempted the workload"),
+            ColumnDefinition::new("commit_hash", DataColumnType::Text, true)
+                .with_description("Git commit SHA being compiled or checked"),
+            ColumnDefinition::new("action", DataColumnType::Text, true)
+                .with_description("Build action executed (e.g. check, build, test, audit)"),
+            ColumnDefinition::new("exit_code", DataColumnType::Integer, true)
+                .with_description("Process exit code (0 for success, 101 for rustc error, etc)"),
+            ColumnDefinition::new("failing_crate", DataColumnType::Text, false)
+                .with_description("Failing crate name when identifiable from output"),
+            ColumnDefinition::new("stderr_tail", DataColumnType::Text, false)
+                .with_description("Bounded tail of stderr diagnostic evidence"),
+            ColumnDefinition::new("duration_ms", DataColumnType::Integer, true)
+                .with_description("Workload duration in milliseconds"),
+            ColumnDefinition::new("settled_at_unix_ms", DataColumnType::Integer, true)
+                .with_description("Epoch timestamp in milliseconds when settlement occurred"),
+        ],
+    )
+}
+
+/// Constructs a typed record map conforming to `build_settlement_schema()`.
+pub fn build_settlement_record(
+    workload_id: &str,
+    node_id: &str,
+    commit_hash: &str,
+    action: &str,
+    exit_code: i64,
+    failing_crate: Option<&str>,
+    stderr_tail: Option<&str>,
+    duration_ms: u64,
+    settled_at_unix_ms: u64,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    map.insert("workload_id".to_string(), serde_json::json!(workload_id));
+    map.insert("node_id".to_string(), serde_json::json!(node_id));
+    map.insert("commit_hash".to_string(), serde_json::json!(commit_hash));
+    map.insert("action".to_string(), serde_json::json!(action));
+    map.insert("exit_code".to_string(), serde_json::json!(exit_code));
+    map.insert("failing_crate".to_string(), failing_crate.map_or(serde_json::Value::Null, |c| serde_json::json!(c)));
+    map.insert("stderr_tail".to_string(), stderr_tail.map_or(serde_json::Value::Null, |t| serde_json::json!(t)));
+    map.insert("duration_ms".to_string(), serde_json::json!(duration_ms));
+    map.insert("settled_at_unix_ms".to_string(), serde_json::json!(settled_at_unix_ms));
+    map
+}
+
+/// Validates an array of build settlement record maps against `build_settlement_schema()`.
+pub fn validate_build_settlement_records(
+    records: &[serde_json::Map<String, serde_json::Value>],
+) -> TabularValidationReport {
+    let schema = build_settlement_schema();
+    validate_record_maps(&schema, records)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1533,5 +1594,40 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         let rep_bad = validate_node_telemetry_records(&[t_bad]);
         assert!(!rep_bad.passed);
         assert_eq!(rep_bad.invalid_rows, 1);
+    }
+
+    #[test]
+    fn test_build_settlement_schema_and_validation() {
+        let s1 = build_settlement_record(
+            "workload-101",
+            "cynic-builder",
+            "9d065b05",
+            "check",
+            0,
+            None,
+            None,
+            12500,
+            1700000000000,
+        );
+        let rep = validate_build_settlement_records(&[s1]);
+        assert!(rep.passed);
+        assert_eq!(rep.valid_rows, 1);
+        assert_eq!(rep.invalid_rows, 0);
+
+        // Failing build with failing crate and bounded stderr tail
+        let s2 = build_settlement_record(
+            "workload-102",
+            "compute-01",
+            "9d065b05",
+            "build",
+            101,
+            Some("cynic-host"),
+            Some("error[E0308]: mismatched types\n --> crates/cynic-host/src/lib.rs:10:5"),
+            4500,
+            1700000005000,
+        );
+        let rep2 = validate_build_settlement_records(&[s2]);
+        assert!(rep2.passed);
+        assert_eq!(rep2.valid_rows, 1);
     }
 }

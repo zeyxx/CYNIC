@@ -256,8 +256,11 @@ pub fn resolve_schema(schema_arg: Option<&str>) -> Result<TabularSchema, String>
         "telemetry" | "telemetries" | "node_telemetry" | "heartbeat" => {
             Ok(cynic_traces::tabular::node_telemetry_schema())
         }
+        "settlement" | "settlements" | "build" | "builds" => {
+            Ok(cynic_traces::tabular::build_settlement_schema())
+        }
         other => Err(format!(
-            "Unknown schema '{}'. Expected canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim', 'history', 'journal', 'telemetry') or path to JSON schema file.",
+            "Unknown schema '{}'. Expected canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim', 'history', 'journal', 'telemetry', 'settlement') or path to JSON schema file.",
             other
         )),
     }
@@ -355,6 +358,10 @@ mod tests {
         assert_eq!(
             resolve_schema(Some("telemetry")).unwrap().schema_id,
             "cynic.node.telemetry.v1"
+        );
+        assert_eq!(
+            resolve_schema(Some("settlement")).unwrap().schema_id,
+            "cynic.build.settlement.v1"
         );
         assert!(resolve_schema(None).is_err());
         assert!(resolve_schema(Some("unknown_xyz")).is_err());

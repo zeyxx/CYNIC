@@ -668,6 +668,12 @@
               "base": "state_root",
               "relative_path": "checkouts",
               "kind": "evidence_checkout"
+            },
+            {
+              "base": "state_root",
+              "relative_path": "source/workspaces",
+              "kind": "workload_workspace",
+              "workload_store_relative_path": "source/workspaces"
             }
           ]
         }
@@ -1048,7 +1054,12 @@
         "ssh": {
           "target": "192.168.0.25",
           "trust": "ssh_trust_anchor",
-          "principal": "cynic"
+          "principal": "cynic",
+          "enrollment_authority": {
+            "class": "machine_enrollment",
+            "principal": "cynic",
+            "credential_ref": "cynic-compute-01-enrollment-authority-g3"
+          }
         }
       },
       "network": {
@@ -1075,9 +1086,67 @@
         "repositories": [
           {
             "id": "cynic",
-            "relative_path": "CYNIC"
+            "relative_path": "CYNIC",
+            "transport_uri": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
           }
-        ]
+        ],
+        "vcs_provider": {
+          "schema": "cynic.source_lifecycle.v1",
+          "sovereign_ssot": {
+            "kind": "forgejo",
+            "api_url": "http://forgejo.synapse.cynic:3000",
+            "owner": "jeanterre13",
+            "repo": "CYNIC",
+            "token_env": "FORGEJO_TOKEN",
+            "token_file": "/etc/cynic/secrets/forgejo-token"
+          },
+          "relay": {
+            "kind": "github",
+            "api_url": "https://api.github.com",
+            "owner": "zeyxx",
+            "repo": "CYNIC",
+            "token_env": "GITHUB_TOKEN"
+          }
+        }
+      },
+      "build_lifecycle": {
+        "schema": "cynic.build_runner.resource_policy.v1",
+        "minimum_available_bytes": 4294967296,
+        "canonical_target_relative_path": "build-targets/fgate",
+        "canonical_cache_reclaim": {
+          "schema": "cynic.build_runner.cache_reclaim_policy.v1",
+          "trigger": "available_bytes_below_minimum",
+          "action": "rust_remove_bounded_profile",
+          "target_profile": "debug",
+          "preserve_profiles": [
+            "release"
+          ],
+          "rollback_intent": "none_reproducible_build_cache_only"
+        },
+        "noncanonical_cache_candidates": [
+          {
+            "base": "state_root",
+            "relative_path": "source/repositories/CYNIC/target"
+          }
+        ],
+        "ephemeral_retention": {
+          "schema": "cynic.build_runner.ephemeral_retention.v1",
+          "max_age_ms": 43200000,
+          "pressure_grace_ms": 7200000,
+          "scopes": [
+            {
+              "base": "state_root",
+              "relative_path": "checkouts",
+              "kind": "evidence_checkout"
+            },
+            {
+              "base": "state_root",
+              "relative_path": "source/workspaces",
+              "kind": "workload_workspace",
+              "workload_store_relative_path": "source/workspaces"
+            }
+          ]
+        }
       },
       "services": [
         {
