@@ -40,8 +40,8 @@
   ],
   "fleet_order": {
     "description": "Multi-node rollout order, by registry node name (infra/registry.json). One node converges fully (health-proven) before the next starts. Never update two nodes simultaneously.",
-    "order": ["cynic-builder", "cynic-host-proxmox"],
-    "rationale": "cynic-builder is the canary: it proves the release under load with zero fleet impact. cynic-host-proxmox (hypervisor host, internet ingress) updates only after the builder is health-proven on the new release."
+    "order": ["cynic-builder", "cynic-compute-01", "cynic-host-proxmox"],
+    "rationale": "cynic-builder is the canary: it proves the release under load with zero fleet impact. cynic-compute-01 (build_runner, health on :9090) follows once the builder is health-proven. cynic-host-proxmox (hypervisor host, internet ingress) updates last, only after both are health-proven on the new release."
   },
   "prohibitions": [
     "No restart without an explicit --apply and a declared unit list.",
