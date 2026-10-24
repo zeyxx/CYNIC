@@ -140,22 +140,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "fleet",
-                commands: vec![
-                    "cynic fleet observe [--user <u>] [--json]",
-                    "cynic fleet remediate <runner> --action <gc-disk|restart-probe> --yes [--user <u>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "data",
-                commands: vec![
-                    "cynic data validate --schema <path> --file <path> [--json] [--record]",
-                    "cynic data schema [--kind <kind>]",
-                    "cynic data history [--limit <limit>] [--json] [--verify]",
-                    "cynic data query --file <path> [--schema <schema>] --sql <query> [--json]",
-                ],
-            },
-            CommandDomain {
                 name: "secret",
                 commands: vec![
                     "cynic secret status [--json]",
@@ -244,6 +228,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "idea",
+                commands: vec![
+                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
+                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "node",
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
@@ -256,7 +249,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node enrollment check [--config <path>] [--json]",
                     "cynic node enrollment issue --request <req> --authority <auth> [--token-file <path>] --signing-key <key> [--output <path>] [--json]",
                     "cynic node consensus status [--json]",
-                    "cynic node observe [--registry <path>] [--fail-on-warning] [--fail-on-critical] [--record] [--json]",
+                    "cynic node observe [--registry <path>] [--fail-on-warning] [--fail-on-critical] [--json]",
                     "cynic node registry observation [--registry <path>] [--output <path>] [--json]",
                     "cynic node host cpu [--json]",
                     "cynic node host memory [--json]",
@@ -379,7 +372,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build credentials provision --json",
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build reclaim --json",
-                    "cynic build gc [--apply] [--json]",
                     "cynic build runner token [--json]",
                     "cynic build runs [--json]",
                 ],
@@ -399,7 +391,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "know",
                 commands: vec![
                     "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
-                    "cynic know surface [--out-dir <path>] [--verify] [--json]",
                 ],
             },
             CommandDomain {
@@ -420,15 +411,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic coordination ack <msg_id> [--state delivered|opened] [--json]",
                     "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
                     "cynic coordination metrics [--json] [--claims <path>] [--log <path>] [--root <path>]",
-                ],
-            },
-            CommandDomain {
-                name: "data",
-                commands: vec![
-                    "cynic data validate --schema <path> --file <path> [--json] [--record]",
-                    "cynic data schema [--kind <kind>]",
-                    "cynic data history [--limit <limit>] [--json] [--verify]",
-                    "cynic data query --file <path> [--schema <schema>] --sql <query> [--json]",
                 ],
             },
         ],

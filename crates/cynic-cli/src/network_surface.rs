@@ -212,18 +212,6 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         apply: bool,
     },
-    /// Network SOC security audit (rogue listening ports, WireGuard handshake decay)
-    /// Transport and mesh security posture.
-    Security {
-        #[command(subcommand)]
-        command: NetworkSecurityCommand,
-    },
-    /// Reconcile discovered cluster network observations into registry.json observed section
-    /// Fold observed cluster state back into the registry.
-    Reconcile {
-        #[command(subcommand)]
-        command: NetworkReconcileCommand,
-    },
     /// Synchronize the runtime registry copy from a declared registry file
     /// Declared keys replaced wholesale; the observed section is preserved.
     Registry {
@@ -405,34 +393,6 @@ pub(crate) enum NetworkProviderCommand {
 }
 
 #[derive(Subcommand)]
-pub(crate) enum NetworkSecurityCommand {
-    /// WireGuard handshake and topology audit.
-    Audit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 180)]
-        max_handshake_age_secs: u64,
-        #[arg(long)]
-        registry: Option<String>,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum NetworkReconcileCommand {
-    /// Reconcile discovered observations into registry.json.
-    Observed {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long, default_value_t = 500)]
-        timeout_ms: u64,
-        #[arg(long)]
-        apply: bool,
-    },
-}
-
-#[derive(Subcommand)]
 pub(crate) enum NetworkProviderFallbackCommand {
     /// Provider fallback status.
     Status {
@@ -498,8 +458,6 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
             |cmd| match actuator::try_execute_actuator(cmd) {
                 Ok(code) => return code,
                 Err(cmd) => match cmd {
-                    NetworkCommand::Security { command } => execute_network_security(command),
-                    NetworkCommand::Reconcile { command } => execute_network_reconcile(command),
                     other => unreachable!(
                         "all network commands must be handled, leaked: {}",
                         std::any::type_name_of_val(&other)
@@ -510,36 +468,3 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
         )
 }
 
-fn execute_network_security(command: NetworkSecurityCommand) -> ExitCode {
-    match command {
-        NetworkSecurityCommand::Audit {
-            json: _,
-            max_handshake_age_secs,
-            registry,
-        } => {
-            crate::network_surface::execution::execute_network_command(&crate::network_surface::execution::NetworkCommands::SecurityAudit {
-                json: true,
-                max_handshake_age_secs,
-                registry: registry_path(registry),
-            })
-        }
-    }
-}
-
-fn execute_network_reconcile(command: NetworkReconcileCommand) -> ExitCode {
-    match command {
-        NetworkReconcileCommand::Observed {
-            json: _,
-            registry,
-            timeout_ms,
-            apply,
-        } => crate::network_surface::execution::execute_network_command(
-            &crate::network_surface::execution::NetworkCommands::ReconcileObserved {
-                json: true,
-                registry: registry_path(registry),
-                timeout_ms,
-                apply,
-            },
-        ),
-    }
-}

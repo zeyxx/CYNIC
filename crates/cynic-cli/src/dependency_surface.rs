@@ -59,9 +59,9 @@ pub(crate) enum DependencyCommand {
 
 pub(crate) fn execute_dependency_command(command: DependencyCommand) -> ExitCode {
     match command {
-        DependencyCommand::Status { json } => crate::dependency::execute_deps(json),
-        DependencyCommand::Plan { json } => crate::dependency::execute_deps_plan(json),
-        DependencyCommand::Audit { json } => crate::dependency::execute_deps_audit(json),
+        DependencyCommand::Status { json } => crate::deps_surface::execute_deps(json),
+        DependencyCommand::Plan { json } => crate::deps_surface::execute_deps_plan(json),
+        DependencyCommand::Audit { json } => crate::deps_surface::execute_deps_audit(json),
         DependencyCommand::Upgrade {
             json,
             yes,
@@ -69,7 +69,7 @@ pub(crate) fn execute_dependency_command(command: DependencyCommand) -> ExitCode
             confirm,
             only,
             source,
-        } => crate::dependency::execute_deps_upgrade(
+        } => crate::deps_surface::execute_deps_upgrade(
             json,
             apply,
             yes,

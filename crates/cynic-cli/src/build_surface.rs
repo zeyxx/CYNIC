@@ -288,30 +288,6 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Garbage-collect builder workspaces, disposable caches, and ephemeral checkouts (contracts/builder-retention.json).
-    Gc {
-        /// The build runner node id as declared in `infra/registry.json`.
-        #[arg(long, default_value = "cynic-builder")]
-        node: String,
-        /// Path to the registry.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
-        /// The builder's state root (the registry's relative paths resolve under it).
-        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
-        state_root: String,
-        /// The builder's temporary root.
-        #[arg(long, default_value = "/tmp")]
-        temporary_root: String,
-        /// Execute the GC / reclaim. Without this flag the surface only reports (dry-run).
-        #[arg(long)]
-        apply: bool,
-        /// Run against the local filesystem instead of dispatching over SSH.
-        /// Used by the remote invocation itself, which is already on the builder.
-        #[arg(long)]
-        local: bool,
-        #[arg(long)]
-        json: bool,
-    },
     /// Reclaim the builder's reproducible build caches, per the policy declared
     /// in `infra/registry.json` (target_profile=debug, preserve release).
     Reclaim {
@@ -788,16 +764,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             render_archive_report(&report, json);
             Ok(())
         }
-        BuildCommand::Gc {
-            node,
-            registry,
-            state_root,
-            temporary_root,
-            apply,
-            local,
-            json,
-        }
-        | BuildCommand::Reclaim {
+        BuildCommand::Reclaim {
             node,
             registry,
             state_root,

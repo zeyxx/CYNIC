@@ -14,42 +14,11 @@ use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HostCapabilities {
-    pub identity: IdentityCapability,
-    pub name_service: NameServiceCapability,
-    pub service_manager: ServiceManagerCapability,
-    pub package_manager: PackageManagerCapability,
-    pub route_tool: RouteToolCapability,
-    pub wireguard_tool: WireguardToolCapability,
-    pub network_manager: NetworkManagerCapability,
-    pub dns_provider: DnsProviderCapability,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdentityCapability {
-    pub hostname_path: String,
-    pub hostname_command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NameServiceCapability {
-    pub resolver_command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ServiceManagerCapability {
-    pub kind: String,
-    pub command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PackageManagerCapability {
-    pub kind: PackageManagerKind,
-    pub installer: String,
-    pub query: String,
-    pub rpm_query: String,
-}
+pub use cynic_protocol::host_substrate::capabilities::{
+    DnsProviderCapability, HostCapabilities, IdentityCapability, NameServiceCapability,
+    NetworkManagerCapability, PackageManagerCapability, RouteToolCapability,
+    ServiceManagerCapability, WireguardToolCapability,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PackageManagerKind {

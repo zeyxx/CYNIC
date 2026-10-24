@@ -1,12 +1,8 @@
-use std::path::PathBuf;
-
 use cynic_host::domain::ecosystem_package::{
     InstallPrincipalKind, ObservedPythonTooling, ProviderChannel, PythonInstallProvenance,
     ToolingAuthorityFamily, ToolingInstallProvenance,
 };
 use serde::{Deserialize, Serialize};
-
-pub(crate) use crate::dependency::specs::specs;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct PinsFile {
@@ -30,89 +26,6 @@ pub(crate) struct PinEntry {
     pub(crate) required: Option<bool>,
     #[serde(default)]
     pub(crate) notes: Option<String>,
-}
-
-pub(crate) fn load_pins() -> (PathBuf, Vec<PinEntry>) {
-    let path = resolve_pins_path();
-    let Ok(raw) = std::fs::read_to_string(&path) else {
-        return (path, Vec::new());
-    };
-    match serde_json::from_str::<PinsFile>(&raw) {
-        Ok(file) => (path, file.pins),
-        Err(_) => (path, Vec::new()),
-    }
-}
-
-fn resolve_pins_path() -> PathBuf {
-    if let Ok(path) = std::env::var("CYNIC_ECOSYSTEM_PINS") {
-        return PathBuf::from(path);
-    }
-
-    let mut dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    for _ in 0..8 {
-        let candidate = dir.join("infra/ecosystem-pins.json");
-        if candidate.is_file() {
-            return candidate;
-        }
-        if !dir.pop() {
-            break;
-        }
-    }
-    PathBuf::from("infra/ecosystem-pins.json")
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum UpgradeMode {
-    Scripted,
-    External,
-    DistroManaged,
-}
-
-pub(crate) enum VersionFrom {
-    StdoutFirstLine,
-    JsonField(&'static str),
-    HelpPresence,
-}
-
-pub(crate) struct DepSpec {
-    pub(crate) id: &'static str,
-    pub(crate) role: &'static str,
-    pub(crate) category: &'static str,
-    pub(crate) tier: &'static str,
-    pub(crate) bins: &'static [&'static str],
-    pub(crate) version_args: &'static [&'static str],
-    pub(crate) version_from: VersionFrom,
-    pub(crate) upstream: Option<&'static str>,
-    pub(crate) tooling_authority_family: Option<ToolingAuthorityFamily>,
-    pub(crate) python_distribution: Option<&'static str>,
-    pub(crate) expected_tooling_provenance: Option<ToolingInstallProvenance>,
-    pub(crate) expected_python_provenance: Option<PythonInstallProvenance>,
-    pub(crate) check_hint: &'static str,
-    pub(crate) update_hint: &'static str,
-    pub(crate) update_commands: &'static [&'static str],
-}
-
-impl DepSpec {
-    pub(crate) const fn simple(
-        id: &'static str,
-        role: &'static str,
-        category: &'static str,
-        tier: &'static str,
-        bins: &'static [&'static str],
-        version_args: &'static [&'static str],
-        version_from: VersionFrom,
-        check_hint: &'static str,
-        update_hint: &'static str,
-        update_commands: &'static [&'static str],
-    ) -> Self {
-        Self {
-            id, role, category, tier, bins, version_args, version_from,
-            upstream: None, tooling_authority_family: None, python_distribution: None,
-            expected_tooling_provenance: None, expected_python_provenance: None,
-            check_hint, update_hint, update_commands,
-        }
-    }
 }
 
 #[derive(Debug, Serialize)]
@@ -275,6 +188,38 @@ pub(crate) struct FrictionlessHints {
     pub(crate) pins_edit: &'static str,
 }
 
+pub(crate) struct DepSpec {
+    pub(crate) id: &'static str,
+    pub(crate) role: &'static str,
+    pub(crate) category: &'static str,
+    pub(crate) tier: &'static str,
+    pub(crate) bins: &'static [&'static str],
+    pub(crate) version_args: &'static [&'static str],
+    pub(crate) version_from: VersionFrom,
+    pub(crate) upstream: Option<&'static str>,
+    pub(crate) tooling_authority_family: Option<ToolingAuthorityFamily>,
+    pub(crate) python_distribution: Option<&'static str>,
+    pub(crate) expected_tooling_provenance: Option<ToolingInstallProvenance>,
+    pub(crate) expected_python_provenance: Option<PythonInstallProvenance>,
+    pub(crate) check_hint: &'static str,
+    pub(crate) update_hint: &'static str,
+    pub(crate) update_commands: &'static [&'static str],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum UpgradeMode {
+    Scripted,
+    External,
+    DistroManaged,
+}
+
+pub(crate) enum VersionFrom {
+    StdoutFirstLine,
+    JsonField(&'static str),
+    HelpPresence,
+}
+
 #[derive(Debug, Serialize)]
 pub(crate) struct UpgradeReport {
     pub(crate) schema: &'static str,
@@ -315,39 +260,4 @@ pub(crate) struct UpgradeResult {
     pub(crate) stdout_tail: String,
     pub(crate) stderr_tail: String,
     pub(crate) message: String,
-}
-
-#[derive(Debug, Serialize)]
-pub(crate) struct DepsAuditReport {
-    pub(crate) schema: &'static str,
-    pub(crate) surface: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) summary: DepsAuditSummary,
-    pub(crate) findings: Vec<DepsAuditFinding>,
-    pub(crate) rules: Vec<&'static str>,
-}
-
-#[derive(Debug, Serialize)]
-pub(crate) struct DepsAuditSummary {
-    pub(crate) total_python_cli_authorities: usize,
-    pub(crate) normalizable_now: usize,
-    pub(crate) blocked_missing_uv: usize,
-    pub(crate) blocked_runtime_principal: usize,
-    pub(crate) blocked_non_auto_apply: usize,
-}
-
-#[derive(Debug, Serialize)]
-pub(crate) struct DepsAuditFinding {
-    pub(crate) dep_id: String,
-    pub(crate) status: String,
-    pub(crate) priority: u32,
-    pub(crate) class: &'static str,
-    pub(crate) canonical_update_command: String,
-    pub(crate) observed_payload_provenance: Option<String>,
-    pub(crate) expected_payload_provenance: Option<String>,
-    pub(crate) normalizable_now: bool,
-    pub(crate) requires_uv: bool,
-    pub(crate) requires_runtime_principal: bool,
-    pub(crate) can_auto_apply: bool,
-    pub(crate) note: String,
 }

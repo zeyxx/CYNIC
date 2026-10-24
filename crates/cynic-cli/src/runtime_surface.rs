@@ -444,7 +444,7 @@ pub(crate) enum ForgejoTokenMode {
 /// Select an adapter only after a future capability resolver proves both
 /// transport reachability and credential injection. Until then this surface is
 /// deliberately fail-closed rather than pretending local-only is dynamic.
-pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs::providers::ForgejoTokenApiPort> {
+pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs_providers::ForgejoTokenApiPort> {
     let api_url = std::env::var("CYNIC_FORGEJO_API_URL")
         .or_else(|_| std::env::var("FORGEJO_API_URL"))
         .or_else(|_| std::env::var("FORGEJO_URL"))
@@ -487,7 +487,7 @@ pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs::providers::
         });
 
     Box::new(
-        cynic_vcs::providers::forgejo_token::HttpForgejoTokenApiAdapter {
+        cynic_vcs_providers::forgejo_token::HttpForgejoTokenApiAdapter {
             api_base: api_url,
             principal: "jeanterre13".to_string(),
             authorization_token: cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"),

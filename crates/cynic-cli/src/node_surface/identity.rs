@@ -48,16 +48,3 @@ pub enum NodeIdentityCommand {
     },
 }
 
-pub(crate) fn execute_node_identity_command(command: NodeIdentityCommand) -> ExitCode {
-    match command {
-        NodeIdentityCommand::Init { key_path, json } => {
-            super::activation::execute_identity_init(key_path, json)
-        }
-        NodeIdentityCommand::Node {
-            node_id,
-            signing_key_path,
-            apply,
-            json,
-        } => execute_node_identity(&node_id, &signing_key_path, apply, json),
-    }
-}

@@ -12,7 +12,7 @@
 use std::process::ExitCode;
 
 use cynic_vcs::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
-use cynic_vcs::providers::forgejo_token::{
+use cynic_vcs_providers::forgejo_token::{
     DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, forgejo_token_path,
     observe_forgejo_token_runtime, provision_forgejo_token_apply, rotate_forgejo_token,
 };

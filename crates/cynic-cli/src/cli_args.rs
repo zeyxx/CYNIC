@@ -284,11 +284,6 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::supervise_surface::SuperviseCommand,
     },
-    /// Data domain — schema contract validation and tabular drift detection.
-    Data {
-        #[command(subcommand)]
-        command: crate::data_surface::DataCommand,
-    },
 }
 
 #[derive(Subcommand)]

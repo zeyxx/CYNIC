@@ -7,6 +7,7 @@ use crate::chat_surface::{ChatArgs, execute_chat};
 use crate::cli_args::StatusCommand;
 use crate::cli_json::emit_pretty_json;
 use crate::command_manifest::commands_manifest;
+use crate::deps_surface;
 use crate::network_surface::execute_network;
 use crate::node_surface::execute_node;
 use crate::operator_doctor::execute_operator_doctor;
@@ -46,7 +47,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
             source,
         } => {
             let only = target.map(|t| vec![t]).unwrap_or_default();
-            crate::dependency::execute_deps_upgrade(json, false, true, None, &only, source.as_deref())
+            deps_surface::execute_deps_upgrade(json, false, true, None, &only, source.as_deref())
         }
         Command::Status { command, json } => match command {
             None => crate::operator_status::execute_operator_status(json),
@@ -121,7 +122,6 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Mcp { command } => crate::mcp_surface::dispatch(command).await,
         Command::Daemon { command } => crate::daemon_surface::dispatch(command).await,
         Command::Supervise { command } => crate::supervise_surface::dispatch(command).await,
-        Command::Data { command } => crate::data_surface::execute_data(command),
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
             ExitCode::SUCCESS
