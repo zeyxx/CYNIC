@@ -276,23 +276,57 @@ pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularVal
     report
 }
 
-/// Validate JSONL records against a TabularSchema.
-pub fn validate_jsonl_content(schema: &TabularSchema, jsonl_str: &str) -> TabularValidationReport {
-    let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+/// Pure JSON parser extracting records from a JSON array or container object (e.g. registry with "nodes").
+pub fn parse_json_records(input: &str) -> Result<Vec<serde_json::Map<String, serde_json::Value>>, String> {
+    let parsed: serde_json::Value = serde_json::from_str(input)
+        .map_err(|e| format!("Malformed JSON input: {}", e))?;
 
-    let records = match parse_jsonl_records(jsonl_str) {
-        Ok(rec) => rec,
-        Err(e) => {
-            report.record_drift(SchemaDrift {
-                row_index: None,
-                severity: DriftSeverity::Critical,
-                drift: SchemaDriftKind::MalformedRecord { message: e },
-            });
-            report.passed = false;
-            return report;
+    let array_opt = match &parsed {
+        serde_json::Value::Array(arr) => Some(arr),
+        serde_json::Value::Object(map) => {
+            if let Some(serde_json::Value::Array(arr)) = map.get("nodes") {
+                Some(arr)
+            } else if let Some(serde_json::Value::Array(arr)) = map.get("records") {
+                Some(arr)
+            } else if let Some(serde_json::Value::Array(arr)) = map.get("items") {
+                Some(arr)
+            } else if let Some(serde_json::Value::Array(arr)) = map.get("entries") {
+                Some(arr)
+            } else {
+                None
+            }
         }
+        _ => None,
     };
 
+    match array_opt {
+        Some(arr) => {
+            let mut records = Vec::new();
+            for (idx, item) in arr.iter().enumerate() {
+                if let serde_json::Value::Object(map) = item {
+                    records.push(map.clone());
+                } else {
+                    return Err(format!("Item at index {} is not a JSON object", idx));
+                }
+            }
+            Ok(records)
+        }
+        None => {
+            if let serde_json::Value::Object(map) = parsed {
+                Ok(vec![map])
+            } else {
+                Err("JSON root must be an array or an object".to_string())
+            }
+        }
+    }
+}
+
+/// Validate parsed record maps against a TabularSchema.
+pub fn validate_record_maps(
+    schema: &TabularSchema,
+    records: &[serde_json::Map<String, serde_json::Value>],
+) -> TabularValidationReport {
+    let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
     report.total_rows = records.len();
 
     for (row_idx, record) in records.iter().enumerate() {
@@ -386,6 +420,40 @@ pub fn validate_jsonl_content(schema: &TabularSchema, jsonl_str: &str) -> Tabula
     report
 }
 
+/// Validate JSONL records against a TabularSchema.
+pub fn validate_jsonl_content(schema: &TabularSchema, jsonl_str: &str) -> TabularValidationReport {
+    match parse_jsonl_records(jsonl_str) {
+        Ok(rec) => validate_record_maps(schema, &rec),
+        Err(e) => {
+            let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord { message: e },
+            });
+            report.passed = false;
+            report
+        }
+    }
+}
+
+/// Validate JSON records (array or container object) against a TabularSchema.
+pub fn validate_json_content(schema: &TabularSchema, json_str: &str) -> TabularValidationReport {
+    match parse_json_records(json_str) {
+        Ok(rec) => validate_record_maps(schema, &rec),
+        Err(e) => {
+            let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord { message: e },
+            });
+            report.passed = false;
+            report
+        }
+    }
+}
+
 /// Unified validator validating a file path given a schema.
 pub fn validate_tabular_file(
     schema: &TabularSchema,
@@ -403,11 +471,12 @@ pub fn validate_tabular_file(
     match ext.as_str() {
         "csv" => Ok(validate_csv_content(schema, &content)),
         "jsonl" | "ndjson" => Ok(validate_jsonl_content(schema, &content)),
+        "json" => Ok(validate_json_content(schema, &content)),
         _ => {
-            // Fallback: try jsonl if starts with '{', otherwise csv
+            // Fallback: try json if starts with '{' or '[', otherwise csv
             let trimmed = content.trim_start();
-            if trimmed.starts_with('{') {
-                Ok(validate_jsonl_content(schema, &content))
+            if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                Ok(validate_json_content(schema, &content))
             } else {
                 Ok(validate_csv_content(schema, &content))
             }
@@ -527,5 +596,32 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         assert!(report.passed);
         assert_eq!(report.total_rows, 2);
         assert_eq!(report.valid_rows, 2);
+    }
+
+    #[test]
+    fn test_json_registry_container_validation() {
+        let node_schema = TabularSchema::new(
+            "cynic.node_inventory.v1",
+            1,
+            vec![
+                ColumnDefinition::new("id", DataColumnType::Text, true),
+                ColumnDefinition::new("role", DataColumnType::Text, true),
+                ColumnDefinition::new("deploy_target", DataColumnType::Boolean, true),
+            ],
+        );
+
+        let registry_json = r#"{
+            "schema": "cynic.registry.v1.minimal",
+            "nodes": [
+                {"id": "node-1", "role": "builder", "deploy_target": true},
+                {"id": "node-2", "role": "auditor", "deploy_target": false}
+            ]
+        }"#;
+
+        let report = validate_json_content(&node_schema, registry_json);
+        assert!(report.passed);
+        assert_eq!(report.total_rows, 2);
+        assert_eq!(report.valid_rows, 2);
+        assert_eq!(report.invalid_rows, 0);
     }
 }

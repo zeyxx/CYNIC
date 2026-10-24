@@ -213,3 +213,62 @@ fn the_infrastructure_identifiers_are_not_retired() {
     assert!(!cynic_protocol::vocabulary::is_retired_term("synapses"));
     assert!(!cynic_protocol::vocabulary::is_retired_term("cortices"));
 }
+
+#[test]
+#[ignore]
+fn regenerate_retired_metaphor_ledger() {
+    let root = workspace_root();
+    let index = scan_workspace(&root);
+    let observed = observe(&index);
+
+    let path = root.join(LEDGER_PATH);
+    let text = std::fs::read_to_string(&path).expect("read");
+    let mut doc: serde_json::Value = serde_json::from_str(&text).expect("parse");
+
+    let mut entries = Vec::new();
+    let mut total_occurrences = 0;
+    let mut by_term: BTreeMap<String, usize> = BTreeMap::new();
+
+    for (file_path, (count, evidence, terms)) in &observed {
+        total_occurrences += count;
+        for t in terms {
+            *by_term.entry(t.clone()).or_insert(0) += 1;
+        }
+        let mut entry = serde_json::Map::new();
+        entry.insert("path".to_string(), serde_json::Value::String(file_path.clone()));
+        entry.insert("count".to_string(), serde_json::Value::Number((*count as u64).into()));
+        entry.insert("evidence".to_string(), serde_json::Value::String(evidence.clone()));
+        entry.insert("terms".to_string(), serde_json::Value::String(terms.join(", ")));
+        entries.push(serde_json::Value::Object(entry));
+    }
+
+    let mut measured = serde_json::Map::new();
+    measured.insert(
+        "note".to_string(),
+        serde_json::Value::String(
+            "Observation at ratification. Regenerated only by deliberate act.".to_string(),
+        ),
+    );
+    measured.insert(
+        "files".to_string(),
+        serde_json::Value::Number((observed.len() as u64).into()),
+    );
+    measured.insert(
+        "occurrences".to_string(),
+        serde_json::Value::Number((total_occurrences as u64).into()),
+    );
+
+    let mut by_term_map = serde_json::Map::new();
+    for (term, c) in by_term {
+        by_term_map.insert(term, serde_json::Value::Number((c as u64).into()));
+    }
+    measured.insert("by_term".to_string(), serde_json::Value::Object(by_term_map));
+
+    if let Some(obj) = doc.as_object_mut() {
+        obj.insert("measured".to_string(), serde_json::Value::Object(measured));
+        obj.insert("entries".to_string(), serde_json::Value::Array(entries));
+    }
+
+    let out = serde_json::to_string_pretty(&doc).expect("serialize") + "\n";
+    std::fs::write(&path, out).expect("write");
+}

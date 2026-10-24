@@ -129,6 +129,23 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool) -> ExitCod
 
 fn execute_schema(kind: &str) -> ExitCode {
     let schema = match kind {
+        "node" | "nodes" | "registry" | "inventory" => TabularSchema::new(
+            "cynic.node_inventory.v1",
+            1,
+            vec![
+                ColumnDefinition::new("id", DataColumnType::Text, true)
+                    .with_description("Unique identifier of the node (hostname)"),
+                ColumnDefinition::new("name", DataColumnType::Text, true)
+                    .with_description("Display name of the node"),
+                ColumnDefinition::new("role", DataColumnType::Text, false)
+                    .with_description("Node architectural role (hypervisor, cortex_host, builder, etc.)"),
+                ColumnDefinition::new("status", DataColumnType::Text, true)
+                    .with_description("Observed or candidate status"),
+                ColumnDefinition::new("deploy_target", DataColumnType::Boolean, true)
+                    .with_description("Whether this node accepts direct workload deployment"),
+            ],
+        )
+        .with_strict_columns(false),
         "claim" | "claims" | "natcat" => TabularSchema::new(
             "cynic.natcat_claims.v1",
             1,
