@@ -462,6 +462,15 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     None
                 }
             };
+            let rerank_endpoint = std::env::var("CYNIC_RERANK_URL")
+                .ok()
+                .filter(|u| !u.trim().is_empty())
+                .or_else(|| {
+                    cynic_knowledge::resolve_service_endpoint_from_registry(
+                        "reranker-server",
+                    )
+                });
+
             let hits: Vec<cynic_knowledge::SearchHit<'_>> = match &dense_owned {
                 Some((dense_chunks, dense_vectors, dense_query)) => {
                     let candidate_k = 50;
@@ -509,14 +518,6 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         }
                     }
 
-                    let rerank_endpoint = std::env::var("CYNIC_RERANK_URL")
-                        .ok()
-                        .filter(|u| !u.trim().is_empty())
-                        .or_else(|| {
-                            cynic_knowledge::resolve_service_endpoint_from_registry(
-                                "reranker-server",
-                            )
-                        });
                     let docs: Vec<&str> =
                         candidates.iter().map(|h| h.chunk.content.as_str()).collect();
 
