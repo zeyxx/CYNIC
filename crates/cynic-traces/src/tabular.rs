@@ -4,8 +4,8 @@
 //! canonical `TabularSchema` definitions from `cynic-protocol`.
 //! Generates `TabularValidationReport` implementing `DataReport`.
 
+use std::borrow::Cow;
 use std::collections::HashSet;
-use std::path::Path;
 use chrono::DateTime;
 use cynic_protocol::tabular::{
     ColumnDefinition, DataColumnType, DriftSeverity, SchemaDrift, SchemaDriftKind,
@@ -160,68 +160,130 @@ pub fn validate_scalar_value(
     }
 }
 
-/// Validate advanced column constraints (allowed values, range, regex pattern).
+/// Pre-compiled column definition caching parsed regex and constraints for O(1) cell evaluation.
+#[derive(Debug, Clone)]
+pub struct CompiledColumn {
+    pub def: ColumnDefinition,
+    pub compiled_regex: Option<regex::Regex>,
+}
+
+impl CompiledColumn {
+    pub fn new(def: ColumnDefinition) -> Result<Self, String> {
+        let compiled_regex = match &def.pattern {
+            Some(pat) => Some(
+                regex::Regex::new(pat)
+                    .map_err(|e| format!("Invalid regex pattern '{}' for column '{}': {}", pat, def.name, e))?,
+            ),
+            None => None,
+        };
+        Ok(Self { def, compiled_regex })
+    }
+
+    /// Pure constraint validation without recompiling regexes.
+    pub fn validate_constraints(&self, val_str: &str) -> Vec<SchemaDriftKind> {
+        let mut drifts = Vec::new();
+
+        // 1. Allowed values constraint
+        if let Some(allowed) = &self.def.allowed_values {
+            if !allowed.iter().any(|v| v.as_str() == val_str) {
+                drifts.push(SchemaDriftKind::ValueNotAllowed {
+                    column: self.def.name.clone(),
+                    value: val_str.to_string(),
+                    allowed: allowed.clone(),
+                });
+            }
+        }
+
+        // 2. Numeric range constraint (min / max)
+        if self.def.min_value.is_some() || self.def.max_value.is_some() {
+            if let Ok(num) = val_str.parse::<f64>() {
+                let out_of_min = self.def.min_value.map_or(false, |min| num < min);
+                let out_of_max = self.def.max_value.map_or(false, |max| num > max);
+                if out_of_min || out_of_max {
+                    drifts.push(SchemaDriftKind::ValueOutOfRange {
+                        column: self.def.name.clone(),
+                        value: num,
+                        min: self.def.min_value,
+                        max: self.def.max_value,
+                    });
+                }
+            }
+        }
+
+        // 3. Regex pattern constraint (using precompiled regex)
+        if let Some(re) = &self.compiled_regex {
+            if !re.is_match(val_str) {
+                drifts.push(SchemaDriftKind::PatternMismatch {
+                    column: self.def.name.clone(),
+                    value: val_str.to_string(),
+                    pattern: self.def.pattern.clone().unwrap_or_default(),
+                });
+            }
+        }
+
+        drifts
+    }
+}
+
+/// Compiled schema caching pre-parsed constraints for ultra-fast validation over large row sets.
+#[derive(Debug, Clone)]
+pub struct CompiledTabularSchema {
+    pub schema: TabularSchema,
+    pub columns: Vec<CompiledColumn>,
+}
+
+impl CompiledTabularSchema {
+    pub fn compile(schema: &TabularSchema) -> Result<Self, String> {
+        let mut columns = Vec::with_capacity(schema.columns.len());
+        for col in &schema.columns {
+            columns.push(CompiledColumn::new(col.clone())?);
+        }
+        Ok(Self {
+            schema: schema.clone(),
+            columns,
+        })
+    }
+
+    pub fn get_column(&self, name: &str) -> Option<&CompiledColumn> {
+        self.columns.iter().find(|c| c.def.name == name)
+    }
+}
+
+/// Backward-compatible constraint check delegating to CompiledColumn.
 pub fn validate_column_constraints(
     col_def: &ColumnDefinition,
     val_str: &str,
 ) -> Vec<SchemaDriftKind> {
-    let mut drifts = Vec::new();
-
-    // 1. Allowed values constraint
-    if let Some(allowed) = &col_def.allowed_values {
-        if !allowed.iter().any(|v| v == val_str) {
-            drifts.push(SchemaDriftKind::ValueNotAllowed {
-                column: col_def.name.clone(),
-                value: val_str.to_string(),
-                allowed: allowed.clone(),
-            });
-        }
+    match CompiledColumn::new(col_def.clone()) {
+        Ok(compiled) => compiled.validate_constraints(val_str),
+        Err(e) => vec![SchemaDriftKind::MalformedRecord { message: e }],
     }
-
-    // 2. Numeric range constraint (min / max)
-    if col_def.min_value.is_some() || col_def.max_value.is_some() {
-        if let Ok(num) = val_str.parse::<f64>() {
-            let out_of_min = col_def.min_value.map_or(false, |min| num < min);
-            let out_of_max = col_def.max_value.map_or(false, |max| num > max);
-            if out_of_min || out_of_max {
-                drifts.push(SchemaDriftKind::ValueOutOfRange {
-                    column: col_def.name.clone(),
-                    value: num,
-                    min: col_def.min_value,
-                    max: col_def.max_value,
-                });
-            }
-        }
-    }
-
-    // 3. Regex pattern constraint
-    if let Some(pat) = &col_def.pattern {
-        match regex::Regex::new(pat) {
-            Ok(re) => {
-                if !re.is_match(val_str) {
-                    drifts.push(SchemaDriftKind::PatternMismatch {
-                        column: col_def.name.clone(),
-                        value: val_str.to_string(),
-                        pattern: pat.clone(),
-                    });
-                }
-            }
-            Err(e) => {
-                drifts.push(SchemaDriftKind::MalformedRecord {
-                    message: format!(
-                        "Invalid regex pattern '{}' for column '{}': {}",
-                        pat, col_def.name, e
-                    ),
-                });
-            }
-        }
-    }
-
-    drifts
 }
 
 /// Validate CSV records against a TabularSchema.
 pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularValidationReport {
+    let compiled = match CompiledTabularSchema::compile(schema) {
+        Ok(c) => c,
+        Err(e) => {
+            let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord { message: e },
+            });
+            report.passed = false;
+            return report;
+        }
+    };
+    validate_csv_with_compiled(&compiled, csv_str)
+}
+
+/// Validate CSV records using an already compiled TabularSchema (zero-recompilation).
+pub fn validate_csv_with_compiled(
+    compiled: &CompiledTabularSchema,
+    csv_str: &str,
+) -> TabularValidationReport {
+    let schema = &compiled.schema;
     let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
 
     let (headers, rows) = match parse_csv_records(csv_str) {
@@ -240,13 +302,13 @@ pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularVal
     let header_set: HashSet<&str> = headers.iter().map(|s| s.as_str()).collect();
 
     // 1. Check for missing required columns (dataset-level)
-    for col in &schema.columns {
-        if col.required && !header_set.contains(col.name.as_str()) {
+    for col in &compiled.columns {
+        if col.def.required && !header_set.contains(col.def.name.as_str()) {
             report.record_drift(SchemaDrift {
                 row_index: None,
                 severity: DriftSeverity::Critical,
                 drift: SchemaDriftKind::ColumnMissing {
-                    column: col.name.clone(),
+                    column: col.def.name.clone(),
                 },
             });
         }
@@ -255,7 +317,7 @@ pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularVal
     // 2. Check for unexpected columns in strict mode
     if schema.strict_columns {
         for header in &headers {
-            if schema.get_column(header).is_none() {
+            if compiled.get_column(header).is_none() {
                 report.record_drift(SchemaDrift {
                     row_index: None,
                     severity: DriftSeverity::Warning,
@@ -267,10 +329,10 @@ pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularVal
         }
     }
 
-    // Map column index to column definition
-    let col_mappings: Vec<Option<&ColumnDefinition>> = headers
+    // Map column index to compiled column definition
+    let col_mappings: Vec<Option<&CompiledColumn>> = headers
         .iter()
-        .map(|h| schema.get_column(h))
+        .map(|h| compiled.get_column(h))
         .collect();
 
     report.total_rows = rows.len();
@@ -296,31 +358,31 @@ pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularVal
         }
 
         for (col_idx, cell) in row.iter().enumerate() {
-            if let Some(Some(col_def)) = col_mappings.get(col_idx) {
+            if let Some(Some(compiled_col)) = col_mappings.get(col_idx) {
                 if cell.is_empty() {
-                    if col_def.required {
+                    if compiled_col.def.required {
                         report.record_drift(SchemaDrift {
                             row_index: Some(actual_row_num),
                             severity: DriftSeverity::Critical,
                             drift: SchemaDriftKind::NullViolation {
-                                column: col_def.name.clone(),
+                                column: compiled_col.def.name.clone(),
                             },
                         });
                         row_has_error = true;
                     }
-                } else if let Err(_) = validate_scalar_value(col_def.data_type, cell) {
+                } else if let Err(_) = validate_scalar_value(compiled_col.def.data_type, cell) {
                     report.record_drift(SchemaDrift {
                         row_index: Some(actual_row_num),
                         severity: DriftSeverity::Critical,
                         drift: SchemaDriftKind::TypeMismatch {
-                            column: col_def.name.clone(),
-                            expected: col_def.data_type.to_string(),
+                            column: compiled_col.def.name.clone(),
+                            expected: compiled_col.def.data_type.to_string(),
                             found_sample: cell.clone(),
                         },
                     });
                     row_has_error = true;
                 } else {
-                    for drift_kind in validate_column_constraints(col_def, cell) {
+                    for drift_kind in compiled_col.validate_constraints(cell) {
                         report.record_drift(SchemaDrift {
                             row_index: Some(actual_row_num),
                             severity: DriftSeverity::Critical,
@@ -395,6 +457,28 @@ pub fn validate_record_maps(
     schema: &TabularSchema,
     records: &[serde_json::Map<String, serde_json::Value>],
 ) -> TabularValidationReport {
+    let compiled = match CompiledTabularSchema::compile(schema) {
+        Ok(c) => c,
+        Err(e) => {
+            let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord { message: e },
+            });
+            report.passed = false;
+            return report;
+        }
+    };
+    validate_records_with_compiled(&compiled, records)
+}
+
+/// Validate parsed record maps using an already compiled TabularSchema (zero-recompilation).
+pub fn validate_records_with_compiled(
+    compiled: &CompiledTabularSchema,
+    records: &[serde_json::Map<String, serde_json::Value>],
+) -> TabularValidationReport {
+    let schema = &compiled.schema;
     let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
     report.total_rows = records.len();
 
@@ -403,7 +487,8 @@ pub fn validate_record_maps(
         let actual_row_num = row_idx + 1;
 
         // Check required columns
-        for col in &schema.columns {
+        for compiled_col in &compiled.columns {
+            let col = &compiled_col.def;
             match record.get(&col.name) {
                 None => {
                     if col.required {
@@ -457,13 +542,13 @@ pub fn validate_record_maps(
                         });
                         row_has_error = true;
                     } else {
-                        let val_repr = match val {
-                            serde_json::Value::String(s) => s.clone(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            _ => val.to_string(),
+                        let val_cow = match val {
+                            serde_json::Value::String(s) => Cow::Borrowed(s.as_str()),
+                            serde_json::Value::Number(n) => Cow::Owned(n.to_string()),
+                            serde_json::Value::Bool(b) => Cow::Borrowed(if *b { "true" } else { "false" }),
+                            _ => Cow::Owned(val.to_string()),
                         };
-                        for drift_kind in validate_column_constraints(col, &val_repr) {
+                        for drift_kind in compiled_col.validate_constraints(&val_cow) {
                             report.record_drift(SchemaDrift {
                                 row_index: Some(actual_row_num),
                                 severity: DriftSeverity::Critical,
@@ -479,7 +564,7 @@ pub fn validate_record_maps(
         // Strict mode check
         if schema.strict_columns {
             for key in record.keys() {
-                if schema.get_column(key).is_none() {
+                if compiled.get_column(key).is_none() {
                     report.record_drift(SchemaDrift {
                         row_index: Some(actual_row_num),
                         severity: DriftSeverity::Warning,
@@ -536,101 +621,6 @@ pub fn validate_json_content(schema: &TabularSchema, json_str: &str) -> TabularV
             report
         }
     }
-}
-
-/// Unified validator validating a file path given a schema.
-pub fn validate_tabular_file(
-    schema: &TabularSchema,
-    path: &Path,
-) -> Result<TabularValidationReport, String> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read file '{}': {}", path.display(), e))?;
-
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-
-    match ext.as_str() {
-        "csv" => Ok(validate_csv_content(schema, &content)),
-        "jsonl" | "ndjson" => Ok(validate_jsonl_content(schema, &content)),
-        "json" => Ok(validate_json_content(schema, &content)),
-        _ => {
-            // Fallback: try json if starts with '{' or '[', otherwise csv
-            let trimmed = content.trim_start();
-            if trimmed.starts_with('{') || trimmed.starts_with('[') {
-                Ok(validate_json_content(schema, &content))
-            } else {
-                Ok(validate_csv_content(schema, &content))
-            }
-        }
-    }
-}
-
-/// Append a tabular validation report to an evidence journal (JSON Lines format).
-pub fn append_tabular_report(report: &TabularValidationReport, history_path: &Path) -> Result<(), String> {
-    if let Some(parent) = history_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                format!(
-                    "Failed to create parent directory for tabular validation history at {:?}: {}",
-                    parent, e
-                )
-            })?;
-        }
-    }
-
-    let json_line = serde_json::to_string(report)
-        .map_err(|e| format!("Failed to serialize TabularValidationReport: {}", e))?;
-
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(history_path)
-        .map_err(|e| format!("Failed to open tabular validation history at {:?}: {}", history_path, e))?;
-
-    use std::io::Write;
-    writeln!(file, "{}", json_line)
-        .map_err(|e| format!("Failed to write to tabular validation history at {:?}: {}", history_path, e))?;
-
-    file.flush()
-        .map_err(|e| format!("Failed to flush tabular validation history at {:?}: {}", history_path, e))?;
-
-    Ok(())
-}
-
-/// Read all tabular validation reports from an evidence journal file (JSON Lines format).
-pub fn read_tabular_reports(history_path: &Path) -> Result<Vec<TabularValidationReport>, String> {
-    if !history_path.exists() {
-        return Ok(Vec::new());
-    }
-
-    let file = std::fs::File::open(history_path)
-        .map_err(|e| format!("Failed to open tabular validation history at {:?}: {}", history_path, e))?;
-    let reader = std::io::BufReader::new(file);
-    use std::io::BufRead;
-    let mut reports = Vec::new();
-
-    for (index, line_result) in reader.lines().enumerate() {
-        let line = line_result
-            .map_err(|e| format!("Failed to read line {} from {:?}: {}", index + 1, history_path, e))?;
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let report = serde_json::from_str::<TabularValidationReport>(trimmed).map_err(|e| {
-            format!(
-                "Invalid JSON on line {} in {:?}: {}",
-                index + 1,
-                history_path,
-                e
-            )
-        })?;
-        reports.push(report);
-    }
-
-    Ok(reports)
 }
 
 #[cfg(test)]
@@ -857,30 +847,32 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
     }
 
     #[test]
-    fn test_tabular_validation_history_append_and_read() {
-        let temp_dir = std::env::temp_dir().join(format!("cynic_tabular_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
-        let history_path = temp_dir.join("sub/dir/test_history.jsonl");
+    fn test_compiled_schema_batch_validation() {
+        let schema = TabularSchema::new(
+            "cynic.compiled_test.v1",
+            1,
+            vec![
+                ColumnDefinition::new("id", DataColumnType::Text, true)
+                    .with_pattern(r"^ID-\d{3}$"),
+                ColumnDefinition::new("val", DataColumnType::Integer, true)
+                    .with_range(Some(10.0), Some(20.0)),
+            ],
+        );
 
-        let mut report1 = TabularValidationReport::new("cynic.test.v1", 1);
-        report1.total_rows = 5;
-        report1.valid_rows = 5;
-        report1.passed = true;
+        let compiled = CompiledTabularSchema::compile(&schema).expect("compile schema");
+        assert_eq!(compiled.columns.len(), 2);
+        assert!(compiled.columns[0].compiled_regex.is_some());
+        assert!(compiled.columns[1].compiled_regex.is_none());
 
-        let mut report2 = TabularValidationReport::new("cynic.test.v1", 1);
-        report2.total_rows = 3;
-        report2.invalid_rows = 1;
-        report2.passed = false;
+        let csv = "id,val\nID-100,15\nID-200,18\n";
+        let rep = validate_csv_with_compiled(&compiled, csv);
+        assert!(rep.passed);
+        assert_eq!(rep.valid_rows, 2);
 
-        assert!(append_tabular_report(&report1, &history_path).is_ok());
-        assert!(append_tabular_report(&report2, &history_path).is_ok());
-
-        let loaded = read_tabular_reports(&history_path).expect("read reports");
-        assert_eq!(loaded.len(), 2);
-        assert_eq!(loaded[0].total_rows, 5);
-        assert!(loaded[0].passed);
-        assert_eq!(loaded[1].invalid_rows, 1);
-        assert!(!loaded[1].passed);
-
-        let _ = std::fs::remove_dir_all(&temp_dir);
+        let csv_bad = "id,val\nBAD-ID,25\n";
+        let rep_bad = validate_csv_with_compiled(&compiled, csv_bad);
+        assert!(!rep_bad.passed);
+        assert_eq!(rep_bad.invalid_rows, 1);
+        assert_eq!(rep_bad.drifts.len(), 2);
     }
 }

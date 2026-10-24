@@ -6,8 +6,8 @@ use std::process::ExitCode;
 
 use cynic_protocol::tabular::{
     ColumnDefinition, DataColumnType, DriftSeverity, SchemaDriftKind, TabularSchema,
+    TabularValidationReport,
 };
-use cynic_traces::tabular::validate_tabular_file;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum DataCommand {
@@ -68,17 +68,37 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record: bo
         }
     };
 
-    let report = match validate_tabular_file(&schema, file_path) {
-        Ok(r) => r,
+    let content = match std::fs::read_to_string(file_path) {
+        Ok(s) => s,
         Err(e) => {
-            eprintln!("Error: Validation failed: {}", e);
+            eprintln!("Error: Cannot read data file '{}': {}", file_path.display(), e);
             return ExitCode::FAILURE;
+        }
+    };
+
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    let report = match ext.as_str() {
+        "csv" => cynic_traces::tabular::validate_csv_content(&schema, &content),
+        "jsonl" | "ndjson" => cynic_traces::tabular::validate_jsonl_content(&schema, &content),
+        "json" => cynic_traces::tabular::validate_json_content(&schema, &content),
+        _ => {
+            let trimmed = content.trim_start();
+            if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                cynic_traces::tabular::validate_json_content(&schema, &content)
+            } else {
+                cynic_traces::tabular::validate_csv_content(&schema, &content)
+            }
         }
     };
 
     if record {
         let history_path = Path::new("evidence/data_validation_history.jsonl");
-        if let Err(e) = cynic_traces::tabular::append_tabular_report(&report, history_path) {
+        if let Err(e) = append_history_report(&report, history_path) {
             eprintln!("Warning: Failed to record validation run to evidence history: {}", e);
         } else if !json {
             println!("Recorded to   : {}", history_path.display());
@@ -260,9 +280,38 @@ fn execute_schema(kind: &str) -> ExitCode {
     }
 }
 
+fn append_history_report(report: &TabularValidationReport, path: &Path) -> Result<(), String> {
+    let json_line = serde_json::to_string(report)
+        .map_err(|e| format!("Failed to serialize TabularValidationReport: {}", e))?;
+    cynic_host::adapters::jsonl_append::JsonlAppend::append_with_fsync(path, &json_line)
+}
+
+fn read_history_reports(path: &Path) -> Result<Vec<TabularValidationReport>, String> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let file = std::fs::File::open(path)
+        .map_err(|e| format!("Failed to open tabular history at {:?}: {}", path, e))?;
+    let reader = std::io::BufReader::new(file);
+    use std::io::BufRead;
+    let mut reports = Vec::new();
+    for (idx, line_res) in reader.lines().enumerate() {
+        let line = line_res
+            .map_err(|e| format!("Failed to read line {} from {:?}: {}", idx + 1, path, e))?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let rep = serde_json::from_str::<TabularValidationReport>(trimmed)
+            .map_err(|e| format!("Invalid JSON on line {} in {:?}: {}", idx + 1, path, e))?;
+        reports.push(rep);
+    }
+    Ok(reports)
+}
+
 fn execute_history(limit: usize, json: bool) -> ExitCode {
     let history_path = Path::new("evidence/data_validation_history.jsonl");
-    let reports = match cynic_traces::tabular::read_tabular_reports(history_path) {
+    let reports = match read_history_reports(history_path) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Error reading tabular history from '{}': {}", history_path.display(), e);
