@@ -16,7 +16,6 @@ pub mod fleet_surface;
 pub mod branch_audit;
 pub mod branch_graph_surface;
 pub mod build_discovery_surface;
-pub mod build_policy_coherence;
 pub mod build_proof_log;
 pub mod build_surface;
 pub mod chat_surface;

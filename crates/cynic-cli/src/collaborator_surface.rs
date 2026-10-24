@@ -96,12 +96,6 @@ pub(crate) enum CollaboratorCommand {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CollaboratorsRegistry {
-    schema: String,
-    collaborators: Vec<CollaboratorEntry>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 struct CollaboratorEntry {
     collaborator_id: String,
     display_name: String,
@@ -113,23 +107,6 @@ struct CollaboratorEntry {
     role: String,
     #[serde(default)]
     projects: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ExternalProjectsRegistry {
-    #[serde(default)]
-    projects: Vec<ExternalProjectEntry>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ExternalProjectEntry {
-    project_id: String,
-    #[serde(default)]
-    collaborator_ids: Vec<String>,
-    #[serde(default)]
-    mutation_policy: String,
-    #[serde(default)]
-    sensitivity: String,
 }
 
 #[derive(Debug, Serialize)]
