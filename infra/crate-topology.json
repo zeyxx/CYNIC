@@ -52,7 +52,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 14055
+      "loc": 15188
     },
     "cynic-channel": {
       "consumers": [
@@ -114,7 +114,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45103
+      "loc": 48410
     },
     "cynic-consensus": {
       "consumers": [
@@ -286,7 +286,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 93332
+      "loc": 93507
     },
     "cynic-huggingface": {
       "consumers": [
@@ -322,7 +322,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 18090
+      "loc": 18130
     },
     "cynic-intel": {
       "consumers": [
@@ -389,7 +389,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 9400
+      "loc": 6558
     },
     "cynic-lifecycle": {
       "consumers": [
@@ -515,7 +515,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 64990
+      "loc": 64852
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -532,7 +532,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 5934
+      "loc": 6327
     },
     "cynic-pkg": {
       "consumers": [
@@ -614,7 +614,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 42382
+      "loc": 42586
     },
     "cynic-proxmox": {
       "consumers": [
@@ -647,7 +647,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3967
+      "loc": 3935
     },
     "cynic-sandbox": {
       "consumers": [
@@ -751,7 +751,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 4777
+      "loc": 4904
     },
     "cynic-tui": {
       "consumers": [
@@ -825,7 +825,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 2894
+      "loc": 2975
     },
     "cynic-workload": {
       "consumers": [
@@ -1125,7 +1125,7 @@
     "crates": 44,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 407875,
+    "loc_total": 410323,
     "pending_disposition": 3,
     "runtime_edges": 187,
     "unjustified": 0,

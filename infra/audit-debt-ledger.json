@@ -98,6 +98,12 @@
     },
     {
       "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/gate_scope.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
       "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/harness.rs",
       "rule": "ARCH-001",
       "severity": "debt"
@@ -123,6 +129,12 @@
     {
       "count": 1,
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/build.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/agent_exposure_audit/checks.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -194,7 +206,7 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/dependency/probe.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/deps_surface_probe.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -254,13 +266,25 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/compute.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/activation.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/mod.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/admin.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/agent.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/compute.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -303,6 +327,12 @@
     {
       "count": 1,
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/supervise_surface.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/surface_registry/assembler.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -543,6 +573,12 @@
     {
       "count": 1,
       "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/network_actuation.rs",
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/node_identity_workflow.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -806,25 +842,7 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-knowledge/src/adapters/epistemic_harvester.rs",
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-knowledge/src/domain/epistemic_facts.rs",
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "count": 1,
       "identity": "ARCH-001-HOTSPOT|crates/cynic-knowledge/src/domain/epistemic_grounding.rs",
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-knowledge/src/domain/public_surface.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -986,13 +1004,13 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/config/load.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/tokio_build_execution.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/config/reload.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/config/load.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
@@ -1574,7 +1592,7 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-005-INVERSION-GREW|Module inversion `cynic-node|usecases -> config` was recorded 2x and is now observed 4x. The list may only shrink.",
+      "identity": "ARCH-005-INVERSION-GREW|Module inversion `cynic-node|usecases -> config` was recorded 2x and is now observed 3x. The list may only shrink.",
       "rule": "ARCH-005",
       "severity": "critical"
     },
@@ -1646,6 +1664,72 @@
     },
     {
       "count": 1,
+      "identity": "NAM-001-NEW-METAPHOR|Retired biological metaphor in crates/cynic-cli/src/deps_surface_specs.rs (1 occurrence(s), first at crates/cynic-cli/src/deps_surface_specs.rs:29): organism. Use the canonical term instead: organ -> component, dog -> evaluator, organism -> deployment, organic -> candidate, metabolism -> throughput, metabolic -> throughput, genome -> baseline.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records crates/cynic-cli/src/dependency/specs.rs (1 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records crates/cynic-knowledge/src/adapters/epistemic_harvester.rs (3 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records docs/public/facts.live.json (6 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records infra/github-interactions-graph.json (1 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 1,
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records infra/repos-zeyxx-github.json (2 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001",
+      "severity": "debt"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path crates/cynic-cli/src/dependency/specs.rs which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path crates/cynic-knowledge/src/adapters/epistemic_harvester.rs which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path docs/public/facts.live.json which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path infra/github-interactions-graph.json which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 2,
+      "identity": "PATH-001-DECLARED-ABSENT|infra/retired-metaphor-ledger.json declares path infra/repos-zeyxx-github.json which does not exist in the working tree",
+      "rule": "PATH-001",
+      "severity": "critical"
+    },
+    {
+      "count": 1,
       "identity": "PATH-002-CITED-ABSENT|crates/cynic-cli/src/inference_surface.rs:336 cites path evidence/inference_traces.jsonl which does not exist in the working tree",
       "rule": "PATH-002",
       "severity": "critical"
@@ -1676,25 +1760,43 @@
     },
     {
       "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/external_audit.rs:544 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/profiles/build_runner.rs:77 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node-protocol/src/node_service_unit.rs:91 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "count": 1,
       "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:263 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
       "rule": "PATH-004",
       "severity": "warning"
     },
     {
       "count": 1,
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:375 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:376 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
       "rule": "PATH-004",
       "severity": "warning"
     },
     {
       "count": 1,
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:415 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:416 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
       "rule": "PATH-004",
       "severity": "warning"
     },
     {
       "count": 1,
-      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:432 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:433 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
       "rule": "PATH-004",
       "severity": "warning"
     },
@@ -1712,7 +1814,7 @@
     },
     {
       "count": 1,
-      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|8 service(s) declared in infra/registry.json have no unit on this host: cynic-node, embedding-server, forgejo-backend, headscale, inference-server, reranker-server, runtime-artifact-store, surrealdb",
+      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|7 service(s) declared in infra/registry.json have no unit on this host: cynic-node, embedding-server, forgejo-backend, headscale, node-receiver, runtime-artifact-store, surrealdb",
       "rule": "RUN-001",
       "severity": "critical"
     },
@@ -1782,23 +1884,25 @@
   },
   "measured": {
     "by_rule": {
-      "ARCH-001": 250,
+      "ARCH-001": 253,
       "ARCH-004": 12,
       "ARCH-005": 5,
       "ART-001": 6,
       "ART-002": 1,
+      "NAM-001": 6,
+      "PATH-001": 10,
       "PATH-002": 5,
-      "PATH-004": 4,
+      "PATH-004": 7,
       "PROSE-001": 1,
       "RUN-001": 3,
       "SEC-001": 9
     },
-    "critical": 42,
-    "debt": 250,
-    "identities": 295,
+    "critical": 52,
+    "debt": 259,
+    "identities": 312,
     "note": "Reconciled with physical substrate",
-    "total": 296,
-    "warning": 4
+    "total": 318,
+    "warning": 7
   },
   "purpose": "Declared, counted, shrink-only ledger of audit violations present at ratification. Read by audit_engine::apply_debt_ledger. A violation whose identity is absent here fails the gate; a ledger entry with no observed violation also fails the gate, because paid debt left in the ledger hides that the ledger is stale.",
   "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",

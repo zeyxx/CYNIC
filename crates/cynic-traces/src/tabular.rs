@@ -762,6 +762,79 @@ pub fn session_turn_schema() -> TabularSchema {
     .with_strict_columns(false)
 }
 
+/// Canonical schema for document chunks ingested into BM25 / RAG vector storage.
+pub fn document_chunk_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.document_chunk.v1",
+        1,
+        vec![
+            ColumnDefinition::new("chunk_id", DataColumnType::Text, true)
+                .with_description("Deterministic BLAKE3 hex hash of chunk content and location")
+                .with_pattern(r"^[a-f0-9]{64}$"),
+            ColumnDefinition::new("source_path", DataColumnType::Text, true)
+                .with_description("Repository-relative source document path"),
+            ColumnDefinition::new("line_start", DataColumnType::Integer, true)
+                .with_description("1-indexed starting line number")
+                .with_range(Some(1.0), None),
+            ColumnDefinition::new("line_end", DataColumnType::Integer, true)
+                .with_description("1-indexed ending line number")
+                .with_range(Some(1.0), None),
+            ColumnDefinition::new("char_length", DataColumnType::Integer, true)
+                .with_description("Character length of chunk content (semantic starvation vs overflow)")
+                .with_range(Some(60.0), Some(8000.0)),
+            ColumnDefinition::new("authority", DataColumnType::Text, true)
+                .with_description("Constitutional ranking tier for epistemic retrieval")
+                .with_allowed_values(vec![
+                    "L0Constitution".into(),
+                    "L1Specification".into(),
+                    "L2Design".into(),
+                    "L3Operation".into(),
+                ]),
+        ],
+    )
+    .with_strict_columns(false)
+}
+
+/// Canonical schema for verifiable facts and epistemic claims.
+pub fn epistemic_claim_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.epistemic_claim.v1",
+        1,
+        vec![
+            ColumnDefinition::new("id", DataColumnType::Text, true)
+                .with_description("Unique identifier of the verifiable claim")
+                .with_pattern(r"^[a-zA-Z0-9_\-\.:]+$"),
+            ColumnDefinition::new("category", DataColumnType::Text, true)
+                .with_description("Domain category of the claim")
+                .with_allowed_values(vec![
+                    "architecture".into(),
+                    "code_volume".into(),
+                    "hygiene".into(),
+                    "provenance".into(),
+                    "competence".into(),
+                    "trajectory".into(),
+                    "event".into(),
+                ]),
+            ColumnDefinition::new("statement", DataColumnType::Text, true)
+                .with_description("Concise factual statement asserting an empirical reality"),
+            ColumnDefinition::new("status", DataColumnType::Text, true)
+                .with_description("Audit verdict backed by machine receipt")
+                .with_allowed_values(vec![
+                    "demonstrated".into(),
+                    "implemented".into(),
+                    "partial".into(),
+                    "aspirational".into(),
+                    "unknown".into(),
+                ]),
+            ColumnDefinition::new("evidence", DataColumnType::Text, true)
+                .with_description("Path to receipt, journal entry, or reproducible command"),
+            ColumnDefinition::new("verify_command", DataColumnType::Text, false)
+                .with_description("Exact command to execute to re-verify claim on physical substrate"),
+        ],
+    )
+    .with_strict_columns(false)
+}
+
 /// Projects a `NormalizedSession` into a tabular row matching `session_summary_schema()`.
 pub fn session_to_summary_record(session: &NormalizedSession) -> serde_json::Map<String, serde_json::Value> {
     let stats = session.stats();
@@ -1088,5 +1161,59 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         assert!(!report2.passed);
         assert_eq!(report2.invalid_rows, 1);
         assert_eq!(report2.drifts.len(), 1);
+    }
+
+    #[test]
+    fn test_document_chunk_and_claim_schema_validation() {
+        let chunk_schema = document_chunk_schema();
+        assert_eq!(chunk_schema.schema_id, "cynic.document_chunk.v1");
+
+        let valid_chunk_json = r#"[
+            {
+                "chunk_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "source_path": "docs/foundation/CONSTITUTION.md",
+                "line_start": 1,
+                "line_end": 45,
+                "char_length": 1250,
+                "authority": "L0Constitution"
+            }
+        ]"#;
+
+        let rep_chunk = validate_json_content(&chunk_schema, valid_chunk_json);
+        assert!(rep_chunk.passed);
+        assert_eq!(rep_chunk.valid_rows, 1);
+
+        let claim_schema = epistemic_claim_schema();
+        assert_eq!(claim_schema.schema_id, "cynic.epistemic_claim.v1");
+
+        let valid_claim_json = r#"[
+            {
+                "id": "claim:zero_io_tabular",
+                "category": "architecture",
+                "statement": "Tabular validation core is 100% zero-I/O",
+                "status": "demonstrated",
+                "evidence": "crates/cynic-traces/src/tabular.rs",
+                "verify_command": "cargo test -p cynic-traces --lib"
+            }
+        ]"#;
+
+        let rep_claim = validate_json_content(&claim_schema, valid_claim_json);
+        assert!(rep_claim.passed);
+        assert_eq!(rep_claim.valid_rows, 1);
+
+        // Invalid claim status drift test
+        let invalid_claim_json = r#"[
+            {
+                "id": "claim:invalid_status",
+                "category": "architecture",
+                "statement": "Invalid status test",
+                "status": "not_a_real_status",
+                "evidence": "none"
+            }
+        ]"#;
+
+        let rep_bad = validate_json_content(&claim_schema, invalid_claim_json);
+        assert!(!rep_bad.passed);
+        assert_eq!(rep_bad.invalid_rows, 1);
     }
 }

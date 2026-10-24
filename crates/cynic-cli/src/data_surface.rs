@@ -227,7 +227,9 @@ fn execute_validate(schema_path: &Path, file_path: &Path, json: bool, record: bo
 fn execute_schema(kind: &str) -> ExitCode {
     let schema = match kind {
         "node" | "nodes" | "registry" | "inventory" => cynic_traces::tabular::node_inventory_schema(),
-        "claim" | "claims" | "natcat" => cynic_traces::tabular::natcat_claims_schema(),
+        "claim" | "claims" | "epistemic_claim" | "fact" => cynic_traces::tabular::epistemic_claim_schema(),
+        "chunk" | "chunks" | "document_chunk" => cynic_traces::tabular::document_chunk_schema(),
+        "natcat" | "insurance" => cynic_traces::tabular::natcat_claims_schema(),
         "session" | "sessions" | "session_summary" => cynic_traces::tabular::session_summary_schema(),
         "turn" | "turns" | "session_turn" => cynic_traces::tabular::session_turn_schema(),
         _ => cynic_traces::tabular::session_summary_schema(),
