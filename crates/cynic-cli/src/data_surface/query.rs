@@ -4,8 +4,27 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use cynic_protocol::tabular::TabularSchema;
+use super::render::print_ascii_table;
 
-pub fn execute_query(file_path: &Path, schema_arg: Option<&str>, sql: &str, json: bool) -> ExitCode {
+pub fn execute_query(
+    file_path: Option<&Path>,
+    schema_arg: Option<&str>,
+    history: bool,
+    sql: &str,
+    json: bool,
+) -> ExitCode {
+    if history || file_path.is_none() {
+        return execute_history_query(sql, json);
+    }
+
+    let file_path = match file_path {
+        Some(p) => p,
+        None => {
+            eprintln!("Error: Missing required `--file <path>` (or specify `--history` to query historical validation runs).");
+            return ExitCode::FAILURE;
+        }
+    };
+
     let schema = match resolve_schema(schema_arg) {
         Ok(s) => s,
         Err(e) => {
@@ -87,6 +106,91 @@ pub fn execute_query(file_path: &Path, schema_arg: Option<&str>, sql: &str, json
     ExitCode::SUCCESS
 }
 
+pub fn execute_history_query(sql: &str, json: bool) -> ExitCode {
+    let rep_schema = cynic_traces::tabular::tabular_validation_report_schema();
+    let journal_schema = cynic_traces::tabular::evidence_journal_entry_schema();
+
+    // 1. Read history reports from evidence/data_validation_history.jsonl
+    let history_path = Path::new("evidence/data_validation_history.jsonl");
+    let reports = super::history::read_history_reports(history_path).unwrap_or_default();
+    let report_records: Vec<_> = reports
+        .iter()
+        .map(|r| cynic_traces::tabular::validation_report_to_record_map(r))
+        .collect();
+
+    // 2. Read cold evidence journal entries if available
+    let evidence_root = Path::new("evidence");
+    let journal_records: Vec<_> = match cynic_storage::evidence_journal_file::EvidenceJournalStore::open(evidence_root, "local-node") {
+        Ok(store) => store
+            .read_all()
+            .unwrap_or_default()
+            .iter()
+            .map(cynic_traces::tabular::evidence_journal_entry_to_record_map)
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+
+    // 3. Initialize SQLite in-memory projection with reports
+    let mut projection = match cynic_storage::TabularMemoryProjection::create_from_schema(
+        rep_schema.clone(),
+        Some("reports"),
+    ) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Error: Failed to initialize SQLite in-memory projection: {}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let _ = projection.query("CREATE VIEW IF NOT EXISTS history AS SELECT * FROM reports;");
+
+    if let Err(e) = projection.insert_records(&report_records) {
+        eprintln!("Error inserting history records into projection: {}", e);
+        return ExitCode::FAILURE;
+    }
+
+    // 4. Add journal table
+    if let Err(e) = projection.add_table_from_schema(journal_schema.clone(), Some("journal")) {
+        eprintln!("Error adding journal table to projection: {}", e);
+        return ExitCode::FAILURE;
+    }
+
+    if let Err(e) = projection.insert_records_into_table("journal", &journal_schema, &journal_records) {
+        eprintln!("Error inserting journal records into projection: {}", e);
+        return ExitCode::FAILURE;
+    }
+
+    // 5. Query
+    let query_result = match projection.query(sql) {
+        Ok(res) => res,
+        Err(e) => {
+            eprintln!("Error: Query failed: {}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    if json {
+        match serde_json::to_string_pretty(&query_result) {
+            Ok(s) => println!("{}", s),
+            Err(e) => {
+                eprintln!("Error serializing query result to JSON: {}", e);
+                return ExitCode::FAILURE;
+            }
+        }
+    } else {
+        print_ascii_table(&query_result);
+        println!(
+            "\n[data query:history] {} row(s) returned in {}ms (available tables: 'reports'/'history'/'data' ({} rows), 'journal' ({} rows))",
+            query_result.row_count,
+            query_result.elapsed_ms,
+            report_records.len(),
+            journal_records.len()
+        );
+    }
+
+    ExitCode::SUCCESS
+}
+
 pub fn resolve_schema(schema_arg: Option<&str>) -> Result<TabularSchema, String> {
     let arg = match schema_arg {
         Some(a) => a.trim(),
@@ -120,8 +224,14 @@ pub fn resolve_schema(schema_arg: Option<&str>) -> Result<TabularSchema, String>
         "claim" | "claims" | "epistemic_claim" | "fact" => {
             Ok(cynic_traces::tabular::epistemic_claim_schema())
         }
+        "history" | "reports" | "report" | "validation" => {
+            Ok(cynic_traces::tabular::tabular_validation_report_schema())
+        }
+        "journal" | "proofs" | "proof" | "evidence" => {
+            Ok(cynic_traces::tabular::evidence_journal_entry_schema())
+        }
         other => Err(format!(
-            "Unknown schema '{}'. Expected canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim') or path to JSON schema file.",
+            "Unknown schema '{}'. Expected canonical name ('session', 'turn', 'asset', 'natcat', 'chunk', 'claim', 'history', 'journal') or path to JSON schema file.",
             other
         )),
     }
@@ -176,87 +286,7 @@ pub fn parse_file_to_records(
     }
 }
 
-fn print_ascii_table(res: &cynic_storage::TabularQueryResult) {
-    if res.columns.is_empty() {
-        println!("(No columns returned)");
-        return;
-    }
 
-    // Determine column widths
-    let mut widths: Vec<usize> = res.columns.iter().map(|c| c.len()).collect();
-    for row in &res.rows {
-        for (i, val) in row.iter().enumerate() {
-            if i < widths.len() {
-                let s = format_val(val);
-                if s.len() > widths[i] {
-                    widths[i] = s.len().min(60);
-                }
-            }
-        }
-    }
-
-    // Border line
-    let border = format!(
-        "+{}+",
-        widths
-            .iter()
-            .map(|w| "-".repeat(w + 2))
-            .collect::<Vec<_>>()
-            .join("+")
-    );
-
-    println!("{border}");
-
-    // Header
-    let header = format!(
-        "|{}|",
-        res.columns
-            .iter()
-            .enumerate()
-            .map(|(i, col)| {
-                let w = widths[i];
-                format!(" {:<w$} ", col, w = w)
-            })
-            .collect::<Vec<_>>()
-            .join("|")
-    );
-    println!("{header}");
-    println!("{border}");
-
-    // Rows
-    for row in &res.rows {
-        let row_str = format!(
-            "|{}|",
-            row.iter()
-                .enumerate()
-                .map(|(i, val)| {
-                    let w = widths.get(i).copied().unwrap_or(10);
-                    let s = format_val(val);
-                    let truncated = if s.len() > w {
-                        format!("{}...", &s[..w.saturating_sub(3)])
-                    } else {
-                        s
-                    };
-                    format!(" {:<w$} ", truncated, w = w)
-                })
-                .collect::<Vec<_>>()
-                .join("|")
-        );
-        println!("{row_str}");
-    }
-
-    println!("{border}");
-}
-
-fn format_val(val: &serde_json::Value) -> String {
-    match val {
-        serde_json::Value::Null => "NULL".to_string(),
-        serde_json::Value::Bool(b) => b.to_string(),
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(_) | serde_json::Value::Object(_) => val.to_string(),
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -288,8 +318,22 @@ mod tests {
             resolve_schema(Some("claim")).unwrap().schema_id,
             "cynic.epistemic_claim.v1"
         );
+        assert_eq!(
+            resolve_schema(Some("history")).unwrap().schema_id,
+            cynic_protocol::tabular::TABULAR_VALIDATION_REPORT_SCHEMA_V1
+        );
+        assert_eq!(
+            resolve_schema(Some("journal")).unwrap().schema_id,
+            "cynic.evidence.entry.v1"
+        );
         assert!(resolve_schema(None).is_err());
         assert!(resolve_schema(Some("unknown_xyz")).is_err());
+    }
+
+    #[test]
+    fn test_execute_history_query_in_memory() {
+        let code = execute_history_query("SELECT count(*) as total FROM data", true);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
