@@ -100,6 +100,7 @@
         "cynic-secrets",
         "cynic-storage",
         "cynic-supervisor",
+        "cynic-traces",
         "cynic-tui",
         "cynic-types",
         "cynic-vcs",
@@ -113,7 +114,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 44704
+      "loc": 44902
     },
     "cynic-consensus": {
       "consumers": [
@@ -613,7 +614,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 42075
+      "loc": 42315
     },
     "cynic-proxmox": {
       "consumers": [
@@ -740,6 +741,7 @@
     },
     "cynic-traces": {
       "consumers": [
+        "cynic-cli",
         "cynic-eval"
       ],
       "depends_on": [
@@ -749,7 +751,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 3683
+      "loc": 4216
     },
     "cynic-tui": {
       "consumers": [
@@ -1123,9 +1125,9 @@
     "crates": 44,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 405895,
+    "loc_total": 406866,
     "pending_disposition": 3,
-    "runtime_edges": 186,
+    "runtime_edges": 187,
     "unjustified": 0,
     "upward_edges": 12
   },

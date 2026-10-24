@@ -26,6 +26,7 @@ pub mod cli_args;
 pub mod cli_exit;
 pub mod cli_json;
 pub mod command_manifest;
+pub mod data_surface;
 pub mod coordination_ledger;
 pub mod coordination_log;
 pub mod coordination_metrics;

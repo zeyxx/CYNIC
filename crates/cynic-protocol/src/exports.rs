@@ -99,3 +99,4 @@ pub use crate::vcs::*;
 pub use crate::vocabulary::*;
 pub use crate::workload_identity::*;
 pub use crate::workload_signature::*;
+pub use crate::tabular::*;

@@ -748,6 +748,7 @@ dependencies = [
  "cynic-secrets",
  "cynic-storage",
  "cynic-supervisor",
+ "cynic-traces",
  "cynic-tui",
  "cynic-types",
  "cynic-vcs",

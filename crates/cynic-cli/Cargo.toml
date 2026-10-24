@@ -58,6 +58,7 @@ cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
 cynic-discovery-host = { path = "../cynic-discovery-host" }
 cynic-huggingface = { path = "../cynic-huggingface" }
+cynic-traces = { path = "../cynic-traces" }
 cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }

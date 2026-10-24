@@ -134,7 +134,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator onboard <collaborator_id> --handle <gh> [--display-name <name>] [--project <slug>] [--note <text>] --yes [--registry <path>]",
-                    "cynic collaborator watch [--project <slug>] [--forgejo-url <url>] [--github-token <t>] [--forgejo-token <t>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "fleet",
+                commands: vec![
                     "cynic fleet observe [--user <u>] [--json]",
                     "cynic fleet remediate <runner> --action <gc-disk|restart-probe> --yes [--user <u>] [--json]",
                 ],
@@ -411,6 +415,13 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic coordination ack <msg_id> [--state delivered|opened] [--json]",
                     "cynic coordination ledger [--json] [--claims <path>] [--log <path>] [--ledger <path>]",
                     "cynic coordination metrics [--json] [--claims <path>] [--log <path>] [--root <path>]",
+                ],
+            },
+            CommandDomain {
+                name: "data",
+                commands: vec![
+                    "cynic data validate --schema <path> --file <path> [--json]",
+                    "cynic data schema [--kind <kind>]",
                 ],
             },
         ],

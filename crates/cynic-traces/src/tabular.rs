@@ -1,0 +1,531 @@
+//! Tabular data parser, validator, and drift engine.
+//!
+//! Provides zero-I/O tabular validation for CSV and JSONL records against
+//! canonical `TabularSchema` definitions from `cynic-protocol`.
+//! Generates `TabularValidationReport` implementing `DataReport`.
+
+use std::collections::HashSet;
+use std::path::Path;
+use chrono::DateTime;
+use cynic_protocol::tabular::{
+    ColumnDefinition, DataColumnType, DriftSeverity, SchemaDrift, SchemaDriftKind,
+    TabularSchema, TabularValidationReport,
+};
+
+/// Pure RFC-4180 compliant CSV parser for zero-I/O validation.
+pub fn parse_csv_records(input: &str) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    let mut current_row: Vec<String> = Vec::new();
+    let mut current_field = String::new();
+    let mut in_quotes = false;
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if in_quotes {
+            if c == '"' {
+                if chars.peek() == Some(&'"') {
+                    // Escaped quote
+                    current_field.push('"');
+                    chars.next();
+                } else {
+                    in_quotes = false;
+                }
+            } else {
+                current_field.push(c);
+            }
+        } else {
+            match c {
+                '"' => {
+                    in_quotes = true;
+                }
+                ',' => {
+                    current_row.push(current_field.trim().to_string());
+                    current_field = String::new();
+                }
+                '\r' => {
+                    // Skip carriage return if followed by newline
+                    if chars.peek() == Some(&'\n') {
+                        chars.next();
+                    }
+                    current_row.push(current_field.trim().to_string());
+                    current_field = String::new();
+                    if !current_row.is_empty() && (current_row.len() > 1 || !current_row[0].is_empty()) {
+                        rows.push(current_row);
+                    }
+                    current_row = Vec::new();
+                }
+                '\n' => {
+                    current_row.push(current_field.trim().to_string());
+                    current_field = String::new();
+                    if !current_row.is_empty() && (current_row.len() > 1 || !current_row[0].is_empty()) {
+                        rows.push(current_row);
+                    }
+                    current_row = Vec::new();
+                }
+                _ => {
+                    current_field.push(c);
+                }
+            }
+        }
+    }
+
+    if in_quotes {
+        return Err("Unclosed quote detected in CSV content".to_string());
+    }
+
+    if !current_field.is_empty() || !current_row.is_empty() {
+        current_row.push(current_field.trim().to_string());
+        if current_row.len() > 1 || !current_row[0].is_empty() {
+            rows.push(current_row);
+        }
+    }
+
+    if rows.is_empty() {
+        return Err("CSV content is empty".to_string());
+    }
+
+    let header = rows.remove(0);
+    Ok((header, rows))
+}
+
+/// Pure JSONL parser returning a list of JSON objects.
+pub fn parse_jsonl_records(input: &str) -> Result<Vec<serde_json::Map<String, serde_json::Value>>, String> {
+    let mut records = Vec::new();
+    for (line_idx, line) in input.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        match serde_json::from_str::<serde_json::Value>(trimmed) {
+            Ok(serde_json::Value::Object(map)) => records.push(map),
+            Ok(_) => {
+                return Err(format!(
+                    "Line {}: JSONL record must be a JSON object",
+                    line_idx + 1
+                ));
+            }
+            Err(e) => {
+                return Err(format!(
+                    "Line {}: Malformed JSON record: {}",
+                    line_idx + 1,
+                    e
+                ));
+            }
+        }
+    }
+    Ok(records)
+}
+
+/// Check if a string representation matches the expected column type.
+pub fn validate_scalar_value(
+    data_type: DataColumnType,
+    val_str: &str,
+) -> Result<(), String> {
+    match data_type {
+        DataColumnType::Text => Ok(()),
+        DataColumnType::Integer => {
+            val_str
+                .parse::<i64>()
+                .map(|_| ())
+                .map_err(|_| format!("Cannot parse '{}' as integer", val_str))
+        }
+        DataColumnType::Float => {
+            val_str
+                .parse::<f64>()
+                .map(|_| ())
+                .map_err(|_| format!("Cannot parse '{}' as float", val_str))
+        }
+        DataColumnType::Boolean => {
+            match val_str.to_ascii_lowercase().as_str() {
+                "true" | "false" | "1" | "0" | "t" | "f" | "yes" | "no" => Ok(()),
+                _ => Err(format!("Cannot parse '{}' as boolean", val_str)),
+            }
+        }
+        DataColumnType::TimestampIso => {
+            if DateTime::parse_from_rfc3339(val_str).is_ok() {
+                Ok(())
+            } else if chrono::NaiveDateTime::parse_from_str(val_str, "%Y-%m-%dT%H:%M:%S").is_ok() {
+                Ok(())
+            } else if chrono::NaiveDate::parse_from_str(val_str, "%Y-%m-%d").is_ok() {
+                Ok(())
+            } else {
+                Err(format!("Cannot parse '{}' as ISO timestamp", val_str))
+            }
+        }
+        DataColumnType::Json => {
+            serde_json::from_str::<serde_json::Value>(val_str)
+                .map(|_| ())
+                .map_err(|e| format!("Invalid JSON snippet: {}", e))
+        }
+    }
+}
+
+/// Validate CSV records against a TabularSchema.
+pub fn validate_csv_content(schema: &TabularSchema, csv_str: &str) -> TabularValidationReport {
+    let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+
+    let (headers, rows) = match parse_csv_records(csv_str) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord { message: e },
+            });
+            report.passed = false;
+            return report;
+        }
+    };
+
+    let header_set: HashSet<&str> = headers.iter().map(|s| s.as_str()).collect();
+
+    // 1. Check for missing required columns (dataset-level)
+    for col in &schema.columns {
+        if col.required && !header_set.contains(col.name.as_str()) {
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::ColumnMissing {
+                    column: col.name.clone(),
+                },
+            });
+        }
+    }
+
+    // 2. Check for unexpected columns in strict mode
+    if schema.strict_columns {
+        for header in &headers {
+            if schema.get_column(header).is_none() {
+                report.record_drift(SchemaDrift {
+                    row_index: None,
+                    severity: DriftSeverity::Warning,
+                    drift: SchemaDriftKind::UnexpectedColumn {
+                        column: header.clone(),
+                    },
+                });
+            }
+        }
+    }
+
+    // Map column index to column definition
+    let col_mappings: Vec<Option<&ColumnDefinition>> = headers
+        .iter()
+        .map(|h| schema.get_column(h))
+        .collect();
+
+    report.total_rows = rows.len();
+
+    // 3. Row-by-row validation
+    for (row_idx, row) in rows.iter().enumerate() {
+        let mut row_has_error = false;
+        let actual_row_num = row_idx + 1;
+
+        if row.len() != headers.len() {
+            report.record_drift(SchemaDrift {
+                row_index: Some(actual_row_num),
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord {
+                    message: format!(
+                        "Column count mismatch: expected {}, found {}",
+                        headers.len(),
+                        row.len()
+                    ),
+                },
+            });
+            row_has_error = true;
+        }
+
+        for (col_idx, cell) in row.iter().enumerate() {
+            if let Some(Some(col_def)) = col_mappings.get(col_idx) {
+                if cell.is_empty() {
+                    if col_def.required {
+                        report.record_drift(SchemaDrift {
+                            row_index: Some(actual_row_num),
+                            severity: DriftSeverity::Critical,
+                            drift: SchemaDriftKind::NullViolation {
+                                column: col_def.name.clone(),
+                            },
+                        });
+                        row_has_error = true;
+                    }
+                } else if let Err(_) = validate_scalar_value(col_def.data_type, cell) {
+                    report.record_drift(SchemaDrift {
+                        row_index: Some(actual_row_num),
+                        severity: DriftSeverity::Critical,
+                        drift: SchemaDriftKind::TypeMismatch {
+                            column: col_def.name.clone(),
+                            expected: col_def.data_type.to_string(),
+                            found_sample: cell.clone(),
+                        },
+                    });
+                    row_has_error = true;
+                }
+            }
+        }
+
+        if row_has_error {
+            report.invalid_rows += 1;
+        } else {
+            report.valid_rows += 1;
+        }
+    }
+
+    report.passed = report.invalid_rows == 0
+        && !report.drifts.iter().any(|d| d.severity == DriftSeverity::Critical);
+
+    report
+}
+
+/// Validate JSONL records against a TabularSchema.
+pub fn validate_jsonl_content(schema: &TabularSchema, jsonl_str: &str) -> TabularValidationReport {
+    let mut report = TabularValidationReport::new(&schema.schema_id, schema.version);
+
+    let records = match parse_jsonl_records(jsonl_str) {
+        Ok(rec) => rec,
+        Err(e) => {
+            report.record_drift(SchemaDrift {
+                row_index: None,
+                severity: DriftSeverity::Critical,
+                drift: SchemaDriftKind::MalformedRecord { message: e },
+            });
+            report.passed = false;
+            return report;
+        }
+    };
+
+    report.total_rows = records.len();
+
+    for (row_idx, record) in records.iter().enumerate() {
+        let mut row_has_error = false;
+        let actual_row_num = row_idx + 1;
+
+        // Check required columns
+        for col in &schema.columns {
+            match record.get(&col.name) {
+                None => {
+                    if col.required {
+                        report.record_drift(SchemaDrift {
+                            row_index: Some(actual_row_num),
+                            severity: DriftSeverity::Critical,
+                            drift: SchemaDriftKind::ColumnMissing {
+                                column: col.name.clone(),
+                            },
+                        });
+                        row_has_error = true;
+                    }
+                }
+                Some(serde_json::Value::Null) => {
+                    if col.required {
+                        report.record_drift(SchemaDrift {
+                            row_index: Some(actual_row_num),
+                            severity: DriftSeverity::Critical,
+                            drift: SchemaDriftKind::NullViolation {
+                                column: col.name.clone(),
+                            },
+                        });
+                        row_has_error = true;
+                    }
+                }
+                Some(val) => {
+                    let type_matches = match col.data_type {
+                        DataColumnType::Text => val.is_string(),
+                        DataColumnType::Integer => val.is_i64(),
+                        DataColumnType::Float => val.is_f64() || val.is_i64(),
+                        DataColumnType::Boolean => val.is_boolean(),
+                        DataColumnType::TimestampIso => {
+                            if let Some(s) = val.as_str() {
+                                validate_scalar_value(DataColumnType::TimestampIso, s).is_ok()
+                            } else {
+                                false
+                            }
+                        }
+                        DataColumnType::Json => true,
+                    };
+
+                    if !type_matches {
+                        report.record_drift(SchemaDrift {
+                            row_index: Some(actual_row_num),
+                            severity: DriftSeverity::Critical,
+                            drift: SchemaDriftKind::TypeMismatch {
+                                column: col.name.clone(),
+                                expected: col.data_type.to_string(),
+                                found_sample: val.to_string(),
+                            },
+                        });
+                        row_has_error = true;
+                    }
+                }
+            }
+        }
+
+        // Strict mode check
+        if schema.strict_columns {
+            for key in record.keys() {
+                if schema.get_column(key).is_none() {
+                    report.record_drift(SchemaDrift {
+                        row_index: Some(actual_row_num),
+                        severity: DriftSeverity::Warning,
+                        drift: SchemaDriftKind::UnexpectedColumn {
+                            column: key.clone(),
+                        },
+                    });
+                }
+            }
+        }
+
+        if row_has_error {
+            report.invalid_rows += 1;
+        } else {
+            report.valid_rows += 1;
+        }
+    }
+
+    report.passed = report.invalid_rows == 0
+        && !report.drifts.iter().any(|d| d.severity == DriftSeverity::Critical);
+
+    report
+}
+
+/// Unified validator validating a file path given a schema.
+pub fn validate_tabular_file(
+    schema: &TabularSchema,
+    path: &Path,
+) -> Result<TabularValidationReport, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read file '{}': {}", path.display(), e))?;
+
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    match ext.as_str() {
+        "csv" => Ok(validate_csv_content(schema, &content)),
+        "jsonl" | "ndjson" => Ok(validate_jsonl_content(schema, &content)),
+        _ => {
+            // Fallback: try jsonl if starts with '{', otherwise csv
+            let trimmed = content.trim_start();
+            if trimmed.starts_with('{') {
+                Ok(validate_jsonl_content(schema, &content))
+            } else {
+                Ok(validate_csv_content(schema, &content))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_protocol::tabular::ColumnDefinition;
+
+    fn sample_asset_schema() -> TabularSchema {
+        TabularSchema::new(
+            "cynic.it_asset.v1",
+            1,
+            vec![
+                ColumnDefinition::new("asset_id", DataColumnType::Text, true),
+                ColumnDefinition::new("hostname", DataColumnType::Text, true),
+                ColumnDefinition::new("criticality", DataColumnType::Integer, true),
+                ColumnDefinition::new("is_active", DataColumnType::Boolean, true),
+                ColumnDefinition::new("last_audit", DataColumnType::TimestampIso, false),
+            ],
+        )
+        .with_strict_columns(true)
+    }
+
+    #[test]
+    fn test_valid_csv_validation() {
+        let schema = sample_asset_schema();
+        let csv = "\
+asset_id,hostname,criticality,is_active,last_audit
+SRV-001,srv-prod-01.corp,5,true,2026-10-24T10:00:00Z
+SRV-002,srv-db-01.corp,4,false,2026-10-23
+";
+        let report = validate_csv_content(&schema, csv);
+        assert!(report.passed);
+        assert_eq!(report.total_rows, 2);
+        assert_eq!(report.valid_rows, 2);
+        assert_eq!(report.invalid_rows, 0);
+        assert!(report.drifts.is_empty());
+    }
+
+    #[test]
+    fn test_csv_missing_column_and_type_mismatch() {
+        let schema = sample_asset_schema();
+        // Missing "is_active", criticality has invalid integer
+        let csv = "\
+asset_id,hostname,criticality,last_audit
+SRV-001,srv-prod-01.corp,NOT_AN_INT,2026-10-24T10:00:00Z
+";
+        let report = validate_csv_content(&schema, csv);
+        assert!(!report.passed);
+        assert_eq!(report.total_rows, 1);
+        assert_eq!(report.invalid_rows, 1);
+        assert!(report.drifts.iter().any(|d| matches!(
+            &d.drift,
+            SchemaDriftKind::ColumnMissing { column } if column == "is_active"
+        )));
+        assert!(report.drifts.iter().any(|d| matches!(
+            &d.drift,
+            SchemaDriftKind::TypeMismatch { column, .. } if column == "criticality"
+        )));
+    }
+
+    #[test]
+    fn test_csv_strict_unexpected_column() {
+        let schema = sample_asset_schema();
+        let csv = "\
+asset_id,hostname,criticality,is_active,last_audit,rogue_field
+SRV-001,srv-prod-01.corp,5,true,2026-10-24T10:00:00Z,malicious_payload
+";
+        let report = validate_csv_content(&schema, csv);
+        // UnexpectedColumn has Warning severity, so valid_rows is 1, passed is true unless Critical
+        assert!(report.passed);
+        assert!(report.drifts.iter().any(|d| matches!(
+            &d.drift,
+            SchemaDriftKind::UnexpectedColumn { column } if column == "rogue_field"
+        )));
+    }
+
+    #[test]
+    fn test_jsonl_validation_roundtrip() {
+        let schema = sample_asset_schema();
+        let jsonl = r#"
+{"asset_id": "SRV-001", "hostname": "srv-prod-01.corp", "criticality": 5, "is_active": true, "last_audit": "2026-10-24T10:00:00Z"}
+{"asset_id": "SRV-002", "hostname": "srv-db-01.corp", "criticality": "WRONG_TYPE", "is_active": false}
+"#;
+        let report = validate_jsonl_content(&schema, jsonl);
+        assert!(!report.passed);
+        assert_eq!(report.total_rows, 2);
+        assert_eq!(report.valid_rows, 1);
+        assert_eq!(report.invalid_rows, 1);
+        assert_eq!(report.drifts.len(), 1);
+    }
+
+    #[test]
+    fn test_natcat_claims_schema_validation() {
+        let natcat_schema = TabularSchema::new(
+            "cynic.natcat_claims.v1",
+            1,
+            vec![
+                ColumnDefinition::new("claim_id", DataColumnType::Text, true),
+                ColumnDefinition::new("event_type", DataColumnType::Text, true),
+                ColumnDefinition::new("loss_amount", DataColumnType::Float, true),
+                ColumnDefinition::new("settled", DataColumnType::Boolean, true),
+                ColumnDefinition::new("event_date", DataColumnType::TimestampIso, true),
+            ],
+        );
+
+        let csv = "\
+claim_id,event_type,loss_amount,settled,event_date
+CLM-2026-001,FLOOD,125000.50,true,2026-05-12
+CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
+";
+        let report = validate_csv_content(&natcat_schema, csv);
+        assert!(report.passed);
+        assert_eq!(report.total_rows, 2);
+        assert_eq!(report.valid_rows, 2);
+    }
+}

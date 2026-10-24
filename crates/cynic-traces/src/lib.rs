@@ -30,6 +30,7 @@ pub mod kernel;
 pub mod log_mine;
 pub mod ports;
 pub mod session;
+pub mod tabular;
 pub mod usecases;
 
 pub use adapters::hermes::HermesNormalizer;
@@ -44,3 +45,4 @@ pub use kernel::contract::{Authority, Layer, LayerContract};
 pub use log_mine::*;
 pub use ports::{CanonicalStorePort, NormalizerPort};
 pub use session::{ContractViolation, NormalizedSession, SessionStats};
+pub use tabular::*;
