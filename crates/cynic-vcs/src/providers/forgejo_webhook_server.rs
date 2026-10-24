@@ -111,7 +111,7 @@ fn find_header_end(raw: &[u8]) -> Option<usize> {
     raw.windows(4).position(|w| w == b"\r\n\r\n").map(|i| i + 4)
 }
 
-fn content_length(head: &[u8]) -> usize {
+pub fn content_length(head: &[u8]) -> usize {
     let text = String::from_utf8_lossy(head);
     text.lines()
         .find_map(|line| {
@@ -135,7 +135,7 @@ fn parse_headers(head: &str) -> HashMap<String, String> {
     headers
 }
 
-fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
+pub fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
     let presented = match hex::decode(signature.trim()) {
         Ok(bytes) => bytes,
         Err(_) => return false,
@@ -309,7 +309,7 @@ fn forward_to_node(
 }
 
 /// Helper for the error path.
-fn error_result(msg: &str) -> WebhookTriggerResult {
+pub fn error_result(msg: &str) -> WebhookTriggerResult {
     WebhookTriggerResult {
         status: "error".to_string(),
         source_commit: None,
