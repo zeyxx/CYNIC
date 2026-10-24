@@ -1,5 +1,5 @@
-use cynic_vcs_providers::ForgejoTokenApiPort;
-use cynic_vcs_providers::LocalForgejoTokenApiAdapter;
+use cynic_vcs::providers::ForgejoTokenApiPort;
+use cynic_vcs::providers::LocalForgejoTokenApiAdapter;
 
 use crate::repo_access::{
     RepoAccessStatusReport, current_project_root, current_repo_access_status,

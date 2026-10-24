@@ -2,7 +2,7 @@
 //!
 //! This module is the domain core — Zero-I/O, host-agnostic.
 //! Unaware of Forgejo, GitLab, or GitHub. Concrete adapters live in
-//! crates that depend on this one (cynic-vcs-providers, …).
+//! this module (cynic-vcs::providers, …).
 //!
 //! Conforms to contracts/source-lifecycle.json (cynic.source_lifecycle.v1).
 
@@ -88,7 +88,7 @@ pub struct PrAdmissionReport {
 
 /// Driven port for Pull Request actuation.
 ///
-/// Implementations live outside this crate (cynic-vcs-providers, …).
+/// Implementations live in cynic-vcs::providers.
 /// The domain only depends on this trait — never on a concrete adapter.
 pub trait PrPort: Send + Sync {
     /// List PRs filtered by state ("open", "closed", "all").

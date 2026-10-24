@@ -539,7 +539,7 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             let mut merged = 0usize;
             let mut total = 0usize;
             let mut got_pr = false;
-            if let Ok(port) = cynic_vcs_providers::forgejo_pr_port_from_registry(&ws_root) {
+            if let Ok(port) = cynic_vcs::providers::forgejo_pr_port_from_registry(&ws_root) {
                 if let Ok(prs) = port.list("all") {
                     total = prs.len();
                     merged = prs

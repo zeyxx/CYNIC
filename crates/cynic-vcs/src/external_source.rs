@@ -5,7 +5,7 @@
 //! types that abstract clone/fetch/branch/push/PR operations on external repos
 //! without coupling to any VCS provider (Forgejo, GitHub, GitLab).
 //! HOW: trait + pure data types + pure admission validators. I/O lives in
-//! adapters (cynic-vcs-providers, cynic-host).
+//! adapters (cynic-vcs::providers, cynic-host).
 //! NEGATIVE BOUNDARY: no std::fs, no HTTP, no process spawn, no git commands.
 //! No dependency on any external project. Strict DAG: external projects depend
 //! on CYNIC, never the reverse.

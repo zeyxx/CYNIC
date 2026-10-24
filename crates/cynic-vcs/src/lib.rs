@@ -18,6 +18,7 @@ pub mod git_topology_observer;
 pub mod isolated_worktree;
 pub mod parse;
 pub mod ports;
+pub mod providers;
 pub mod publication;
 pub mod pull_request;
 pub mod reconcile;

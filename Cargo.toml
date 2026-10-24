@@ -17,7 +17,6 @@ members = [
     "crates/cynic-supervisor",
     "crates/cynic-mcp",
     "crates/cynic-vcs",
-    "crates/cynic-vcs-providers",
     "crates/cynic-build",
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",

@@ -125,6 +125,15 @@
       "public_items": [8, 4],
       "disposition": "fused into cynic-intel (Plan 4 BURN)",
       "rationale": "Micro-crates tightly coupled to cynic-intel as their sole consumer. Consolidated into cynic-intel::domain::solana and cynic-intel::adapters::solana_plugin."
+    },
+    {
+      "crate": "cynic-vcs-providers",
+      "src_loc": 2872,
+      "test_loc": 22,
+      "direct_dependents": 2,
+      "public_items": 7,
+      "disposition": "fused into cynic-vcs (Plan 4 BURN)",
+      "rationale": "Reintegrated into cynic-vcs under cynic-vcs::providers. Upward layer debt cynic-host -> cynic-vcs-providers paid."
     }
   ],
   "control": {

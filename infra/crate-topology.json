@@ -99,7 +99,6 @@
         "cynic-tui",
         "cynic-types",
         "cynic-vcs",
-        "cynic-vcs-providers",
         "cynic-workload"
       ],
       "dev_depends_on": [
@@ -252,7 +251,6 @@
         "cynic-storage",
         "cynic-types",
         "cynic-vcs",
-        "cynic-vcs-providers",
         "cynic-workload"
       ],
       "dev_depends_on": [
@@ -736,22 +734,6 @@
       "layer": "L2",
       "loc": 10222
     },
-    "cynic-vcs-providers": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host"
-      ],
-      "depends_on": [
-        "cynic-secrets",
-        "cynic-types",
-        "cynic-vcs"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 2894
-    },
     "cynic-workload": {
       "consumers": [
         "cynic-build",
@@ -835,7 +817,7 @@
   },
   "justification_rule": "Every member must be a binary, have at least one dependent, or appear in pending_disposition with a written reason. A crate that is none of these is a node with in-degree zero: it cannot take part in a runtime loop, and every layer that names it is describing a boundary nothing crosses. pending_disposition may only shrink.",
   "layer_debt": {
-    "count": 12,
+    "count": 11,
     "edges": [
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)",
@@ -845,7 +827,6 @@
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-storage (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)",
-      "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs-providers (L2)",
       "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-build (L2)",
       "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-storage (L2)",
       "ARCH-004-UPWARD-EDGE cynic-network (L1) depends on cynic-finance (L2)"
@@ -881,10 +862,6 @@
       },
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)": {
         "reason": "cynic-host (L1) depends on cynic-vcs (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
-        "since": "2026-09-28"
-      },
-      "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs-providers (L2)": {
-        "reason": "cynic-host (L1) depends on cynic-vcs-providers (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
         "since": "2026-09-28"
       },
       "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-build (L2)": {
@@ -1001,8 +978,7 @@
       "cynic-pool",
       "cynic-storage",
       "cynic-traces",
-      "cynic-vcs",
-      "cynic-vcs-providers"
+      "cynic-vcs"
     ],
     "L3": [
       "cynic-kernel",
@@ -1022,14 +998,14 @@
   "measured": {
     "acyclic": true,
     "binaries": 5,
-    "crates": 39,
+    "crates": 38,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 403812,
     "pending_disposition": 3,
     "runtime_edges": 170,
     "unjustified": 0,
-    "upward_edges": 12
+    "upward_edges": 11
   },
   "pending_disposition": {
     "cynic-channel": {

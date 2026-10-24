@@ -17,10 +17,10 @@ use cynic_secrets::{
     OsCredentialStoreSecretProvider, SecretProviderKind, SecretProviderPort, SecretReference,
 };
 use cynic_types::paths::CynicPaths;
-use cynic_vcs::find_ssot_in_registry;
-use cynic_vcs::pull_request::PrPort;
+use crate::find_ssot_in_registry;
+use crate::pull_request::PrPort;
 
-use crate::pull_request::ForgejoPrAdapter;
+use super::pull_request::ForgejoPrAdapter;
 
 /// Resolve the sovereign VCS token from the environment, the principal
 /// secret file, or the OS keyring — in that order.

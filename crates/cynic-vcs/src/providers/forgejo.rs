@@ -8,7 +8,7 @@
 
 use std::process::Command;
 
-use cynic_vcs::external_source::{
+use crate::external_source::{
     ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof, ExternalRepoRef,
     ExternalSourcePort,
 };
@@ -314,7 +314,7 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_vcs::external_source::ExternalProvider;
+    use crate::external_source::ExternalProvider;
 
     #[test]
     fn parse_owner_repo_https() {

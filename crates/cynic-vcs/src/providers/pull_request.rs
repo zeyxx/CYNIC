@@ -5,7 +5,7 @@
 
 use std::process::Command;
 
-use cynic_vcs::pull_request::{
+use crate::pull_request::{
     PR_CLOSE_PROOF_SCHEMA, PR_CREATE_PROOF_SCHEMA, PR_MERGE_PROOF_SCHEMA, PrCloseProof,
     PrCreateProof, PrMergeProof, PrPort, PrState, PullRequest,
 };
