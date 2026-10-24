@@ -12,10 +12,11 @@ pub mod soc;
 pub mod types;
 
 pub use ports::*;
-pub use rules::{RETIRED_SOURCES, classify_source_tier, is_permanent_source};
+pub use rules::{classify_source_tier, is_permanent_source, RETIRED_SOURCES};
 pub use soc::{
-    ForensicsSnapshot, SocThresholds, analyze_network_telemetry, check_all,
-    detect_canary_disconnect, detect_dbus_timeout, detect_gpu_fault, detect_journald_watchdog,
-    detect_service_cascade, detect_service_restart_rate, detect_softlockup,
+    analyze_network_telemetry, check_all, detect_canary_disconnect, detect_dbus_timeout,
+    detect_gpu_fault, detect_hung_task, detect_journald_watchdog, detect_rcu_stall,
+    detect_service_cascade, detect_service_restart_rate, detect_softlockup, ForensicsSnapshot,
+    SocThresholds,
 };
 pub use types::{Alert, EMBED_FAILURE_THRESHOLD, FAILURE_RATE_THRESHOLD, SAVINGS_PCT_THRESHOLD};

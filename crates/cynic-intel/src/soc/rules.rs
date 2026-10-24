@@ -2,7 +2,7 @@
 //!
 //! Canonical owner: `cynic-intel` (SoC foundation §481).
 
-/// Whether a source name represents a permanent entity (organ/service) vs ephemeral session.
+/// Whether a source name represents a permanent entity (service/component) vs ephemeral session.
 /// Permanent sources generate alerts on silence. Ephemeral sessions don't.
 pub fn is_permanent_source(s: &str) -> bool {
     classify_source_tier(s) == "permanent"
@@ -10,7 +10,7 @@ pub fn is_permanent_source(s: &str) -> bool {
 
 /// Classify an agent_id into a source tier at write time (E1).
 /// Single source of truth — called by POST /observe and by backfill.
-/// Returns: "permanent" (organs, services), "cron" (scheduled jobs), "session" (ephemeral).
+/// Returns: "permanent" (services, components), "cron" (scheduled jobs), "session" (ephemeral).
 pub fn classify_source_tier(agent_id: &str) -> &'static str {
     if agent_id.is_empty() || agent_id == "unknown" {
         return "session";
@@ -24,6 +24,7 @@ pub fn classify_source_tier(agent_id: &str) -> &'static str {
         || agent_id == "nightshift"
         || agent_id == "watchlist"
         || agent_id.starts_with("organ-")
+        || agent_id.starts_with("service-")
     {
         return "permanent";
     }
@@ -60,7 +61,7 @@ mod tests {
     #[test]
     fn test_is_permanent_source() {
         assert!(is_permanent_source("kernel"));
-        assert!(is_permanent_source("organ-dog"));
+        assert!(is_permanent_source("organ-storage"));
         assert!(!is_permanent_source("cron-backup"));
         assert!(!is_permanent_source("session-abc"));
     }

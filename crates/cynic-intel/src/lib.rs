@@ -13,6 +13,7 @@ pub mod kscore;
 pub mod ports;
 pub mod rug_prefilter;
 pub mod rug_risk;
+pub mod soc;
 pub mod solana_safety_dog;
 pub mod sop_sanitizer;
 pub mod stimulus;

@@ -19,13 +19,13 @@
   "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act. cynic-observer removed 2026-10-04: 3 hotspot entries deleted with the crate. Reconciled 2026-10-17 on convergence-single-binary-paths: deleted 230 stale PATH-004 identities paid by the CynicPaths migration, recorded 18 survivors; other rules untouched (pre-existing drift).",
-    "total": 273,
+    "total": 272,
     "critical": 14,
-    "debt": 199,
+    "debt": 198,
     "warning": 60,
-    "identities": 272,
+    "identities": 271,
     "by_rule": {
-      "ARCH-001": 199,
+      "ARCH-001": 198,
       "ARCH-004": 12,
       "ARCH-005": 3,
       "ART-001": 5,
@@ -647,12 +647,6 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/runtime_plan.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel-soc/src/soc.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"

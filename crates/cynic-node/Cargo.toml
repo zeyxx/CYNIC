@@ -53,7 +53,6 @@ cynic-host = { path = "../cynic-host" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
 cynic-consensus = { path = "../cynic-consensus" }
-cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-release = { path = "../cynic-release" }
 cynic-lxc = { path = "../cynic-lxc" }

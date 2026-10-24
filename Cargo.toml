@@ -25,7 +25,6 @@ members = [
     "crates/cynic-network",
     "crates/cynic-solana-pay",
     "crates/cynic-eval",
-    "crates/cynic-intel-soc",
     "crates/cynic-consensus",
     "crates/cynic-channel",
     "crates/cynic-workload",
