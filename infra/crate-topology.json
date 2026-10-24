@@ -292,8 +292,7 @@
       "consumers": [
         "cynic-cli",
         "cynic-host",
-        "cynic-market",
-        "cynic-zeroclaw-solana"
+        "cynic-market"
       ],
       "depends_on": [
         "cynic-network",
@@ -304,7 +303,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 11333
+      "loc": 12179
     },
     "cynic-kernel": {
       "consumers": [
@@ -791,7 +790,6 @@
     "cynic-node-protocol",
     "cynic-release",
     "cynic-secrets",
-    "cynic-solana-pay",
     "cynic-supervisor",
     "cynic-channel",
     "cynic-consensus",
@@ -807,7 +805,6 @@
     "cynic-kernel",
     "cynic-pool",
     "cynic-vcs-providers",
-    "cynic-zeroclaw-solana",
     "cynic-inference",
     "cynic-lifecycle",
     "cynic-market",
@@ -1025,12 +1022,12 @@
   "measured": {
     "acyclic": true,
     "binaries": 5,
-    "crates": 41,
+    "crates": 39,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 403925,
+    "loc_total": 403812,
     "pending_disposition": 3,
-    "runtime_edges": 176,
+    "runtime_edges": 170,
     "unjustified": 0,
     "upward_edges": 12
   },
