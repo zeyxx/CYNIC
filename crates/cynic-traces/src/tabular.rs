@@ -990,6 +990,93 @@ pub fn evidence_journal_entry_to_record_map(
     map
 }
 
+/// Canonical schema for live node telemetry, health heartbeats, and runtime mesh capabilities.
+pub fn node_telemetry_schema() -> TabularSchema {
+    TabularSchema::new(
+        "cynic.node.telemetry.v1",
+        1,
+        vec![
+            ColumnDefinition::new("node_id", DataColumnType::Text, true)
+                .with_description("Unique identifier of the node in the cluster"),
+            ColumnDefinition::new("hostname", DataColumnType::Text, true)
+                .with_description("Host OS reported hostname"),
+            ColumnDefinition::new("role", DataColumnType::Text, false)
+                .with_description("Observed or registered node role"),
+            ColumnDefinition::new("status", DataColumnType::Text, true)
+                .with_description("Runtime network and mesh status")
+                .with_allowed_values(vec![
+                    "mesh_active".into(),
+                    "provider_fallback_active".into(),
+                    "blocked".into(),
+                    "observed".into(),
+                    "online".into(),
+                    "degraded".into(),
+                    "offline".into(),
+                ]),
+            ColumnDefinition::new("severity", DataColumnType::Text, true)
+                .with_description("Health severity classification")
+                .with_allowed_values(vec![
+                    "clear".into(),
+                    "warning".into(),
+                    "critical".into(),
+                ]),
+            ColumnDefinition::new("provider_fallback_active", DataColumnType::Boolean, true)
+                .with_description("Provider fallback route status"),
+            ColumnDefinition::new("synapse_route_active", DataColumnType::Boolean, true)
+                .with_description("Synapse overlay route status"),
+            ColumnDefinition::new("wireguard_active", DataColumnType::Boolean, true)
+                .with_description("Wireguard mesh interface status"),
+            ColumnDefinition::new("critical_dns_ok", DataColumnType::Boolean, true)
+                .with_description("Critical DNS resolution status"),
+            ColumnDefinition::new("critical_tcp_open", DataColumnType::Boolean, true)
+                .with_description("Critical TCP connectivity status"),
+            ColumnDefinition::new("blockers_count", DataColumnType::Integer, true)
+                .with_description("Number of active runtime blockers"),
+            ColumnDefinition::new("observed_at_unix_ms", DataColumnType::Integer, true)
+                .with_description("Epoch timestamp in milliseconds when telemetry was collected"),
+        ],
+    )
+}
+
+/// Constructs a typed record map conforming to `node_telemetry_schema()`.
+pub fn node_telemetry_record(
+    node_id: &str,
+    hostname: &str,
+    role: Option<&str>,
+    status: &str,
+    severity: &str,
+    provider_fallback_active: bool,
+    synapse_route_active: bool,
+    wireguard_active: bool,
+    critical_dns_ok: bool,
+    critical_tcp_open: bool,
+    blockers_count: usize,
+    observed_at_unix_ms: u64,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    map.insert("node_id".to_string(), serde_json::json!(node_id));
+    map.insert("hostname".to_string(), serde_json::json!(hostname));
+    map.insert("role".to_string(), role.map_or(serde_json::Value::Null, |r| serde_json::json!(r)));
+    map.insert("status".to_string(), serde_json::json!(status));
+    map.insert("severity".to_string(), serde_json::json!(severity));
+    map.insert("provider_fallback_active".to_string(), serde_json::json!(provider_fallback_active));
+    map.insert("synapse_route_active".to_string(), serde_json::json!(synapse_route_active));
+    map.insert("wireguard_active".to_string(), serde_json::json!(wireguard_active));
+    map.insert("critical_dns_ok".to_string(), serde_json::json!(critical_dns_ok));
+    map.insert("critical_tcp_open".to_string(), serde_json::json!(critical_tcp_open));
+    map.insert("blockers_count".to_string(), serde_json::json!(blockers_count));
+    map.insert("observed_at_unix_ms".to_string(), serde_json::json!(observed_at_unix_ms));
+    map
+}
+
+/// Validates an array of node telemetry record maps against `node_telemetry_schema()`.
+pub fn validate_node_telemetry_records(
+    records: &[serde_json::Map<String, serde_json::Value>],
+) -> TabularValidationReport {
+    let schema = node_telemetry_schema();
+    validate_record_maps(&schema, records)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1405,5 +1492,46 @@ CLM-2026-002,STORM,48200.00,false,2026-08-01T14:30:00Z
         let res_journal = validate_record_maps(&journal_schema, &[journal_map]);
         assert!(res_journal.passed);
         assert_eq!(res_journal.valid_rows, 1);
+    }
+
+    #[test]
+    fn test_node_telemetry_schema_and_validation() {
+        let t1 = node_telemetry_record(
+            "node-cortex-1",
+            "cortex-1",
+            Some("cortex_host"),
+            "mesh_active",
+            "clear",
+            false,
+            true,
+            true,
+            true,
+            true,
+            0,
+            1700000000000,
+        );
+        let rep = validate_node_telemetry_records(&[t1]);
+        assert!(rep.passed);
+        assert_eq!(rep.valid_rows, 1);
+        assert_eq!(rep.invalid_rows, 0);
+
+        // Invalid status
+        let t_bad = node_telemetry_record(
+            "node-cortex-1",
+            "cortex-1",
+            None,
+            "super_unknown_status",
+            "clear",
+            false,
+            false,
+            false,
+            true,
+            true,
+            0,
+            1700000000000,
+        );
+        let rep_bad = validate_node_telemetry_records(&[t_bad]);
+        assert!(!rep_bad.passed);
+        assert_eq!(rep_bad.invalid_rows, 1);
     }
 }
