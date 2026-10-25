@@ -597,7 +597,7 @@ mod tests {
             },
             autonomy: autonomy_decision(AutonomyMode::Coordinated),
         };
-        let cmd = FederationCommand::Status(FederationStatusCommand { json: false });
+        let cmd = FederationStatusCommand { json: false };
         cmd.execute(&reconciliation).unwrap();
     }
 
@@ -628,7 +628,7 @@ mod tests {
         ];
 
         for reconciliation in cases {
-            let cmd = FederationCommand::Status(FederationStatusCommand { json: true });
+            let cmd = FederationStatusCommand { json: true };
             cmd.execute(&reconciliation).unwrap();
         }
     }

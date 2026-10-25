@@ -23,12 +23,6 @@ fn blocked_not_ready_report_is_fail_closed() {
         source: "none".into(),
         detail: "no endpoint".into(),
         session_root: "/tmp/x".into(),
-        available_models: vec![],
-        context_turns: None,
-        max_tokens: None,
-        temperature: None,
-        top_p: None,
-        reasoning_profile: "none".into(),
     };
     let paths = PrincipalPaths::from_home(
         PathAuthority::RuntimePrincipal,
