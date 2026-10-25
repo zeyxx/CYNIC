@@ -167,6 +167,7 @@ pub fn app(
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
+        .route("/observe", post(observe))
         .route("/admin/drain", post(admin_drain))
         .route("/admin/identity", get(identity))
         .route("/admin/evidence", get(admin_evidence))
@@ -406,6 +407,14 @@ async fn submit_workload(
 
 async fn health() -> (StatusCode, &'static str) {
     (StatusCode::OK, "ok")
+}
+
+/// Accept an observation POST. Returns 200 OK.
+/// The body is accepted as arbitrary JSON so any adapter (Kyon mobile,
+/// desktop, onchain) can push observations without a strict schema gate.
+async fn observe(Json(body): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    let _ = body;
+    (StatusCode::OK, Json(serde_json::json!({"status": "observed"})))
 }
 
 /// Record a submission event into the H4 collision counter (Task 5).
