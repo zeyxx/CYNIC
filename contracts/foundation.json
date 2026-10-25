@@ -214,7 +214,25 @@
         "A mechanical boundary is one where the whole judgement is a predicate over data the tree already holds. Three were converted in this pass; the remaining five uncovered boundaries are semantic and need a convention before they need a test.",
         "A boundary is mechanically decidable only in the half where an authority already exists for the fact. explicit_over_implicit is undecidable in general and decidable where a registry is already correct — which is the whole of what was converted, and the reason the conversion is cheap."
       ]
-    }
+    },
+    "convergence_invariants": [
+      {
+        "name": "store_convergence",
+        "rule": "main must equal origin/main and github/main. Divergence blocks all mutations."
+      },
+      {
+        "name": "branch_drift_limit",
+        "rule": "orphan branch count must not exceed 50. Triage before new work."
+      },
+      {
+        "name": "worktree_claim_required",
+        "rule": "dirty worktrees require an active scope claim. Unclaimed dirty worktrees are drift."
+      },
+      {
+        "name": "event_driven_convergence",
+        "rule": "convergence is verified by hooks and gates, not by cron or manual checks."
+      }
+    ]
   },
   "evolutive_policies": {
     "build": {

@@ -32,6 +32,32 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 - **Sovereign merges**: Forgejo is the sovereign store, GitHub the public projection. Merge only via `cynic source pr merge` on the sovereign side; never `gh pr merge` (it writes to the projection and splits the line — 2026-10-23). The hourly drift watch pages on divergence; converge before any further merge.
 - **Claims**: Scope claim before mutation; release with proof reference.
 
+## Convergence Procedure (Git & Worktree Hygiene)
+
+1. **Observe**: `cynic git branch status --json` + `cynic source worktree --json`.
+2. **Triate**: `cynic git reconcile --json` → classify branches (ReadyForPr/NeedsRebase/Archive/GcWorktree).
+3. **Act**:
+   - Merge ready branches via `cynic source pr merge` (Forgejo sovereign).
+   - Rebase stale branches onto main; resolve conflicts or abandon.
+   - Archive dead branches (0 commits ahead): `cynic git reconcile --apply`.
+   - GC stale worktrees: `cynic source worktree --apply`.
+4. **Verify**: `cynic audit all` must show:
+   - `store_convergence.converged = true` (main == origin/main == github/main).
+   - `branch_drift.orphan_count <= 50`.
+   - `host_observed = true`.
+5. **Converge**: push main to both origin and github; verify SHAs match.
+6. **Never push to main directly** — always via PR merge on sovereign side.
+
+### Gates
+- `cynic audit crate` (`make audit-crate`) — crate-level audit.
+- `cynic audit all` (`make audit`) — full audit including store convergence + drift watch.
+- `make release.deploy` — deployment gate.
+
+### Drift Watch
+- Hourly drift watch pages on divergence between Forgejo main and GitHub main.
+- Converge before any further merge.
+- If `branch_drift.orphan_count > 50`, triage branches before new work.
+
 ## Language
 
 - **Technical substrate**: 100% English (code, tests, docstrings, commits, schemas).

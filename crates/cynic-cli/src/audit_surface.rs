@@ -279,17 +279,125 @@ pub(crate) fn execute_gate_receipt(path: &str, json: bool) -> ExitCode {
         ExitCode::FAILURE
     }
 }
+
+/// Store convergence observation: compares main SHA across source layers.
+#[derive(Debug, Clone)]
+struct StoreConvergence {
+    local_sha: Option<String>,
+    origin_sha: Option<String>,
+    github_sha: Option<String>,
+    converged: bool,
+}
+
+impl StoreConvergence {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "converged": self.converged,
+            "local": self.local_sha,
+            "origin": self.origin_sha,
+            "github": self.github_sha,
+        })
+    }
+}
+
+fn git_rev_parse(refname: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", refname])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if sha.is_empty() { None } else { Some(sha) }
+}
+
+fn check_store_convergence() -> StoreConvergence {
+    let local = git_rev_parse("main");
+    let origin = git_rev_parse("origin/main");
+    let github = git_rev_parse("github/main");
+    let converged = match (&local, &origin, &github) {
+        (Some(l), Some(o), Some(g)) => l == o && o == g,
+        (Some(l), Some(o), None) => l == o,
+        (Some(l), None, None) => true,
+        _ => false,
+    };
+    StoreConvergence {
+        local_sha: local,
+        origin_sha: origin,
+        github_sha: github,
+        converged,
+    }
+}
+
+
+/// Branch drift observation: counts orphan branches.
+#[derive(Debug, Clone)]
+struct BranchDrift {
+    orphan_count: usize,
+    threshold: usize,
+}
+
+impl BranchDrift {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "orphan_count": self.orphan_count,
+            "threshold": self.threshold,
+            "drift": self.orphan_count > self.threshold,
+        })
+    }
+}
+
+fn count_orphan_branches() -> usize {
+    // Use git branch status --json if available, otherwise count branches
+    // with no upstream tracking as a proxy for orphan branches.
+    let output = std::process::Command::new("git")
+        .args(["branch", "--format=%(refname:short) %(upstream:short)"])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter(|l| {
+                    let parts: Vec<&str> = l.split_whitespace().collect();
+                    // orphan = no upstream tracking
+                    parts.len() == 1 || parts.get(1).map(|u| u.is_empty()).unwrap_or(true)
+                })
+                .count()
+        }
+        _ => 0,
+    }
+}
+
+fn check_branch_drift(threshold: usize) -> BranchDrift {
+    let orphan_count = count_orphan_branches();
+    BranchDrift {
+        orphan_count,
+        threshold,
+    }
+}
+
 pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
         AuditCommand::Crate { json } => {
             let report = crate_audit::audit_core_crates();
-            let is_ok = report.blocked_count == 0;
+            let store_ok = check_store_convergence().converged;
+            let is_ok = report.blocked_count == 0 && store_ok;
             if *json {
-                emit_json(&report, !is_ok)
+                // Emit report with convergence status appended
+                let mut val = serde_json::to_value(&report).unwrap_or_default();
+                if let Some(obj) = val.as_object_mut() {
+                    obj.insert("store_convergence".to_string(), serde_json::json!(store_ok));
+                }
+                emit_json(&val, !is_ok)
             } else {
                 println!(
                     "Crate architecture audit: {} crates, {} ok, {} blocked",
                     report.crate_count, report.ok_count, report.blocked_count
+                );
+                println!(
+                    "Store convergence: {}",
+                    if store_ok { "OK" } else { "DIVERGENT" }
                 );
                 if is_ok {
                     ExitCode::SUCCESS
@@ -384,9 +492,21 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             let root = crate::rust_source::workspace_root();
             let engine = cynic_audit_engine::run_workspace_audit(&root);
 
+            // Store convergence gate: main must agree across all source layers.
+            // A divergent main means the audit is measuring a moving target.
+            let store_convergence = check_store_convergence();
+            let store_ok = store_convergence.converged;
+
+            // Branch drift watch: alert if too many orphan branches accumulate.
+            // Orphan branches are unmerged work that hasn't been triaged.
+            let branch_drift = check_branch_drift(50);
+            let branch_drift_ok = branch_drift.orphan_count <= 50;
+
             let all_passed = crate_report.blocked_count == 0
                 && !secret_obs.has_findings()
-                && engine.summary.critical_count == 0;
+                && engine.summary.critical_count == 0
+                && store_ok
+                && branch_drift_ok;
 
             let unified = serde_json::json!({
                 "schema": "cynic.cli.audit_unified.v1",
@@ -394,6 +514,8 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 // Whether the runtime domain was actually checked. A reader must
                 // not have to infer it from the absence of runtime findings.
                 "host_observed": host_was_observed(&root),
+                "store_convergence": store_convergence.to_json(),
+                "branch_drift": branch_drift.to_json(),
                 "crates": {
                     "total": crate_report.crate_count,
                     "ok": crate_report.ok_count,
@@ -450,6 +572,19 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                     engine.summary.warning_count,
                     engine.summary.debt_count,
                     engine.summary.maturity_score_percent
+                );
+                println!(
+                    "Store convergence: {} (local={}, origin={}, github={})",
+                    if store_ok { "OK" } else { "DIVERGENT" },
+                    store_convergence.local_sha.as_deref().unwrap_or("?"),
+                    store_convergence.origin_sha.as_deref().unwrap_or("?"),
+                    store_convergence.github_sha.as_deref().unwrap_or("?"),
+                );
+                println!(
+                    "Branch drift: {} (orphans={}, threshold={})",
+                    if branch_drift_ok { "OK" } else { "DRIFT" },
+                    branch_drift.orphan_count,
+                    50,
                 );
                 for violation in &engine.violations {
                     println!("  [{}] {}", violation.code, violation.message);

@@ -5,7 +5,7 @@ use std::process::ExitCode;
 
 use crate::cli_json::emit_pretty_json;
 
-pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
+pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool, _max_age_days: u64) -> ExitCode {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -141,6 +141,20 @@ pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool,
                         println!("      Reason:   {}", reason);
                     }
                 }
+            }
+
+            // Reinforcement: warn about dirty unclaimed worktrees (potential drift).
+            let dirty_unclaimed: Vec<_> = snapshots
+                .iter()
+                .filter(|s| s.dirty_file_count > 0)
+                .collect();
+            if !dirty_unclaimed.is_empty() {
+                println!();
+                println!("WARNING: {} dirty worktree(s) detected (potential unclaimed mutation):", dirty_unclaimed.len());
+                for s in &dirty_unclaimed {
+                    println!("  - {} (dirty_files={})", s.branch.as_deref().unwrap_or("<detached>"), s.dirty_file_count);
+                }
+                println!("  These worktrees carry uncommitted changes. Claim scope before mutation (AGENTS.md).");
             }
 
             println!();

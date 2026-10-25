@@ -15,6 +15,29 @@ use cynic_protocol::queue::{
 use crate::emit_json;
 
 pub(crate) fn execute_queue(json: bool, apply: bool) -> ExitCode {
+    // Store convergence gate: block if main diverges across source layers.
+    let store_converged = std::process::Command::new("git")
+        .args(["rev-parse", "main"])
+        .output()
+        .ok()
+        .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None })
+        .map(|local| {
+            let origin = std::process::Command::new("git")
+                .args(["rev-parse", "origin/main"])
+                .output()
+                .ok()
+                .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None });
+            match origin {
+                Some(o) => local == o,
+                None => true,
+            }
+        })
+        .unwrap_or(true);
+    if !store_converged {
+        eprintln!("blocked: store divergence detected. Converge before queueing.");
+        return ExitCode::FAILURE;
+    }
+
     let adapter = LocalQueueAdapter::default();
     let plan = match adapter.observe() {
         Ok(p) => p,

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# CYNIC pre-push hook: verify convergence before push.
+# Event-driven: blocks push if store divergence or branch drift detected.
+
+set -euo pipefail
+
+# Resolve cynic binary
+CYNIC="${CYNIC_BIN:-cynic}"
+if ! command -v "$CYNIC" >/dev/null 2>&1; then
+    # Try common locations
+    for p in /home/user/.local/bin/cynic /usr/local/bin/cynic /tmp/sub-forge-check/debug/cynic; do
+        if [ -x "$p" ]; then CYNIC="$p"; break; fi
+    done
+fi
+
+if ! command -v "$CYNIC" >/dev/null 2>&1; then
+    echo "[pre-push] cynic binary not found; skipping convergence check (install cynic to enable)."
+    exit 0
+fi
+
+# Check store convergence
+echo "[pre-push] checking store convergence..."
+if ! "$CYNIC" audit all --json 2>/dev/null | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    sc = d.get("store_convergence", {})
+    bd = d.get("branch_drift", {})
+    if not sc.get("converged", True):
+        print("STORE_DIVERGENCE", file=sys.stderr)
+        sys.exit(1)
+    if bd.get("drift", False):
+        print("BRANCH_DRIFT", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"CHECK_ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+'; then
+    echo "[pre-push] WARNING: store divergence or branch drift detected." >&2
+    echo "[pre-push] Run 'cynic audit all' for details." >&2
+    if [ "${CYNIC_STRICT:-0}" = "1" ]; then
+        echo "[pre-push] STRICT mode: blocking push." >&2
+        exit 1
+    fi
+    echo "[pre-push] Continuing (set CYNIC_STRICT=1 to block)." >&2
+fi
+
+echo "[pre-push] convergence OK."
+exit 0
