@@ -95,8 +95,9 @@ pub enum KnowCommand {
         /// Optional destination directory for public_surface.html and public_surface.md [default: docs/public]
         #[arg(long)]
         out_dir: Option<PathBuf>,
-        /// List claim statuses and check every event proof_reference against the local git
-        /// history. Exits non-zero if any declared reference does not resolve; nothing is written.
+        /// Check every event proof_reference against the local git history and re-run every claim
+        /// verify_command against its published number. Exits non-zero on an unresolved reference
+        /// or a mismatch; nothing is written.
         #[arg(long)]
         verify: bool,
         /// Check that the already published facts.live.json in --out-dir is at most this many hours
@@ -789,6 +790,33 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 }
                 if failed > 0 {
                     eprintln!("{failed} proof reference(s) do not resolve; surface not written");
+                    return ExitCode::FAILURE;
+                }
+
+                let checks = cynic_knowledge::check_claims(&ledger.claims, cynic_knowledge::shell_claim_runner(&repo_root));
+                let mut drifted = 0usize;
+                let mut unverifiable = 0usize;
+                for c in &checks {
+                    match &c.outcome {
+                        cynic_knowledge::ClaimCheckOutcome::Match => {
+                            println!("  [RECHECK OK ] {} = {}", c.id, c.expected.unwrap_or_default())
+                        }
+                        cynic_knowledge::ClaimCheckOutcome::Mismatch { observed } => {
+                            drifted += 1;
+                            eprintln!("  [MISMATCH   ] {}: published {} but its command prints {}", c.id, c.expected.unwrap_or_default(), observed)
+                        }
+                        cynic_knowledge::ClaimCheckOutcome::Unverifiable(why) => {
+                            unverifiable += 1;
+                            println!("  [UNVERIFIED ] {}: {}", c.id, why)
+                        }
+                        cynic_knowledge::ClaimCheckOutcome::NoCommand => {
+                            println!("  [NO COMMAND ] {}", c.id)
+                        }
+                    }
+                }
+                println!("claims re-measured: {} match, {} mismatch, {} unverified", checks.len() - drifted - unverifiable, drifted, unverifiable);
+                if drifted > 0 {
+                    eprintln!("{drifted} claim(s) disagree with their own verify_command; surface not written");
                     return ExitCode::FAILURE;
                 }
             }
