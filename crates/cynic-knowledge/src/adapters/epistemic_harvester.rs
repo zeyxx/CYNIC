@@ -352,6 +352,9 @@ fn run_cmd_stdout(cmd: &str, args: &[&str], dir: &Path) -> Option<String> {
         })
 }
 
+/// The single probe for "lines of Rust": git-tracked `.rs` files under `crates/`.
+const LOC_COMMAND: &str = "git ls-files 'crates/*.rs' | xargs cat | wc -l";
+
 /// Runs a command and parses stdout as a count. Fails closed, naming the metric.
 fn measure_count(metric: &str, cmd: &str, args: &[&str], dir: &Path) -> Result<u64, String> {
     let out = run_cmd_stdout(cmd, args, dir)
@@ -448,7 +451,9 @@ pub fn harvest_live_ledger(
     let geometry = load_workspace_geometry(workspace_root)
         .map_err(|e| format!("metric cynic_crates/cynic_loc: workspace geometry: {e}"))?;
     let total_crates = geometry.total_crates;
-    let total_loc = geometry.total_loc;
+    // One definition, one probe: lines of git-tracked Rust under crates/. The claim publishes
+    // this same command, so the published number and its verification cannot diverge.
+    let total_loc = measure_shell_count("cynic_loc", LOC_COMMAND, workspace_root)?;
 
     // 2. Git Metrics
     let total_commits = measure_count(
@@ -509,15 +514,21 @@ pub fn harvest_live_ledger(
     // 3b. GitHub Interactions Graph (PRs, Issues, External Ecosystems)
     let interactions = {
         let path = workspace_root.join("infra/github-interactions-graph.json");
-        std::fs::read_to_string(path)
-            .ok()
-            .and_then(|s| parse_interactions_graph(&s).ok())
+        let raw = std::fs::read_to_string(&path)
+            .map_err(|e| format!("interactions graph {}: {e}", path.display()))?;
+        parse_interactions_graph(&raw).map_err(|e| format!("interactions graph {}: {e}", path.display()))?
     };
+    // Counts come from the graph's typed records, never from a remembered number.
+    let count_issues = |category: InteractionCategory| -> u64 {
+        interactions.items.iter().filter(|i| !i.is_pr && i.category == category).count() as u64
+    };
+    let bounty_reports = count_issues(InteractionCategory::SecurityBounty);
+    let compiler_bugs = count_issues(InteractionCategory::CompilerBug);
 
     // 4. Summary Metrics Map
     let mut summary_metrics = HashMap::new();
     summary_metrics.insert("cynic_crates".to_string(), total_crates as u64);
-    summary_metrics.insert("cynic_loc".to_string(), total_loc as u64);
+    summary_metrics.insert("cynic_loc".to_string(), total_loc);
     summary_metrics.insert("total_commits".to_string(), total_commits);
     summary_metrics.insert("typed_commits".to_string(), typed_commits);
     summary_metrics.insert("git_add_all_violations".to_string(), git_add_all_violations);
@@ -528,12 +539,10 @@ pub fn harvest_live_ledger(
     summary_metrics.insert("markdown_docs".to_string(), markdown_files);
     summary_metrics.insert("github_repos".to_string(), repos.len() as u64);
 
-    if let Some(ref g) = interactions {
-        summary_metrics.insert("total_prs".to_string(), g.total_prs);
-        summary_metrics.insert("external_prs".to_string(), g.external_prs);
-        summary_metrics.insert("external_issues".to_string(), g.external_issues);
-        summary_metrics.insert("external_ecosystems".to_string(), g.external_ecosystems.len() as u64);
-    }
+    summary_metrics.insert("total_prs".to_string(), interactions.total_prs);
+    summary_metrics.insert("external_prs".to_string(), interactions.external_prs);
+    summary_metrics.insert("external_issues".to_string(), interactions.external_issues);
+    summary_metrics.insert("external_ecosystems".to_string(), interactions.external_ecosystems.len() as u64);
 
     // 5. Verifiable Claims
     let claims = vec![
@@ -560,11 +569,11 @@ pub fn harvest_live_ledger(
         VerifiableClaim {
             id: "cynic.total_loc_rust".to_string(),
             category: ClaimCategory::CodeVolume,
-            statement: format!("CYNIC substrate volume comprises {} physical lines of Rust", total_loc),
+            statement: format!("CYNIC substrate volume comprises {} physical lines of Rust under crates/", total_loc),
             status: ClaimStatus::Demonstrated,
-            evidence: "git ls-files '*.rs'".to_string(),
-            verify_command: Some("git ls-files '*.rs' | xargs cat | wc -l".to_string()),
-            numeric_value: Some(total_loc as u64),
+            evidence: "git ls-files 'crates/*.rs'".to_string(),
+            verify_command: Some(LOC_COMMAND.to_string()),
+            numeric_value: Some(total_loc),
             unit: Some("LOC".to_string()),
         },
         VerifiableClaim {
@@ -600,12 +609,12 @@ pub fn harvest_live_ledger(
         VerifiableClaim {
             id: "author.external_security_bounties".to_string(),
             category: ClaimCategory::Competence,
-            statement: "Discovered and submitted 4 critical smart contract vulnerabilities and price manipulation exploits (Anatoly Yakovenko / Percolator Bounties 5 & 6, 100,000,000x price manipulation PoC)".to_string(),
+            statement: format!("Submitted {} security reports to the Percolator programs (Anatoly Yakovenko): Bounties 5 and 6, and a 100,000,000x price manipulation report; one proof-of-concept PR accompanies Bounty 6", bounty_reports),
             status: ClaimStatus::Demonstrated,
             evidence: "aeyakovenko/percolator-prog#110, percolator-cli#79, percolator#63, percolator-cli#80".to_string(),
-            verify_command: Some("jq '.external_issues[] | select(.repository.nameWithOwner | contains(\"aeyakovenko\"))' infra/github-interactions-graph.json".to_string()),
-            numeric_value: Some(4),
-            unit: Some("bounties/exploits".to_string()),
+            verify_command: Some("jq '[.external_issues[] | select(.repository.nameWithOwner | contains(\"aeyakovenko\"))] | length' infra/github-interactions-graph.json".to_string()),
+            numeric_value: Some(bounty_reports),
+            unit: Some("reports".to_string()),
         },
         VerifiableClaim {
             id: "author.upstream_compiler_bug".to_string(),
@@ -613,8 +622,8 @@ pub fn harvest_live_ledger(
             statement: "Discovered and documented upstream compiler SIGSEGV crash in rustc 1.95.0 LLVM FastISel code generation".to_string(),
             status: ClaimStatus::Demonstrated,
             evidence: "rust-lang/rust#156563".to_string(),
-            verify_command: Some("jq '.external_issues[] | select(.repository.nameWithOwner == \"rust-lang/rust\")' infra/github-interactions-graph.json".to_string()),
-            numeric_value: Some(1),
+            verify_command: Some("jq '[.external_issues[] | select(.repository.nameWithOwner == \"rust-lang/rust\")] | length' infra/github-interactions-graph.json".to_string()),
+            numeric_value: Some(compiler_bugs),
             unit: Some("compiler bug".to_string()),
         },
         VerifiableClaim {
@@ -661,7 +670,7 @@ pub fn harvest_live_ledger(
         repos,
         skills: profile.skills,
         events: profile.events,
-        interactions,
+        interactions: Some(interactions),
     })
 }
 
