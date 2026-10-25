@@ -184,6 +184,71 @@ pub(crate) fn submit_build(
         }
     }
     cynic_build::render_workload_proof(&proof, json)?;
+    if wait {
+        report_failure_output(&proof, builder_url);
+    }
+    Ok(())
+}
+
+/// Lines of sealed output shown after a failed `submit --wait`.
+const FAILURE_TAIL_LINES: usize = 40;
+
+/// After a terminal non-success, point at the sealed output on stderr so the
+/// proof on stdout stays machine-readable. Never fails the submit: the proof
+/// is already rendered and persisted.
+fn report_failure_output(proof: &serde_json::Value, builder_url: &str) {
+    let status = proof
+        .get("completion")
+        .and_then(|completion| completion.get("status"))
+        .and_then(|status| status.as_str())
+        .unwrap_or_default();
+    if status == "completed" || status.is_empty() {
+        return;
+    }
+    let Some(workload_id) = proof.get("workload_id").and_then(|id| id.as_str()) else {
+        return;
+    };
+    match cynic_build::fetch_workload_record(builder_url, workload_id) {
+        Ok(record) => match cynic_build::failure_output_from_record(&record, FAILURE_TAIL_LINES) {
+            Some(output) => {
+                eprintln!(
+                    "workload {workload_id} {status}: exit_code={:?}; last {FAILURE_TAIL_LINES} lines of stderr follow \
+                     (full: cynic build workload output --workload-id {workload_id})",
+                    output.exit_code
+                );
+                eprintln!("{}", output.stderr_tail);
+            }
+            None => eprintln!("workload {workload_id} {status}: no sealed output in the record"),
+        },
+        Err(error) => eprintln!("workload {workload_id} {status}: output unreadable: {error}"),
+    }
+}
+
+/// `build workload output`: print the output a builder sealed for a workload.
+pub(crate) fn workload_output(
+    workload_id: &str,
+    builder_url: &str,
+    tail: usize,
+    json: bool,
+) -> Result<(), String> {
+    let record = cynic_build::fetch_workload_record(builder_url, workload_id)?;
+    let output = cynic_build::failure_output_from_record(&record, tail).ok_or_else(|| {
+        format!(
+            "workload {workload_id} sealed no output (a successful build records none, or the id is unknown)"
+        )
+    })?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).map_err(|error| error.to_string())?
+        );
+    } else {
+        println!("exit_code: {:?}", output.exit_code);
+        println!("--- stdout (last {tail} lines)");
+        println!("{}", output.stdout_tail);
+        println!("--- stderr (last {tail} lines)");
+        println!("{}", output.stderr_tail);
+    }
     Ok(())
 }
 

@@ -188,6 +188,80 @@ fn submit_workload_inner(
     Err(format!("timed out waiting for proof of workload {wid}"))
 }
 
+/// Bounded output of a settled workload, as the node sealed it in evidence.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkloadFailureOutput {
+    pub exit_code: Option<i64>,
+    pub stdout_tail: String,
+    pub stderr_tail: String,
+}
+
+/// Read one workload record from the builder (`GET /records/{id}`).
+///
+/// Same thread discipline as [`submit_workload`]: the blocking client must
+/// be built outside the async runtime.
+pub fn fetch_workload_record(
+    builder_url: &str,
+    workload_id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!(
+        "{}/records/{}",
+        builder_url.trim_end_matches('/'),
+        workload_id
+    );
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| format!("http client init failed: {e}"))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("failed to read {url}: {e}"))?;
+        if !res.status().is_success() {
+            return Err(format!("builder refused {url} ({})", res.status()));
+        }
+        res.json::<serde_json::Value>()
+            .map_err(|e| format!("failed to parse record from {url}: {e}"))
+    })
+    .join()
+    .map_err(|_| "builder client thread panicked".to_string())?
+}
+
+/// Extract the sealed process output from a workload record.
+///
+/// The node persists `{exit_code, stdout, stderr}` as evidence when a build
+/// fails; a successful build seals none. `None` means the record carries no
+/// output evidence, which is distinct from an empty output.
+pub fn failure_output_from_record(
+    record: &serde_json::Value,
+    tail_lines: usize,
+) -> Option<WorkloadFailureOutput> {
+    let payload = record
+        .get("evidence")?
+        .as_array()?
+        .iter()
+        .filter_map(|item| item.get("envelope")?.get("payload"))
+        .find(|payload| payload.get("stderr").is_some() || payload.get("stdout").is_some())?;
+    let text = |key: &str| {
+        payload
+            .get(key)
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+    };
+    Some(WorkloadFailureOutput {
+        exit_code: payload.get("exit_code").and_then(|code| code.as_i64()),
+        stdout_tail: last_lines(text("stdout"), tail_lines),
+        stderr_tail: last_lines(text("stderr"), tail_lines),
+    })
+}
+
+fn last_lines(text: &str, count: usize) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let start = lines.len().saturating_sub(count);
+    lines[start..].join("\n")
+}
+
 /// Render a workload acceptance or terminal-state proof for the operator.
 ///
 /// Shared by the CLI's JSON and human-readable paths so both renderings
@@ -300,5 +374,39 @@ mod tests {
         let url_health = resolve_builder_url_with_health().unwrap();
         assert_eq!(url, url_health);
         unsafe { std::env::remove_var("CYNIC_BUILDER_URL") };
+    }
+
+    #[test]
+    fn failure_output_reads_sealed_stderr_and_keeps_only_the_tail() {
+        let record = json!({
+            "evidence": [
+                {"kind": "build_grant_read_back", "envelope": {"payload": {"granted": true}}},
+                {"kind": "build_runner_observation", "envelope": {"payload": {
+                    "exit_code": 101,
+                    "stdout": "",
+                    "stderr": "a\nb\nc\nd"
+                }}}
+            ]
+        });
+        let output = failure_output_from_record(&record, 2).unwrap();
+        assert_eq!(output.exit_code, Some(101));
+        assert_eq!(output.stdout_tail, "");
+        assert_eq!(output.stderr_tail, "c\nd");
+    }
+
+    #[test]
+    fn failure_output_is_absent_when_the_record_sealed_none() {
+        let record = json!({"evidence": [
+            {"kind": "build_grant_read_back", "envelope": {"payload": {"granted": true}}},
+            {"kind": "build_runner_observation", "envelope": null}
+        ]});
+        assert_eq!(failure_output_from_record(&record, 10), None);
+        assert_eq!(failure_output_from_record(&json!({}), 10), None);
+    }
+
+    #[test]
+    fn last_lines_returns_everything_when_shorter_than_the_tail() {
+        assert_eq!(last_lines("a\nb", 10), "a\nb");
+        assert_eq!(last_lines("", 3), "");
     }
 }

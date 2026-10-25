@@ -27,7 +27,7 @@ use pool::{
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
     drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, run_build,
-    submit_build, trigger_build,
+    submit_build, trigger_build, workload_output,
 };
 use services::{provision_credentials, serve_webhook};
 
@@ -712,6 +712,18 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 user,
                 json,
             } => execute_list_workloads(&state_root, local, &registry, &user, json),
+            BuildWorkloadCommand::Output {
+                workload_id,
+                builder_url,
+                tail,
+                json,
+            } => {
+                let url = match builder_url {
+                    Some(explicit) => explicit,
+                    None => resolve_default_builder_url()?,
+                };
+                workload_output(&workload_id, &url, tail, json)
+            }
         },
         BuildCommand::Webhook { command } => match command {
             BuildWebhookCommand::Serve {
