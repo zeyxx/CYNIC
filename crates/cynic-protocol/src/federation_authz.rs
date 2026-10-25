@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::federation_membership::FleetRole;
+use crate::federation_membership::InfraRole;
 
 /// Capabilities the fleet can grant. Exhaustive by design: adding a
 /// capability is a contract change, visible in this table first.
@@ -38,32 +38,35 @@ pub enum Capability {
 
 /// The canonical role → capabilities table. One row per role; no other
 /// surface may maintain a parallel table.
-pub fn role_capabilities(role: FleetRole) -> &'static [Capability] {
+pub fn role_capabilities(role: InfraRole) -> &'static [Capability] {
     match role {
         // The hub coordinates but does not absorb substrate roles.
-        FleetRole::KernelPrimary => &[
+        InfraRole::ControlPlane => &[
             Capability::FleetObserve,
             Capability::MembershipAdmit,
             Capability::NodeControl,
         ],
-        FleetRole::Hypervisor => &[Capability::FleetObserve, Capability::HostSupervision],
-        FleetRole::CortexHost => &[
+        InfraRole::Hypervisor => &[Capability::FleetObserve, Capability::HostSupervision],
+        InfraRole::PrimaryHost => &[
             Capability::FleetObserve,
             Capability::HostSupervision,
             Capability::InferenceServe,
         ],
-        FleetRole::StoragePrimary => &[Capability::FleetObserve, Capability::StorageAcl],
-        FleetRole::BuildRunner => &[Capability::FleetObserve, Capability::BuildExecute],
-        FleetRole::ForgePrimary => &[Capability::FleetObserve, Capability::ForgeAdmin],
+        InfraRole::StorageNode => &[Capability::FleetObserve, Capability::StorageAcl],
+        InfraRole::BuildNode => &[Capability::FleetObserve, Capability::BuildExecute],
+        InfraRole::StoreNode => &[Capability::FleetObserve, Capability::ForgeAdmin],
+        InfraRole::MeshNode => &[Capability::FleetObserve],
     }
 }
 
-/// Principal whose authorization is requested. Roles are the typed keys of
-/// the membership contract; a principal with no modelled role is `Unknown`.
+/// Principal whose authorization is requested. Capabilities are the L4
+/// declared capabilities of the node (see `infra/fleet-taxonomy.json`);
+/// a principal with no modelled capability is `Unknown`. The role is no
+/// longer the authorization key — only the declared capabilities are.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthzPrincipal<'a> {
     pub node_id: &'a str,
-    pub roles: &'a [FleetRole],
+    pub capabilities: &'a [Capability],
 }
 
 /// Explicit authorization decision. `Unknown` is data, never a silent deny.
@@ -83,26 +86,22 @@ impl AuthzDecision {
 
 /// Pure decision: may this principal exercise this capability?
 ///
-/// - any held role granting the capability → `Allow`
-/// - roles present but none grants it → `Deny` (explicitly out of scope)
-/// - no modelled role at all → `Unknown` (principal outside the contract)
+/// - required capability present in principal's declared capabilities → `Allow`
+/// - capabilities present but required not among them → `Deny` (explicitly out of scope)
+/// - no declared capability at all → `Unknown` (principal outside the contract)
 pub fn authorize(principal: &AuthzPrincipal, required: Capability) -> AuthzDecision {
-    if principal.roles.is_empty() {
+    if principal.capabilities.is_empty() {
         return AuthzDecision::Unknown {
-            reason: format!("principal {} holds no modelled role", principal.node_id),
+            reason: format!("principal {} holds no modelled capability", principal.node_id),
         };
     }
-    if principal
-        .roles
-        .iter()
-        .any(|r| role_capabilities(*r).contains(&required))
-    {
+    if principal.capabilities.contains(&required) {
         return AuthzDecision::Allow;
     }
     AuthzDecision::Deny {
         reason: format!(
-            "roles {:?} do not grant capability {:?}",
-            principal.roles, required
+            "capabilities {:?} do not grant capability {:?}",
+            principal.capabilities, required
         ),
     }
 }
@@ -118,13 +117,16 @@ pub fn requires_mutation_gate(decision: &AuthzDecision, mutates: bool) -> bool {
 mod tests {
     use super::*;
 
-    fn principal<'a>(node_id: &'a str, roles: &'a [FleetRole]) -> AuthzPrincipal<'a> {
-        AuthzPrincipal { node_id, roles }
+    fn principal<'a>(node_id: &'a str, capabilities: &'a [Capability]) -> AuthzPrincipal<'a> {
+        AuthzPrincipal { node_id, capabilities }
     }
 
     #[test]
     fn hub_admits_and_controls_but_does_not_absorb_substrate_roles() {
-        let hub = principal("kernel-alpha", &[FleetRole::KernelPrimary]);
+        let hub = principal(
+            "kernel-alpha",
+            &[Capability::FleetObserve, Capability::MembershipAdmit, Capability::NodeControl],
+        );
         assert!(authorize(&hub, Capability::MembershipAdmit).is_allowed());
         assert!(authorize(&hub, Capability::NodeControl).is_allowed());
         assert!(!authorize(&hub, Capability::BuildExecute).is_allowed());
@@ -133,7 +135,10 @@ mod tests {
 
     #[test]
     fn build_runner_executes_but_cannot_admin_forge() {
-        let runner = principal("builder-1", &[FleetRole::BuildRunner]);
+        let runner = principal(
+            "builder-1",
+            &[Capability::FleetObserve, Capability::BuildExecute],
+        );
         assert!(authorize(&runner, Capability::BuildExecute).is_allowed());
         assert!(matches!(
             authorize(&runner, Capability::ForgeAdmin),
@@ -152,9 +157,9 @@ mod tests {
 
     #[test]
     fn observe_is_common_to_all_roles() {
-        for role in crate::federation_membership::ALL_FLEET_ROLES {
-            let roles = [role];
-            let p = principal("any", &roles);
+        for role in crate::federation_membership::ALL_INFRA_ROLES {
+            let caps = role_capabilities(role);
+            let p = principal("any", caps);
             assert!(authorize(&p, Capability::FleetObserve).is_allowed());
         }
     }

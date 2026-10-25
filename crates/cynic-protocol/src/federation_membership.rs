@@ -18,30 +18,35 @@ pub const FEDERATION_MEMBERSHIP_SCHEMA: &str = "cynic.federation_membership.v1";
 pub const FEDERATION_MEMBER_SCHEMA: &str = "cynic.federation_member.v1";
 pub const FEDERATION_DESIRED_SCHEMA: &str = "cynic.federation_desired.v1";
 
-/// Typed fleet role. Canonical table lives in [`crate::federation_authz`];
-/// this enum is its key. Registry role strings in `infra/registry.json`
-/// must deserialize into one of these variants.
+/// Typed infrastructure role (L2 of `infra/fleet-taxonomy.json`).
+///
+/// Closed set: topology position only. Functional roles (L3, for example
+/// embedding runner or agent node) are NOT infrastructure roles and must
+/// not appear here. Authorization is keyed on declared capabilities (L4),
+/// see [`crate::federation_authz`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum FleetRole {
+pub enum InfraRole {
     Hypervisor,
-    CortexHost,
-    KernelPrimary,
-    StoragePrimary,
-    BuildRunner,
-    ForgePrimary,
+    PrimaryHost,
+    ControlPlane,
+    StorageNode,
+    BuildNode,
+    StoreNode,
+    MeshNode,
 }
 
-/// Every fleet role. Exhaustive list used by consumers that must cover all
-/// roles (authz table checks, projections); adding a variant is a contract
-/// change that breaks array-literal users of this constant.
-pub const ALL_FLEET_ROLES: [FleetRole; 6] = [
-    FleetRole::Hypervisor,
-    FleetRole::CortexHost,
-    FleetRole::KernelPrimary,
-    FleetRole::StoragePrimary,
-    FleetRole::BuildRunner,
-    FleetRole::ForgePrimary,
+/// Every infrastructure role. Exhaustive list used by consumers that must
+/// cover all roles; adding a variant is a contract change that breaks
+/// array-literal users of this constant.
+pub const ALL_INFRA_ROLES: [InfraRole; 7] = [
+    InfraRole::Hypervisor,
+    InfraRole::PrimaryHost,
+    InfraRole::ControlPlane,
+    InfraRole::StorageNode,
+    InfraRole::BuildNode,
+    InfraRole::StoreNode,
+    InfraRole::MeshNode,
 ];
 
 /// Membership lifecycle status.
@@ -193,7 +198,7 @@ impl MemberLease {
 pub struct FederationMember {
     pub schema: String,
     pub node_id: String,
-    pub roles: Vec<FleetRole>,
+    pub roles: Vec<InfraRole>,
     /// Public-key fingerprint of the enrolled machine identity.
     pub identity_fingerprint: String,
     pub endpoint: Option<String>,
@@ -241,7 +246,7 @@ pub struct FederationDesiredState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DesiredMember {
     pub node_id: String,
-    pub roles: Vec<FleetRole>,
+    pub roles: Vec<InfraRole>,
     pub identity_fingerprint: String,
     pub endpoint: Option<String>,
     pub budget: AgentBudgets,
@@ -437,7 +442,7 @@ pub fn budget_within_hub(child_budget: &AgentBudgets, hub_remaining: &AgentBudge
 /// Role compatibility: exactly one hub may exist per federation. Any desired
 /// member carrying `KernelPrimary` beyond the hub authority id is invalid.
 pub fn roles_admissible(desired: &FederationDesiredState, member: &DesiredMember) -> bool {
-    let claims_hub = member.roles.contains(&FleetRole::KernelPrimary);
+    let claims_hub = member.roles.contains(&InfraRole::ControlPlane);
     if claims_hub && member.node_id != desired.hub_authority_id {
         return false;
     }
@@ -463,7 +468,7 @@ mod tests {
         }
     }
 
-    fn desired_member(node_id: &str, roles: Vec<FleetRole>) -> DesiredMember {
+    fn desired_member(node_id: &str, roles: Vec<InfraRole>) -> DesiredMember {
         DesiredMember {
             node_id: node_id.to_string(),
             roles,
@@ -485,7 +490,7 @@ mod tests {
         FederationMember {
             schema: FEDERATION_MEMBER_SCHEMA.to_string(),
             node_id: node_id.to_string(),
-            roles: vec![FleetRole::BuildRunner],
+            roles: vec![InfraRole::BuildNode],
             identity_fingerprint: format!("sha256:{}", "0".repeat(64)),
             endpoint: None,
             status,
@@ -500,7 +505,7 @@ mod tests {
     fn admit_desired_but_unobserved() {
         let d = desired(
             "kernel-alpha",
-            vec![desired_member("node-a", vec![FleetRole::BuildRunner])],
+            vec![desired_member("node-a", vec![InfraRole::BuildNode])],
         );
         let o = FederationObservation {
             schema: FEDERATION_MEMBERSHIP_SCHEMA.to_string(),
@@ -519,7 +524,7 @@ mod tests {
     fn keep_converged_active_member() {
         let d = desired(
             "kernel-alpha",
-            vec![desired_member("node-a", vec![FleetRole::BuildRunner])],
+            vec![desired_member("node-a", vec![InfraRole::BuildNode])],
         );
         let o = FederationObservation {
             schema: FEDERATION_MEMBERSHIP_SCHEMA.to_string(),
@@ -538,7 +543,7 @@ mod tests {
     fn update_when_roles_or_budget_diverge() {
         let mut d = desired(
             "kernel-alpha",
-            vec![desired_member("node-a", vec![FleetRole::BuildRunner])],
+            vec![desired_member("node-a", vec![InfraRole::BuildNode])],
         );
         d.members[0].budget = budgets(20, 600);
         let o = FederationObservation {
@@ -575,7 +580,7 @@ mod tests {
     fn suspended_member_is_not_auto_healed() {
         let d = desired(
             "kernel-alpha",
-            vec![desired_member("node-a", vec![FleetRole::BuildRunner])],
+            vec![desired_member("node-a", vec![InfraRole::BuildNode])],
         );
         let o = FederationObservation {
             schema: FEDERATION_MEMBERSHIP_SCHEMA.to_string(),
@@ -600,7 +605,7 @@ mod tests {
     fn unknown_freshness_past_lease_suspends() {
         let d = desired(
             "kernel-alpha",
-            vec![desired_member("node-a", vec![FleetRole::BuildRunner])],
+            vec![desired_member("node-a", vec![InfraRole::BuildNode])],
         );
         let o = FederationObservation {
             schema: FEDERATION_MEMBERSHIP_SCHEMA.to_string(),
@@ -646,11 +651,11 @@ mod tests {
         let d = desired("kernel-alpha", vec![]);
         assert!(!roles_admissible(
             &d,
-            &desired_member("impostor", vec![FleetRole::KernelPrimary])
+            &desired_member("impostor", vec![InfraRole::ControlPlane])
         ));
         assert!(roles_admissible(
             &d,
-            &desired_member("kernel-alpha", vec![FleetRole::KernelPrimary])
+            &desired_member("kernel-alpha", vec![InfraRole::ControlPlane])
         ));
         assert!(!roles_admissible(&d, &desired_member("node-x", vec![])));
     }
@@ -796,8 +801,8 @@ mod tests {
         let d = desired(
             "kernel-alpha",
             vec![
-                desired_member("node-a", vec![FleetRole::BuildRunner]),
-                desired_member("node-b", vec![FleetRole::StoragePrimary]),
+                desired_member("node-a", vec![InfraRole::BuildNode]),
+                desired_member("node-b", vec![InfraRole::StorageNode]),
             ],
         );
         let o = FederationObservation {

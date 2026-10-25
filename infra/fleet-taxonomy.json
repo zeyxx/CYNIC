@@ -1,0 +1,91 @@
+{
+  "schema": "cynic.fleet_taxonomy.v1",
+  "version": "1.1.0",
+  "status": "draft",
+  "purpose": "Machine-readable, versioned taxonomy for fleet nodes. Types, enums, fields, and docstrings use standard engineering terms. CYNIC names (cortex, forge, kernel, synapse, mycelium) remain as project or machine names in registry values only.",
+  "changelog": {
+    "1.1.0": "L2 aligned with code InfraRole (7 closed values). build_runner, embedding_runner and agent_node are L3 only. storage_primary removed from L3. forge_node renamed store_node. registry_mapping now splits each registry role into infra_role (L2) and function_role (L3).",
+    "1.0.0": "Initial draft."
+  },
+  "levels": {
+    "L1_node_type": {
+      "description": "Nature of the machine in the fleet.",
+      "closed": true,
+      "values": ["host", "device", "external"]
+    },
+    "L2_infra_role": {
+      "description": "Position of the node in the infrastructure topology. Mirrors InfraRole in cynic-protocol/src/federation_membership.rs.",
+      "closed": true,
+      "values": [
+        "primary_host",
+        "build_node",
+        "control_plane",
+        "storage_node",
+        "store_node",
+        "mesh_node",
+        "hypervisor"
+      ]
+    },
+    "L3_function_role": {
+      "description": "Application-level function the node performs. Not an infrastructure role.",
+      "closed": false,
+      "values": [
+        "build_runner",
+        "embedding_runner",
+        "agent_node",
+        "relay",
+        "inference"
+      ]
+    },
+    "L4_capability": {
+      "description": "Capabilities the node declares it can provide. Distinct from RBAC permissions (Capability in federation_authz.rs), see open_issues.",
+      "closed": false,
+      "values": [
+        "compute",
+        "storage",
+        "inference",
+        "relay",
+        "mesh",
+        "build",
+        "embedding"
+      ]
+    }
+  },
+  "metaphor_replacements": {
+    "cortex": "primary_host",
+    "forge": "store_node",
+    "kernel": "control_plane",
+    "synapse": "mesh",
+    "mycelium": "gossip",
+    "agent-host": "agent_node"
+  },
+  "registry_mapping": {
+    "cortex_host": { "infra_role": "primary_host", "function_role": null },
+    "build_runner": { "infra_role": "build_node", "function_role": "build_runner" },
+    "kernel_primary": { "infra_role": "control_plane", "function_role": null },
+    "storage_primary": { "infra_role": "storage_node", "function_role": null },
+    "forge_primary": { "infra_role": "store_node", "function_role": null },
+    "mesh_coordinator": { "infra_role": "mesh_node", "function_role": null },
+    "embedding_runner": { "infra_role": null, "function_role": "embedding_runner" },
+    "workstation_portable": { "infra_role": "primary_host", "function_role": null },
+    "agent_host": { "infra_role": null, "function_role": "agent_node" },
+    "hypervisor": { "infra_role": "hypervisor", "function_role": null }
+  },
+  "rules": {
+    "no_metaphor_in_types": "Type, enum, field, and function names must use standard engineering terms. CYNIC metaphors (cortex, forge, kernel, synapse, mycelium) are project or machine names only, never type names.",
+    "closed_levels_immutable": "L1 and L2 are closed. Adding a value requires a version bump, a code change in the matching enum, and a migration.",
+    "open_levels_extensible": "L3 and L4 are open. New values must be documented here before use.",
+    "registry_values_are_names": "Registry node IDs and aliases may use CYNIC names (cortex-host-cortex). They are machine names, not type names.",
+    "capability_declaration": "A node that is usable must declare at least one L4 capability in registry field fleet_capabilities. A node without it is unknown, never implicitly capable.",
+    "enrollment_mode": "Nodes declare enrollment_mode: full_host (root available) or light_agent (no root, constrained device)."
+  },
+  "enrollment_modes": {
+    "full_host": "Node has root access, runs full CYNIC stack, participates in all federation layers.",
+    "light_agent": "Node has no root (mobile, third-party VPS, contributor). Enrolls as agent only, limited capabilities."
+  },
+  "open_issues": [
+    "L4 capabilities (declared) and federation_authz Capability (RBAC permissions) use overlapping names but different meanings. Decide: keep two vocabularies, or derive permissions from declared capabilities through one table.",
+    "workstation_portable mapped to primary_host is provisional. A laptop is not a topology position of the same kind as the cortex host.",
+    "registry node field capabilities (hardware facts: cpu_cores, ram_gb, gpu) collides in name with L4 capabilities. Planned: rename hardware facts to hardware."
+  ]
+}
