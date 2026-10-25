@@ -17,6 +17,7 @@ pub(crate) struct DivergenceReport {
     pub github_sha: String,
     pub forgejo_url: String,
     pub github_url: String,
+    pub orphan_branch_count: usize,
 }
 
 pub(crate) fn execute_divergence(root: &Path, json: bool) -> ExitCode {
@@ -57,6 +58,22 @@ pub(crate) fn execute_divergence(root: &Path, json: bool) -> ExitCode {
         }
     };
 
+    // Count orphan branches (no upstream tracking) as drift signal.
+    let orphan_branch_count = std::process::Command::new("git")
+        .args(["branch", "--format=%(refname:short) %(upstream:short)"])
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter(|l| {
+                    let parts: Vec<&str> = l.split_whitespace().collect();
+                    parts.len() == 1 || parts.get(1).map(|u| u.is_empty()).unwrap_or(true)
+                })
+                .count()
+        })
+        .unwrap_or(0);
+
     let report = DivergenceReport {
         schema: "cynic.source.divergence.v1",
         status,
@@ -64,15 +81,16 @@ pub(crate) fn execute_divergence(root: &Path, json: bool) -> ExitCode {
         github_sha: github_sha.clone(),
         forgejo_url: forgejo_url.clone(),
         github_url: github_url.clone(),
+        orphan_branch_count,
     };
 
     if json {
         emit_pretty_json(&report)
     } else {
         if status == "AGREE" {
-            println!("AGREE {}", forgejo_sha);
+            println!("AGREE {} (orphans={})", forgejo_sha, orphan_branch_count);
         } else {
-            println!("{} gh={} fj={}", status, github_sha, forgejo_sha);
+            println!("{} gh={} fj={} (orphans={})", status, github_sha, forgejo_sha, orphan_branch_count);
         }
         ExitCode::SUCCESS
     }
