@@ -1,0 +1,600 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.burn_receipt.v1",
+  "version": "1.0.0",
+  "status": "draft",
+  "purpose": "Receipt and ledger schema for measured burns (token supply, LLM tokens, git activity, X activity). Every published number must be traceable claim -> receipt -> raw evidence -> method -> anchor, so a third party can reproduce it and contest it. Counters and digests only: never conversation content, never personal names.",
+  "required": [
+    "schema",
+    "ledger_id",
+    "definitions_in_use",
+    "receipts",
+    "coverage"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "cynic.burn_ledger.v1"
+    },
+    "ledger_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier of this ledger (pseudonymous scope, e.g. a handle or a project slug)."
+    },
+    "definitions_in_use": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+\\.v[0-9]+$"
+      },
+      "description": "Every definition_id a receipt of this ledger refers to. A number without a definition is not publishable."
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/receipt"
+      }
+    },
+    "coverage": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/coverage"
+      },
+      "description": "One entry per source kind. A total is never reported without its coverage."
+    },
+    "reconciliations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reconciliation"
+      }
+    },
+    "anchors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/anchor"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "UTC, second resolution."
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "kind",
+        "observed_at",
+        "measurement",
+        "evidence",
+        "method",
+        "confidence",
+        "integrity"
+      ],
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/sha256",
+          "description": "sha256 of the canonical JSON of this receipt without receipt_id and integrity."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "token_supply",
+            "llm_tokens",
+            "git_activity",
+            "x_activity"
+          ]
+        },
+        "observed_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "period": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "to"
+          ],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "to": {
+              "$ref": "#/$defs/timestamp"
+            }
+          },
+          "description": "Window covered when the measurement is an aggregate."
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pseudonymous handle, mint address or project slug. Real names are forbidden (rule R7)."
+        },
+        "measurement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "amount",
+            "unit",
+            "definition_id"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "description": "Non-negative integer as a string: supplies exceed 2^53."
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "token_base_units",
+                "llm_tokens",
+                "lines",
+                "commits",
+                "posts"
+              ]
+            },
+            "definition_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.]+\\.v[0-9]+$"
+            },
+            "llm_token_class": {
+              "type": "string",
+              "enum": [
+                "input_uncached",
+                "output",
+                "cache_creation",
+                "cache_read"
+              ],
+              "description": "Required for kind llm_tokens. Classes differ in cost and meaning and are never summed silently."
+            },
+            "burn_method": {
+              "type": "string",
+              "enum": [
+                "spl_burn_instruction",
+                "supply_delta"
+              ],
+              "description": "Required for kind token_supply. A transfer to a dead address is NOT a burn: it does not reduce supply."
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_kind",
+            "reference",
+            "content_digest",
+            "disclosure"
+          ],
+          "properties": {
+            "evidence_kind": {
+              "type": "string",
+              "enum": [
+                "solana_tx",
+                "solana_mint_supply",
+                "transcript_counters",
+                "provider_billing_export",
+                "x_archive_entry",
+                "git_commit"
+              ]
+            },
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Transaction signature, mint address with slots, archive entry id, commit id, or the digest of a counters extract."
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commitment": {
+              "type": "string",
+              "enum": [
+                "processed",
+                "confirmed",
+                "finalized"
+              ]
+            },
+            "content_digest": {
+              "$ref": "#/$defs/sha256",
+              "description": "sha256 of the raw evidence bytes. Publishing the digest lets a holder of the raw data prove it matches without publishing it."
+            },
+            "disclosure": {
+              "type": "string",
+              "enum": [
+                "public",
+                "hash_commitment",
+                "merkle_inclusion",
+                "zk_proof"
+              ],
+              "description": "How a private source is shown. zk_proof is reserved: no verifier is specified yet."
+            },
+            "proof_ref": {
+              "type": "string",
+              "description": "Pointer to the Merkle path or the zero-knowledge proof when disclosure is merkle_inclusion or zk_proof."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "disclosure": {
+                    "enum": [
+                      "merkle_inclusion",
+                      "zk_proof"
+                    ]
+                  }
+                },
+                "required": [
+                  "disclosure"
+                ]
+              },
+              "then": {
+                "required": [
+                  "proof_ref"
+                ]
+              }
+            }
+          ]
+        },
+        "method": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tool",
+            "tool_version",
+            "reproduce"
+          ],
+          "properties": {
+            "tool": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tool_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model_version": {
+              "type": "string",
+              "description": "Only when a model took part in producing the figure."
+            },
+            "reproduce": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Command or procedure a third party runs on the raw evidence to obtain the same amount."
+            }
+          }
+        },
+        "confidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "demonstrated",
+                "implemented",
+                "partial",
+                "aspirational",
+                "unknown"
+              ],
+              "description": "Same five tiers as the public facts ledger."
+            },
+            "estimate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Probability that an inferred statement holds. Never 1 and never promised."
+            },
+            "calibration_ref": {
+              "type": "string",
+              "description": "Receipt of the calibration run (known cases, observed hit rate, false-positive rate)."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "estimate"
+                ]
+              },
+              "then": {
+                "required": [
+                  "calibration_ref"
+                ],
+                "properties": {
+                  "estimate": {
+                    "exclusiveMaximum": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "supersedes": {
+          "$ref": "#/$defs/sha256",
+          "description": "receipt_id this receipt replaces after a contestation. The superseded receipt stays in the ledger."
+        },
+        "integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "prev_hash",
+            "hash"
+          ],
+          "properties": {
+            "prev_hash": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64}|GENESIS)$"
+            },
+            "hash": {
+              "$ref": "#/$defs/sha256",
+              "description": "sha256 over prev_hash and receipt_id."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "llm_tokens"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "measurement": {
+                "required": [
+                  "llm_token_class"
+                ],
+                "properties": {
+                  "unit": {
+                    "const": "llm_tokens"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "token_supply"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "measurement": {
+                "required": [
+                  "burn_method"
+                ],
+                "properties": {
+                  "unit": {
+                    "const": "token_base_units"
+                  }
+                }
+              },
+              "evidence": {
+                "properties": {
+                  "evidence_kind": {
+                    "enum": [
+                      "solana_tx",
+                      "solana_mint_supply"
+                    ]
+                  }
+                },
+                "required": [
+                  "slot",
+                  "commitment"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "covered_sources",
+        "uncovered_sources"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "token_supply",
+            "llm_tokens",
+            "git_activity",
+            "x_activity"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this ledger claims to cover, in words."
+        },
+        "covered_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "uncovered_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Known sources that produce burns but are not captured. Empty only when proven empty."
+        },
+        "covered_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Covered share of the known total, when a known total exists (for example a billing export). Absent means unknown, not 1."
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_a",
+        "source_b",
+        "amount_a",
+        "amount_b",
+        "published"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "token_supply",
+            "llm_tokens",
+            "git_activity",
+            "x_activity"
+          ]
+        },
+        "source_a": {
+          "type": "string"
+        },
+        "source_b": {
+          "type": "string"
+        },
+        "amount_a": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "amount_b": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "published": {
+          "type": "boolean",
+          "description": "A discrepancy is published, never smoothed."
+        }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain",
+        "merkle_root",
+        "tx_signature",
+        "slot",
+        "receipts_through"
+      ],
+      "properties": {
+        "chain": {
+          "type": "string",
+          "const": "solana"
+        },
+        "merkle_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "tx_signature": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "receipts_through": {
+          "$ref": "#/$defs/sha256",
+          "description": "hash of the last receipt covered by this root."
+        }
+      },
+      "description": "An anchor proves that nothing covered was altered after the anchor. It does not prove the underlying event happened as declared."
+    }
+  },
+  "rules": [
+    {
+      "id": "R1",
+      "text": "No amount without a definition_id. A headline such as 'tokens burned' must name the classes it sums."
+    },
+    {
+      "id": "R2",
+      "text": "No total without its coverage entry. Uncovered sources are listed, never omitted."
+    },
+    {
+      "id": "R3",
+      "text": "Every receipt carries method.reproduce: a third party obtains the same amount from the raw evidence."
+    },
+    {
+      "id": "R4",
+      "text": "An estimate below 1 needs a calibration_ref. A value of 1 is never written for an inference."
+    },
+    {
+      "id": "R5",
+      "text": "Counters and digests only. Conversation content, prompts and replies are never stored in a receipt."
+    },
+    {
+      "id": "R6",
+      "text": "Inversion path: claim -> receipt -> raw evidence -> method and version -> anchor. Each arrow is checkable by a third party."
+    },
+    {
+      "id": "R7",
+      "text": "This ledger is the mapping artefact: raw facts, no personal names, no accusations. A named publication is a separate artefact derived from it, reviewed, with confidence, method and a right of reply. It is out of scope of this contract."
+    },
+    {
+      "id": "R8",
+      "text": "A contested receipt is superseded, never edited. The original stays, linked by supersedes."
+    },
+    {
+      "id": "R9",
+      "text": "Anchoring proves integrity since the anchor, not truth. A self-issued receipt is cross-checked against an independent source when one exists, and the discrepancy is published."
+    },
+    {
+      "id": "R10",
+      "text": "A transfer to a dead address is not a burn. Token burns are measured by the SPL Burn instruction or by the supply delta of the mint between two slots."
+    }
+  ],
+  "definitions_registry": [
+    {
+      "definition_id": "llm_tokens.counters.v1",
+      "text": "Counters as returned by the provider in the response usage block, split by llm_token_class, summed per period. Cache reads are reported separately from uncached input."
+    },
+    {
+      "definition_id": "token_supply.burn.v1",
+      "text": "Reduction of the mint supply, in base units, between two slots at a stated commitment."
+    },
+    {
+      "definition_id": "git_activity.lines.v1",
+      "text": "Lines of git-tracked Rust under crates/ at a commit (same probe as cynic.total_loc_rust)."
+    },
+    {
+      "definition_id": "x_activity.posts.v1",
+      "text": "Posts present in the account's official data export, counted by identifier."
+    }
+  ]
+}
