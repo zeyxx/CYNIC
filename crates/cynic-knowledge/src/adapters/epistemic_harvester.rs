@@ -8,6 +8,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::adapters::topology::load_workspace_geometry;
+use crate::domain::surface_gates::ProofRef;
 use crate::domain::epistemic_facts::{
     AuthorProfile, AuthorshipNature, ClaimCategory, ClaimStatus, EpistemicFactLedger,
     InteractionCategory, InteractionRecord, InteractionsGraph, RepoEra, RepoProvenance,
@@ -349,6 +350,53 @@ fn run_cmd_stdout(cmd: &str, args: &[&str], dir: &Path) -> Option<String> {
                 None
             }
         })
+}
+
+/// Runs a command and parses stdout as a count. Fails closed, naming the metric.
+fn measure_count(metric: &str, cmd: &str, args: &[&str], dir: &Path) -> Result<u64, String> {
+    let out = run_cmd_stdout(cmd, args, dir)
+        .ok_or_else(|| format!("metric {metric}: `{cmd}` failed or is unavailable"))?;
+    out.parse()
+        .map_err(|_| format!("metric {metric}: `{cmd}` printed {out:?}, expected a count"))
+}
+
+/// Same as `measure_count` for a shell pipeline.
+fn measure_shell_count(metric: &str, script: &str, dir: &Path) -> Result<u64, String> {
+    measure_count(metric, "sh", &["-c", script], dir)
+}
+
+/// Name of the repository checked out at `workspace_root`, read from the `origin` remote URL.
+pub fn local_repo_name(workspace_root: &Path) -> Option<String> {
+    let url = run_cmd_stdout("git", &["remote", "get-url", "origin"], workspace_root)?;
+    let last = url.trim_end_matches('/').rsplit(['/', ':']).next()?;
+    let name = last.strip_suffix(".git").unwrap_or(last);
+    (!name.is_empty()).then(|| name.to_string())
+}
+
+/// Resolver for `verify_event_proofs`: a reference holds when `git cat-file -e <rev>:<path>`
+/// succeeds in the local checkout. A reference to any other repository cannot be checked
+/// here and is reported unresolved, never assumed good.
+pub fn git_proof_resolver(workspace_root: &Path) -> impl Fn(&ProofRef) -> Result<(), String> + '_ {
+    let local = local_repo_name(workspace_root);
+    move |r: &ProofRef| {
+        match local.as_deref() {
+            Some(name) if name == r.repo => {}
+            Some(name) => return Err(format!("{}@{}: repository {} is not the local checkout ({name})", r.repo, r.rev, r.repo)),
+            None => return Err(format!("{}@{}: local repository name is unknown", r.repo, r.rev)),
+        }
+        let spec = format!("{}:{}", r.rev, r.path);
+        let ok = Command::new("git")
+            .args(["cat-file", "-e", &spec])
+            .current_dir(workspace_root)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if ok {
+            Ok(())
+        } else {
+            Err(format!("{}@{}: {} not found at that revision", r.repo, r.rev, r.path))
+        }
+    }
 }
 
 /// Loads the declarative author profile. Fails closed: a missing or malformed
