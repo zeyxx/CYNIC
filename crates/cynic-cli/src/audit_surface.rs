@@ -381,13 +381,23 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
         AuditCommand::Crate { json } => {
             let report = crate_audit::audit_core_crates();
-            let is_ok = report.blocked_count == 0;
+            let store_ok = check_store_convergence().converged;
+            let is_ok = report.blocked_count == 0 && store_ok;
             if *json {
-                emit_json(&report, !is_ok)
+                // Emit report with convergence status appended
+                let mut val = serde_json::to_value(&report).unwrap_or_default();
+                if let Some(obj) = val.as_object_mut() {
+                    obj.insert("store_convergence".to_string(), serde_json::json!(store_ok));
+                }
+                emit_json(&val, !is_ok)
             } else {
                 println!(
                     "Crate architecture audit: {} crates, {} ok, {} blocked",
                     report.crate_count, report.ok_count, report.blocked_count
+                );
+                println!(
+                    "Store convergence: {}",
+                    if store_ok { "OK" } else { "DIVERGENT" }
                 );
                 if is_ok {
                     ExitCode::SUCCESS
