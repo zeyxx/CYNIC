@@ -68,3 +68,50 @@ fn declared_profile_proofs_resolve_against_this_checkout() {
         assert!(!v.is_failure(), "{}: {:?}", v.event, v.outcome);
     }
 }
+
+fn claim(id: &str, cmd: Option<&str>, value: Option<u64>) -> cynic_knowledge::VerifiableClaim {
+    cynic_knowledge::VerifiableClaim {
+        id: id.to_string(),
+        category: cynic_knowledge::ClaimCategory::Architecture,
+        statement: String::new(),
+        status: cynic_knowledge::ClaimStatus::Demonstrated,
+        evidence: String::new(),
+        verify_command: cmd.map(str::to_string),
+        numeric_value: value,
+        unit: None,
+    }
+}
+
+#[test]
+fn claim_recheck_separates_match_mismatch_unverifiable_and_no_command() {
+    use cynic_knowledge::{check_claims, ClaimCheckOutcome};
+    let claims = [
+        claim("same", Some("c1"), Some(5)),
+        claim("drift", Some("c2"), Some(5)),
+        claim("prose", Some("c3"), Some(5)),
+        claim("broken", Some("c4"), Some(5)),
+        claim("nonumber", Some("c5"), None),
+        claim("nocmd", None, Some(5)),
+    ];
+    let checks = check_claims(&claims, |cmd| match cmd {
+        "c1" => Ok("5\n".to_string()),
+        "c2" => Ok("6".to_string()),
+        "c3" => Ok("{\"a\":1}".to_string()),
+        _ => Err("exit 1".to_string()),
+    });
+    assert_eq!(checks[0].outcome, ClaimCheckOutcome::Match);
+    assert_eq!(checks[1].outcome, ClaimCheckOutcome::Mismatch { observed: 6 });
+    assert!(matches!(checks[2].outcome, ClaimCheckOutcome::Unverifiable(_)));
+    assert!(matches!(checks[3].outcome, ClaimCheckOutcome::Unverifiable(_)));
+    assert!(matches!(checks[4].outcome, ClaimCheckOutcome::Unverifiable(_)));
+    assert_eq!(checks[5].outcome, ClaimCheckOutcome::NoCommand);
+    assert_eq!(checks.iter().filter(|c| c.is_failure()).count(), 1, "only a mismatch fails the gate");
+}
+
+#[test]
+fn parse_count_accepts_only_one_whole_integer() {
+    assert_eq!(cynic_knowledge::parse_count(" 42\n").unwrap(), 42);
+    for bad in ["", "4 2", "-1", "4.0", "{\"n\":1}"] {
+        assert!(cynic_knowledge::parse_count(bad).is_err(), "{bad:?}");
+    }
+}
