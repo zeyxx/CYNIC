@@ -213,7 +213,7 @@ The onchain data was real.
 
 On June 18, 2025 at 19:46 UTC: an onchain wallet linked by multiple forensic trails to pump.fun's early infrastructure quietly minted the test coin **$ASDFASDFA**, binding a keyboard smash to KC Green’s dog. Under an hour later, at 20:27 UTC, Alon tweeted: *“creator capital markets. soon everyone will understand.”*
 
-The precise deployments, block timestamps, and structural anomalies inside the pump.fun engine remain permanently etched into Solana’s ledger. The lore is so deep, the interconnections so vast, that for now a single phrase captures it: *IYKYK*. Yet we ask no one to take our word on faith. When CYNIC’s onchain epistemic engine is completed, any observer will be able to query the ledger and verify the raw geometry of these facts for themselves. Better still: I will be able to rediscover them myself through the cold, impartial lens of the machine, stripped of human fever or cognitive distortion.
+The precise deployments, block timestamps, and structural anomalies inside the pump.fun engine remain permanently etched into Solana’s ledger. The lore is so deep, the interconnections so vast, that for now a single phrase captures it: *IYKYK*. Yet we ask no one to take our word on faith. Tools like Asyl, by @gcrtrd, already let anyone map the flow of funds between these wallets and see the raw geometry of the facts. Caution: they show where money moved, not who owns the wallets. That is the proof layer CYNIC aims to add on top, with an onchain epistemic engine that records every read with its receipt. Better still: I will be able to rediscover them myself through the cold, impartial lens of the machine, stripped of human fever or cognitive distortion.
 
 The "LARP" was never in the ledger. The data was cold, empirical, and stubborn.
 The LARP lived inside my ego and in a specific cognitive mechanism: **hyper-pattern detection.**
@@ -310,9 +310,9 @@ We do not combat predation through petitions or outraged posts. We dismantle it 
 
 ### The Armor of the Real: @gcrtrd and the CYNIC Runtime
 
-In the trenches of Solana, resistance is not forged with hollow manifestos or corporate marketing: it is waged with code deployed live in production. Witness the relentless execution of an independent builder like **@gcrtrd** (*TrenchScanner, TokenSage, CultScreener*): a solo operator who publicly unmasked over 400 insider KOL side-wallets, engineering open-source tooling that outperforms multi-million-dollar industry software, self-hosted at his own personal expense to protect ordinary traders.
+In the trenches of Solana, resistance is not forged with hollow manifestos or corporate marketing: it is waged with code deployed live in production. Witness the relentless execution of an independent builder like **@gcrtrd** (*TrenchScanner, TokenSage, CultScreener*): a solo operator who publicly unmasked over 400 insider KOL side-wallets, engineering public tooling that rivals multi-million-dollar industry software, self-hosted at his own personal expense to protect ordinary traders.
 
-As for **CYNIC**, its mission is not to peddle hype: it is a sovereign, low-layer runtime written in **Rust** to orchestrate autonomous multi-agent systems without drift and without hallucinations. A strict zero-I/O architecture (*FCIS*), governed by a strict invariant: *“No mutation without read-back proof”* (no agent action without verified machine receipts).
+As for **CYNIC**, its mission is not to peddle hype: it is a sovereign, low-layer runtime written in **Rust** to orchestrate autonomous multi-agent systems while reducing drift and hallucinations. A strict zero-I/O architecture (*FCIS*), governed by a strict invariant: *“No mutation without read-back proof”* (no agent action without verified machine receipts).
 
 We maintain Sowellian discipline in distinguishing what is already operational on bare metal from the architectural horizon being actively forged. No larp, no paper roadmaps: we advance brick by brick, crate by crate, delivering uncompromising deterministic tools to the ecosystem.
 
