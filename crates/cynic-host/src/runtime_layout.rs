@@ -647,7 +647,7 @@ fn env_path(key: &str, default: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::HostRuntimeLayout;
+    use super::{HostRuntimeLayout, PackageManagerKindExt};
     use crate::domain::package_provenance::PackageProvenancePolicy;
     use crate::test_support::{EnvOverride, env_lock};
 
