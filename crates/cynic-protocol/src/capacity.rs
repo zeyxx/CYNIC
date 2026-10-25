@@ -179,6 +179,19 @@ pub fn parse_free_available_bytes(stdout: &str) -> Option<u64> {
     })
 }
 
+/// Pure choice of the filesystem that holds `path`: among `(mount_point,
+/// available_bytes)` pairs, the one whose mount point is the longest
+/// component-wise prefix of `path`. `None` when no mount contains the path —
+/// an unknown disk is not a measured disk.
+pub fn available_bytes_for_path(mounts: &[(String, u64)], path: &str) -> Option<u64> {
+    let path = std::path::Path::new(path);
+    mounts
+        .iter()
+        .filter(|(mount, _)| path.starts_with(mount))
+        .max_by_key(|(mount, _)| std::path::Path::new(mount).components().count())
+        .map(|(_, available)| *available)
+}
+
 /// Décision pure : état métabolique depuis observations + policy nœud.
 ///
 /// Unknown-first : sans mesure CPU ou RAM exploitable, l'état est `Standard`
@@ -434,5 +447,35 @@ mod tests {
         assert_eq!(parse_mem_total_bytes(sample), Some(13513079680));
         assert_eq!(parse_mem_total_bytes("garbage\nwithout mem row\n"), None);
         assert_eq!(parse_mem_total_bytes("Mem:\n"), None);
+    }
+
+    #[test]
+    fn available_bytes_picks_the_longest_mount_prefix() {
+        let mounts = vec![
+            ("/".to_string(), 10),
+            ("/var/lib/cynic".to_string(), 20),
+            ("/var/lib".to_string(), 30),
+        ];
+        assert_eq!(
+            available_bytes_for_path(&mounts, "/var/lib/cynic/checkouts"),
+            Some(20)
+        );
+        assert_eq!(available_bytes_for_path(&mounts, "/var/log"), Some(10));
+    }
+
+    #[test]
+    fn available_bytes_does_not_match_a_sibling_with_a_shared_name_prefix() {
+        let mounts = vec![("/".to_string(), 10), ("/var/lib/cynic".to_string(), 20)];
+        assert_eq!(
+            available_bytes_for_path(&mounts, "/var/lib/cynic-other/x"),
+            Some(10)
+        );
+    }
+
+    #[test]
+    fn available_bytes_is_unknown_when_no_mount_contains_the_path() {
+        let mounts = vec![("/data".to_string(), 5)];
+        assert_eq!(available_bytes_for_path(&mounts, "/var/lib/cynic"), None);
+        assert_eq!(available_bytes_for_path(&[], "/"), None);
     }
 }
