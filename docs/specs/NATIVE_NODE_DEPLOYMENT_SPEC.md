@@ -72,29 +72,38 @@ the swap, `GET /capacity` on the node returns `state_root`, `free_ram_bytes`,
 `total_ram_bytes` and `disk_avail_bytes`, and `cynic version --json` on the
 runner reports the declared `source_commit`.
 
-## 5. Decisions required
+## 5. Decisions
 
-**D1 — Where the basket is hosted, given `https_only`.**
-1. Put TLS in front of Forgejo (or host baskets elsewhere over HTTPS).
-2. Add a plain-HTTP transport kind, limited to the service plane. The basket is
-   already authenticated by digest and a detached signature, so confidentiality
-   is not the property at stake — but it relaxes a stated boundary.
-3. Push the basket into the node inbox first and use `LocalFile`.
+Numbered N1 to N5. The storage taxonomy (`infra/storage-taxonomy.json`) already
+owns D1 to D3; these are not those.
 
-**D2 — Who signs.** Operator-held key for the basket (`allowed_signers`), kernel
-authority key for the control plan. The agent never holds either.
+**N1 — Where the basket is hosted, given `https_only`.**
+Operator direction (2026-10-25): plain `http` must be secured everywhere; the
+platform is moving toward production grade and this change must not regress
+it. A plain-HTTP transport kind is therefore rejected. Direction: secure the
+channel (TLS in front of Forgejo, trusted by the nodes) and keep `https_only`.
+Open: whether an internal certificate authority exists and who trusts it.
 
-**D3 — Kernel route.** Implement `GET /node-control/{node_id}/desired-state`
-returning a `SignedNodeControlPlan`; storage of the desired state and the
-generation counter must be decided with it.
+**N2 — Who signs.**
+Operator direction: signing must be granular, and there is currently no
+stable operator control plane. So a per-release human signature cannot be the
+only path yet. Proposal in section 9.
 
-**D4 — Declaration surface.** A `cynic` subcommand that turns a commit with a
-passing build proof into a `RuntimeReleaseDeclaration`, refusing a commit
-without proof.
+**N3 — Where the desired state lives.**
+Operator direction: study the full current storage model first. Done in
+section 8; it changes the answer from "a file in the kernel" to a split by
+data kind.
 
-**D5 — Daemon restart.** After the swap, the running `cynic-node` still holds the
-old image. Either the activation restarts the unit, or the existing signed
-`/admin/restart` is sent with the new sha256 (it already refuses a mismatch).
+**N4 — Who triggers a release.**
+Operator direction: a hybrid or more granular model. Proposal in section 9.
+
+**N5 — Daemon restart after the swap.** Not yet decided.
+1. The activation restarts the unit itself: one step, but the node cuts itself
+   off mid-activation, so the report must be persisted first.
+2. The existing signed `/admin/restart` with the new sha256: it already refuses
+   a mismatch; two steps, each with a receipt; needs the admin secret.
+3. No restart: the link points at the new binary while the old one runs.
+   Inconsistent; not recommended.
 
 ## 6. Rollout order
 
@@ -118,3 +127,58 @@ old image. Either the activation restarts the unit, or the existing signed
 - The E2E test uses fakes. Real enrollment, real signing and a real swap have
   never run together in this repository's history that I can see.
 - Items in section 3.5 can change this plan; read them first.
+
+## 8. Storage model applied to deployment
+
+`infra/storage-taxonomy.json` is `proposal_v1`; its decisions D1 to D3 are
+`DECIDED_pending_operator_confirmation`, i.e. not confirmed. It defines eight
+data kinds and the rule `one_kind_one_home`. Mapping each datum this feature
+touches:
+
+| Datum | Kind | Home | Note |
+|---|---|---|---|
+| Which release each node should run (desired state) | K6 contracts_registries | git (`infra/registry.json` or a contract) | `contracts_are_git`: never duplicated into a database; a store may cache it |
+| Signed control plan issued to a node, and its generation | K1 immutable_evidence | append-only signed journal | consistent with taxonomy D1 (journal first, SurrealDB only as a rebuildable projection) |
+| The release basket (binary, digest) | K5 artifacts_blobs | content-addressed store, immutable once placed | |
+| Basket signature key, plan signing key, admin secret | K8 secrets_identity | `/etc/cynic`, never git or DB | out of every plane by law |
+| Node-side lease and in-flight state | K2 operational_state | ACID, fenced | |
+| Deployment receipts, observed generation | K1 | evidence store | |
+| `/etc/cynic/registry.json` | K6 materialization | `/etc/cynic`, "materialized from git at deploy time" | see below |
+
+Two consequences:
+
+1. **N3 is not "a file in the kernel".** The desired release is K6 and stays in
+   git. The kernel signs a plan *derived* from it and journals the issued plan
+   (K1). No new store is needed for the desired state; the open questions are
+   the journal location and the generation counter, both K1/K2 concerns the
+   taxonomy already frames.
+2. **The stale installed registry is the same defect, one layer down.** The
+   tree says `/etc/cynic/registry.json` is materialized from git at deploy
+   time. On this host it was last written 2026-10-23 and differs from git
+   (compute-01 as `titouan@192.168.0.25`, no `build_runner_default`). The
+   materialization step is the first piece of the deployment chain and it is
+   not running. Fixing deployment without it leaves the runners reading a stale
+   registry.
+
+Not verified: how the kernel stores its state today (SurrealDB was unreachable
+when taxonomy D1 was written; the service is active now), and whether the
+journal described in taxonomy D1 exists on disk.
+
+## 9. Granularity proposal for N2 and N4 (for reaction)
+
+Authority is scoped by blast radius, not by a single key and a single trigger.
+
+| Tier | Scope | Trigger | Signature |
+|---|---|---|---|
+| T0 | no executable (docs, contracts, registry data) | merge to `main` | none; git is the authority |
+| T1 | canary runner (`cynic-compute-01`), no agent build depends on it | automatic after a green build proof on `main` | a canary-only key, valid for canary nodes only, held by the kernel |
+| T2 | production runner (`cynic-builder`), then the `cynic` client on operator hosts | operator promotion of a release that already ran on T1 | an operator-held key; no agent can issue it |
+
+Properties: an agent can cause a T1 deploy only through a proven commit and
+only on the canary; it can never cause T2. The canary key cannot sign for a T2
+node, so compromising it does not reach production. T2 stays human until a
+stable operator control plane exists, and then the promotion can be delegated
+by policy instead of by hand.
+
+Rollback is per tier through `previous_link`, and T1 is where it must be
+exercised before any T2 promotion.
