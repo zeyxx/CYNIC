@@ -305,7 +305,13 @@ pub mod resolve {
             .and_then(|release| release.build_runner_role.as_deref())
             .filter(|role| !role.trim().is_empty())
             .ok_or_else(|| "build_runner_role_missing".to_string())?;
-        resolve_role_transport(&path, &registry, role, "build_runner")
+        let preferred = registry
+            .lifecycle
+            .as_ref()
+            .and_then(|lifecycle| lifecycle.kernel_release.as_ref())
+            .and_then(|release| release.build_runner_default.as_deref())
+            .filter(|node| !node.trim().is_empty());
+        resolve_role_transport(&path, &registry, role, "build_runner", preferred)
     }
 
     /// Resolve a source repository clone URI from the registry.
@@ -358,7 +364,7 @@ pub mod resolve {
         }
         let path = resolve_registry_path(registry_path)?;
         let registry = load_registry(&path)?;
-        resolve_role_transport(&path, &registry, role, "framework_target")
+        resolve_role_transport(&path, &registry, role, "framework_target", None)
     }
 
     /// The build runner's canonical build cache path, relative to the
@@ -446,6 +452,11 @@ pub mod resolve {
             .and_then(|lifecycle| lifecycle.kernel_release.as_ref())
             .and_then(|release| release.build_runner_role.clone())
             .unwrap_or_else(|| "build_runner".to_string());
+        let default_node = registry
+            .lifecycle
+            .as_ref()
+            .and_then(|lifecycle| lifecycle.kernel_release.as_ref())
+            .and_then(|release| release.build_runner_default.clone());
         let mut runners = Vec::new();
         for node in &registry.nodes {
             let role = match node.role.as_deref().or(node.canonical_role.as_deref()) {
@@ -471,7 +482,10 @@ pub mod resolve {
                     .as_ref()
                     .and_then(|authority| authority.principal.clone())
                     .unwrap_or_default(),
-                default: role == default_role,
+                default: role == default_role
+                    && default_node
+                        .as_deref()
+                        .map_or(true, |name| node_is_named(node, name)),
             });
         }
         runners.sort_by(|left, right| {
@@ -488,20 +502,30 @@ pub mod resolve {
         registry: &RegistryDocument,
         role: &str,
         concern: &str,
+        preferred: Option<&str>,
     ) -> Result<ResolvedBuildRunnerTransport, String> {
         let candidates = registry
             .nodes
             .iter()
             .filter(|node| node.role.as_deref().or(node.canonical_role.as_deref()) == Some(role))
             .collect::<Vec<_>>();
-        let [node] = candidates.as_slice() else {
-            return Err(if candidates.is_empty() {
-                format!("{concern}_node_missing")
-            } else {
-                format!("{concern}_node_ambiguous")
-            });
+        let selected = match (candidates.as_slice(), preferred) {
+            ([], _) => return Err(format!("{concern}_node_missing")),
+            ([node], _) => *node,
+            (_, None) => return Err(format!("{concern}_node_ambiguous")),
+            (_, Some(name)) => {
+                let named = candidates
+                    .iter()
+                    .copied()
+                    .filter(|node| node_is_named(node, name))
+                    .collect::<Vec<_>>();
+                match named.as_slice() {
+                    [node] => *node,
+                    _ => return Err(format!("{concern}_default_unresolved")),
+                }
+            }
         };
-        resolve_node_transport(path, node, role, concern)
+        resolve_node_transport(path, selected, role, concern)
     }
 
     /// Validate one already-selected node's SSH transport. Selection (by role
@@ -836,6 +860,13 @@ pub mod resolve {
     ) -> Result<Option<crate::domain::services::ServicePolicy>, String> {
         let hostname = current_hostname()?;
         resolve_registry_service_policy(&hostname, registry_path)
+    }
+
+    /// True when `requested` is the node's id, name or alias.
+    fn node_is_named(node: &RegistryNode, requested: &str) -> bool {
+        node.id.as_deref() == Some(requested)
+            || node.name.as_deref() == Some(requested)
+            || node.aliases.iter().any(|alias| alias == requested)
     }
 
     fn node_matches(node: &RegistryNode, requested: &str) -> bool {

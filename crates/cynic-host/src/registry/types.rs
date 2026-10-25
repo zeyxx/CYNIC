@@ -171,6 +171,10 @@ pub struct RegistryLifecycle {
 pub struct RegistryKernelRelease {
     #[serde(default)]
     pub build_runner_role: Option<String>,
+    /// Node (id, name or alias) that wins when several nodes share
+    /// `build_runner_role`. Absent means the role must be unique.
+    #[serde(default)]
+    pub build_runner_default: Option<String>,
     #[serde(default)]
     pub host_bootstrap: Option<RegistryHostBootstrap>,
 }

@@ -1305,6 +1305,7 @@
   "lifecycle": {
     "kernel_release": {
       "build_runner_role": "build_runner",
+      "build_runner_default": "cynic-compute-01",
       "deploy_target_role": "kernel_primary",
       "host_bootstrap": {
         "role_profiles": {
