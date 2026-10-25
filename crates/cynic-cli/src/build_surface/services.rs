@@ -46,6 +46,21 @@ pub(crate) enum BuildWorkloadCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Read the output a builder sealed for a failed workload (native HTTP, no SSH).
+    Output {
+        /// Workload id, as printed by `build submit`.
+        #[arg(long)]
+        workload_id: String,
+        /// Builder HTTP endpoint (resolved from the registry pool if omitted).
+        #[arg(long)]
+        builder_url: Option<String>,
+        /// Number of trailing lines kept per stream.
+        #[arg(long, default_value_t = 60)]
+        tail: usize,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Forgejo push webhook receiver.
