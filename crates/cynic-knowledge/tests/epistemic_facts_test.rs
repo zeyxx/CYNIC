@@ -175,3 +175,45 @@ fn author_profile_is_declarative_and_pseudonymous() {
     let missing = repo_root.join("does-not-exist");
     assert!(cynic_knowledge::load_author_profile(&missing).is_err(), "missing profile must fail closed");
 }
+
+#[test]
+fn harvest_fails_closed_without_measurable_workspace() {
+    // A directory that is not a CYNIC workspace has no profile, no geometry and no git
+    // history. The harvester must refuse, never fill in remembered numbers.
+    let dir = std::env::temp_dir().join(format!("cynic-harvest-empty-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let result = harvest_live_ledger(&dir, None);
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(result.is_err(), "harvest must fail closed on an unmeasurable workspace");
+}
+
+#[test]
+fn harvester_source_holds_no_remembered_metric_defaults() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src = std::fs::read_to_string(manifest_dir.join("src/adapters/epistemic_harvester.rs")).unwrap();
+    for frozen in ["numeric_value: Some(4)", "numeric_value: Some(1)", "407_854", "unwrap_or(4578)", "unwrap_or(3531)", "unwrap_or(181)", "unwrap_or(4536)"] {
+        assert!(!src.contains(frozen), "frozen metric default {frozen} must not return");
+    }
+}
+
+#[test]
+fn report_counts_follow_the_interactions_graph() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir.parent().unwrap().parent().unwrap();
+    let ledger = harvest_live_ledger(repo_root, None).expect("harvest must succeed");
+    let graph = ledger.interactions.as_ref().expect("interactions graph is required");
+    let reports = graph
+        .items
+        .iter()
+        .filter(|i| !i.is_pr && i.category == cynic_knowledge::InteractionCategory::SecurityBounty)
+        .count() as u64;
+    let claim = ledger
+        .claims
+        .iter()
+        .find(|c| c.id == "author.external_security_bounties")
+        .expect("bounty claim");
+    assert_eq!(claim.numeric_value, Some(reports));
+    assert!(claim.statement.contains(&reports.to_string()), "statement must carry the measured count");
+    let loc = ledger.claims.iter().find(|c| c.id == "cynic.total_loc_rust").expect("loc claim");
+    assert_eq!(loc.verify_command.as_deref(), Some("git ls-files 'crates/*.rs' | xargs cat | wc -l"));
+}

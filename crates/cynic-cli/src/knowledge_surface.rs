@@ -799,11 +799,13 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 for c in &checks {
                     match &c.outcome {
                         cynic_knowledge::ClaimCheckOutcome::Match => {
-                            println!("  [RECHECK OK ] {} = {}", c.id, c.expected.unwrap_or_default())
+                            let value = c.expected.map_or_else(|| "<unset>".to_string(), |v| v.to_string());
+                            println!("  [RECHECK OK ] {} = {}", c.id, value)
                         }
                         cynic_knowledge::ClaimCheckOutcome::Mismatch { observed } => {
                             drifted += 1;
-                            eprintln!("  [MISMATCH   ] {}: published {} but its command prints {}", c.id, c.expected.unwrap_or_default(), observed)
+                            let published = c.expected.map_or_else(|| "<unset>".to_string(), |v| v.to_string());
+                            eprintln!("  [MISMATCH   ] {}: published {} but its command prints {}", c.id, published, observed)
                         }
                         cynic_knowledge::ClaimCheckOutcome::Unverifiable(why) => {
                             unverifiable += 1;
