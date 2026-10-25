@@ -279,6 +279,57 @@ pub(crate) fn execute_gate_receipt(path: &str, json: bool) -> ExitCode {
         ExitCode::FAILURE
     }
 }
+
+/// Store convergence observation: compares main SHA across source layers.
+#[derive(Debug, Clone)]
+struct StoreConvergence {
+    local_sha: Option<String>,
+    origin_sha: Option<String>,
+    github_sha: Option<String>,
+    converged: bool,
+}
+
+impl StoreConvergence {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "converged": self.converged,
+            "local": self.local_sha,
+            "origin": self.origin_sha,
+            "github": self.github_sha,
+        })
+    }
+}
+
+fn git_rev_parse(refname: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", refname])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if sha.is_empty() { None } else { Some(sha) }
+}
+
+fn check_store_convergence() -> StoreConvergence {
+    let local = git_rev_parse("main");
+    let origin = git_rev_parse("origin/main");
+    let github = git_rev_parse("github/main");
+    let converged = match (&local, &origin, &github) {
+        (Some(l), Some(o), Some(g)) => l == o && o == g,
+        (Some(l), Some(o), None) => l == o,
+        (Some(l), None, None) => true,
+        _ => false,
+    };
+    StoreConvergence {
+        local_sha: local,
+        origin_sha: origin,
+        github_sha: github,
+        converged,
+    }
+}
+
 pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
         AuditCommand::Crate { json } => {
@@ -384,9 +435,15 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             let root = crate::rust_source::workspace_root();
             let engine = cynic_audit_engine::run_workspace_audit(&root);
 
+            // Store convergence gate: main must agree across all source layers.
+            // A divergent main means the audit is measuring a moving target.
+            let store_convergence = check_store_convergence();
+            let store_ok = store_convergence.converged;
+
             let all_passed = crate_report.blocked_count == 0
                 && !secret_obs.has_findings()
-                && engine.summary.critical_count == 0;
+                && engine.summary.critical_count == 0
+                && store_ok;
 
             let unified = serde_json::json!({
                 "schema": "cynic.cli.audit_unified.v1",
@@ -394,6 +451,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 // Whether the runtime domain was actually checked. A reader must
                 // not have to infer it from the absence of runtime findings.
                 "host_observed": host_was_observed(&root),
+                "store_convergence": store_convergence.to_json(),
                 "crates": {
                     "total": crate_report.crate_count,
                     "ok": crate_report.ok_count,
@@ -450,6 +508,13 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                     engine.summary.warning_count,
                     engine.summary.debt_count,
                     engine.summary.maturity_score_percent
+                );
+                println!(
+                    "Store convergence: {} (local={}, origin={}, github={})",
+                    if store_ok { "OK" } else { "DIVERGENT" },
+                    store_convergence.local_sha.as_deref().unwrap_or("?"),
+                    store_convergence.origin_sha.as_deref().unwrap_or("?"),
+                    store_convergence.github_sha.as_deref().unwrap_or("?"),
                 );
                 for violation in &engine.violations {
                     println!("  [{}] {}", violation.code, violation.message);
