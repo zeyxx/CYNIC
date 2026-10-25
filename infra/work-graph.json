@@ -88,6 +88,38 @@
       "note": "cargo test stops at the first failing binary, so failures surface one per 5-minute run"
     },
     {
+      "id": "A7",
+      "kind": "issue",
+      "title": "retired-metaphor ratchet (NAM-001) fails on new files",
+      "state": "open",
+      "evidence": "organism_cli renamed to deployment_cli in 2 files (branch agent/claude/retired-metaphor-organism-cli); contracts/author-profile.json still has 3 terms",
+      "probe": {
+        "argv": [
+          "cynic",
+          "build",
+          "submit",
+          "--commit",
+          "<sha>",
+          "--action",
+          "test",
+          "--requested-by",
+          "<agent>",
+          "--wait",
+          "--json"
+        ],
+        "expect": "retired_metaphor_ratchet green"
+      },
+      "note": "the ratchet is shrink-only: never record a new file as debt"
+    },
+    {
+      "id": "A8",
+      "kind": "decision",
+      "title": "contracts/author-profile.json carries 3 retired terms (Dog, organism) in historical descriptions of a prototype",
+      "state": "open",
+      "probe": null,
+      "note": "personal career data owned by the author/hermes: reword, or record as a deliberate act in infra/retired-metaphor-ledger.json; not decided by the agent"
+    },
+    {
       "id": "A4",
       "kind": "question",
       "title": "which tests fail, all of them",
@@ -136,10 +168,11 @@
     {
       "id": "B3",
       "kind": "action",
-      "title": "interim: update cynic-compute-01 with the official release.deploy gate, once",
-      "state": "open",
+      "title": "interim: update cynic-compute-01 (cynic + cynic-node) with a backed-up atomic swap, then restart through the sanctioned privilege helper",
+      "state": "blocked",
+      "evidence": "release binaries for 38d12464 built and verified in a scratch dir on compute-01; the swap and restart were denied by the permission classifier on 2026-10-26 and nothing was changed (live sha256 unchanged)",
       "probe": null,
-      "note": "operator chose this on 2026-10-25; first runner because no agent build depends on it"
+      "note": "operator chose this on 2026-10-25; blocked on an explicit permission rule or operator run; make release.deploy is NOT usable here: compute-01 is a flat layout"
     },
     {
       "id": "B4",
@@ -225,6 +258,46 @@
       "title": "daemon restart after the swap (activation vs signed /admin/restart)",
       "state": "open",
       "probe": null
+    },
+    {
+      "id": "B14",
+      "kind": "fact",
+      "title": "cynic-compute-01 layout is flat and its node runs in control mode",
+      "state": "done",
+      "evidence": "bin/cynic and bin/cynic-node are plain files with .prev-<sha> backups; no releases/ or current; unit runs cynic-node control --config node-control.toml",
+      "probe": {
+        "argv": [
+          "ls",
+          "-la",
+          "/var/lib/cynic/bin"
+        ],
+        "expect": "flat files, no releases/"
+      },
+      "note": "enrollment itself is still unproven (B7)"
+    },
+    {
+      "id": "B15",
+      "kind": "issue",
+      "title": "remote deploy orchestrator (layout-aware, backup, read-back) is a library with no CLI",
+      "state": "open",
+      "evidence": "cynic-release deploy_orchestrator.rs / deploy_remote.rs; cynic source deploy is local and assumes the symlink layout",
+      "probe": null
+    },
+    {
+      "id": "B16",
+      "kind": "fact",
+      "title": "cynic user on compute-01 may run exactly: sudo cynic privilege exec node-restart",
+      "state": "done",
+      "evidence": "sudo -n -l on cynic-compute-01",
+      "probe": {
+        "argv": [
+          "sudo",
+          "-n",
+          "-l"
+        ],
+        "expect": "node-restart only"
+      },
+      "note": "a restart needs no admin secret on this machine"
     },
     {
       "id": "B13",
@@ -397,6 +470,26 @@
       ],
       "mode": "all",
       "note": "the signed pipeline needs every piece"
+    },
+    {
+      "id": "H8",
+      "enables": "A3",
+      "requires": [
+        "A7",
+        "A8"
+      ],
+      "mode": "all",
+      "note": "the retired-metaphor ratchet needs both the rename and the profile decision"
+    },
+    {
+      "id": "H9",
+      "enables": "B3",
+      "requires": [
+        "B14",
+        "B16"
+      ],
+      "mode": "all",
+      "note": "facts that make the interim swap possible (layout known, restart sanctioned)"
     },
     {
       "id": "H4",
