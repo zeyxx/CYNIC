@@ -866,11 +866,35 @@ async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Valu
         .filter(|record| !record.state.terminal())
         .count() as u64;
     let load_average_1m = sysinfo::System::load_average().one;
+    // Measured by the node itself so a client never needs SSH for them. Each
+    // is `null` when unmeasurable: unmeasured is muted, never zero-assumed.
+    let mut system = sysinfo::System::new();
+    system.refresh_memory();
+    let total_ram_bytes = Some(system.total_memory()).filter(|bytes| *bytes > 0);
+    let free_ram_bytes = total_ram_bytes.map(|_| system.available_memory());
+    let checkout_base =
+        cynic_protocol::remote_cache_roots::remote_cache_roots(&state.config.state_root)
+            .checkout_base;
+    let mounts: Vec<(String, u64)> = sysinfo::Disks::new_with_refreshed_list()
+        .iter()
+        .map(|disk| {
+            (
+                disk.mount_point().to_string_lossy().to_string(),
+                disk.available_space(),
+            )
+        })
+        .collect();
+    let disk_avail_bytes =
+        cynic_protocol::capacity::available_bytes_for_path(&mounts, &checkout_base);
     Ok(Json(serde_json::json!({
         "schema": "cynic.builder.capacity.v1",
         "node_id": state.config.node_id,
         "in_flight": in_flight,
         "load_average_1m": load_average_1m,
+        "state_root": state.config.state_root,
+        "free_ram_bytes": free_ram_bytes,
+        "total_ram_bytes": total_ram_bytes,
+        "disk_avail_bytes": disk_avail_bytes,
     })))
 }
 
