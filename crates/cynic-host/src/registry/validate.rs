@@ -23,6 +23,8 @@ pub enum ValidationError {
     FleetTargetMissingNode { id: String },
     #[error("build_runner_role {role} references missing node")]
     BuildRunnerRoleMissingNode { role: String },
+    #[error("build_runner_default {node} is not a node carrying build_runner_role {role}")]
+    BuildRunnerDefaultInvalid { node: String, role: String },
     #[error("host_bootstrap role {role} not found in nodes")]
     HostBootstrapRoleMissing { role: String },
 }
@@ -134,6 +136,22 @@ pub fn validate_registry(doc: &RegistryDocument) -> Vec<ValidationError> {
                 });
                 if !exists {
                     errors.push(ValidationError::BuildRunnerRoleMissingNode { role: role.clone() });
+                }
+                if let Some(default) = &release.build_runner_default {
+                    let carries_role = doc.nodes.iter().any(|node| {
+                        let named = node.id.as_deref() == Some(default.as_str())
+                            || node.name.as_deref() == Some(default.as_str())
+                            || node.aliases.iter().any(|alias| alias == default);
+                        named
+                            && (node.role.as_deref() == Some(role.as_str())
+                                || node.canonical_role.as_deref() == Some(role.as_str()))
+                    });
+                    if !carries_role {
+                        errors.push(ValidationError::BuildRunnerDefaultInvalid {
+                            node: default.clone(),
+                            role: role.clone(),
+                        });
+                    }
                 }
             }
 
@@ -399,6 +417,7 @@ mod tests {
         doc.lifecycle = Some(RegistryLifecycle {
             kernel_release: Some(RegistryKernelRelease {
                 build_runner_role: Some("nonexistent_role".to_string()),
+                build_runner_default: None,
                 host_bootstrap: None,
             }),
         });
