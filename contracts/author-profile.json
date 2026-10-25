@@ -5,8 +5,8 @@
     "github_login": "zeyxx",
     "headline_fr": "Architecte Systèmes Souverains & Orchestrateur d'Agents IA — R&D Autodidacte",
     "headline_en": "Sovereign Systems Architect & AI Agent Orchestrator — Self-Taught R&D",
-    "summary_fr": "Autodidacte. Je ne code plus manuellement depuis plusieurs années : je conçois, spécifie, arbitre et relis des systèmes produits par des agents de codage LLM. Discipline de preuve appliquée à chaque mutation : ce que je n'ai pas écrit n'est pas revendiqué. CYNIC (runtime Rust souverain, chiffres mesurés dans les receipts ci-dessous) est le laboratoire de cette méthode.",
-    "summary_en": "Self-taught systems architect. I no longer write code manually: I design, specify, arbitrate, and review systems produced by LLM coding agents. Strict proof discipline applied to every mutation: what I did not write, I do not claim. CYNIC (a sovereign Rust runtime, figures measured in the receipts below) is the living laboratory of this method.",
+    "summary_fr": "Autodidacte. Je ne code plus manuellement depuis plusieurs années : je conçois, spécifie, arbitre et relis des systèmes produits par des agents de codage LLM. Discipline de preuve appliquée à chaque mutation : ce que je n'ai pas écrit n'est pas revendiqué. CYNIC (44 crates Rust, >400k LOC) est le laboratoire de cette méthode.",
+    "summary_en": "Self-taught systems architect. I no longer write code manually: I design, specify, arbitrate, and review systems produced by LLM coding agents. Strict proof discipline applied to every mutation: what I did not write, I do not claim. CYNIC (44 Rust crates, >400k LOC) is the living laboratory of this method.",
     "disclosure_fr": "Déclaration de mode de développement : le candidat orchestre des systèmes complexes via des agents de codage IA (Claude Code, Gemini, Codex, Hermes) guidés par des spécifications formelles, des contrats machine-readable et des invariants d'architecture exécutables. Seul Python a été écrit à la main dans les premières années (2023-2024). Rust, TypeScript, Go et Solidity sont pilotés conceptuellement avec preuve de relecture.",
     "disclosure_en": "Development Mode Disclosure: The author architects and orchestrates complex distributed systems through AI coding agents (Claude Code, Gemini, Codex, Hermes) guided by formal specifications, machine-readable contracts, and executable architecture boundaries. Only Python was authored by hand in early years (2023-2024). Rust, TypeScript, Go, and Solidity are conceptually driven with strict verification and read-back proofs.",
     "links": {
@@ -114,8 +114,8 @@
       "basis": "understood",
       "depth": "anchored",
       "domain": "systems",
-      "note_fr": "Architecture en crates (nombre mesuré), zéro-I/O domain, ports et adaptateurs.",
-      "note_en": "Crate-based workspace architecture (count measured), pure zero-I/O domain core, ports & adapters.",
+      "note_fr": "Architecture de 44 crates, zéro-I/O domain, ports et adaptateurs.",
+      "note_en": "44-crate workspace architecture, pure zero-I/O domain core, ports & adapters.",
       "items_fr": [
         {
           "text": "Crates et workspaces modulaires",

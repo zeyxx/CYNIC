@@ -1,6 +1,5 @@
 //! Fleet queue observer — Fleet<Queue>Observer emitting fleet QueuePlan report.
 
-use crate::adapters::local_build_artefact::DEFAULT_CHECKOUTS_BASE;
 use crate::adapters::local_queue::LocalQueueAdapter;
 use crate::adapters::remote_queue::RemoteQueueAdapter;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
@@ -49,7 +48,6 @@ pub struct FleetQueueObserver<R: ArgvRunner> {
     registry_path: String,
     ssh_target_template: String,
     runner: Arc<R>,
-    checkouts_base: String,
 }
 impl FleetQueueObserver<LocalArgvRunner> {
     pub fn new(p: impl Into<String>) -> Self {
@@ -62,18 +60,10 @@ impl<R: ArgvRunner> FleetQueueObserver<R> {
             registry_path: p.into(),
             ssh_target_template: "cynic@{ip}".into(),
             runner: Arc::new(runner),
-            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
         }
     }
     pub fn with_ssh_target(mut self, t: impl Into<String>) -> Self {
         self.ssh_target_template = t.into();
-        self
-    }
-    /// Bind the fleet queue observation to an explicit checkout base,
-    /// propagated to the local queue adapter and every per-node remote
-    /// adapter. The default keeps the production placement.
-    pub fn with_checkouts_base(mut self, base: impl Into<String>) -> Self {
-        self.checkouts_base = base.into();
         self
     }
     fn ssh_target_for(&self, ip: &str) -> String {
@@ -92,9 +82,7 @@ impl<R: ArgvRunner> FleetQueueObserver<R> {
         for d in &discovery.nodes {
             let is_local = hostname == d.node_id || hostname == d.ip;
             let node = if is_local {
-                match LocalQueueAdapter::default()
-                    .with_checkouts_base(self.checkouts_base.clone())
-                    .observe() {
+                match LocalQueueAdapter.observe() {
                     Ok(r) => {
                         obs += 1;
                         FleetQueueNode::Observed {
@@ -116,9 +104,7 @@ impl<R: ArgvRunner> FleetQueueObserver<R> {
                 }
             } else {
                 let tgt = self.ssh_target_for(&d.ip);
-                match RemoteQueueAdapter::new(self.runner.clone(), tgt.clone()).map(|a| {
-                    a.with_checkouts_base(self.checkouts_base.clone())
-                }) {
+                match RemoteQueueAdapter::new(self.runner.clone(), tgt.clone()) {
                     Ok(a) => match a.observe() {
                         Ok(r) => {
                             obs += 1;

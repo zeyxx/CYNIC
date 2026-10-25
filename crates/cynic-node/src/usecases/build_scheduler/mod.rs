@@ -62,6 +62,8 @@ pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) 
             terminal: durable.record.state.terminal(),
             is_build: canonical_build_action_from_argv(&durable.record.envelope.action.argv)
                 .is_some(),
+            source_commit: durable.record.envelope.source_commit.clone(),
+            branch: durable.record.envelope.branch.clone(),
         })
         .collect();
     plan_build_queue(candidates).ordered
@@ -1040,7 +1042,14 @@ mod tests {
             claim_ttl_secs: 60,
             command_timeout_secs: 900,
             sandbox_bwrap: false,
+            shared_target_root: None,
+            stable_workspace_root: None,
             release_publication: None,
+            build_jobs: None,
+            max_rss_cap_mb: None,
+            sccache: None,
+            sccache_measured_hit_rate: None,
+            toolchain_bin_dir: None,
         };
         (control, scheduler)
     }

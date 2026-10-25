@@ -437,27 +437,30 @@ pub(crate) fn trigger_build(
         let candidates =
             cynic_host::registry::resolve::list_runner_nodes(Some(registry)).unwrap_or_default();
         if !candidates.is_empty() {
+            let capacity_path = std::path::Path::new(registry)
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("fleet-capacity.json");
+            let capacity: Vec<cynic_protocol::runner_capacity::RunnerCapacitySnapshot> =
+                std::fs::read_to_string(&capacity_path)
+                    .ok()
+                    .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+                    .and_then(|v| v.get("snapshots").cloned())
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default();
+            let now_unix_s = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
             let mut snapshots = Vec::new();
             for entry in &candidates {
-                let Some((user, probe_host)) = entry.ssh_target.split_once('@') else {
-                    continue;
-                };
-                let probe = cynic_node::cli_factory::ssh_build_runner(
-                    probe_host.to_string(),
-                    user.to_string(),
-                    cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)
-                        .unwrap_or_default(),
-                    package.clone(),
-                    sccache_dir.to_string(),
-                    Some(checkout_base.to_string()).filter(|value| !value.trim().is_empty()),
-                    minimum_available_bytes,
-                );
                 let (median_ms, samples) =
                     proof_median_ms(&log_text, &entry.node_id, action_name);
+                let observed = capacity.iter().find(|s| s.runner_id == entry.node_id);
                 snapshots.push(cynic_build::RunnerSnapshot {
                     node_id: entry.node_id.clone(),
-                    free_ram_bytes: probe.probe_free_ram_bytes(),
-                    total_ram_bytes: probe.probe_total_ram_bytes(),
+                    free_ram_bytes: observed.and_then(|s| s.free_ram_bytes),
+                    total_ram_bytes: observed.and_then(|s| s.total_ram_bytes),
                     queued_ms: 0,
                     median_ms,
                     samples,
@@ -470,6 +473,8 @@ pub(crate) fn trigger_build(
                 lambda,
                 mu_ms,
                 snapshots,
+                &capacity,
+                now_unix_s,
             );
             for rank in &decision.ranked {
                 eprintln!(
@@ -487,7 +492,11 @@ pub(crate) fn trigger_build(
                         .find(|entry| entry.node_id == chosen)
                         .map(|entry| entry.ssh_target.clone())
                         .unwrap_or_default();
-                    if let Some((user, new_host)) = target.split_once('@') {
+                    let (user, new_host) = match target.split_once('@') {
+                        Some((u, h)) => (u.to_string(), h.to_string()),
+                        None => (user.to_string(), target),
+                    };
+                    if !new_host.is_empty() {
                         eprintln!("placement: rerouting {} -> {chosen}", health.node_id);
                         runner = cynic_node::cli_factory::ssh_build_runner(
                             new_host.to_string(),
@@ -584,10 +593,37 @@ pub(crate) fn prove_build(
     package: Option<String>,
     phase: &str,
     filter: Option<String>,
+    scope: &str,
     host: &str,
     user: &str,
     json: bool,
 ) -> Result<(), String> {
+    if scope != "full" && scope != "auto" {
+        return Err(format!("invalid proof scope: {scope} (full|auto)"));
+    }
+    if scope == "auto" {
+        return prove_build_scoped(commit, package, phase, filter, host, user, json);
+    }
+    let report = run_one_proof(commit, package, phase, filter, host, user)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|e| format!("serialize proof: {e}"))?
+        );
+    } else {
+        println!("build proof {}: {:?}", report.source_commit, report.status);
+    }
+    Ok(())
+}
+
+fn run_one_proof(
+    commit: &str,
+    package: Option<String>,
+    phase: &str,
+    filter: Option<String>,
+    host: &str,
+    user: &str,
+) -> Result<cynic_build::build_proof::BuildProofReport, String> {
     let proof_phase = match phase {
         "check" => BuildProofPhase::Check,
         "test" => BuildProofPhase::Test { filter },
@@ -598,16 +634,181 @@ pub(crate) fn prove_build(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    let report = cynic_node::cli_factory::prove_build_blocking(&request, host, user)?;
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&report).map_err(|e| format!("serialize proof: {e}"))?
-        );
-    } else {
-        println!("build proof {}: {:?}", report.source_commit, report.status);
+    cynic_node::cli_factory::prove_build_blocking(&request, host, user)
+}
+
+/// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
+/// Failure fails open (empty marker = caller falls back to Full).
+fn scoped_diff_paths(commit: &str) -> Option<Vec<String>> {
+    let output = std::process::Command::new("git")
+        .args(["diff", "--name-only", &format!("{commit}^"), commit])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
     }
-    Ok(())
+    let text = String::from_utf8_lossy(&output.stdout);
+    Some(text.lines().map(str::to_string).collect())
+}
+
+/// Crate-topology consumers lookup from the enclosing repo checkout.
+/// None when the topology file is missing — the plan then skips narrowing.
+fn scoped_topology_consumers() -> Option<impl Fn(&str) -> Vec<String>> {
+    let top = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
+    let path = std::path::Path::new(&top).join("infra/crate-topology.json");
+    let raw = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let crates = value.get("crates")?.as_object()?.clone();
+    Some(move |name: &str| {
+        crates
+            .get(name)
+            .and_then(|c| c.get("consumers"))
+            .and_then(|c| c.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
+}
+
+fn prove_build_scoped(
+    commit: &str,
+    package: Option<String>,
+    phase: &str,
+    filter: Option<String>,
+    host: &str,
+    user: &str,
+    json: bool,
+) -> Result<(), String> {
+    use cynic_build::gate_scope::{ProofPhaseKind, resolve_proof_plan};
+    let plan_phase = match phase {
+        "check" => ProofPhaseKind::Check,
+        "test" => ProofPhaseKind::Test,
+        other => return Err(format!("invalid proof phase: {other}")),
+    };
+    let diff_paths = scoped_diff_paths(commit).unwrap_or_default();
+    let diff_refs: Vec<&str> = diff_paths.iter().map(String::as_str).collect();
+    // Unresolvable diff fails open to Full (workspace proof), never silent.
+    let diff_ok = scoped_diff_paths(commit).is_some();
+    let no_consumers = |_: &str| Vec::new();
+    let plan = if diff_ok {
+        match scoped_topology_consumers() {
+            Some(consumers) => resolve_proof_plan(
+                true,
+                package.as_deref(),
+                plan_phase,
+                filter.as_deref(),
+                &diff_refs,
+                &consumers,
+            ),
+            None => resolve_proof_plan(
+                true,
+                package.as_deref(),
+                plan_phase,
+                filter.as_deref(),
+                &diff_refs,
+                &no_consumers,
+            ),
+        }
+    } else {
+        cynic_build::gate_scope::ProofPlan::Proofs {
+            packages: vec![],
+            phase: plan_phase,
+            filter: filter.clone(),
+        }
+    };
+    execute_proof_plan(commit, phase, host, user, json, plan)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_proof_plan(
+    commit: &str,
+    phase: &str,
+    host: &str,
+    user: &str,
+    json: bool,
+    plan: cynic_build::gate_scope::ProofPlan,
+) -> Result<(), String> {
+    use cynic_build::gate_scope::{LocalProofKind, ProofPlan};
+    match plan {
+        ProofPlan::Refused { reason } => Err(format!("proof call refused: {reason}")),
+        ProofPlan::Local { kind, reason } => {
+            match kind {
+                LocalProofKind::Nothing => {}
+                LocalProofKind::ValidateJson { files } => validate_json_files(&files)?,
+                LocalProofKind::PythonSuite { suite } => run_python_suite(&suite)?,
+            }
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({"scope": "auto", "plan": "local", "reason": reason})
+                );
+            } else {
+                println!("gate-scope: {reason}");
+            }
+            Ok(())
+        }
+        ProofPlan::Proofs {
+            packages,
+            phase: _,
+            filter,
+        } => {
+            let pkgs: Vec<Option<String>> = if packages.is_empty() {
+                vec![None]
+            } else {
+                packages.into_iter().map(Some).collect()
+            };
+            let mut receipts = Vec::new();
+            for pkg in pkgs {
+                receipts.push(run_one_proof(
+                    commit,
+                    pkg,
+                    phase,
+                    filter.clone(),
+                    host,
+                    user,
+                )?);
+            }
+            let failed = receipts
+                .iter()
+                .filter(|r| {
+                    !matches!(
+                        r.status,
+                        cynic_build::build_proof::BuildProofStatus::Converged
+                    )
+                })
+                .count();
+            if json {
+                let report = cynic_build::build_proof::ProofScopeReport {
+                    schema: cynic_build::build_proof::PROOF_SCOPE_REPORT_SCHEMA.to_string(),
+                    source_commit: commit.to_string(),
+                    scope: "auto".to_string(),
+                    reason: "diff-scoped proof set".to_string(),
+                    receipts,
+                };
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report)
+                        .map_err(|e| format!("serialize scope report: {e}"))?
+                );
+            } else {
+                for r in &receipts {
+                    println!("build proof {}: {:?}", r.source_commit, r.status);
+                }
+            }
+            if failed > 0 {
+                return Err(format!("{failed} scoped proof(s) failed for {commit}"));
+            }
+            Ok(())
+        }
+    }
 }
 
 pub(crate) fn run_build(

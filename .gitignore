@@ -77,8 +77,7 @@ cynic-demo.html
 # Generated evidence datasets, dumps, and experiment runs
 /evidence/
 /references/
-/data_system/vault/
-/data_system/**/__pycache__/
+/data_system/
 /scripts/
 /.agent-claims.json
 *.jsonl
@@ -95,7 +94,3 @@ cynic-demo.html
 /docs/articles/odyssey/*.draft.*
 /docs/articles/odyssey/COULISSES_*
 
-
-# IaC private configs (real IPs, domains, secrets)
-/infra/iaac-private/
-/infra/iaac/*.env

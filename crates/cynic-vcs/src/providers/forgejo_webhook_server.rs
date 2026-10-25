@@ -21,8 +21,9 @@ use hmac::{Hmac, Mac};
 use serde::Serialize;
 use sha2::Sha256;
 
-use crate::forgejo_webhook::{
-    ForgejoHandlerConfig, handle_forgejo_payload, validate_source_commit,
+use super::forgejo_webhook::{
+    ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
+    validate_source_commit,
 };
 
 /// Configuration for the Forgejo webhook server.
@@ -110,7 +111,7 @@ fn find_header_end(raw: &[u8]) -> Option<usize> {
     raw.windows(4).position(|w| w == b"\r\n\r\n").map(|i| i + 4)
 }
 
-fn content_length(head: &[u8]) -> usize {
+pub fn content_length(head: &[u8]) -> usize {
     let text = String::from_utf8_lossy(head);
     text.lines()
         .find_map(|line| {
@@ -134,7 +135,7 @@ fn parse_headers(head: &str) -> HashMap<String, String> {
     headers
 }
 
-fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
+pub fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
     let presented = match hex::decode(signature.trim()) {
         Ok(bytes) => bytes,
         Err(_) => return false,
@@ -183,7 +184,7 @@ fn handle_webhook_request(
         Ok(text) => text,
         Err(_) => return error_result("invalid UTF-8 in request body"),
     };
-    let payload: crate::forgejo_webhook::ForgejoPayload = match serde_json::from_str(body_text) {
+    let payload: ForgejoPayload = match serde_json::from_str(body_text) {
         Ok(payload) => payload,
         Err(error) => {
             return error_result(&format!("failed to parse Forgejo payload: {error}"));
@@ -194,7 +195,7 @@ fn handle_webhook_request(
     let handler_result = handle_forgejo_payload(&payload, &ForgejoHandlerConfig::default());
 
     match handler_result {
-        crate::forgejo_webhook::ForgejoHandlerResult::Triggered {
+        ForgejoHandlerResult::Triggered {
             workload_id: _,
             source_commit,
         } => {
@@ -233,7 +234,7 @@ fn handle_webhook_request(
                 signature_verified,
             )
         }
-        crate::forgejo_webhook::ForgejoHandlerResult::Skipped { reason } => WebhookTriggerResult {
+        ForgejoHandlerResult::Skipped { reason } => WebhookTriggerResult {
             status: "skipped".to_string(),
             source_commit: None,
             workload_id: None,
@@ -308,7 +309,7 @@ fn forward_to_node(
 }
 
 /// Helper for the error path.
-fn error_result(msg: &str) -> WebhookTriggerResult {
+pub fn error_result(msg: &str) -> WebhookTriggerResult {
     WebhookTriggerResult {
         status: "error".to_string(),
         source_commit: None,
@@ -338,67 +339,3 @@ fn respond_json(stream: &mut TcpStream, result: &WebhookTriggerResult) {
     let _ = stream.flush();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn valid_sha() -> String {
-        "a".repeat(40)
-    }
-
-    #[test]
-    fn validate_source_commit_accepts_valid_sha() {
-        assert!(validate_source_commit(&valid_sha()));
-    }
-
-    #[test]
-    fn validate_source_commit_rejects_short() {
-        assert!(!validate_source_commit("abc123"));
-    }
-
-    #[test]
-    fn validate_source_commit_rejects_non_hex() {
-        assert!(!validate_source_commit(&"z".repeat(40)));
-    }
-
-    #[test]
-    fn validate_source_commit_rejects_empty() {
-        assert!(!validate_source_commit(""));
-    }
-
-    #[test]
-    fn error_result_has_correct_fields() {
-        let r = error_result("test error");
-        assert_eq!(r.status, "error");
-        assert!(!r.build_triggered);
-        assert_eq!(r.build_proof, None);
-        assert!(!r.signature_verified);
-        assert_eq!(r.source_commit, None);
-        assert_eq!(r.workload_id, None);
-    }
-
-    #[test]
-    fn hmac_signature_verifies_and_rejects() {
-        use hmac::KeyInit;
-
-        let secret = "test-secret";
-        let body = br#"{"after":"abc"}"#;
-        let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
-        mac.update(body);
-        let good = hex::encode(mac.finalize().into_bytes());
-        assert!(verify_signature(secret, body, &good));
-        assert!(!verify_signature(secret, body, "deadbeef"));
-        assert!(!verify_signature(secret, b"other", &good));
-        assert!(!verify_signature("wrong", body, &good));
-    }
-
-    #[test]
-    fn content_length_parses_case_insensitively() {
-        assert_eq!(
-            content_length(b"POST /x HTTP/1.0\r\nContent-Length: 12"),
-            12
-        );
-        assert_eq!(content_length(b"POST /x HTTP/1.0\r\ncontent-length: 5"), 5);
-        assert_eq!(content_length(b"POST /x HTTP/1.0\r\nHost: y"), 0);
-    }
-}

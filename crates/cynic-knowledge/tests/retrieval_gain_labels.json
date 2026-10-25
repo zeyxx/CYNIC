@@ -718,6 +718,47 @@
       "grades": {
         "contracts/repository-governance.json": 2
       }
+    },
+    {
+      "id": "RQ95_RETRIEVED_CORROBORATED",
+      "query": "what makes a retrieved item lexically relevant or corroborated",
+      "trap": false,
+      "grades": {
+        "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md": 2
+      }
+    },
+    {
+      "id": "RQ96_RRF_IDENTIFIERS",
+      "query": "rrf_score DEFAULT_RRF_K hybrid_rrf",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/hybrid_rrf.rs": 2
+      }
+    },
+    {
+      "id": "RQ97_HARDWARE_CALIBRATION",
+      "query": "what hardware calibration rules govern memory admission on sovereign inference nodes",
+      "trap": false,
+      "grades": {
+        "contracts/inference-calibration.json": 2
+      }
+    },
+    {
+      "id": "RQ98_GENERATED_ARTIFACT",
+      "query": "why is the public repository a generated artifact never pushed to directly",
+      "trap": false,
+      "grades": {
+        "contracts/publication.json": 2
+      }
+    },
+    {
+      "id": "RQ99_CRATE_RULES_OWNERS",
+      "query": "what owns the crate rules and what owns the machine-readable DAG",
+      "trap": false,
+      "grades": {
+        "docs/design/CANONICAL_CRATE_MAP.md": 2,
+        "contracts/source-lifecycle.json": 1
+      }
     }
   ]
 }

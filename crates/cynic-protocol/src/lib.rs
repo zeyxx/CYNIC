@@ -8,7 +8,6 @@ pub mod agent_coordination_continuity;
 pub mod agent_host_sandbox;
 pub mod agent_isolation;
 pub mod agent_mutation_gates;
-pub mod agent_question_routing;
 pub mod agent_recursion;
 pub mod agent_review;
 pub mod agent_session;

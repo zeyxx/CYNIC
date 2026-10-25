@@ -10,20 +10,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::build_artefact::port::BuildArtefactObservationPort;
-use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
-use crate::domain::build_artefact::{BuildArtefactGcPlan, BuildArtefactReport};
+use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
+use crate::domain::build_artefact::{
+    plan_build_artefacts, RetentionError, RetentionExecutor, RetentionItem,
+    RetentionItemExecution, RetentionObservation, RetentionPlan, RetentionPlanner,
+    RetentionPolicy, RetentionResult, RetentionObserver, RETENTION_OBSERVATION_SCHEMA,
+    RETENTION_RESULT_SCHEMA,
+};
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
-use cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA;
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::disk::bytes_to_human;
-
-const DEFAULT_CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
+use cynic_protocol::retention::PressureSignal;
+use cynic_types::paths::CynicPaths;
 
 pub struct RemoteBuildArtefactAdapter<R: ArgvRunner> {
     runner: Arc<R>,
     ssh_target: String,
-    checkouts_base: String,
 }
 
 impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
@@ -32,21 +33,7 @@ impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
         if ssh_target.trim().is_empty() || ssh_target.starts_with('-') {
             return Err("invalid_ssh_target".to_string());
         }
-        Ok(Self {
-            runner,
-            ssh_target,
-            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
-        })
-    }
-
-    /// Bind the adapter to an explicit checkout base observed over SSH.
-    ///
-    /// The default keeps the production placement, so existing call sites are
-    /// unchanged; the override is what lets a test prove the base reaches the
-    /// argv instead of a constant leaking past the port.
-    pub fn with_checkouts_base(mut self, base: impl Into<String>) -> Self {
-        self.checkouts_base = base.into();
-        self
+        Ok(Self { runner, ssh_target })
     }
 
     fn ssh_run(&self, remote_argv: &[&str]) -> Result<String, String> {
@@ -73,13 +60,16 @@ impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
     }
 }
 
-impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<R> {
-    fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String> {
+impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
+    fn observe(&self) -> Result<RetentionObservation, RetentionError> {
+        let checkouts_dir = CynicPaths::state_dir()
+            .join("checkouts")
+            .display()
+            .to_string();
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
 
-        // Physical + filesystems best-effort (empty on failure, not fatal)
         let physical_disks = self
             .ssh_run(&[
                 "lsblk",
@@ -100,11 +90,9 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
             .map(|s| parse_df_filesystems(&s))
             .unwrap_or_default();
 
-        // Checkouts: list + per-dir meta via one ssh shell
         let raw_list = self
-            .ssh_run(&["ls", "-1", &self.checkouts_base])
+            .ssh_run(&["ls", "-1", &checkouts_dir])
             .unwrap_or_default();
-        // For each checkout name, fetch sha/size/owner/age via ssh
         let mut lines = Vec::new();
         let remote_shas = self
             .ssh_run(&["git", "ls-remote", "origin"])
@@ -116,7 +104,7 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
             .unwrap_or_default();
 
         for name in raw_list.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let path = format!("{}/{name}", self.checkouts_base);
+            let path = format!("{checkouts_dir}/{name}");
             let sha = self
                 .ssh_run(&["git", "-C", &path, "rev-parse", "HEAD"])
                 .map(|s| s.trim().to_string())
@@ -147,29 +135,112 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
 
         let df_k = self
-            .ssh_run(&["df", "-k", &self.checkouts_base])
+            .ssh_run(&["df", "-k", &checkouts_dir])
             .or_else(|_| self.ssh_run(&["df", "-k", "/"]))
             .unwrap_or_default();
         let root_owned = checkouts.iter().filter(|c| c.is_root_owned).count();
         let pressure = parse_df_pressure(&df_k, root_owned);
 
-        Ok(BuildArtefactReport {
-            schema: BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
+        let items: Vec<RetentionItem> = checkouts
+            .iter()
+            .map(|co| RetentionItem {
+                id: format!("checkout:{}", co.sha.chars().take(8).collect::<String>()),
+                path: co.path.clone(),
+                size_bytes: co.size_bytes,
+                age: co.age_secs.map(std::time::Duration::from_secs),
+                reason: String::new(),
+                requires_privilege: co.is_root_owned,
+                argv: vec![],
+                is_orphan: Some(co.is_orphan),
+                is_root_owned: Some(co.is_root_owned),
+                is_live_service_path: None,
+                remote_exists: co.remote_exists,
+                sha: Some(co.sha.clone()),
+                branch: Some(co.branch.clone()),
+                owner_uid: Some(co.owner_uid),
+                owner_gid: Some(co.owner_gid),
+            })
+            .collect();
+
+        let _ = physical_disks;
+        let _ = filesystems;
+        let _ = total_checkout_bytes;
+
+        Ok(RetentionObservation {
+            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
             timestamp,
-            physical_disks,
-            filesystems,
-            checkouts,
-            total_checkout_bytes,
-            total_checkout_human: bytes_to_human(total_checkout_bytes),
-            target_bytes: 0,
-            target_human: "0B".to_string(),
-            pressure,
-            residual_unknowns: vec![],
+            items,
+            total_reclaimable_bytes: 0,
+            pressure: Some(PressureSignal {
+                use_pct: pressure.use_pct,
+                avail_bytes: pressure.avail_bytes,
+                is_pressured: pressure.is_pressured,
+            }),
         })
     }
+}
 
-    fn plan_gc(&self, report: &BuildArtefactReport) -> BuildArtefactGcPlan {
-        build_gc_plan(report)
+impl<R: ArgvRunner> RetentionPlanner for RemoteBuildArtefactAdapter<R> {
+    fn plan(&self, obs: &RetentionObservation, policy: &RetentionPolicy) -> RetentionPlan {
+        plan_build_artefacts(obs, policy)
+    }
+}
+
+impl<R: ArgvRunner> RetentionExecutor for RemoteBuildArtefactAdapter<R> {
+    fn execute(&self, plan: &RetentionPlan) -> Result<RetentionResult, RetentionError> {
+        let timestamp = DateTime::<Utc>::from(SystemTime::now())
+            .format("%Y-%m-%dT%H:%M:%SZ")
+            .to_string();
+        let mut items_executed = Vec::new();
+        let mut total_reclaimed_bytes = 0u64;
+        let mut success = true;
+
+        for item in &plan.items {
+            let exec = execute_gc_item(item);
+            if exec.success {
+                total_reclaimed_bytes += item.size_bytes;
+            } else {
+                success = false;
+            }
+            items_executed.push(exec);
+        }
+
+        Ok(RetentionResult {
+            schema: RETENTION_RESULT_SCHEMA.to_string(),
+            timestamp,
+            success,
+            items_executed,
+            total_reclaimed_bytes,
+        })
+    }
+}
+
+fn execute_gc_item(item: &RetentionItem) -> RetentionItemExecution {
+    if item.argv.is_empty() {
+        return RetentionItemExecution {
+            item_id: item.id.clone(),
+            success: false,
+            exit_code: None,
+            stdout_tail: String::new(),
+            stderr_tail: "empty argv".to_string(),
+        };
+    }
+    let (bin, args): (&str, Vec<&str>) = if item.requires_privilege {
+        ("sudo", item.argv.iter().map(|s| s.as_str()).collect())
+    } else {
+        (
+            item.argv[0].as_str(),
+            item.argv[1..].iter().map(|s| s.as_str()).collect(),
+        )
+    };
+    // For remote execution, we'd need to SSH. For now, return a stub.
+    // The actual execution happens via the local adapter.
+    RetentionItemExecution {
+        item_id: item.id.clone(),
+        success: false,
+        exit_code: None,
+        stdout_tail: String::new(),
+        stderr_tail: "remote execution not yet implemented".to_string(),
     }
 }
 
@@ -203,64 +274,7 @@ mod tests {
             },
         )]);
         let adapter = RemoteBuildArtefactAdapter::new(Arc::new(base), "cynic@10.0.0.1").unwrap();
-        let report = adapter.observe_build_artefacts().unwrap();
-        assert_eq!(report.checkouts.len(), 0);
-    }
-
-    /// The override must reach the remote argv, not sit beside it: the
-    /// `ls`/`df` lines the adapter builds are read back from the injected
-    /// runner, so a base that failed to thread through would show up here as
-    /// the production constant instead of the override.
-    #[test]
-    fn override_checkouts_base_reaches_remote_argv() {
-        use std::sync::Mutex;
-
-        #[derive(Default)]
-        struct RecordingRunner {
-            seen: Mutex<Vec<Vec<String>>>,
-        }
-
-        impl cynic_lifecycle::ArgvRunner for RecordingRunner {
-            fn run(&self, argv: &[&str]) -> cynic_protocol::argv::ArgvOutput {
-                self.seen
-                    .lock()
-                    .expect("recording lock")
-                    .push(argv.iter().map(|s| s.to_string()).collect());
-                cynic_protocol::argv::ArgvOutput {
-                    exit_code: Some(0),
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    spawn_error: None,
-                }
-            }
-        }
-
-        let runner = Arc::new(RecordingRunner::default());
-        let adapter = RemoteBuildArtefactAdapter::new(runner.clone(), "cynic@10.0.0.1")
-            .unwrap()
-            .with_checkouts_base("/srv/overridden/checkouts");
-        let report = adapter.observe_build_artefacts().unwrap();
-        assert_eq!(report.checkouts.len(), 0);
-
-        let seen = runner.seen.lock().expect("recording lock").clone();
-        let rendered: Vec<String> = seen.iter().map(|argv| argv.join(" ")).collect();
-        assert!(
-            rendered
-                .iter()
-                .any(|argv| argv.contains("ls -1 /srv/overridden/checkouts")),
-            "override base never reached the ls argv: {rendered:?}"
-        );
-        assert!(
-            rendered
-                .iter()
-                .any(|argv| argv.contains("df -k /srv/overridden/checkouts")),
-            "override base never reached the df argv: {rendered:?}"
-        );
-        assert!(
-            !rendered
-                .iter()
-                .any(|argv| argv.contains("/var/lib/cynic/checkouts")),
-            "the production constant leaked into the argv despite the override: {rendered:?}"
-        );
+        let obs = adapter.observe().unwrap();
+        assert_eq!(obs.items.len(), 0);
     }
 }

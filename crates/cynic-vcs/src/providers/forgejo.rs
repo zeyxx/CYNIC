@@ -75,14 +75,6 @@ struct ForgejoCommit {
 }
 
 #[derive(Deserialize)]
-struct ForgejoCollaborator {
-    #[serde(default)]
-    login: String,
-    #[serde(default)]
-    username: String,
-}
-
-#[derive(Deserialize)]
 struct ForgejoPullRequest {
     number: u64,
     html_url: String,
@@ -210,39 +202,6 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
                         name: b.name,
                         head_sha: b.commit.id,
                         is_default,
-                    }
-                })
-                .collect())
-        })
-    }
-
-    fn list_collaborators(&self, repo: &ExternalRepoRef) -> Result<Vec<String>, String> {
-        let (owner, repo_name) = self.parse_owner_repo(repo)?;
-        let url = self.api_url(&format!("/repos/{owner}/{repo_name}/collaborators?limit=100"));
-        let token = self.token.clone();
-        let user = user.to_string();
-
-        Self::with_client(move |client| {
-            let resp = client
-                .get(&url)
-                .header("Authorization", format!("token {token}"))
-                .send()
-                .map_err(|e| format!("HTTP error: {e}"))?;
-
-            if !resp.status().is_success() {
-                return Err(format!("Forgejo API error: {}", resp.status()));
-            }
-
-            let collaborators: Vec<ForgejoCollaborator> =
-                resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
-
-            Ok(collaborators
-                .into_iter()
-                .map(|c| {
-                    if c.username.is_empty() {
-                        c.login
-                    } else {
-                        c.username
                     }
                 })
                 .collect())

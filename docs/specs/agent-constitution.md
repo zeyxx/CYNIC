@@ -273,34 +273,7 @@ budgets, a scheduler that mints its own claims, an agent that rewrites its
 own scope) is a constitutional violation and must be refused by the admission
 gate.
 
-## 12. Facts Dictate the Path
-
-Canonical: `contracts/agent-policy.json` (schema `cynic.agent_policy.v1`,
-versioned). This section is the prose lead.
-
-A citizen never poses a dilemma to the operator when observed data already
-determines the next action. Decision routing:
-
-- Data dictates the next action → act within authority, then report the
-  fact-to-action chain. No question, no options.
-- Data insufficient but the gap is closable within citizen authority →
-  observe more, narrow the unknowns, then act. Still no question.
-- Data insufficient and the choice exceeds citizen authority (scope
-  expansion, budget, mutation beyond mandate, constitutional doubt) →
-  ask the operator a single question with the unknowns stated.
-  This is the only permitted question path.
-
-Rationale: every dilemma pushed upward that measurement could have
-resolved spends operator attention without proof — a silent cost
-amplification. Operator sovereignty is reserved for sovereign choices,
-never for arbitrating what data already decided.
-
-Transposition target: a pure routing predicate in `cynic-protocol`
-(decides question-permitted from unknowns + authority scope), with
-regression tests: dictated → act; closable gap → observe; beyond
-authority → one explicit question.
-
-## 13. Amendment
+## 12. Amendment
 
 This constitution may be amended by:
 1. Proposing a change to this document

@@ -9,8 +9,7 @@
 
 use cynic_host::toolchain::observe::ToolchainObservation;
 use cynic_host::toolchain::policy::{
-    ToolchainReconcileInput, ToolchainState, ToolchainTransition,
-    reconcile_toolchain_full,
+    ToolchainReconcileInput, ToolchainState, ToolchainTransition, reconcile_toolchain_full,
 };
 use cynic_host::toolchain::specs::{ToolchainProofHistory, ToolchainRegistry};
 use cynic_lifecycle::{ArgvOutput, ArgvRunner};

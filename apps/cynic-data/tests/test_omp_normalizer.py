@@ -27,13 +27,23 @@ def _omp_files() -> tuple[str, ...]:
 
 @lru_cache(maxsize=None)
 def _first_valid():
-    """Return the first session that normalizes without error (cached)."""
+    """Return the first session that exercises the contract (cached).
+
+    The first session that merely *parses* may be a trivial Q&A with no
+    tools, thinking blocks, or usage snapshots — asserting contract
+    properties on it is vacuous. Select the first session carrying tool
+    activity, reasoning traces, and token-carrying states instead.
+    """
     norm = OmpNormalizer()
     for f in _omp_files():
         try:
-            return norm.normalize(f)
+            sess = norm.normalize(f)
         except Exception:
             continue
+        if sess.tools and sess.reasoning and any(
+            s.context_prompt_tokens for s in sess.states
+        ):
+            return sess
     return None
 
 

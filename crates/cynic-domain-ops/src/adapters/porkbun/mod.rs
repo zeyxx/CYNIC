@@ -1,13 +1,17 @@
 //! Porkbun API adapter — implements `RegistrarPort`.
 
-use cynic_domain_ops::{RegistrarPort, SecretProvider};
+use crate::{RegistrarPort, SecretProvider};
+
+pub mod error;
+pub mod secret;
+
+pub use error::PorkbunError;
+pub use secret::EnvSecretProvider;
 use cynic_protocol::domain_ops::*;
 use cynic_protocol::secret_reference::SecretReference;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
-
-use super::error::PorkbunError;
 
 /// Porkbun API base URL.
 const PORKBUN_API_BASE: &str = "https://api.porkbun.com/api/json/v2";

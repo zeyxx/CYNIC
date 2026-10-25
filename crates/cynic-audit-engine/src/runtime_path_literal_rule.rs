@@ -147,6 +147,13 @@ impl AuditRule for RuntimePathLiteralRule {
             {
                 continue;
             }
+            // The canonical path module is the axiom, not a claim: it names
+            // each owned root exactly once so every other file can reference
+            // it instead of restating it. Flagging it would demand the roots
+            // be named nowhere, which is the opposite of single-source-of-truth.
+            if file.relative_path == "crates/cynic-types/src/paths.rs" {
+                continue;
+            }
 
             let mut cfg_test_depth: Option<i32> = None;
             let mut depth: i32 = 0;
@@ -171,6 +178,26 @@ impl AuditRule for RuntimePathLiteralRule {
 
                 let in_test_scope = cfg_test_depth.is_some();
                 let in_test_file = file.relative_path.contains("/tests/");
+
+                // A test module declared under `#[cfg(test)]` in its PARENT
+                // carries no in-file `cfg(test)` marker: the attribute is on
+                // the `mod foo_tests;` line in the parent, not inside the
+                // module. A rule that only reads the file's own body
+                // therefore classifies the module as production code and
+                // reports its fixtures as placements. Five such modules
+                // existed in `src/` (23 tests between them), and the
+                // `admitted_tests.rs` one produced a false PATH-004
+                // finding against a real, registry-declared path.
+                //
+                // The name is the declaration's own convention: `mod
+                // admitted_tests;` under `#[cfg(test)]` in `bridge.rs`
+                // names the module `admitted_tests.rs`. A file whose name
+                // ends in `_tests.rs` is a test module wherever it sits.
+                let is_test_module_file = file
+                    .relative_path
+                    .rsplit('/')
+                    .next()
+                    .is_some_and(|name| name.ends_with("_tests.rs"));
 
                 // A line that tests or filters a prefix is inspection, not
                 // placement. `SEC-001` and this rule both need to *name* the
@@ -284,7 +311,13 @@ impl AuditRule for RuntimePathLiteralRule {
                     || line.contains("assert_ne!")
                     || line.contains("expect(");
 
-                let (code, severity, remediation) = if in_test_scope || in_test_file {
+                // A file is a test when it says so in three ways: an in-file
+                // `#[cfg(test)]` scope, a `/tests/` path segment, or the
+                // `_tests.rs` module convention. The third case is why
+                // `is_test_module_file` joins the other two.
+                let is_test = in_test_scope || in_test_file || is_test_module_file;
+
+                let (code, severity, remediation) = if is_test {
                     if registry_backed || (injects_layout && !asserts_computed_value) {
                         // A test naming a registry-declared path, or injecting a
                         // synthetic layout to prove the resolver honours it
