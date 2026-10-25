@@ -5,13 +5,23 @@
 use serde::{Deserialize, Serialize};
 
 /// Substances tracked for sobriety.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// `Other` carries a free-form label so that divergent profiles or new
+/// substances can be tracked without modifying this enum. Known substances
+/// are listed explicitly; `HardDrug` is NOT a catch-all — it refers
+/// specifically to illicit hard drugs (opioids, stimulants, etc.).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SobrietySubstance {
     Alcohol,
     Tobacco,
     Cannabis,
-    HardDrug,
+    /// Opioids, stimulants, hallucinogens, etc. — NOT a catch-all.
+    Opioid,
+    Stimulant,
+    Hallucinogen,
+    /// Free-form label for anything not listed above.
+    Other(String),
 }
 
 /// Sobriety milestones in days since last use.
