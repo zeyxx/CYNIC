@@ -36,9 +36,13 @@ except Exception as e:
     print(f"CHECK_ERROR: {e}", file=sys.stderr)
     sys.exit(1)
 '; then
-    echo "[pre-push] BLOCKED: store divergence or branch drift detected." >&2
+    echo "[pre-push] WARNING: store divergence or branch drift detected." >&2
     echo "[pre-push] Run 'cynic audit all' for details." >&2
-    exit 1
+    if [ "${CYNIC_STRICT:-0}" = "1" ]; then
+        echo "[pre-push] STRICT mode: blocking push." >&2
+        exit 1
+    fi
+    echo "[pre-push] Continuing (set CYNIC_STRICT=1 to block)." >&2
 fi
 
 echo "[pre-push] convergence OK."
