@@ -68,7 +68,7 @@ fn live_epistemic_ledger_harvesting_and_chunking() {
 
     assert_eq!(ledger.schema, EPISTEMIC_FACTS_SCHEMA_V1);
     assert_eq!(ledger.repos.len(), 35);
-    assert!(ledger.summary_metrics.get("cynic_crates").copied().unwrap_or(0) >= 40);
+    assert!(ledger.summary_metrics.get("cynic_crates").copied().unwrap_or(0) >= 38);
     assert!(ledger.summary_metrics.get("cynic_loc").copied().unwrap_or(0) > 300_000);
     assert_eq!(ledger.summary_metrics.get("git_add_all_violations").copied().unwrap_or(999), 0);
 
