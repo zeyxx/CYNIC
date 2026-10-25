@@ -1,0 +1,439 @@
+{
+  "schema": "cynic.work_graph.v1",
+  "status": "draft",
+  "as_of": "2026-10-25",
+  "purpose": "Compass for agents: nodes are goals, issues, facts, questions, decisions and actions; hyperedges say what must hold before a node can move. A node with probe=null still needs a probe. Update a node's state only with a probe result or a merged change as evidence.",
+  "semantics": {
+    "kinds": [
+      "goal",
+      "issue",
+      "fact",
+      "question",
+      "decision",
+      "action"
+    ],
+    "states": [
+      "done",
+      "open",
+      "blocked",
+      "unknown",
+      "deferred",
+      "decided"
+    ],
+    "hyperedge": "requires (set of node ids) enables (node id); mode all = every prerequisite, any = at least one",
+    "probe": "read-only argv that observes the fact; null means no probe yet"
+  },
+  "authority_kind": "K6 contracts_registries (git)",
+  "nodes": [
+    {
+      "id": "G0",
+      "kind": "goal",
+      "title": "CYNIC is hygienic and clear: main green, runners current, state legible",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "A1",
+      "kind": "issue",
+      "title": "main compiles",
+      "state": "done",
+      "evidence": "cargo check completed on the builder for ae43f7f0 (native build submit)",
+      "probe": {
+        "argv": [
+          "cynic",
+          "build",
+          "submit",
+          "--commit",
+          "<main sha>",
+          "--action",
+          "check",
+          "--requested-by",
+          "<agent>",
+          "--wait",
+          "--json"
+        ],
+        "expect": "completion.status == completed"
+      }
+    },
+    {
+      "id": "A2",
+      "kind": "issue",
+      "title": "workspace tests compile",
+      "state": "done",
+      "evidence": "PR 383 merged; test run reaches 9+ binaries",
+      "probe": {
+        "argv": [
+          "cynic",
+          "build",
+          "submit",
+          "--commit",
+          "<main sha>",
+          "--action",
+          "test",
+          "--requested-by",
+          "<agent>",
+          "--wait",
+          "--json"
+        ],
+        "expect": "no 'could not compile' in sealed stderr"
+      }
+    },
+    {
+      "id": "A3",
+      "kind": "issue",
+      "title": "every workspace test passes",
+      "state": "open",
+      "evidence": "first failure now: the_baseline_and_the_observation_agree_exactly; 33 failed at the last full count, all already failing before the reset of main",
+      "probe": null,
+      "note": "cargo test stops at the first failing binary, so failures surface one per 5-minute run"
+    },
+    {
+      "id": "A4",
+      "kind": "question",
+      "title": "which tests fail, all of them",
+      "state": "unknown",
+      "probe": null,
+      "note": "needs an allowlisted action with --no-fail-fast, or one run per failure"
+    },
+    {
+      "id": "A5",
+      "kind": "issue",
+      "title": "the action allowlist cannot scope a package or keep going after a failure",
+      "state": "open",
+      "evidence": "node builds argv from a fixed registry (registry_argv); a --package run showed argv [cargo, test]",
+      "probe": null
+    },
+    {
+      "id": "A6",
+      "kind": "decision",
+      "title": "add a test-all action (--no-fail-fast) to the allowlist",
+      "state": "open",
+      "probe": null,
+      "note": "touches the execution allowlist; needs operator approval"
+    },
+    {
+      "id": "B1",
+      "kind": "issue",
+      "title": "deployed binaries are old and lack merged fixes",
+      "state": "open",
+      "evidence": "cortex cynic 7b9834ff, builder cynic 65578621, compute-01 cynic 5fa6a1a7; main has moved 200+ commits",
+      "probe": {
+        "argv": [
+          "cynic",
+          "version",
+          "--json"
+        ],
+        "expect": "git_sha == main sha"
+      }
+    },
+    {
+      "id": "B2",
+      "kind": "goal",
+      "title": "a fix merged on main reaches a runner natively (no SSH, no arbitrary shell)",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "B3",
+      "kind": "action",
+      "title": "interim: update cynic-compute-01 with the official release.deploy gate, once",
+      "state": "open",
+      "probe": null,
+      "note": "operator chose this on 2026-10-25; first runner because no agent build depends on it"
+    },
+    {
+      "id": "B4",
+      "kind": "issue",
+      "title": "Forgejo serves the artifact store over http while the store declares generic_https_put_get",
+      "state": "open",
+      "evidence": "infra/runtime-artifact-store.json: protocol https, url http://forgejo.synapse.cynic:3000",
+      "probe": {
+        "argv": [
+          "curl",
+          "-sI",
+          "https://forgejo.synapse.cynic:3000/"
+        ],
+        "expect": "TLS handshake succeeds"
+      },
+      "note": "operator direction: http must be secured everywhere, no regression of https_only"
+    },
+    {
+      "id": "B5",
+      "kind": "issue",
+      "title": "installed /etc/cynic/registry.json is a stale copy of infra/registry.json",
+      "state": "open",
+      "evidence": "last written 2026-10-23, differs from git: a personal login as compute-01 ssh user, no build_runner_default",
+      "probe": {
+        "argv": [
+          "diff",
+          "/etc/cynic/registry.json",
+          "infra/registry.json"
+        ],
+        "expect": "identical"
+      },
+      "note": "the tree says it is materialized from git at deploy time; that step is not running"
+    },
+    {
+      "id": "B6",
+      "kind": "question",
+      "title": "is the kernel on cortex running in node-control mode",
+      "state": "unknown",
+      "probe": null
+    },
+    {
+      "id": "B7",
+      "kind": "question",
+      "title": "are cynic-builder and cynic-compute-01 enrolled for node control",
+      "state": "unknown",
+      "probe": null
+    },
+    {
+      "id": "B8",
+      "kind": "issue",
+      "title": "no kernel route serves /node-control/{id}/desired-state",
+      "state": "open",
+      "evidence": "client exists (http_node_control.rs); no server route found in cynic-kernel",
+      "probe": null
+    },
+    {
+      "id": "B9",
+      "kind": "issue",
+      "title": "no CLI declares a RuntimeReleaseDeclaration",
+      "state": "open",
+      "evidence": "type exists in cynic-build; cynic-cli never references it",
+      "probe": null
+    },
+    {
+      "id": "B10",
+      "kind": "issue",
+      "title": "no producer of the detached signature on a release basket",
+      "state": "open",
+      "evidence": "release_publication.rs only validates a read-back",
+      "probe": null
+    },
+    {
+      "id": "B11",
+      "kind": "decision",
+      "title": "signing granularity: canary tier automatic, production tier operator-promoted",
+      "state": "open",
+      "probe": null,
+      "note": "proposal in docs/specs/NATIVE_NODE_DEPLOYMENT_SPEC.md section 9; operator asked for granular"
+    },
+    {
+      "id": "B12",
+      "kind": "decision",
+      "title": "daemon restart after the swap (activation vs signed /admin/restart)",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "B13",
+      "kind": "issue",
+      "title": "phantom ArtifactStore 10.10.10.103:8443 in the federation spec",
+      "state": "open",
+      "evidence": "answers ping, no HTTP on 80 or 8443, absent from infra/registry.json",
+      "probe": null
+    },
+    {
+      "id": "C1",
+      "kind": "issue",
+      "title": "failed-build output readable natively",
+      "state": "done",
+      "evidence": "PR 382: GET /records/{id} + cynic build workload output",
+      "probe": null,
+      "note": "not yet usable from an installed CLI (B1)"
+    },
+    {
+      "id": "C2",
+      "kind": "issue",
+      "title": "node /capacity reports disk, RAM, state root",
+      "state": "done",
+      "evidence": "PR 388",
+      "probe": {
+        "argv": [
+          "curl",
+          "-s",
+          "http://<runner>:9090/capacity"
+        ],
+        "expect": "has disk_avail_bytes"
+      },
+      "note": "deployed nodes still return 4 fields (B1)"
+    },
+    {
+      "id": "C3",
+      "kind": "issue",
+      "title": "fleet observe reads /capacity first",
+      "state": "done",
+      "evidence": "PR 389",
+      "probe": null
+    },
+    {
+      "id": "C4",
+      "kind": "issue",
+      "title": "cynic-compute-01 is muted for placement (disk unmeasured)",
+      "state": "open",
+      "evidence": "observed over SSH as a user that cannot read the checkout dir",
+      "probe": {
+        "argv": [
+          "cynic",
+          "fleet",
+          "observe"
+        ],
+        "expect": "compute-01 usable"
+      }
+    },
+    {
+      "id": "D1",
+      "kind": "issue",
+      "title": "86 commits replayed on 2026-10-25 12:02 were dropped from main's tree",
+      "state": "open",
+      "evidence": "tree restored from c971dae2; history kept",
+      "probe": null
+    },
+    {
+      "id": "D2",
+      "kind": "action",
+      "title": "delete the red branch agent/claude/restore-main-981daf22",
+      "state": "open",
+      "evidence": "branch fails to build; pushed by mistake",
+      "probe": null
+    },
+    {
+      "id": "D3",
+      "kind": "issue",
+      "title": "hermes branches contain commits made by claude",
+      "state": "open",
+      "evidence": "80d8dd13 was committed on a shared checkout; a local-only b5c8b516 existed on hermes's branch",
+      "probe": null
+    },
+    {
+      "id": "D4",
+      "kind": "issue",
+      "title": "PRs 370 and 372 conflict with main and touch cynic-knowledge",
+      "state": "open",
+      "evidence": "both add the same surface_gates.rs",
+      "probe": null
+    },
+    {
+      "id": "D5",
+      "kind": "issue",
+      "title": "audit gate blocked: 142 violations in the debt ledger",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "E1",
+      "kind": "goal",
+      "title": "a work graph guides agents and grows as questions are answered and data is probed",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "E2",
+      "kind": "issue",
+      "title": "storage taxonomy is proposal_v1; its decisions D1-D3 are unconfirmed",
+      "state": "open",
+      "evidence": "infra/storage-taxonomy.json",
+      "probe": null,
+      "note": "journal evidence-*.journal absent on cortex; D2 and D3 deferred by the operator"
+    },
+    {
+      "id": "E3",
+      "kind": "issue",
+      "title": "spec PR 396 (node deployment) is open",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "E4",
+      "kind": "issue",
+      "title": "no rule yet that agents consult and update the graph",
+      "state": "open",
+      "probe": null
+    },
+    {
+      "id": "F1",
+      "kind": "issue",
+      "title": "article publication paused by the operator",
+      "state": "deferred",
+      "probe": null,
+      "note": "line 334 'inattaquables' to soften; FR.html to regenerate"
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "H1",
+      "enables": "G0",
+      "requires": [
+        "A3",
+        "B1",
+        "C4"
+      ],
+      "mode": "all",
+      "note": "hygiene needs green tests, current runners, and a placeable fleet"
+    },
+    {
+      "id": "H2",
+      "enables": "A3",
+      "requires": [
+        "A4",
+        "A6"
+      ],
+      "mode": "any",
+      "note": "to fix all failing tests one must first see them: allowlist action OR iterate one run per failure"
+    },
+    {
+      "id": "H3",
+      "enables": "B2",
+      "requires": [
+        "B4",
+        "B6",
+        "B7",
+        "B8",
+        "B9",
+        "B10",
+        "B11",
+        "B12"
+      ],
+      "mode": "all",
+      "note": "the signed pipeline needs every piece"
+    },
+    {
+      "id": "H4",
+      "enables": "C4",
+      "requires": [
+        "B1",
+        "B5"
+      ],
+      "mode": "any",
+      "note": "compute-01 unmuted by a node that reports disk OR an ssh user that can read the dir"
+    },
+    {
+      "id": "H5",
+      "enables": "B1",
+      "requires": [
+        "B3",
+        "B2"
+      ],
+      "mode": "any",
+      "note": "runners updated by the interim gate OR by the native path"
+    },
+    {
+      "id": "H6",
+      "enables": "B2",
+      "requires": [
+        "B4"
+      ],
+      "mode": "all",
+      "note": "https_only transport stays; the store must speak TLS"
+    },
+    {
+      "id": "H7",
+      "enables": "E1",
+      "requires": [
+        "E4"
+      ],
+      "mode": "all"
+    }
+  ]
+}
