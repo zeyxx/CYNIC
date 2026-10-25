@@ -125,13 +125,14 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                         v.branch, v.verdict, v.stack_depth
                     );
                 }
-                if *apply {
+                if apply {
                     println!();
                     println!("=== Applying safe actions ===");
                     let mut applied = 0;
                     let mut failed = 0;
                     for a in &decision.actions {
-                        let kind = format!("{:?}", a).split_whitespace().next().unwrap_or("");
+                        let kind_dbg = format!("{:?}", a);
+                        let kind = kind_dbg.split_whitespace().next().unwrap_or("");
                         // Only apply archive and gc_worktree actions (safe, reversible)
                         if kind == "Archive" || kind == "GcWorktree" {
                             // Extract branch name from action debug string
