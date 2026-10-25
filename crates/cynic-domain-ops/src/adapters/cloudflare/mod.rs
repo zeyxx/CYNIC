@@ -4,14 +4,16 @@
 //! Cloudflare API v4) and `EdgeProbePort` (NS queries via Cloudflare
 //! DNS-over-HTTPS, HTTP edge verification with IP pinning).
 
-use cynic_domain_ops::{CloudflareDnsPort, EdgeProbePort, SecretProvider as SecretProviderPort};
+use crate::{CloudflareDnsPort, EdgeProbePort, SecretProvider as SecretProviderPort};
+
+pub mod error;
+
+pub use error::CloudflareError;
 use cynic_protocol::domain_ops::*;
 use cynic_protocol::secret_reference::SecretReference;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::net::SocketAddr;
-
-use super::error::CloudflareError;
 
 const CF_API_BASE: &str = "https://api.cloudflare.com/client/v4";
 const DOH_ENDPOINT: &str = "https://1.1.1.1/dns-query";

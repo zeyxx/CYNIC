@@ -24,7 +24,7 @@ report — no aspirations.
 | 7. Q8-uniform | 12 020 | 85 | Q8 single space | MinMax 0.5884 @0.80, ECDF 0.5269 @0.60, p=0.0039 — 5th significant run, 1st in a uniform space; Q8 adopted SSOT |
 
 Per-run curves, Wilcoxon statistics, and provenance configs:
-contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
+`contracts/embedding-selection.json` entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 
 ## 2. Frozen verdicts (full corpus, deterministic code)
 
@@ -75,14 +75,48 @@ contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 | json fusion harms (0.816 BM25 alone) | dense noise on identifier-heavy structured text | routed around; encoder-side fix open (model axis B) |
 | 63/85 ties in Wilcoxon | fixture saturation on decided queries | disagreement-zone query pairs (plan §5.4) |
 
-## 5. Current SOTA position (Q8-uniform, 85 queries + 5 traps, 12 020 chunks)
+## 5. Current SOTA position (Q8-uniform, 90 queries + 5 traps, 12 028 chunks)
 
-BM25 0.4984 · dense 0.6906 · RRF 0.4396 · MinMax 0.6965 @0.80 ·
-ECDF 0.5725 @0.75 · Wilcoxon p=0.0003 (31/6/48, n_nonzero 37).
+BM25 0.5152 · dense 0.6844 · RRF 0.4596 · MinMax 0.6967 @0.80 ·
+ECDF 0.5830 @0.75 · Wilcoxon p=0.0004 (30/6/54, n_nonzero 36).
 Pipeline: query prefix `task: search result | query: `, docs
 `title: {filename} | text: {body}`. Runners: cortex + compute-01, Q8_0,
-slots 4+4, registry-resolved. Deployment: global MinMax alpha 0.80;
-MRL-256d adopted for future runs.
+slots 4+4, registry-resolved. Cluster fanout proven live (128-text probe:
+16 sublots → cortex 11, compute 5; per-endpoint pools with headroom-guarded
+stealing — the old shared queue starved every peer past the first).
+Deployment: global MinMax alpha 0.80; MRL-256d adopted for future runs.
+Wave 4 (2026-10-16, fixture 85→87): RQ95 (BM25-win paraphrase, 1.00/0.50)
+and RQ96 (identifier tie, 1.00/1.00) admitted via pure-arm screen; A2
+rejected ×3 (checklist memory passage unreachable by rephrase — depth
+diagnosis open, not a 4th rephrase). Depth verdict (2026-10-16): dense
+reaches the passage at rank 62 (1 hit in top-100) — a top-5 problem, not
+invisibility; BM25 finds NOTHING in top-100 despite shared vocabulary
+(unit, 3G, recompile all in the passage — likely split across chunks or
+outranked). So: paraphrase work is closed on A2; the passage needs
+rerank-side rescue (rung 2) or a corpus-side anchor, never a 4th rephrase. Freeze check: old-85 reproduction
+within 0.01 on all arms (RRF/ECDF exact, dense Δ 0.0094 = live-workspace
+corpus drift); 87-mean moves are the predicted selection effect. Freeze holds.
+Wave 5 (2026-10-16, fixture 87→90): RQ97 + RQ98 (ties 1.00/1.00, admitted
+for depth) and RQ99 (dense-win 0.00/0.20, the only discriminating one).
+Freeze check tighter: old-87 Δ ≤ 0.003 on all arms (dense and RRF exact).
+Power did NOT grow: n_nonzero 37→36 — the two ties vote nothing, and RQ89
+flipped win→tie (ECDF 0.20→0.00) from live-workspace corpus drift, not the
+fixture. E2 itself is an ECDF-vs-RRF tie (dense hits, ECDF misses). Lesson
+for wave 6: screen on the FUSED-vs-RRF margin, not the pure-arm margin —
+a dense-win that fusion destroys adds no Wilcoxon vote. Futility clock: one
+batch without tightening (two cuts the line).
+Wave 6 KILLED EMPTY (2026-10-16): new fused-margin screen (|ECDF-RRF|>0)
+rejected all three drafts (G2/H2 unanimous 1.00 ties; I2 fused arms agree
+at 1.00 despite dense 0.50). Two independent reviewer prisms confirmed and
+went further: G2's dependency-policy gold is false (drop to 0) and its
+wording copies the doc purpose verbatim (pro-RRF bias); I2's question is
+UNANSWERABLE — no document asserts crates inherit lifecycle rules from
+topology (both golds false); H2's gold is valid but the query is
+neutral-weak. Meta-lesson: the screen catches weak drafts, reviewers catch
+wrong golds and unanswerable questions — neither suffices alone. Keep both
+prisms for every future wave. An empty batch is a valid outcome, not a
+failure. Futility clock: still one (a killed wave protects power, it does
+not spend it).
 MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
 re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
 identical to 768d on every decision. Google's −2.5 code points do not
@@ -111,7 +145,10 @@ its gate; training-free rungs come before any gradient step.
 2. **Cross-encoder rerank on fused top-20** (ms-marco-MiniLM / jina-reranker
    pattern: cheap, no training, strongest published lever on prose recall)
    — targets the md ≤0.42 gap directly. Gate: routed ECDF moves, zero new
-   BM25-perfect destructions, latency budget stated.
+   BM25-perfect destructions, latency budget stated. PROMOTED 2026-10-16:
+   the alpha-oracle study (below) proved the bottleneck is ranking inside
+   top-20 (union recall@20 = 0.933), not first-stage retrieval — rerank is
+   the scientifically correct next lever, headroom 0.583 → ~0.93.
 3. **Model axis B screens** (jina-embeddings-v5 nano/small, Qwen3-Embedding
    0.6B) — encoder-side lever for json/md gaps; degradation and
    reproducibility gates from the plan apply unchanged.
@@ -126,3 +163,24 @@ its gate; training-free rungs come before any gradient step.
    and Vulkan-serving costs measured before adoption, not after.
 6. **Surface work** (confidence columns C1–C4, L3 MCP exposure) — gated on
    first-stage recall, not before.
+
+## 7. Alpha-oracle study (2026-10-16, data-only, committed evidence `docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json` — 90 queries × 2 arms × top-100, Q8 corpus 12 020, cache reuse, zero re-embed; original live dump was gitignored `target/`, preserved here for audit)
+
+Question: the +0.10 oracle gap says per-query alpha is the headroom, but
+the doctype predictor failed — what unsupervised signal predicts the right
+alpha? Findings, all from existing artifacts plus one cheap local dump
+(90 queries × 2 arms × top-100 ranks/scores, cache reuse, zero re-embed):
+
+- Oracle per-query alpha (argmax over the 21-alpha matrix): ECDF 0.693
+  (+0.110), MinMax 0.789 (+0.092). The headroom is real.
+- Detection works: deviating queries (|a*−0.75|≥0.15, n=13) show mean
+  arm-disagreement 0.667 vs 0.357 for the rest. "Arms disagree → global
+  alpha is wrong here" is a valid unsupervised tripwire.
+- Direction FAILED: normalized top-1 margin picks the winning arm at 35%
+  (19/54) — worse than chance, BM25 margins are systematically larger by
+  scale. No unsupervised direction found. VERDICT: adaptivity blocked —
+  we can detect, not steer. Killed without a GPU minute.
+- Recall decomposition: dense recall@5/@20/@100 = 0.822/0.900/0.956;
+  BM25 = 0.667/0.767/0.900; UNION@20 = 0.933, UNION@100 = 1.000. Every
+  gold is retrievable; the bottleneck is ranking inside the top-20.
+  VERDICT: cross-encoder rerank (rung 2) promoted to next lever.

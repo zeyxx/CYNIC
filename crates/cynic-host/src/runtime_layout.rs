@@ -8,108 +8,46 @@ use cynic_network::dns::{
 };
 use serde::{Deserialize, Serialize};
 
+use cynic_types::paths::CynicPaths;
+
 use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
-use crate::runtime_authority::{RuntimeAuthorityPaths, default_runtime_authority_paths};
+use crate::runtime_authority::default_runtime_authority_paths;
 
-/// The installed CLI directory, derived once from the canonical runtime
-/// authority instead of being re-declared at each use site.
-///
-/// `HostRuntimeLayout` is the single resolver for runtime placements; an
-/// absolute CLI path written inline in a consumer (the execution-context
-/// probe) is a second, competing claim about the same tree. The default is the
-/// `bin` sibling of the helper tree: the registry declares the CLI at
-/// `/usr/local/bin/cynic` and the helpers at `/usr/local/libexec`, so both
-/// hang off the same install prefix. Deriving it keeps the placement anchored
-/// to the authority instead of to a literal that can drift from it.
-pub fn default_installed_cli_dir(authority: &RuntimeAuthorityPaths) -> String {
-    authority
-        .helper_root
-        .parent()
-        .unwrap_or_else(|| authority.helper_root.as_path())
-        .join("bin")
-        .display()
-        .to_string()
+pub use cynic_protocol::host_substrate::capabilities::{
+    DnsProviderCapability, HostCapabilities, IdentityCapability, NameServiceCapability,
+    NetworkManagerCapability, PackageManagerCapability, RouteToolCapability,
+    ServiceManagerCapability, WireguardToolCapability,
+};
+
+pub use cynic_protocol::detection::PackageManagerKind;
+
+pub trait PackageManagerKindExt {
+    fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String>;
+    fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String>;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HostCapabilities {
-    pub identity: IdentityCapability,
-    pub name_service: NameServiceCapability,
-    pub service_manager: ServiceManagerCapability,
-    pub package_manager: PackageManagerCapability,
-    pub route_tool: RouteToolCapability,
-    pub wireguard_tool: WireguardToolCapability,
-    pub network_manager: NetworkManagerCapability,
-    pub dns_provider: DnsProviderCapability,
-}
+impl PackageManagerKindExt for PackageManagerKind {
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdentityCapability {
-    pub hostname_path: String,
-    pub hostname_command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NameServiceCapability {
-    pub resolver_command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ServiceManagerCapability {
-    pub kind: String,
-    pub command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PackageManagerCapability {
-    pub kind: PackageManagerKind,
-    pub installer: String,
-    pub query: String,
-    pub rpm_query: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PackageManagerKind {
-    Apt,
-    Apk,
-    Dnf,
-    Rpm,
-    Winget,
-    Choco,
-    Unknown,
-}
-
-impl PackageManagerKind {
-    pub fn parse(value: &str) -> Self {
-        match value {
-            "apt" | "apt-get" | "debian" | "ubuntu" => Self::Apt,
-            "apk" | "alpine" => Self::Apk,
-            "dnf" => Self::Dnf,
-            "rpm" => Self::Rpm,
-            "winget" | "windows" => Self::Winget,
-            "choco" | "chocolatey" => Self::Choco,
-            _ => Self::Unknown,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Apt => "apt",
-            Self::Apk => "apk",
-            Self::Dnf => "dnf",
-            Self::Rpm => "rpm",
-            Self::Winget => "winget",
-            Self::Choco => "choco",
-            Self::Unknown => "unknown",
-        }
-    }
-
-    pub fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
+    /// The argv that QUERIES whether a package is installed.
+    ///
+    /// A package is not a binary: `which wireguard-tools` never finds
+    /// anything, because the package ships `wg`. The query must therefore
+    /// go to the package database, and it must ASK rather than SIMULATE:
+    /// `dpkg -s <pkg>` reports the status but exits non-zero for a
+    /// package that is not installed — and `apt -s <pkg>` is a
+    /// SIMULATION of the install, which fails for a package that IS
+    /// installed. Measured on builder-119: `apt -s wireguard-tools`
+    /// exits 100 while `dpkg-query -W -f='${Status}'` answers
+    /// `install ok installed`. The old form reported an installed
+    /// package as absent, which blocked the packages domain on a host
+    /// whose packages were all present.
+    fn query_argv(self, package: &str, layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => vec![
-                layout.package_query_bin(),
-                "-s".to_string(),
+                layout.dpkg_query_bin(),
+                "-W".to_string(),
+                "-f=${Status}".to_string(),
                 package.to_string(),
             ],
             Self::Apk => vec![
@@ -136,7 +74,7 @@ impl PackageManagerKind {
         }
     }
 
-    pub fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
+    fn install_argv(self, packages: &[String], layout: &HostRuntimeLayout) -> Vec<String> {
         match self {
             Self::Apt => {
                 let mut argv = vec![
@@ -183,29 +121,6 @@ impl PackageManagerKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RouteToolCapability {
-    pub command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WireguardToolCapability {
-    pub command: String,
-    pub mesh_interface: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NetworkManagerCapability {
-    pub command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DnsProviderCapability {
-    pub provider: String,
-    pub command: String,
-    pub service_unit: String,
-    pub resolved_unit: String,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostRuntimeLayout {
@@ -220,12 +135,6 @@ pub struct HostRuntimeLayout {
     pub network_actuator_bundle_dir: String,
     pub dns_bundle_dir: String,
     pub provider_fallback_bundle_dir: String,
-    /// Directory holding the installed CLI entrypoints (`cynic`, `cynic-node`,
-    /// …). Every other field here is a resolver result; this one was missing,
-    /// so consumers wrote the CLI path inline. Derives from
-    /// [`RuntimeAuthorityPaths`] and is overridable per deployment with
-    /// `CYNIC_CLI_DIR`.
-    pub cli_dir: String,
 }
 
 impl HostRuntimeLayout {
@@ -276,7 +185,6 @@ impl HostRuntimeLayout {
                 "CYNIC_PROVIDER_FALLBACK_BUNDLE_DIR",
                 &authority.provider_fallback_bundle_dir.display().to_string(),
             ),
-            cli_dir: env_path("CYNIC_CLI_DIR", &default_installed_cli_dir(&authority)),
         }
     }
 
@@ -298,15 +206,11 @@ impl HostRuntimeLayout {
             .to_string()
     }
 
-    /// Installed CLI entrypoint for a given binary name.
-    ///
-    /// The execution-context probe used to write `/usr/local/bin/cynic` inline,
-    /// a second claim about a tree this layout already resolves. The override
-    /// (`CYNIC_CLI_DIR`) is how a deployment whose CLI lives elsewhere is
-    /// described without editing the probe.
-    pub fn cli_path(&self, binary: &str) -> String {
-        PathBuf::from(&self.cli_dir)
-            .join(binary)
+    /// The single binary the privilege membrane admits: every root execution
+    /// flows through `sudo -n <executor> privilege exec <capability>`.
+    /// Same convention as the generated bootstrap scripts (`CYNIC_BIN`).
+    pub fn privilege_executor_path(&self) -> String {
+        cynic_types::paths::CynicPaths::binary_path()
             .display()
             .to_string()
     }
@@ -322,6 +226,15 @@ impl HostRuntimeLayout {
     pub fn host_exec_sudoers_path(&self) -> String {
         PathBuf::from(&self.sudoers_dir)
             .join("cynic-host-exec")
+            .display()
+            .to_string()
+    }
+
+    /// Install target of the privilege membrane (the single sudoers file
+    /// the `cynic` binary is admitted through).
+    pub fn privilege_sudoers_path(&self) -> String {
+        PathBuf::from(&self.sudoers_dir)
+            .join("cynic")
             .display()
             .to_string()
     }
@@ -381,7 +294,10 @@ impl HostRuntimeLayout {
 
     pub fn dns_resolved_dropin_path(&self) -> String {
         match self.service_manager_kind().as_str() {
-            "openrc" => format!("/etc/cynic/resolver/openrc-service-dns.adapter-required").to_string(),
+            "openrc" => CynicPaths::system_config_dir()
+                .join("resolver/openrc-service-dns.adapter-required")
+                .to_string_lossy()
+                .to_string(),
             _ => format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}").to_string(),
         }
     }
@@ -499,6 +415,15 @@ impl HostRuntimeLayout {
 
     pub fn getent_bin(&self) -> String {
         env_path("CYNIC_GETENT_BIN", "getent")
+    }
+
+    /// The binary that answers "is this package installed?".
+    ///
+    /// `dpkg-query` is the query front-end; `dpkg` itself is the
+    /// low-level tool whose `-s` subcommand is a status report, not a
+    /// query that exits zero on a present package.
+    pub fn dpkg_query_bin(&self) -> String {
+        env_path("CYNIC_DPKG_QUERY_BIN", "dpkg-query")
     }
 
     pub fn package_query_bin(&self) -> String {
@@ -722,34 +647,44 @@ fn env_path(key: &str, default: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::OsString;
-    use std::sync::Mutex;
-
     use super::HostRuntimeLayout;
     use crate::domain::package_provenance::PackageProvenancePolicy;
+    use crate::test_support::{EnvOverride, env_lock};
 
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    #[test]
+    fn the_apt_query_asks_the_package_database_and_does_not_simulate() {
+        use crate::runtime_layout::PackageManagerKind;
 
-    struct EnvOverride {
-        key: &'static str,
-        original: Option<OsString>,
-    }
+        let layout = HostRuntimeLayout {
+            config_dir: "/etc/cynic".to_string(),
+            helper_dir: "/opt/cynic/libexec".to_string(),
+            sudoers_dir: "/opt/cynic/sudoers.d".to_string(),
+            service_unit_dir: "/etc/systemd/system".to_string(),
+            runtime_home_dir: "/var/lib/cynic".to_string(),
+            state_dir: "/var/lib/cynic".to_string(),
+            log_dir: "/var/log/cynic".to_string(),
+            host_exec_bundle_dir: "/tmp/cynic-host-exec".to_string(),
+            network_actuator_bundle_dir: "/tmp/cynic-network-actuator".to_string(),
+            dns_bundle_dir: "/tmp/cynic-service-dns".to_string(),
+            provider_fallback_bundle_dir: "/tmp/cynic-provider-fallback-hosts".to_string(),
+        };
 
-    impl EnvOverride {
-        fn set(key: &'static str, value: &str) -> Self {
-            let original = std::env::var_os(key);
-            unsafe { std::env::set_var(key, value) };
-            Self { key, original }
-        }
-    }
-
-    impl Drop for EnvOverride {
-        fn drop(&mut self) {
-            match &self.original {
-                Some(value) => unsafe { std::env::set_var(self.key, value) },
-                None => unsafe { std::env::remove_var(self.key) },
-            }
-        }
+        let argv = PackageManagerKind::Apt.query_argv("wireguard-tools", &layout);
+        assert_eq!(
+            argv.first().map(String::as_str),
+            Some("dpkg-query"),
+            "the query must go to the package database front-end"
+        );
+        assert!(
+            argv.iter().any(|token| token == "-W"),
+            "the query must SELECT the package status, got {argv:?}"
+        );
+        assert!(
+            !argv.iter().any(|token| token == "-s" || token == "--simulate"),
+            "the query must not SIMULATE an install: `apt -s` fails for an \
+             installed package, which reports a present package as absent"
+        );
+        assert_eq!(argv.last().map(String::as_str), Some("wireguard-tools"));
     }
 
     #[test]
@@ -766,7 +701,6 @@ mod tests {
             network_actuator_bundle_dir: "/tmp/cynic-network-actuator".to_string(),
             dns_bundle_dir: "/tmp/cynic-service-dns".to_string(),
             provider_fallback_bundle_dir: "/tmp/cynic-provider-fallback-hosts".to_string(),
-            cli_dir: "/usr/local/bin".to_string(),
         };
 
         assert_eq!(
@@ -777,7 +711,6 @@ mod tests {
             layout.network_actuator_sudoers_path(),
             "/opt/cynic/sudoers.d/cynic-network-actuator"
         );
-        assert_eq!(layout.cli_path("cynic"), "/usr/local/bin/cynic");
         assert_eq!(
             layout.state_dirs(),
             vec![
@@ -790,7 +723,7 @@ mod tests {
 
     #[test]
     fn package_provenance_defaults_to_unresolved_authority() {
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "unresolved");
 
         // The permissive fallback to the host package manager must stay absent.
@@ -804,7 +737,7 @@ mod tests {
 
     #[test]
     fn package_provenance_repository_is_injectable_and_carries_no_blocker() {
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "repository");
         let _source = EnvOverride::set(
             "CYNIC_PACKAGE_REPOSITORY_SOURCE_ID",
@@ -831,7 +764,7 @@ mod tests {
 
     #[test]
     fn declared_repository_authority_fails_closed_when_the_policy_is_incomplete() {
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "repository");
         let _source = EnvOverride::set("CYNIC_PACKAGE_REPOSITORY_SOURCE_ID", "mirror");
         let _key = EnvOverride::set("CYNIC_PACKAGE_REPOSITORY_KEY_FINGERPRINT", "");
@@ -848,7 +781,7 @@ mod tests {
 
     #[test]
     fn unknown_distribution_authority_kind_is_preserved_as_an_explicit_unknown() {
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "ftp_tarball");
 
         assert_eq!(
@@ -861,7 +794,7 @@ mod tests {
 
     #[test]
     fn capabilities_can_select_openrc_service_manager_from_env() {
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
         let _service_binary = EnvOverride::set("CYNIC_RC_SERVICE_BIN", "rc-service-test");
         let capabilities = HostRuntimeLayout::from_env().capabilities();
@@ -894,7 +827,7 @@ mod tests {
             );
             return;
         }
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
         let layout = HostRuntimeLayout::from_env();
 
@@ -921,7 +854,7 @@ mod tests {
 
     #[test]
     fn package_manager_can_select_apk_from_env() {
-        let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let _env_lock = env_lock();
         let _package_manager = EnvOverride::set("CYNIC_PACKAGE_MANAGER_KIND", "apk");
         let _package_binary = EnvOverride::set("CYNIC_APK_BIN", "apk-test");
         let layout = HostRuntimeLayout::from_env();

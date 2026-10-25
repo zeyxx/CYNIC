@@ -5,37 +5,25 @@
 //!   reconcile_cleanup() -> CleanupDecision (pure)
 //!   apply() -> CleanupProof (via ArgvRunner SSH)
 
-use crate::adapters::local_build_artefact::DEFAULT_CHECKOUTS_BASE;
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::cleanup::*;
+use cynic_types::paths::CynicPaths;
 
 pub struct CleanupAgent<R: ArgvRunner> {
     runner: R,
-    checkouts_base: String,
 }
 
 impl CleanupAgent<LocalArgvRunner> {
     pub fn new() -> Self {
         Self {
             runner: LocalArgvRunner,
-            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
         }
     }
 }
 
 impl<R: ArgvRunner> CleanupAgent<R> {
     pub fn with_runner(runner: R) -> Self {
-        Self {
-            runner,
-            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
-        }
-    }
-
-    /// Bind the cleanup sizing to an explicit checkout base. The default
-    /// keeps the production placement, so existing call sites are unchanged.
-    pub fn with_checkouts_base(mut self, base: impl Into<String>) -> Self {
-        self.checkouts_base = base.into();
-        self
+        Self { runner }
     }
 
     /// Observe disk state via SSH commands.
@@ -58,13 +46,13 @@ impl<R: ArgvRunner> CleanupAgent<R> {
             .map_err(|_| format!("parse available: {}", parts[10]))?;
         let disk_used_percent = ((used as f64 / total as f64) * 100.0) as u8;
 
-        let du_path = format!("{}/*", self.checkouts_base);
+        let checkouts_glob = format!("{}/*", CynicPaths::state_dir().join("checkouts").display());
         let du_output = self.runner.run(&[
             "ssh",
             cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
             "du",
             "-sh",
-            du_path.as_str(),
+            checkouts_glob.as_str(),
         ]);
         let mut items = Vec::new();
         for line in du_output.stdout.lines() {
@@ -201,35 +189,6 @@ mod tests {
         let obs = agent.observe().unwrap();
         assert_eq!(obs.disk_used_percent, 100);
         assert_eq!(obs.items.len(), 2);
-    }
-
-    /// The injected base must reach the du argv: a runner stubbed only for
-    /// the override answers, so a base leaking back to the production
-    /// constant would find no stub and fail.
-    #[test]
-    fn override_checkouts_base_reaches_du_argv() {
-        let runner = MapArgvRunner {
-            responses: vec![
-                (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
-                 cynic_lifecycle::ArgvOutput {
-                     exit_code: Some(0),
-                     stdout: "Filesystem 1B-blocks Used Available Use% Mounted on\n/dev/x 100 50 50 50% /".to_string(),
-                     stderr: String::new(),
-                     spawn_error: None,
-                 }),
-                (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "du".to_string(), "-sh".to_string(), "/srv/override/checkouts/*".to_string()],
-                 cynic_lifecycle::ArgvOutput {
-                     exit_code: Some(0),
-                     stdout: "1G\t/srv/override/checkouts/abc123".to_string(),
-                     stderr: String::new(),
-                     spawn_error: None,
-                 }),
-            ],
-        };
-        let agent = CleanupAgent::with_runner(runner).with_checkouts_base("/srv/override/checkouts");
-        let obs = agent.observe().unwrap();
-        assert_eq!(obs.items.len(), 1);
-        assert_eq!(obs.items[0].path, "/srv/override/checkouts/abc123");
     }
 
     #[test]

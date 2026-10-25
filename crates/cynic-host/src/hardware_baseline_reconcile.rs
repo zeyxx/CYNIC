@@ -228,7 +228,6 @@ mod tests {
             network_actuator_bundle_dir: "/var/lib/cynic/staging/network".to_string(),
             dns_bundle_dir: "/var/lib/cynic/staging/dns".to_string(),
             provider_fallback_bundle_dir: "/var/lib/cynic/staging/provider".to_string(),
-            cli_dir: "/usr/local/bin".to_string(),
         }
     }
 

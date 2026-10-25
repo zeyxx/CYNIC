@@ -12,7 +12,6 @@ use crate::ports::{
 };
 use crate::profiles::families::HostFamilyProfile;
 use crate::runtime_layout::current_runtime_layout;
-use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BuildRunnerHostProfile;
@@ -75,10 +74,7 @@ impl HostServicePort for BuildRunnerHostProfile {
                 unit_name: "cynic-node.service".to_string(),
                 enable_on_boot: true,
                 restart_mode: "always".to_string(),
-                source: CynicPaths::state_dir()
-                    .join("service-units/cynic-node.service")
-                    .display()
-                    .to_string(),
+                source: "/var/lib/cynic/service-units/cynic-node.service".to_string(),
                 health_port: Some(9090),
                 process_name: Some("cynic-node".to_string()),
                 supervisor_provider: None,

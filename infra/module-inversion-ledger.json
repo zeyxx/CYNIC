@@ -11,13 +11,12 @@
   "ratified_at_commit": "6886e0fbc028ab079c1e19cde33e48be51004d77",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "identities": 39,
-    "edges": 113,
+    "identities": 36,
+    "edges": 108,
     "by_crate": {
       "cynic-host": 13,
       "cynic-inference": 5,
       "cynic-intel": 2,
-      "cynic-intel-soc": 3,
       "cynic-node": 13,
       "cynic-release": 1,
       "cynic-storage": 2
@@ -113,21 +112,6 @@
       "identity": "cynic-inference|ports -> ods_discovery",
       "count": 1,
       "evidence": "crates/cynic-inference/src/ports/model_publisher_port.rs:12"
-    },
-    {
-      "identity": "cynic-intel-soc|ports -> rules",
-      "count": 2,
-      "evidence": "crates/cynic-intel-soc/src/ports.rs:5"
-    },
-    {
-      "identity": "cynic-intel-soc|ports -> soc",
-      "count": 2,
-      "evidence": "crates/cynic-intel-soc/src/ports.rs:7"
-    },
-    {
-      "identity": "cynic-intel-soc|ports -> types",
-      "count": 1,
-      "evidence": "crates/cynic-intel-soc/src/ports.rs:9"
     },
     {
       "identity": "cynic-intel|ports -> domain_enrichment",

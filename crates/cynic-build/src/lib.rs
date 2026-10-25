@@ -64,7 +64,6 @@ pub use external_build_uc::*;
 pub use place::*;
 pub use harness::*;
 pub use harness_authority::*;
-pub use place::*;
 pub use ports::{BuildCommandOutput, BuildRunner, FilesystemPort, IdentityPort};
 pub use release_publication::*;
 pub use runner::{install_artifact, run_build};

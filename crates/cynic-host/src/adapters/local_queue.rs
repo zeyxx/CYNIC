@@ -1,7 +1,6 @@
 //! Local queue observation — composes branch_graph + discovery + gc
 //! via in-process `capture_command` and pure `build_queue_plan`.
 
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_build::build_discovery::{
@@ -10,36 +9,19 @@ use cynic_build::build_discovery::{
 use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::queue::QueuePlan;
 
-use crate::adapters::local_build_artefact::{LocalBuildArtefactAdapter, DEFAULT_CHECKOUTS_BASE};
+use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
 };
-use crate::domain::build_artefact::port::BuildArtefactObservationPort;
+use crate::domain::build_artefact::RetentionPlanner;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
 use crate::process_observation::capture_command;
 
-#[derive(Debug, Clone)]
-pub struct LocalQueueAdapter {
-    checkouts_base: Arc<str>,
-}
-
-impl Default for LocalQueueAdapter {
-    fn default() -> Self {
-        Self {
-            checkouts_base: Arc::from(DEFAULT_CHECKOUTS_BASE),
-        }
-    }
-}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LocalQueueAdapter;
 
 impl LocalQueueAdapter {
-    /// Bind the local queue (and the build-artefact half it observes) to an
-    /// explicit checkout base, so the override reaches the local adapter too.
-    pub fn with_checkouts_base(mut self, base: impl Into<Arc<str>>) -> Self {
-        self.checkouts_base = base.into();
-        self
-    }
-
     pub fn observe(&self) -> Result<QueuePlan, String> {
         let mut unknowns: Vec<String> = Vec::new();
         let bg = match observe_branch_graph_local() {
@@ -73,22 +55,19 @@ impl LocalQueueAdapter {
         // A discovery that succeeded partially still names its gaps — those
         // propagate to the plan so callers can tell live from guessed.
         unknowns.extend(discovery.residual_unknowns.iter().cloned());
-        let base = self.checkouts_base.clone();
-        let local = LocalBuildArtefactAdapter::with_checkouts_base(base);
-        let gc_plan = match local.observe_build_artefacts_shallow() {
-            Ok(report) => {
-                // Shallow skips are the plan's unknowns too: sizes read 0 by
-                // contract, never by accident.
-                unknowns.extend(report.residual_unknowns.iter().cloned());
-                local.plan_gc(&report)
+        let gc_plan = match LocalBuildArtefactAdapter::observe_shallow() {
+            Ok(obs) => {
+                let policy =
+                    cynic_protocol::retention::default_build_artefact_policy();
+                LocalBuildArtefactAdapter.plan(&obs, &policy)
             }
             Err(e) => {
                 unknowns.push(format!("build_artefact_gc_fallback:{e}"));
-                cynic_build::build_artefact::BuildArtefactGcPlan {
-                    schema: cynic_build::build_artefact::BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
+                cynic_protocol::retention::RetentionPlan {
+                    schema: cynic_protocol::retention::RETENTION_PLAN_SCHEMA.to_string(),
                     items: vec![],
                     total_reclaimable_bytes: 0,
-                    total_reclaimable_human: "0B".to_string(),
+                    policy_version: "BuildArtefact".to_string(),
                 }
             }
         };
@@ -103,7 +82,7 @@ impl crate::domain::queue::port::QueuePlanningPort for LocalQueueAdapter {
         &self,
         branch_graph: &BranchGraph,
         discovery: &BuildDiscoveryReport,
-        gc_plan: &cynic_build::build_artefact::BuildArtefactGcPlan,
+        gc_plan: &cynic_protocol::retention::RetentionPlan,
         now: u64,
     ) -> QueuePlan {
         build_queue_plan(branch_graph, discovery, gc_plan, now)

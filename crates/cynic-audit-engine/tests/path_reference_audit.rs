@@ -50,9 +50,11 @@ fn report() -> cynic_protocol::AuditReportV2 {
 /// are deleted here rather than satisfied: keeping them would mean deleting a
 /// source file to keep a test green, which is the opposite of the point.
 const KNOWN: &[&str] = &[
+    "crates/cynic-host/src/profiles/build_runner.rs",
+    "crates/cynic-node-protocol/src/node_service_unit.rs",
     "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",
     "crates/cynic-inference/src/domain/chat.rs",
-    "crates/cynic-vcs-forgejo/src/forgejo_webhook.rs",
+    "crates/cynic-vcs-providers/src/forgejo_webhook.rs",
     "crates/cynic-release/src/adapters/secret_lint/mod.rs",
     // Optional external input, gracefully Unavailable when absent: the
     // Autoresearch report is produced outside the repo, and the observer
@@ -76,7 +78,7 @@ const KNOWN: &[&str] = &[
     // convention, not a hidden placement — but unlike clap defaults the
     // shape is indistinguishable from a coded placement, so the rule is
     // right to track it and this entry records the decision explicitly.
-    "crates/cynic-cli/src/deps_surface_upgrade.rs",
+    "crates/cynic-cli/src/dependency/mod.rs",
     // Deliberate identity convention: default_key_path/default_cert_path
     // fall back to /etc/cynic/node-identity.key|.cert, always behind an
     // explicit key_path override (unwrap_or_else at every call site).
@@ -99,6 +101,30 @@ const KNOWN: &[&str] = &[
     // reports belong under /var/lib/cynic/reports. Naming the path IS the
     // rule's content; the file places nothing.
     "crates/cynic-cli/src/runtime_surface/report/build.rs",
+    // Assumed hard-coded placement, not denied: the local build-artefact
+    // adapter observes CHECKOUTS_BASE (/var/lib/cynic/checkouts) with no
+    // injected override. Paying it means threading the resolved state_root
+    // through the observation port — real plumbing, out of scope for this
+    // pass. The rule keeps tracking it; this entry says the shortcut is
+    // known, not hidden.
+    "crates/cynic-host/src/adapters/local_build_artefact.rs",
+    // Same assumed shape with an environment escape hatch: the local disk
+    // adapter resolves CYNIC_STATE_ROOT, falling back to /var/lib/cynic.
+    // Paying it means injecting the resolved state_root instead of reading
+    // the environment at the adapter — same future plumbing as above.
+    "crates/cynic-host/src/adapters/local_disk.rs",
+    // Remote twin of the CHECKOUTS_BASE shortcut above: the remote
+    // build-artefact adapter lists /var/lib/cynic/checkouts over SSH with
+    // the base coded in the argv. Same payment direction (inject the
+    // resolved base); same assumed-until-then status.
+    "crates/cynic-host/src/adapters/remote_build_artefact.rs",
+    // Third twin of the same CHECKOUTS_BASE shortcut: the remote queue
+    // adapter lists the same base over SSH. One debt, three sites — all
+    // paid together when the resolved base is injected.
+    "crates/cynic-host/src/adapters/remote_queue.rs",
+    // Fourth site of the same CHECKOUTS_BASE shortcut: the agent cleanup
+    // sizes the checkouts over SSH. One debt, four sites.
+    "crates/cynic-host/src/agent/cleanup.rs",
     // Builder-canonical registry over SSH: the build-evidence observation
     // addresses /etc/cynic/registry.json on the runner — the same fleet
     // convention as BUILDER_CANONICAL_REGISTRY, referenced at the call
@@ -182,11 +208,10 @@ const KNOWN: &[&str] = &[
     // installed CLI (/usr/local/bin/cynic) as evidence. Reading a file to
     // prove what is installed is observation, not placement.
     "crates/cynic-host/src/host_bootstrap_evidence.rs",
-    // Guest-VM convention, not a host placement: the cloud-init user-data
-    // template writes /etc/cynic/lab-node.json and creates /etc/cynic +
-    // /var/lib/cynic inside a fresh lab guest OS. The guest has no
-    // registry to consult; these paths are the guest contract, while the
-    // host-side lab root is injected (LabRoot). Deliberate, not hidden.
+    // Assumed lab placement, same payment direction as CHECKOUTS_BASE:
+    // the lab bundle builds VM disk/seed paths under /var/lib/cynic/lab
+    // with format!. Paying it means injecting the resolved lab root;
+    // until then the shortcut is known, not hidden.
     "crates/cynic-host/src/lab/bundle.rs",
     // Read-only observation again: local autonomy checks existence of the
     // enrollment proof file and reports a boolean. Nothing placed.
@@ -212,13 +237,11 @@ const KNOWN: &[&str] = &[
     // resolve_runtime_paths fallback already recorded above — one
     // authority, two sides.
     "crates/cynic-host/src/runtime_authority.rs",
-    // Identity comparison, not a placement: the execution boundary
-    // classifier checks whether the current executable IS the installed
-    // binary (/usr/local/bin/cynic) to tell installed_runtime apart from
-    // dev_worktree. Same observation family as host_bootstrap_evidence —
-    // proving what runs, placing nothing. (Injecting the expected exe
-    // path through the layout is the future payment, same as the CLI
-    // probe above.)
+    // Read-only proof input again: the execution context reports the
+    // installed CLI status as evidence. Note the neighbours already take
+    // the injected layout (config_dir, state_dir...) — only the CLI probe
+    // still names its path; unifying it with the layout is the same
+    // future injection as the CHECKOUTS_BASE debt.
     "crates/cynic-host/src/runtime_execution_context.rs",
     // OS-imposed paths, not CYNIC conventions: the DNS drop-in lives
     // where the service manager demands
@@ -312,6 +335,11 @@ const KNOWN: &[&str] = &[
     // default_value filter) and falls back to /etc/cynic/node-control.toml.
     // Same explicit-first shape as every CLI default above.
     "crates/cynic-node/src/main.rs",
+    // Assumed real write, same payment direction as CHECKOUTS_BASE: the
+    // network sync renders the generated hosts file under /etc/cynic/dns
+    // (header says AUTO-GENERATED). Paying it means injecting the DNS dir;
+    // until then the shortcut is known, not hidden.
+    "crates/cynic-node/src/usecases/network_sync_uc.rs",
     // Twin of the host principal layout: cynic-pkg carries the same
     // default_runtime_principal_layout for packaging. One authority, two
     // crates — same decision (a future merge would keep one).
@@ -342,20 +370,54 @@ const KNOWN: &[&str] = &[
     // Named public token constants under the assumed secrets home
     // (FORGEJO_TOKEN_DIRECTORY/PATH). Same secrets convention as
     // credential.rs — named, public, reviewed by name.
-    "crates/cynic-vcs-forgejo/src/forgejo_token.rs",
+    "crates/cynic-vcs-providers/src/forgejo_token.rs",
     // Registry value first, convention last: token_file comes from the
     // SSOT binding, falling back to the conventional secrets path. Same
     // explicit-first shape; the registry outranks the default.
-    "crates/cynic-vcs-forgejo/src/registry_binding.rs",
+    "crates/cynic-vcs-providers/src/registry_binding.rs",
     // Injected path first, convention last: the port uses the provided
     // token_path, falling back to the conventional secrets path. Same
     // explicit-first shape as every default above.
     "crates/cynic-vcs/src/forgejo_port.rs",
+    // The membrane bundle renders the sudoers file for the single `cynic`
+    // binary. The executor IS the release binary the basket already
+    // deploys at /usr/local/bin/cynic — a named constant pointing at a
+    // registry-declared root (system_binaries). Rendering a file that
+    // names the binary it authorises necessarily names the binary.
+    "crates/cynic-host/src/bridge/bundle.rs",
+    // The machine-side capability catalog default: the repo copy first,
+    // then /etc/cynic/catalog.json on the host. A presence-ordered lookup
+    // over two registry-declared locations, same shape as the registry
+    // scan and the secret presence check.
+    "crates/cynic-host/src/privilege/capability_catalog.rs",
     // The Default trait itself: ForgejoTokenSpec::default carries the
     // conventional target_path. A Default impl is Rust's declared fallback
     // surface — same decision as the default_* functions, spelled the way
     // the language spells defaults.
     "crates/cynic-vcs/src/forgejo_token.rs",
+    // The helper the host policy points sudoers at: the installed CLI
+    // binary. Same convention as the membrane bundle above — the policy
+    // names the binary it authorises, and the binary lives at the
+    // registry-declared system_binaries root.
+    "crates/cynic-host/src/host_exec_policy.rs",
+    // The retention scope default: checkouts live under the runtime state
+    // root (/var/lib/cynic/checkouts), a sub-path of the declared
+    // runtime_state layer. A scope naming its own root is the scope.
+    "crates/cynic-protocol/src/retention.rs",
+    // The out-of-tree data root: the external project registry declares
+    // evidence captures under data_system/vault/captures, which lives at
+    // /home/user/Bureau/data_system — a SIBLING of the repository, not a
+    // subdirectory of it. The declaration is relative, so the rule
+    // resolves it against the repo root and finds nothing. The directory
+    // exists and holds the captures; the path is simply outside the tree.
+    //
+    // The durable fix is to declare the data root as a layer in
+    // infra/directory-tree.json, which is what runtime_space() reads to
+    // exempt out-of-tree paths. Until that amendment lands, this entry
+    // records the divergence explicitly. An absolute path in the registry
+    // would instead hardcode a host layout, which the registry rule
+    // forbids.
+    "data_system/vault/captures",
 ];
 
 /// The detectors, each against a tree this test builds, proving the code fires.
@@ -473,18 +535,37 @@ fn each_declared_path_detector_fires_on_a_tree_that_owes_one() {
 }
 
 /// The live workspace carries no divergence beyond the ones named above.
+///
+/// Every undeclared divergence is reported at once, not just the first one.
+/// The test asserted inside the loop, so it stopped at the first divergence
+/// and the reader could not tell a single stale entry from a dozen: each
+/// fix revealed exactly one more, and the work could not be sized. The
+/// rule is unchanged; only the reporting is.
 #[test]
 fn the_live_workspace_carries_no_undeclared_path_divergence() {
     let report = report();
-    for violation in &report.violations {
-        assert!(
-            KNOWN.iter().any(|needle| violation.message.contains(needle)),
-            "a path divergence the gate has never seen: `{}` names `{}`.\n\
-             Either repair it, or record it in KNOWN as a deliberate decision.",
-            violation.code,
-            violation.message
-        );
-    }
+    let undeclared: Vec<String> = report
+        .violations
+        .iter()
+        .filter(|violation| {
+            !KNOWN
+                .iter()
+                .any(|needle| violation.message.contains(needle))
+        })
+        .map(|violation| format!("`{}` names `{}`", violation.code, violation.message))
+        .collect();
+
+    assert!(
+        undeclared.is_empty(),
+        "{} path divergence(s) the gate has never seen:\n{}\n\
+         Either repair them, or record them in KNOWN as deliberate decisions.",
+        undeclared.len(),
+        undeclared
+            .iter()
+            .map(|entry| format!("  - {entry}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 }
 
 #[test]

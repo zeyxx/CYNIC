@@ -23,9 +23,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::deploy_locations::{
-    DeployLayout, DeployLocationsContract, DeployMachine, SkippedMachine, decide_opted_in_machines,
-};
+use crate::deploy_locations::{DeployLayout, DeployMachine, DeployLocationsContract};
 use crate::deploy_remote::{
     backup_path_for, build_backup_command, build_identity_command, build_sha256_command,
     build_smoke_command, build_stage_command, build_swap_command, parse_identity_git_sha,
@@ -81,15 +79,14 @@ pub struct StepOutcome {
 pub struct DeployOutcome {
     pub commit: String,
     pub steps: Vec<StepOutcome>,
-    pub skipped: Vec<SkippedMachine>,
     /// The machine the deploy stopped at.
     pub stopped_at: Option<String>,
 }
 
 impl DeployOutcome {
-    /// True when at least one opted-in step ran and every attempted step passed.
+    /// True when every attempted step passed.
     pub fn converged(&self) -> bool {
-        !self.steps.is_empty() && self.stopped_at.is_none()
+        self.stopped_at.is_none()
     }
 }
 
@@ -160,7 +157,7 @@ fn sha_command(deploy_path: &Path) -> RemoteCommand {
 ///
 /// The order is: stage, back up, swap, read back. The read-back is the
 /// verdict: three independent observations (bytes, commit, smoke).
-fn deploy_to_machine<E: RemoteExecutorPort>(
+pub fn deploy_to_machine<E: RemoteExecutorPort>(
     executor: &E,
     machine: &DeployMachine,
     artifact: &DeployArtifact,
@@ -343,12 +340,10 @@ fn deploy_to_machine<E: RemoteExecutorPort>(
 pub fn deploy_across<E: RemoteExecutorPort>(
     executor: &E,
     locations: &DeployLocationsContract,
-    fleet_registry: &serde_json::Value,
     order: &[String],
     artifact: &DeployArtifact,
     roots: &MachineRoots,
 ) -> DeployOutcome {
-    let (opted_in, skipped) = decide_opted_in_machines(locations, fleet_registry, order);
     let mut steps = Vec::new();
     let mut stopped_at = None;
     for machine_name in order {
@@ -359,9 +354,6 @@ pub fn deploy_across<E: RemoteExecutorPort>(
                 break;
             }
         };
-        if !opted_in.contains(machine_name) {
-            continue;
-        }
         let outcome = deploy_to_machine(executor, machine, artifact, roots);
         let failed = outcome.failure.is_some();
         steps.push(outcome);
@@ -373,7 +365,6 @@ pub fn deploy_across<E: RemoteExecutorPort>(
     DeployOutcome {
         commit: artifact.commit.clone(),
         steps,
-        skipped,
         stopped_at,
     }
 }
@@ -476,15 +467,6 @@ mod tests {
         }
     }
 
-    fn opted_in_registry(node_ids: &[&str]) -> serde_json::Value {
-        serde_json::json!({
-            "nodes": node_ids
-                .iter()
-                .map(|id| serde_json::json!({ "id": id, "deploy_target": true }))
-                .collect::<Vec<_>>(),
-        })
-    }
-
     fn artifact() -> DeployArtifact {
         DeployArtifact {
             commit: "42e56f5f1f19b7cd7ef0560255129bf7a439f82f".to_string(),
@@ -569,7 +551,6 @@ mod tests {
         let outcome = deploy_across(
             &executor,
             &registry,
-            &opted_in_registry(&["node-builder", "node-cortex"]),
             &["builder".to_string(), "cortex".to_string()],
             &artifact(),
             &roots(),
@@ -589,85 +570,12 @@ mod tests {
         let outcome = deploy_across(
             &executor,
             &registry,
-            &opted_in_registry(&["node-builder", "node-cortex"]),
             &["builder".to_string(), "cortex".to_string()],
             &artifact(),
             &roots(),
         );
         assert!(outcome.converged());
         assert_eq!(outcome.steps.len(), 2);
-    }
-
-    #[test]
-    fn an_opted_out_machine_is_skipped_before_execution_and_rollout_continues() {
-        let executor = FakeExecutor::new();
-        let locations = locations(vec![
-            machine("builder", DeployLayout::Symlink),
-            machine("cortex", DeployLayout::Flat),
-        ]);
-        let fleet_registry = serde_json::json!({
-            "nodes": [
-                { "id": "node-builder", "deploy_target": false },
-                { "id": "node-cortex", "deploy_target": true }
-            ]
-        });
-        let outcome = deploy_across(
-            &executor,
-            &locations,
-            &fleet_registry,
-            &["builder".to_string(), "cortex".to_string()],
-            &artifact(),
-            &roots(),
-        );
-        assert_eq!(outcome.steps.len(), 1);
-        assert_eq!(outcome.steps[0].machine, "cortex");
-        assert_eq!(outcome.skipped.len(), 1);
-        assert_eq!(outcome.skipped[0].machine, "builder");
-        assert!(outcome.skipped[0].reason.contains("false"));
-        assert!(outcome.converged());
-    }
-
-    #[test]
-    fn an_undeclared_opt_in_never_executes_any_machine() {
-        let executor = FakeExecutor::new();
-        let locations = locations(vec![machine("builder", DeployLayout::Symlink)]);
-        let fleet_registry = serde_json::json!({
-            "nodes": [{ "id": "node-builder" }]
-        });
-        let outcome = deploy_across(
-            &executor,
-            &locations,
-            &fleet_registry,
-            &["builder".to_string()],
-            &artifact(),
-            &roots(),
-        );
-        assert!(outcome.steps.is_empty());
-        assert_eq!(outcome.skipped.len(), 1);
-        assert!(outcome.skipped[0].reason.contains("undeclared"));
-        assert!(executor.seen.borrow().is_empty());
-        assert!(!outcome.converged());
-    }
-
-    #[test]
-    fn an_invalid_opt_in_never_executes_the_machine() {
-        let executor = FakeExecutor::new();
-        let locations = locations(vec![machine("builder", DeployLayout::Symlink)]);
-        let fleet_registry = serde_json::json!({
-            "nodes": [{ "id": "node-builder", "deploy_target": "yes" }]
-        });
-        let outcome = deploy_across(
-            &executor,
-            &locations,
-            &fleet_registry,
-            &["builder".to_string()],
-            &artifact(),
-            &roots(),
-        );
-        assert!(outcome.steps.is_empty());
-        assert_eq!(outcome.skipped.len(), 1);
-        assert!(outcome.skipped[0].reason.contains("not a boolean"));
-        assert!(executor.seen.borrow().is_empty());
     }
 
     #[test]

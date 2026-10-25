@@ -1,182 +1,888 @@
 {
-  "schema": "cynic.retired_metaphor_ledger.v1",
-  "status": "normative",
+  "entries": [
+    {
+      "count": 8,
+      "evidence": "contracts/claims.json:52",
+      "path": "contracts/claims.json",
+      "terms": "organs, dogs, organism, ORGANISM"
+    },
+    {
+      "count": 1,
+      "evidence": "contracts/debt-taxonomy.json:4",
+      "path": "contracts/debt-taxonomy.json",
+      "terms": "organism"
+    },
+    {
+      "count": 11,
+      "evidence": "contracts/foundation.json:4",
+      "path": "contracts/foundation.json",
+      "terms": "organism, organs, organic, organ"
+    },
+    {
+      "count": 5,
+      "evidence": "contracts/framework.json:7",
+      "path": "contracts/framework.json",
+      "terms": "organism, organs"
+    },
+    {
+      "count": 1,
+      "evidence": "contracts/pattern-registry.v1.json:72",
+      "path": "contracts/pattern-registry.v1.json",
+      "terms": "organic"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:37",
+      "path": "crates/cynic-cli/src/agent_surface/mod.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-cli/src/branch_audit.rs:2",
+      "path": "crates/cynic-cli/src/branch_audit.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-cli/src/build_surface.rs:196",
+      "path": "crates/cynic-cli/src/build_surface.rs",
+      "terms": "metabolic"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-cli/src/build_surface/invoice.rs:1",
+      "path": "crates/cynic-cli/src/build_surface/invoice.rs",
+      "terms": "metabolic"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-cli/src/invoice_log.rs:1",
+      "path": "crates/cynic-cli/src/invoice_log.rs",
+      "terms": "metabolic"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-cli/src/node_surface/host/capacity.rs:60",
+      "path": "crates/cynic-cli/src/node_surface/host/capacity.rs",
+      "terms": "METABOLIC"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-cli/src/runtime_surface.rs:77",
+      "path": "crates/cynic-cli/src/runtime_surface.rs",
+      "terms": "METABOLIC"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-cli/src/runtime_surface/inference_surface.rs:5",
+      "path": "crates/cynic-cli/src/runtime_surface/inference_surface.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-eval/Cargo.toml:7",
+      "path": "crates/cynic-eval/Cargo.toml",
+      "terms": "dog"
+    },
+    {
+      "count": 29,
+      "evidence": "crates/cynic-eval/src/eval/dog.rs:1",
+      "path": "crates/cynic-eval/src/eval/dog.rs",
+      "terms": "Dog, Dogs, dog, organism, dogs"
+    },
+    {
+      "count": 13,
+      "evidence": "crates/cynic-eval/src/eval/dog_health.rs:1",
+      "path": "crates/cynic-eval/src/eval/dog_health.rs",
+      "terms": "dog, Dog, organ"
+    },
+    {
+      "count": 8,
+      "evidence": "crates/cynic-eval/src/eval/mod.rs:1",
+      "path": "crates/cynic-eval/src/eval/mod.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-eval/src/harness/types.rs:12",
+      "path": "crates/cynic-eval/src/harness/types.rs",
+      "terms": "Dog, organ, dog"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-eval/src/lib.rs:5",
+      "path": "crates/cynic-eval/src/lib.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-host/src/agent/operator.rs:3",
+      "path": "crates/cynic-host/src/agent/operator.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 112,
+      "evidence": "crates/cynic-host/src/domain/metrics/mod.rs:13",
+      "path": "crates/cynic-host/src/domain/metrics/mod.rs",
+      "terms": "dog, Metabolism, organism, Dog, dogs"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-host/src/domain/metrics/observation_counters.rs:1",
+      "path": "crates/cynic-host/src/domain/metrics/observation_counters.rs",
+      "terms": "Metabolism, organism"
+    },
+    {
+      "count": 9,
+      "evidence": "crates/cynic-host/src/domain/metrics/pattern_analysis.rs:23",
+      "path": "crates/cynic-host/src/domain/metrics/pattern_analysis.rs",
+      "terms": "organism, metabolism, Dog, organ, Organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-host/src/framework_bootstrap/bundle.rs:296",
+      "path": "crates/cynic-host/src/framework_bootstrap/bundle.rs",
+      "terms": "organs"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:58",
+      "path": "crates/cynic-host/src/framework_bootstrap/bundle/tests.rs",
+      "terms": "organs, dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-host/src/framework_bootstrap/cli_install.rs:267",
+      "path": "crates/cynic-host/src/framework_bootstrap/cli_install.rs",
+      "terms": "organs"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-host/src/host_exec_cli/pve_helper_install.rs:1",
+      "path": "crates/cynic-host/src/host_exec_cli/pve_helper_install.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-host/src/lib.rs:67",
+      "path": "crates/cynic-host/src/lib.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:4",
+      "path": "crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 10,
+      "evidence": "crates/cynic-host/src/organic_opportunity/mod.rs:1",
+      "path": "crates/cynic-host/src/organic_opportunity/mod.rs",
+      "terms": "Organic, organic"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-host/src/organic_opportunity/port.rs:1",
+      "path": "crates/cynic-host/src/organic_opportunity/port.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:4",
+      "path": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-host/src/os_health/mod.rs:4",
+      "path": "crates/cynic-host/src/os_health/mod.rs",
+      "terms": "dogs"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-host/src/runtime_harness.rs:126",
+      "path": "crates/cynic-host/src/runtime_harness.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 7,
+      "evidence": "crates/cynic-inference/src/application/model_catalog.rs:32",
+      "path": "crates/cynic-inference/src/application/model_catalog.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 25,
+      "evidence": "crates/cynic-inference/src/application/node_runtime_ops.rs:4",
+      "path": "crates/cynic-inference/src/application/node_runtime_ops.rs",
+      "terms": "Dog, dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-inference/src/domain/model_store.rs:3",
+      "path": "crates/cynic-inference/src/domain/model_store.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 7,
+      "evidence": "crates/cynic-inference/src/lib.rs:45",
+      "path": "crates/cynic-inference/src/lib.rs",
+      "terms": "Dog, dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-inference/src/ports/local_runtime_port.rs:9",
+      "path": "crates/cynic-inference/src/ports/local_runtime_port.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-inference/src/ports/routing_event_port.rs:10",
+      "path": "crates/cynic-inference/src/ports/routing_event_port.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-intel/src/adapters/agentic_tool_call_adapter.rs:13",
+      "path": "crates/cynic-intel/src/adapters/agentic_tool_call_adapter.rs",
+      "terms": "dog, Dog"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-intel/src/adapters/helius/holders.rs:404",
+      "path": "crates/cynic-intel/src/adapters/helius/holders.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-intel/src/adapters/helius/mod.rs:263",
+      "path": "crates/cynic-intel/src/adapters/helius/mod.rs",
+      "terms": "Dogs, dog"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-intel/src/adapters/solana_safety_adapter.rs:4",
+      "path": "crates/cynic-intel/src/adapters/solana_safety_adapter.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-intel/src/ccm/crystal.rs:77",
+      "path": "crates/cynic-intel/src/ccm/crystal.rs",
+      "terms": "Dog, dog"
+    },
+    {
+      "count": 10,
+      "evidence": "crates/cynic-intel/src/ccm/engine.rs:206",
+      "path": "crates/cynic-intel/src/ccm/engine.rs",
+      "terms": "Dog, Dogs, dog"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-intel/src/ccm/intake/slug.rs:292",
+      "path": "crates/cynic-intel/src/ccm/intake/slug.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-intel/src/ccm/intake/tests.rs:211",
+      "path": "crates/cynic-intel/src/ccm/intake/tests.rs",
+      "terms": "dogs"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-intel/src/domain_enrichment.rs:3",
+      "path": "crates/cynic-intel/src/domain_enrichment.rs",
+      "terms": "Dogs, Dog"
+    },
+    {
+      "count": 36,
+      "evidence": "crates/cynic-intel/src/epistemic/consensus.rs:3",
+      "path": "crates/cynic-intel/src/epistemic/consensus.rs",
+      "terms": "Dog, dogs, dog"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-intel/src/epistemic/types.rs:46",
+      "path": "crates/cynic-intel/src/epistemic/types.rs",
+      "terms": "Dog, dog, dogs"
+    },
+    {
+      "count": 12,
+      "evidence": "crates/cynic-intel/src/kscore.rs:18",
+      "path": "crates/cynic-intel/src/kscore.rs",
+      "terms": "organic, Organic"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-intel/src/lib.rs:18",
+      "path": "crates/cynic-intel/src/lib.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:4",
+      "path": "crates/cynic-intel/src/ports/solana_ports.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-intel/src/rug_prefilter.rs:1",
+      "path": "crates/cynic-intel/src/rug_prefilter.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 10,
+      "evidence": "crates/cynic-intel/src/soc/rules.rs:26",
+      "path": "crates/cynic-intel/src/soc/rules.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-intel/src/solana_safety_dog.rs:1",
+      "path": "crates/cynic-intel/src/solana_safety_dog.rs",
+      "terms": "Dog"
+    },
+    {
+      "count": 8,
+      "evidence": "crates/cynic-intel/src/stimulus.rs:11",
+      "path": "crates/cynic-intel/src/stimulus.rs",
+      "terms": "Dogs, organic"
+    },
+    {
+      "count": 8,
+      "evidence": "crates/cynic-intel/src/token_postprocessor.rs:19",
+      "path": "crates/cynic-intel/src/token_postprocessor.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-intel/src/wallet_enrichment.rs:27",
+      "path": "crates/cynic-intel/src/wallet_enrichment.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 35,
+      "evidence": "crates/cynic-intel/src/wallet_judgment.rs:1",
+      "path": "crates/cynic-intel/src/wallet_judgment.rs",
+      "terms": "dog, Dog"
+    },
+    {
+      "count": 15,
+      "evidence": "crates/cynic-kernel/src/domain/constants.rs:18",
+      "path": "crates/cynic-kernel/src/domain/constants.rs",
+      "terms": "Dog, Dogs, DOG"
+    },
+    {
+      "count": 8,
+      "evidence": "crates/cynic-kernel/src/domain/events.rs:21",
+      "path": "crates/cynic-kernel/src/domain/events.rs",
+      "terms": "Dog, dog, organism"
+    },
+    {
+      "count": 6,
+      "evidence": "crates/cynic-kernel/src/domain/probe.rs:44",
+      "path": "crates/cynic-kernel/src/domain/probe.rs",
+      "terms": "Dog, dog, dogs"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-kernel/src/domain/zones.rs:130",
+      "path": "crates/cynic-kernel/src/domain/zones.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-kernel/src/infra/config/loading.rs:2",
+      "path": "crates/cynic-kernel/src/infra/config/loading.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-kernel/src/infra/config/mod.rs:13",
+      "path": "crates/cynic-kernel/src/infra/config/mod.rs",
+      "terms": "organ, Dog, Organ"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-kernel/src/infra/config/model.rs:3",
+      "path": "crates/cynic-kernel/src/infra/config/model.rs",
+      "terms": "Dog, Organ"
+    },
+    {
+      "count": 9,
+      "evidence": "crates/cynic-kernel/src/infra/config_loader/backend.rs:5",
+      "path": "crates/cynic-kernel/src/infra/config_loader/backend.rs",
+      "terms": "Organs, Organ, organ, organs"
+    },
+    {
+      "count": 11,
+      "evidence": "crates/cynic-kernel/src/infra/config_schema.rs:10",
+      "path": "crates/cynic-kernel/src/infra/config_schema.rs",
+      "terms": "organic, dog, dogs, Dog, Organs, organs, Organ"
+    },
+    {
+      "count": 22,
+      "evidence": "crates/cynic-kernel/src/infra/config_types.rs:8",
+      "path": "crates/cynic-kernel/src/infra/config_types.rs",
+      "terms": "Dog, Dogs, dog, organic, dogs, organ, organs, Organ"
+    },
+    {
+      "count": 16,
+      "evidence": "crates/cynic-kernel/src/storage/schema_manifest.json:33",
+      "path": "crates/cynic-kernel/src/storage/schema_manifest.json",
+      "terms": "dog, organism, Dog, organ, Organism, dogs, organs"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-knowledge/src/adapters/epistemic_harvester.rs:754",
+      "path": "crates/cynic-knowledge/src/adapters/epistemic_harvester.rs",
+      "terms": "Dog, organism"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-knowledge/src/domain/chunk_quality.rs:48",
+      "path": "crates/cynic-knowledge/src/domain/chunk_quality.rs",
+      "terms": "organic"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-lifecycle/src/activation_requests/summary.rs:114",
+      "path": "crates/cynic-lifecycle/src/activation_requests/summary.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-lifecycle/src/activation_requests/validation.rs:71",
+      "path": "crates/cynic-lifecycle/src/activation_requests/validation.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-lifecycle/src/diagnostics.rs:283",
+      "path": "crates/cynic-lifecycle/src/diagnostics.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-lifecycle/src/forge_task_contract.rs:4",
+      "path": "crates/cynic-lifecycle/src/forge_task_contract.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs:11",
+      "path": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-lifecycle/src/repair.rs:82",
+      "path": "crates/cynic-lifecycle/src/repair.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-lifecycle/src/workflow_state.rs:3",
+      "path": "crates/cynic-lifecycle/src/workflow_state.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-network/src/types.rs:28",
+      "path": "crates/cynic-network/src/types.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-node/src/adapters/registry/mod.rs:84",
+      "path": "crates/cynic-node/src/adapters/registry/mod.rs",
+      "terms": "organs, organ"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-node/src/adapters/registry/model.rs:10",
+      "path": "crates/cynic-node/src/adapters/registry/model.rs",
+      "terms": "organs, Organ"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-node/src/adapters/surrealdb/mod.rs:61",
+      "path": "crates/cynic-node/src/adapters/surrealdb/mod.rs",
+      "terms": "Organ, organs"
+    },
+    {
+      "count": 39,
+      "evidence": "crates/cynic-node/src/announce.rs:15",
+      "path": "crates/cynic-node/src/announce.rs",
+      "terms": "dogs, dog, Dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/config/defaults.rs:9",
+      "path": "crates/cynic-node/src/config/defaults.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 8,
+      "evidence": "crates/cynic-node/src/config/load.rs:30",
+      "path": "crates/cynic-node/src/config/load.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 25,
+      "evidence": "crates/cynic-node/src/config/tests.rs:9",
+      "path": "crates/cynic-node/src/config/tests.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-node/src/config/types.rs:10",
+      "path": "crates/cynic-node/src/config/types.rs",
+      "terms": "dog, Dog"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-node/src/config_watch.rs:92",
+      "path": "crates/cynic-node/src/config_watch.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/dns_activation/registry.rs:33",
+      "path": "crates/cynic-node/src/dns_activation/registry.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/dns_activation_status.rs:188",
+      "path": "crates/cynic-node/src/dns_activation_status.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-node/src/dns_bundle.rs:117",
+      "path": "crates/cynic-node/src/dns_bundle.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-node/src/dns_plan.rs:26",
+      "path": "crates/cynic-node/src/dns_plan.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/domain/bootstrap.rs:1",
+      "path": "crates/cynic-node/src/domain/bootstrap.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 7,
+      "evidence": "crates/cynic-node/src/domain/fleet_truth/mod.rs:3",
+      "path": "crates/cynic-node/src/domain/fleet_truth/mod.rs",
+      "terms": "organ, organs"
+    },
+    {
+      "count": 23,
+      "evidence": "crates/cynic-node/src/domain/fleet_truth/rules.rs:86",
+      "path": "crates/cynic-node/src/domain/fleet_truth/rules.rs",
+      "terms": "organ, organs, Organ"
+    },
+    {
+      "count": 3,
+      "evidence": "crates/cynic-node/src/domain/fleet_truth/tests.rs:25",
+      "path": "crates/cynic-node/src/domain/fleet_truth/tests.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/domain/mesh.rs:11",
+      "path": "crates/cynic-node/src/domain/mesh.rs",
+      "terms": "Organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/domain/node_observation/rules.rs:113",
+      "path": "crates/cynic-node/src/domain/node_observation/rules.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 10,
+      "evidence": "crates/cynic-node/src/domain/version.rs:3",
+      "path": "crates/cynic-node/src/domain/version.rs",
+      "terms": "organism, organ, Metabolic, Organism, Organ"
+    },
+    {
+      "count": 5,
+      "evidence": "crates/cynic-node/src/inference_node_ops.rs:8",
+      "path": "crates/cynic-node/src/inference_node_ops.rs",
+      "terms": "Dog, dog"
+    },
+    {
+      "count": 9,
+      "evidence": "crates/cynic-node/src/inference_operations.rs:10",
+      "path": "crates/cynic-node/src/inference_operations.rs",
+      "terms": "Dog, dog"
+    },
+    {
+      "count": 4,
+      "evidence": "crates/cynic-node/src/main.rs:84",
+      "path": "crates/cynic-node/src/main.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/network_evidence.rs:71",
+      "path": "crates/cynic-node/src/network_evidence.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/network_shadow_proof.rs:175",
+      "path": "crates/cynic-node/src/network_shadow_proof.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/ports/build_runner.rs:353",
+      "path": "crates/cynic-node/src/ports/build_runner.rs",
+      "terms": "metabolic"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/ports/ssot_port.rs:6",
+      "path": "crates/cynic-node/src/ports/ssot_port.rs",
+      "terms": "organs"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/provider_fallback_hosts.rs:36",
+      "path": "crates/cynic-node/src/provider_fallback_hosts.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-node/src/provider_fallback_status.rs:90",
+      "path": "crates/cynic-node/src/provider_fallback_status.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 21,
+      "evidence": "crates/cynic-node/src/runtime_supervision.rs:66",
+      "path": "crates/cynic-node/src/runtime_supervision.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 28,
+      "evidence": "crates/cynic-node/src/runtime_supervision/lifecycle.rs:59",
+      "path": "crates/cynic-node/src/runtime_supervision/lifecycle.rs",
+      "terms": "dog, Dog"
+    },
+    {
+      "count": 41,
+      "evidence": "crates/cynic-node/src/task_health.rs:76",
+      "path": "crates/cynic-node/src/task_health.rs",
+      "terms": "dog, DOG, dogs, organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/agent_coordination_uc.rs:273",
+      "path": "crates/cynic-node/src/usecases/agent_coordination_uc.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/mesh_sync_uc.rs:34",
+      "path": "crates/cynic-node/src/usecases/mesh_sync_uc.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/watchdog.rs:2",
+      "path": "crates/cynic-node/src/watchdog.rs",
+      "terms": "Dog"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-node/src/watchdog/kernel_bridge.rs:39",
+      "path": "crates/cynic-node/src/watchdog/kernel_bridge.rs",
+      "terms": "organ"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-node/src/watchdog/sampler.rs:162",
+      "path": "crates/cynic-node/src/watchdog/sampler.rs",
+      "terms": "dog"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-pkg/src/registry.rs:23",
+      "path": "crates/cynic-pkg/src/registry.rs",
+      "terms": "organism"
+    },
+    {
+      "count": 1,
+      "evidence": "crates/cynic-protocol/src/throughput_invoice.rs:19",
+      "path": "crates/cynic-protocol/src/throughput_invoice.rs",
+      "terms": "metabolic"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-storage/src/book/mod.rs:6",
+      "path": "crates/cynic-storage/src/book/mod.rs",
+      "terms": "Metabolism"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-storage/src/lib.rs:91",
+      "path": "crates/cynic-storage/src/lib.rs",
+      "terms": "metabolic"
+    },
+    {
+      "count": 1,
+      "evidence": "docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json:1",
+      "path": "docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json",
+      "terms": "DOG"
+    },
+    {
+      "count": 6,
+      "evidence": "docs/public/facts.live.json:154",
+      "path": "docs/public/facts.live.json",
+      "terms": "organism, dog, Dog, organic"
+    },
+    {
+      "count": 7,
+      "evidence": "infra/agent-exposure.json:541",
+      "path": "infra/agent-exposure.json",
+      "terms": "metabolism, organism, organ"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/agent-roles.json:146",
+      "path": "infra/agent-roles.json",
+      "terms": "metabolic"
+    },
+    {
+      "count": 10,
+      "evidence": "infra/audit-debt-ledger.json:1667",
+      "path": "infra/audit-debt-ledger.json",
+      "terms": "organism, organ, dog, organic, metabolism, metabolic, genome"
+    },
+    {
+      "count": 10,
+      "evidence": "infra/cynicpedia.json:478",
+      "path": "infra/cynicpedia.json",
+      "terms": "Organic, organic, ORGANIC"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/directory-tree.json:198",
+      "path": "infra/directory-tree.json",
+      "terms": "organs, organ"
+    },
+    {
+      "count": 1,
+      "evidence": "infra/github-interactions-graph.json:137",
+      "path": "infra/github-interactions-graph.json",
+      "terms": "organic"
+    },
+    {
+      "count": 1,
+      "evidence": "infra/module-inversion-ledger.json:122",
+      "path": "infra/module-inversion-ledger.json",
+      "terms": "dog"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/pattern-registry.json:7",
+      "path": "infra/pattern-registry.json",
+      "terms": "organic, Organic"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/registry.json:4",
+      "path": "infra/registry.json",
+      "terms": "organism, organ"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/registry_authority.json:106",
+      "path": "infra/registry_authority.json",
+      "terms": "organ"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/repos-zeyxx-github.json:1",
+      "path": "infra/repos-zeyxx-github.json",
+      "terms": "organism, dog"
+    },
+    {
+      "count": 2,
+      "evidence": "infra/runtime-authority.json:4",
+      "path": "infra/runtime-authority.json",
+      "terms": "organism, organs"
+    },
+    {
+      "count": 3,
+      "evidence": "services/relay-gateway/package-lock.json:4501",
+      "path": "services/relay-gateway/package-lock.json",
+      "terms": "Dog, DOg"
+    }
+  ],
+  "exempt_composed_identifiers": {
+    "organ-forge": "a live name, exempted by whole identifier",
+    "organ-forgejo": "a live name, exempted by whole identifier",
+    "organ-headscale": "a live name, exempted by whole identifier",
+    "organ-surrealdb": "a live name, exempted by whole identifier"
+  },
+  "exempt_infrastructure_identifiers": {
+    "cortex": "the operator workstation hostname (cynic-host-cortex); renaming it would break host addressing",
+    "synapse": "the service network plane (*.synapse.cynic); renaming it would break live DNS"
+  },
+  "measured": {
+    "by_term": {
+      "DOG": 3,
+      "DOg": 1,
+      "Dog": 32,
+      "Dogs": 7,
+      "METABOLIC": 2,
+      "Metabolic": 1,
+      "Metabolism": 3,
+      "ORGANIC": 1,
+      "ORGANISM": 1,
+      "Organ": 10,
+      "Organic": 4,
+      "Organism": 3,
+      "Organs": 2,
+      "dog": 48,
+      "dogs": 13,
+      "genome": 1,
+      "metabolic": 8,
+      "metabolism": 3,
+      "organ": 36,
+      "organic": 19,
+      "organism": 33,
+      "organs": 18
+    },
+    "files": 138,
+    "note": "Observation at ratification. Regenerated only by deliberate act.",
+    "occurrences": 900
+  },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {
     "growth": "blocked -- a new file, or a count above the recorded one, fails",
     "shrink": "required -- an entry with no observed occurrence must be deleted",
     "why_not_a_threshold": "A threshold is a policy that erodes: it tolerates the next occurrence by construction. An exact per-file count does not, because any increase is a distinct, named failure."
   },
+  "schema": "cynic.retired_metaphor_ledger.v1",
+  "status": "normative",
   "vocabulary": {
-    "organ": "component",
     "dog": "evaluator",
-    "organism": "deployment",
-    "organic": "candidate",
-    "metabolism": "throughput",
+    "genome": "baseline",
     "metabolic": "throughput",
-    "genome": "baseline"
-  },
-  "exempt_infrastructure_identifiers": {
-    "synapse": "the service network plane (*.synapse.cynic); renaming it would break live DNS",
-    "cortex": "the operator workstation hostname (cynic-host-cortex); renaming it would break host addressing"
-  },
-  "exempt_composed_identifiers": {
-    "organ-headscale": "a live name, exempted by whole identifier",
-    "organ-forgejo": "a live name, exempted by whole identifier",
-    "organ-surrealdb": "a live name, exempted by whole identifier",
-    "organ-forge": "a live name, exempted by whole identifier"
-  },
-  "measured": {
-    "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "files": 136,
-    "occurrences": 886,
-    "by_term": {
-      "dog": 1121,
-      "dogs": 416,
-      "metabolic": 24,
-      "metabolism": 135,
-      "organ": 299,
-      "organic": 151,
-      "organism": 325,
-      "organs": 166
-    }
-  },
-  "entries": [
-    {"path": "contracts/claims.json", "count": 8, "evidence": "contracts/claims.json:52", "terms": "organs, dogs, organism, ORGANISM"},
-    {"path": "contracts/debt-taxonomy.json", "count": 1, "evidence": "contracts/debt-taxonomy.json:4", "terms": "organism"},
-    {"path": "contracts/foundation.json", "count": 11, "evidence": "contracts/foundation.json:4", "terms": "organism, organs, organic, organ"},
-    {"path": "contracts/framework.json", "count": 5, "evidence": "contracts/framework.json:7", "terms": "organism, organs"},
-    {"path": "contracts/pattern-registry.v1.json", "count": 1, "evidence": "contracts/pattern-registry.v1.json:72", "terms": "organic"},
-    {"path": "crates/cynic-cli/src/agent_surface/mod.rs", "count": 1, "evidence": "crates/cynic-cli/src/agent_surface/mod.rs:38", "terms": "organism"},
-    {"path": "crates/cynic-cli/src/branch_audit.rs", "count": 1, "evidence": "crates/cynic-cli/src/branch_audit.rs:2", "terms": "organism"},
-    {"path": "crates/cynic-cli/src/build_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/build_surface.rs:132", "terms": "metabolic"},
-    {"path": "crates/cynic-cli/src/build_surface/invoice.rs", "count": 2, "evidence": "crates/cynic-cli/src/build_surface/invoice.rs:1", "terms": "metabolic"},
-    {"path": "crates/cynic-cli/src/deps_surface_specs.rs", "count": 1, "evidence": "crates/cynic-cli/src/deps_surface_specs.rs:29", "terms": "organism"},
-    {"path": "crates/cynic-cli/src/invoice_log.rs", "count": 3, "evidence": "crates/cynic-cli/src/invoice_log.rs:1", "terms": "metabolic"},
-    {"path": "crates/cynic-cli/src/node_surface/host/capacity.rs", "count": 1, "evidence": "crates/cynic-cli/src/node_surface/host/capacity.rs:60", "terms": "METABOLIC"},
-    {"path": "crates/cynic-cli/src/runtime_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/runtime_surface.rs:73", "terms": "METABOLIC"},
-    {"path": "crates/cynic-cli/src/runtime_surface/inference_surface.rs", "count": 1, "evidence": "crates/cynic-cli/src/runtime_surface/inference_surface.rs:5", "terms": "organism"},
-    {"path": "crates/cynic-eval/Cargo.toml", "count": 1, "evidence": "crates/cynic-eval/Cargo.toml:7", "terms": "dog"},
-    {"path": "crates/cynic-eval/src/eval/dog.rs", "count": 29, "evidence": "crates/cynic-eval/src/eval/dog.rs:1", "terms": "Dog, Dogs, dog, organism, dogs"},
-    {"path": "crates/cynic-eval/src/eval/dog_health.rs", "count": 13, "evidence": "crates/cynic-eval/src/eval/dog_health.rs:1", "terms": "dog, Dog, organ"},
-    {"path": "crates/cynic-eval/src/eval/mod.rs", "count": 8, "evidence": "crates/cynic-eval/src/eval/mod.rs:1", "terms": "dog"},
-    {"path": "crates/cynic-eval/src/harness/types.rs", "count": 5, "evidence": "crates/cynic-eval/src/harness/types.rs:12", "terms": "Dog, organ, dog"},
-    {"path": "crates/cynic-eval/src/lib.rs", "count": 2, "evidence": "crates/cynic-eval/src/lib.rs:5", "terms": "dog"},
-    {"path": "crates/cynic-host/src/agent/operator.rs", "count": 4, "evidence": "crates/cynic-host/src/agent/operator.rs:3", "terms": "organism"},
-    {"path": "crates/cynic-host/src/domain/metrics/mod.rs", "count": 112, "evidence": "crates/cynic-host/src/domain/metrics/mod.rs:13", "terms": "dog, Metabolism, organism, Dog, dogs"},
-    {"path": "crates/cynic-host/src/domain/metrics/observation_counters.rs", "count": 5, "evidence": "crates/cynic-host/src/domain/metrics/observation_counters.rs:1", "terms": "Metabolism, organism"},
-    {"path": "crates/cynic-host/src/domain/metrics/pattern_analysis.rs", "count": 9, "evidence": "crates/cynic-host/src/domain/metrics/pattern_analysis.rs:23", "terms": "organism, metabolism, Dog, organ, Organ"},
-    {"path": "crates/cynic-host/src/framework_bootstrap/bundle.rs", "count": 1, "evidence": "crates/cynic-host/src/framework_bootstrap/bundle.rs:293", "terms": "organs"},
-    {"path": "crates/cynic-host/src/framework_bootstrap/bundle/tests.rs", "count": 2, "evidence": "crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:58", "terms": "organs, dog"},
-    {"path": "crates/cynic-host/src/framework_bootstrap/cli_install.rs", "count": 1, "evidence": "crates/cynic-host/src/framework_bootstrap/cli_install.rs:267", "terms": "organs"},
-    {"path": "crates/cynic-host/src/host_exec_cli/pve_helper_install.rs", "count": 5, "evidence": "crates/cynic-host/src/host_exec_cli/pve_helper_install.rs:1", "terms": "organism"},
-    {"path": "crates/cynic-host/src/lib.rs", "count": 1, "evidence": "crates/cynic-host/src/lib.rs:66", "terms": "organic"},
-    {"path": "crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs", "count": 2, "evidence": "crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:4", "terms": "organic"},
-    {"path": "crates/cynic-host/src/organic_opportunity/mod.rs", "count": 10, "evidence": "crates/cynic-host/src/organic_opportunity/mod.rs:1", "terms": "Organic, organic"},
-    {"path": "crates/cynic-host/src/organic_opportunity/port.rs", "count": 1, "evidence": "crates/cynic-host/src/organic_opportunity/port.rs:1", "terms": "organic"},
-    {"path": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs", "count": 2, "evidence": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:4", "terms": "organic"},
-    {"path": "crates/cynic-host/src/os_health/mod.rs", "count": 1, "evidence": "crates/cynic-host/src/os_health/mod.rs:4", "terms": "dogs"},
-    {"path": "crates/cynic-host/src/runtime_harness.rs", "count": 1, "evidence": "crates/cynic-host/src/runtime_harness.rs:126", "terms": "organism"},
-    {"path": "crates/cynic-inference/src/application/model_catalog.rs", "count": 7, "evidence": "crates/cynic-inference/src/application/model_catalog.rs:32", "terms": "dog"},
-    {"path": "crates/cynic-inference/src/application/node_runtime_ops.rs", "count": 25, "evidence": "crates/cynic-inference/src/application/node_runtime_ops.rs:4", "terms": "Dog, dog"},
-    {"path": "crates/cynic-inference/src/domain/model_store.rs", "count": 1, "evidence": "crates/cynic-inference/src/domain/model_store.rs:3", "terms": "organism"},
-    {"path": "crates/cynic-inference/src/lib.rs", "count": 7, "evidence": "crates/cynic-inference/src/lib.rs:44", "terms": "Dog, dog"},
-    {"path": "crates/cynic-inference/src/ports/local_runtime_port.rs", "count": 1, "evidence": "crates/cynic-inference/src/ports/local_runtime_port.rs:9", "terms": "organism"},
-    {"path": "crates/cynic-inference/src/ports/routing_event_port.rs", "count": 1, "evidence": "crates/cynic-inference/src/ports/routing_event_port.rs:10", "terms": "dog"},
-    {"path": "crates/cynic-intel-soc/src/ports.rs", "count": 1, "evidence": "crates/cynic-intel-soc/src/ports.rs:8", "terms": "organism"},
-    {"path": "crates/cynic-intel-soc/src/rules.rs", "count": 13, "evidence": "crates/cynic-intel-soc/src/rules.rs:5", "terms": "organ, organs, dog"},
-    {"path": "crates/cynic-intel/src/adapters/agentic_tool_call_adapter.rs", "count": 4, "evidence": "crates/cynic-intel/src/adapters/agentic_tool_call_adapter.rs:13", "terms": "dog, Dog"},
-    {"path": "crates/cynic-intel/src/adapters/helius/holders.rs", "count": 2, "evidence": "crates/cynic-intel/src/adapters/helius/holders.rs:404", "terms": "organic"},
-    {"path": "crates/cynic-intel/src/adapters/helius/mod.rs", "count": 2, "evidence": "crates/cynic-intel/src/adapters/helius/mod.rs:263", "terms": "Dogs, dog"},
-    {"path": "crates/cynic-intel/src/adapters/solana_safety_adapter.rs", "count": 2, "evidence": "crates/cynic-intel/src/adapters/solana_safety_adapter.rs:4", "terms": "dog"},
-    {"path": "crates/cynic-intel/src/ccm/crystal.rs", "count": 5, "evidence": "crates/cynic-intel/src/ccm/crystal.rs:77", "terms": "Dog, dog"},
-    {"path": "crates/cynic-intel/src/ccm/engine.rs", "count": 10, "evidence": "crates/cynic-intel/src/ccm/engine.rs:206", "terms": "Dog, Dogs, dog"},
-    {"path": "crates/cynic-intel/src/ccm/intake/slug.rs", "count": 3, "evidence": "crates/cynic-intel/src/ccm/intake/slug.rs:292", "terms": "dog"},
-    {"path": "crates/cynic-intel/src/ccm/intake/tests.rs", "count": 2, "evidence": "crates/cynic-intel/src/ccm/intake/tests.rs:211", "terms": "dogs"},
-    {"path": "crates/cynic-intel/src/domain_enrichment.rs", "count": 4, "evidence": "crates/cynic-intel/src/domain_enrichment.rs:3", "terms": "Dogs, Dog"},
-    {"path": "crates/cynic-intel/src/epistemic/consensus.rs", "count": 36, "evidence": "crates/cynic-intel/src/epistemic/consensus.rs:3", "terms": "Dog, dogs, dog"},
-    {"path": "crates/cynic-intel/src/epistemic/types.rs", "count": 3, "evidence": "crates/cynic-intel/src/epistemic/types.rs:46", "terms": "Dog, dog, dogs"},
-    {"path": "crates/cynic-intel/src/kscore.rs", "count": 12, "evidence": "crates/cynic-intel/src/kscore.rs:18", "terms": "organic, Organic"},
-    {"path": "crates/cynic-intel/src/lib.rs", "count": 1, "evidence": "crates/cynic-intel/src/lib.rs:16", "terms": "dog"},
-    {"path": "crates/cynic-intel/src/ports/solana_ports.rs", "count": 3, "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:4", "terms": "dog"},
-    {"path": "crates/cynic-intel/src/rug_prefilter.rs", "count": 1, "evidence": "crates/cynic-intel/src/rug_prefilter.rs:1", "terms": "dog"},
-    {"path": "crates/cynic-intel/src/solana_safety_dog.rs", "count": 1, "evidence": "crates/cynic-intel/src/solana_safety_dog.rs:1", "terms": "Dog"},
-    {"path": "crates/cynic-intel/src/stimulus.rs", "count": 8, "evidence": "crates/cynic-intel/src/stimulus.rs:11", "terms": "Dogs, organic"},
-    {"path": "crates/cynic-intel/src/token_postprocessor.rs", "count": 8, "evidence": "crates/cynic-intel/src/token_postprocessor.rs:19", "terms": "organic"},
-    {"path": "crates/cynic-intel/src/wallet_enrichment.rs", "count": 4, "evidence": "crates/cynic-intel/src/wallet_enrichment.rs:27", "terms": "dog"},
-    {"path": "crates/cynic-intel/src/wallet_judgment.rs", "count": 35, "evidence": "crates/cynic-intel/src/wallet_judgment.rs:1", "terms": "dog, Dog"},
-    {"path": "crates/cynic-kernel/src/domain/constants.rs", "count": 15, "evidence": "crates/cynic-kernel/src/domain/constants.rs:18", "terms": "Dog, Dogs, DOG"},
-    {"path": "crates/cynic-kernel/src/domain/events.rs", "count": 8, "evidence": "crates/cynic-kernel/src/domain/events.rs:21", "terms": "Dog, dog, organism"},
-    {"path": "crates/cynic-kernel/src/domain/probe.rs", "count": 6, "evidence": "crates/cynic-kernel/src/domain/probe.rs:44", "terms": "Dog, dog, dogs"},
-    {"path": "crates/cynic-kernel/src/domain/zones.rs", "count": 1, "evidence": "crates/cynic-kernel/src/domain/zones.rs:130", "terms": "dog"},
-    {"path": "crates/cynic-kernel/src/infra/config/loading.rs", "count": 1, "evidence": "crates/cynic-kernel/src/infra/config/loading.rs:2", "terms": "organ"},
-    {"path": "crates/cynic-kernel/src/infra/config/mod.rs", "count": 5, "evidence": "crates/cynic-kernel/src/infra/config/mod.rs:13", "terms": "organ, Dog, Organ"},
-    {"path": "crates/cynic-kernel/src/infra/config/model.rs", "count": 4, "evidence": "crates/cynic-kernel/src/infra/config/model.rs:3", "terms": "Dog, Organ"},
-    {"path": "crates/cynic-kernel/src/infra/config_loader/backend.rs", "count": 9, "evidence": "crates/cynic-kernel/src/infra/config_loader/backend.rs:5", "terms": "Organs, Organ, organ, organs"},
-    {"path": "crates/cynic-kernel/src/infra/config_schema.rs", "count": 11, "evidence": "crates/cynic-kernel/src/infra/config_schema.rs:10", "terms": "organic, dog, dogs, Dog, Organs, organs, Organ"},
-    {"path": "crates/cynic-kernel/src/infra/config_types.rs", "count": 22, "evidence": "crates/cynic-kernel/src/infra/config_types.rs:8", "terms": "Dog, Dogs, dog, organic, dogs, organ, organs, Organ"},
-    {"path": "crates/cynic-kernel/src/storage/schema_manifest.json", "count": 16, "evidence": "crates/cynic-kernel/src/storage/schema_manifest.json:33", "terms": "dog, organism, Dog, organ, Organism, dogs, organs"},
-    {"path": "crates/cynic-knowledge/src/domain/chunk_quality.rs", "count": 3, "evidence": "crates/cynic-knowledge/src/domain/chunk_quality.rs:48", "terms": "organic"},
-    {"path": "crates/cynic-lifecycle/src/activation_requests/summary.rs", "count": 2, "evidence": "crates/cynic-lifecycle/src/activation_requests/summary.rs:114", "terms": "organ"},
-    {"path": "crates/cynic-lifecycle/src/activation_requests/validation.rs", "count": 2, "evidence": "crates/cynic-lifecycle/src/activation_requests/validation.rs:71", "terms": "organ"},
-    {"path": "crates/cynic-lifecycle/src/diagnostics.rs", "count": 5, "evidence": "crates/cynic-lifecycle/src/diagnostics.rs:283", "terms": "organ"},
-    {"path": "crates/cynic-lifecycle/src/forge_task_contract.rs", "count": 2, "evidence": "crates/cynic-lifecycle/src/forge_task_contract.rs:4", "terms": "organ"},
-    {"path": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs", "count": 4, "evidence": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs:11", "terms": "organ"},
-    {"path": "crates/cynic-lifecycle/src/repair.rs", "count": 1, "evidence": "crates/cynic-lifecycle/src/repair.rs:82", "terms": "organism"},
-    {"path": "crates/cynic-lifecycle/src/workflow_state.rs", "count": 5, "evidence": "crates/cynic-lifecycle/src/workflow_state.rs:3", "terms": "organ"},
-    {"path": "crates/cynic-network/src/types.rs", "count": 2, "evidence": "crates/cynic-network/src/types.rs:28", "terms": "organism"},
-    {"path": "crates/cynic-node/src/adapters/registry/mod.rs", "count": 4, "evidence": "crates/cynic-node/src/adapters/registry/mod.rs:84", "terms": "organs, organ"},
-    {"path": "crates/cynic-node/src/adapters/registry/model.rs", "count": 3, "evidence": "crates/cynic-node/src/adapters/registry/model.rs:10", "terms": "organs, Organ"},
-    {"path": "crates/cynic-node/src/adapters/surrealdb/mod.rs", "count": 5, "evidence": "crates/cynic-node/src/adapters/surrealdb/mod.rs:61", "terms": "Organ, organs"},
-    {"path": "crates/cynic-node/src/announce.rs", "count": 39, "evidence": "crates/cynic-node/src/announce.rs:15", "terms": "dogs, dog, Dog"},
-    {"path": "crates/cynic-node/src/config/defaults.rs", "count": 1, "evidence": "crates/cynic-node/src/config/defaults.rs:9", "terms": "dog"},
-    {"path": "crates/cynic-node/src/config/load.rs", "count": 8, "evidence": "crates/cynic-node/src/config/load.rs:30", "terms": "dog"},
-    {"path": "crates/cynic-node/src/config/tests.rs", "count": 25, "evidence": "crates/cynic-node/src/config/tests.rs:9", "terms": "dog"},
-    {"path": "crates/cynic-node/src/config/types.rs", "count": 4, "evidence": "crates/cynic-node/src/config/types.rs:10", "terms": "dog, Dog"},
-    {"path": "crates/cynic-node/src/config_watch.rs", "count": 2, "evidence": "crates/cynic-node/src/config_watch.rs:92", "terms": "dog"},
-    {"path": "crates/cynic-node/src/dns_activation/registry.rs", "count": 1, "evidence": "crates/cynic-node/src/dns_activation/registry.rs:33", "terms": "organ"},
-    {"path": "crates/cynic-node/src/dns_activation_status.rs", "count": 1, "evidence": "crates/cynic-node/src/dns_activation_status.rs:176", "terms": "organ"},
-    {"path": "crates/cynic-node/src/dns_bundle.rs", "count": 2, "evidence": "crates/cynic-node/src/dns_bundle.rs:117", "terms": "organ"},
-    {"path": "crates/cynic-node/src/dns_plan.rs", "count": 2, "evidence": "crates/cynic-node/src/dns_plan.rs:26", "terms": "organ"},
-    {"path": "crates/cynic-node/src/domain/bootstrap.rs", "count": 1, "evidence": "crates/cynic-node/src/domain/bootstrap.rs:1", "terms": "organism"},
-    {"path": "crates/cynic-node/src/domain/fleet_truth/mod.rs", "count": 7, "evidence": "crates/cynic-node/src/domain/fleet_truth/mod.rs:3", "terms": "organ, organs"},
-    {"path": "crates/cynic-node/src/domain/fleet_truth/rules.rs", "count": 23, "evidence": "crates/cynic-node/src/domain/fleet_truth/rules.rs:86", "terms": "organ, organs, Organ"},
-    {"path": "crates/cynic-node/src/domain/fleet_truth/tests.rs", "count": 3, "evidence": "crates/cynic-node/src/domain/fleet_truth/tests.rs:25", "terms": "organ"},
-    {"path": "crates/cynic-node/src/domain/mesh.rs", "count": 1, "evidence": "crates/cynic-node/src/domain/mesh.rs:11", "terms": "Organism"},
-    {"path": "crates/cynic-node/src/domain/node_observation/rules.rs", "count": 1, "evidence": "crates/cynic-node/src/domain/node_observation/rules.rs:113", "terms": "organism"},
-    {"path": "crates/cynic-node/src/domain/version.rs", "count": 10, "evidence": "crates/cynic-node/src/domain/version.rs:3", "terms": "organism, organ, Metabolic, Organism, Organ"},
-    {"path": "crates/cynic-node/src/inference_node_ops.rs", "count": 5, "evidence": "crates/cynic-node/src/inference_node_ops.rs:8", "terms": "Dog, dog"},
-    {"path": "crates/cynic-node/src/inference_operations.rs", "count": 9, "evidence": "crates/cynic-node/src/inference_operations.rs:10", "terms": "Dog, dog"},
-    {"path": "crates/cynic-node/src/main.rs", "count": 4, "evidence": "crates/cynic-node/src/main.rs:84", "terms": "dog"},
-    {"path": "crates/cynic-node/src/network_evidence.rs", "count": 1, "evidence": "crates/cynic-node/src/network_evidence.rs:71", "terms": "organ"},
-    {"path": "crates/cynic-node/src/network_shadow_proof.rs", "count": 1, "evidence": "crates/cynic-node/src/network_shadow_proof.rs:175", "terms": "organ"},
-    {"path": "crates/cynic-node/src/ports/build_runner.rs", "count": 1, "evidence": "crates/cynic-node/src/ports/build_runner.rs:345", "terms": "metabolic"},
-    {"path": "crates/cynic-node/src/ports/ssot_port.rs", "count": 1, "evidence": "crates/cynic-node/src/ports/ssot_port.rs:6", "terms": "organs"},
-    {"path": "crates/cynic-node/src/provider_fallback_hosts.rs", "count": 1, "evidence": "crates/cynic-node/src/provider_fallback_hosts.rs:36", "terms": "organ"},
-    {"path": "crates/cynic-node/src/provider_fallback_status.rs", "count": 2, "evidence": "crates/cynic-node/src/provider_fallback_status.rs:90", "terms": "organ"},
-    {"path": "crates/cynic-node/src/runtime_supervision.rs", "count": 21, "evidence": "crates/cynic-node/src/runtime_supervision.rs:66", "terms": "dog"},
-    {"path": "crates/cynic-node/src/runtime_supervision/lifecycle.rs", "count": 28, "evidence": "crates/cynic-node/src/runtime_supervision/lifecycle.rs:59", "terms": "dog, Dog"},
-    {"path": "crates/cynic-node/src/task_health.rs", "count": 41, "evidence": "crates/cynic-node/src/task_health.rs:76", "terms": "dog, DOG, dogs, organism"},
-    {"path": "crates/cynic-node/src/usecases/agent_coordination_uc.rs", "count": 1, "evidence": "crates/cynic-node/src/usecases/agent_coordination_uc.rs:273", "terms": "organ"},
-    {"path": "crates/cynic-node/src/usecases/mesh_sync_uc.rs", "count": 1, "evidence": "crates/cynic-node/src/usecases/mesh_sync_uc.rs:34", "terms": "organism"},
-    {"path": "crates/cynic-node/src/watchdog.rs", "count": 1, "evidence": "crates/cynic-node/src/watchdog.rs:2", "terms": "Dog"},
-    {"path": "crates/cynic-node/src/watchdog/kernel_bridge.rs", "count": 2, "evidence": "crates/cynic-node/src/watchdog/kernel_bridge.rs:39", "terms": "organ"},
-    {"path": "crates/cynic-node/src/watchdog/sampler.rs", "count": 1, "evidence": "crates/cynic-node/src/watchdog/sampler.rs:162", "terms": "dog"},
-    {"path": "crates/cynic-pkg/src/registry.rs", "count": 1, "evidence": "crates/cynic-pkg/src/registry.rs:23", "terms": "organism"},
-    {"path": "crates/cynic-protocol/src/throughput_invoice.rs", "count": 1, "evidence": "crates/cynic-protocol/src/throughput_invoice.rs:19", "terms": "metabolic"},
-    {"path": "crates/cynic-storage/src/book/mod.rs", "count": 2, "evidence": "crates/cynic-storage/src/book/mod.rs:6", "terms": "Metabolism"},
-    {"path": "crates/cynic-storage/src/lib.rs", "count": 2, "evidence": "crates/cynic-storage/src/lib.rs:89", "terms": "metabolic"},
-    {"path": "docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json", "count": 1, "evidence": "docs/evidence/rag-sweeps/diag_alpha_recall_20261016.json:1", "terms": "DOG"},
-    {"path": "infra/agent-exposure.json", "count": 7, "evidence": "infra/agent-exposure.json:542", "terms": "metabolism, organism, organ"},
-    {"path": "infra/agent-roles.json", "count": 2, "evidence": "infra/agent-roles.json:146", "terms": "metabolic"},
-    {"path": "infra/audit-debt-ledger.json", "count": 3, "evidence": "infra/audit-debt-ledger.json:1039", "terms": "organic"},
-    {"path": "infra/cynicpedia.json", "count": 10, "evidence": "infra/cynicpedia.json:478", "terms": "Organic, organic, ORGANIC"},
-    {"path": "infra/directory-tree.json", "count": 2, "evidence": "infra/directory-tree.json:198", "terms": "organs, organ"},
-    {"path": "infra/module-inversion-ledger.json", "count": 1, "evidence": "infra/module-inversion-ledger.json:138", "terms": "dog"},
-    {"path": "infra/pattern-registry.json", "count": 2, "evidence": "infra/pattern-registry.json:7", "terms": "organic, Organic"},
-    {"path": "infra/registry.json", "count": 2, "evidence": "infra/registry.json:4", "terms": "organism, organ"},
-    {"path": "infra/registry_authority.json", "count": 2, "evidence": "infra/registry_authority.json:106", "terms": "organ"},
-    {"path": "infra/runtime-authority.json", "count": 2, "evidence": "infra/runtime-authority.json:4", "terms": "organism, organs"},
-    {"path": "services/relay-gateway/package-lock.json", "count": 3, "evidence": "services/relay-gateway/package-lock.json:4501", "terms": "Dog, DOg"}
-  ]
+    "metabolism": "throughput",
+    "organ": "component",
+    "organic": "candidate",
+    "organism": "deployment"
+  }
 }

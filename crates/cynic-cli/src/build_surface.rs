@@ -222,6 +222,11 @@ pub(crate) enum BuildCommand {
         /// Focused test filter (only with --phase test).
         #[arg(long)]
         filter: Option<String>,
+        /// Gate scope: full (default, one proof as requested) or auto
+        /// (classify the commit diff and prove only what it deserves;
+        /// emits one scope envelope with every receipt).
+        #[arg(long, default_value = "full")]
+        scope: String,
         /// Runner host resolved from the fleet registry.
         #[arg(long, default_value = cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET)]
         host: String,
@@ -740,10 +745,11 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             package,
             phase,
             filter,
+            scope,
             host,
             user,
             json,
-        } => prove_build(&commit, package, &phase, filter, &host, &user, json),
+        } => prove_build(&commit, package, &phase, filter, &scope, &host, &user, json),
         BuildCommand::Store {
             state_root,
             older_than_ms,

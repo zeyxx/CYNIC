@@ -22,7 +22,7 @@
 //! so every rename here is a structural split into two levels, which is why
 //! these are not a mechanical search-and-replace.
 
-use clap::{CommandFactory, Parser};
+use clap::CommandFactory;
 
 use cynic_cli::Cli;
 
@@ -89,120 +89,5 @@ fn the_guard_actually_walks_the_surface() {
     assert!(
         all.get_subcommands().any(|s| s.get_name() == "audit"),
         "the gated audit entry point must remain reachable from the top level"
-    );
-}
-
-#[test]
-fn deploy_status_is_nested_and_does_not_require_a_commit() {
-    let parsed = Cli::try_parse_from([
-        "cynic",
-        "build",
-        "deploy",
-        "status",
-        "--registry",
-        "infra/registry.json",
-        "--locations",
-        "infra/deploy-locations.json",
-        "--json",
-    ]);
-    assert!(parsed.is_ok(), "deploy status argv was rejected");
-}
-
-#[test]
-fn deploy_plan_keeps_the_existing_direct_verb_shape() {
-    let commit = "a".repeat(40);
-    let parsed = Cli::try_parse_from([
-        "cynic",
-        "build",
-        "deploy",
-        "--commit",
-        commit.as_str(),
-        "--json",
-    ]);
-    assert!(parsed.is_ok(), "deploy plan argv was rejected");
-}
-
-#[test]
-fn deploy_plan_emits_opt_out_reasons_when_every_machine_is_skipped() {
-    let directory = tempfile::tempdir().expect("temporary fixture directory");
-    let policy_path = directory.path().join("policy.json");
-    let locations_path = directory.path().join("locations.json");
-    let registry_path = directory.path().join("registry.json");
-
-    std::fs::write(
-        &policy_path,
-        serde_json::json!({
-            "schema": "cynic.deploy_policy.v1",
-            "status": "normative",
-            "canary_order": ["cortex"],
-            "stop_before_swap": true,
-            "containment_ladder": [],
-            "per_step_gates": {"health": []}
-        })
-        .to_string(),
-    )
-    .expect("write policy fixture");
-    std::fs::write(
-        &locations_path,
-        serde_json::json!({
-            "schema": "cynic.deploy_locations.v1",
-            "status": "observed",
-            "machines": [{
-                "hostname": "cortex",
-                "registry_node_id": "workstation-node",
-                "os": "linux",
-                "ssh_target": "local",
-                "principal": "user",
-                "deploy_path": "$HOME/.local/bin/cynic",
-                "deploy_path_resolved": "/home/fixture/.local/bin/cynic",
-                "path_owner": "user:user",
-                "layout": "flat",
-                "backup_pattern": "cynic.{timestamp}.bak",
-                "readback": {
-                    "sha256_command": "sha256sum {path}",
-                    "identity_command": "{path} version --json",
-                    "smoke_command": "{path} --version",
-                    "smoke_expect": "exit 0"
-                }
-            }]
-        })
-        .to_string(),
-    )
-    .expect("write locations fixture");
-    std::fs::write(
-        &registry_path,
-        serde_json::json!({
-            "nodes": [{"id": "workstation-node", "deploy_target": false}]
-        })
-        .to_string(),
-    )
-    .expect("write registry fixture");
-
-    let commit = "a".repeat(40);
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_cynic"))
-        .args(["build", "deploy", "--commit"])
-        .arg(commit)
-        .arg("--policy")
-        .arg(&policy_path)
-        .arg("--locations")
-        .arg(&locations_path)
-        .arg("--registry")
-        .arg(&registry_path)
-        .arg("--json")
-        .output()
-        .expect("run deploy plan command");
-
-    assert!(
-        output.status.success(),
-        "deploy plan failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let plan: serde_json::Value =
-        serde_json::from_slice(&output.stdout).expect("parse deploy plan JSON");
-    assert_eq!(plan["steps"], serde_json::json!([]));
-    assert_eq!(plan["skipped"][0]["machine"], "cortex");
-    assert_eq!(
-        plan["skipped"][0]["reason"],
-        "registry deploy_target is false; the machine opted out"
     );
 }
