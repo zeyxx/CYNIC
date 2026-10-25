@@ -9,3 +9,4 @@ use std::process::ExitCode;
 async fn main() -> ExitCode {
     cynic_cli::run_main().await
 }
+
