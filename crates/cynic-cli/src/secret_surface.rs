@@ -318,6 +318,7 @@ fn map_filename(id: &str) -> &str {
         "porkbun" => "porkbun-api-key",
         "forgejo" => "forgejo-token",
         "headscale_key" | "headscale" => "headscale-api-key",
+        "freebox" => "freebox-app-token",
         "telegram_bot" => "telegram-bot-token",
         "telegram_chat" => "telegram-chat-id",
         "huggingface" => "hf-token",
