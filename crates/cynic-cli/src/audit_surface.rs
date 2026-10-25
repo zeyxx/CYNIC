@@ -330,6 +330,53 @@ fn check_store_convergence() -> StoreConvergence {
     }
 }
 
+
+/// Branch drift observation: counts orphan branches.
+#[derive(Debug, Clone)]
+struct BranchDrift {
+    orphan_count: usize,
+    threshold: usize,
+}
+
+impl BranchDrift {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "orphan_count": self.orphan_count,
+            "threshold": self.threshold,
+            "drift": self.orphan_count > self.threshold,
+        })
+    }
+}
+
+fn count_orphan_branches() -> usize {
+    // Use git branch status --json if available, otherwise count branches
+    // with no upstream tracking as a proxy for orphan branches.
+    let output = std::process::Command::new("git")
+        .args(["branch", "--format=%(refname:short) %(upstream:short)"])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter(|l| {
+                    let parts: Vec<&str> = l.split_whitespace().collect();
+                    // orphan = no upstream tracking
+                    parts.len() == 1 || parts.get(1).map(|u| u.is_empty()).unwrap_or(true)
+                })
+                .count()
+        }
+        _ => 0,
+    }
+}
+
+fn check_branch_drift(threshold: usize) -> BranchDrift {
+    let orphan_count = count_orphan_branches();
+    BranchDrift {
+        orphan_count,
+        threshold,
+    }
+}
+
 pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
         AuditCommand::Crate { json } => {
@@ -440,10 +487,16 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             let store_convergence = check_store_convergence();
             let store_ok = store_convergence.converged;
 
+            // Branch drift watch: alert if too many orphan branches accumulate.
+            // Orphan branches are unmerged work that hasn't been triaged.
+            let branch_drift = check_branch_drift(50);
+            let branch_drift_ok = branch_drift.orphan_count <= 50;
+
             let all_passed = crate_report.blocked_count == 0
                 && !secret_obs.has_findings()
                 && engine.summary.critical_count == 0
-                && store_ok;
+                && store_ok
+                && branch_drift_ok;
 
             let unified = serde_json::json!({
                 "schema": "cynic.cli.audit_unified.v1",
@@ -452,6 +505,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 // not have to infer it from the absence of runtime findings.
                 "host_observed": host_was_observed(&root),
                 "store_convergence": store_convergence.to_json(),
+                "branch_drift": branch_drift.to_json(),
                 "crates": {
                     "total": crate_report.crate_count,
                     "ok": crate_report.ok_count,
@@ -515,6 +569,12 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                     store_convergence.local_sha.as_deref().unwrap_or("?"),
                     store_convergence.origin_sha.as_deref().unwrap_or("?"),
                     store_convergence.github_sha.as_deref().unwrap_or("?"),
+                );
+                println!(
+                    "Branch drift: {} (orphans={}, threshold={})",
+                    if branch_drift_ok { "OK" } else { "DRIFT" },
+                    branch_drift.orphan_count,
+                    50,
                 );
                 for violation in &engine.violations {
                     println!("  [{}] {}", violation.code, violation.message);
