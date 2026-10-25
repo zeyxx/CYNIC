@@ -543,7 +543,7 @@ pub fn harvest_live_ledger(
             statement: "Strict hygienic staging: zero commits in history use untracked 'git add -A' or 'git add .'".to_string(),
             status: if git_add_all_violations == 0 { ClaimStatus::Demonstrated } else { ClaimStatus::Partial },
             evidence: "git log commit subjects".to_string(),
-            verify_command: Some("git log --format='%s' | grep -ciE 'add -A|add \\.$'".to_string()),
+            verify_command: Some("git log --format='%s' | grep -ciE 'add -A|add \\.$' || true".to_string()),
             numeric_value: Some(git_add_all_violations),
             unit: Some("violations".to_string()),
         },
