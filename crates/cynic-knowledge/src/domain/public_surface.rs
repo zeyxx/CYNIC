@@ -13,21 +13,27 @@ pub fn render_public_surface_markdown(ledger: &EpistemicFactLedger) -> String {
 
     out.push_str(&format!(
         "# {} (@{})\n\n",
-        ledger.identity.full_name, ledger.identity.handle
+        ledger.identity.display_name(), ledger.identity.handle
     ));
     out.push_str(&format!("> **{}**\n\n", ledger.identity.headline_en));
-    out.push_str(&format!(
-        "**Location**: {} | **GitHub**: [{}]({}) | **Email**: `{}`\n\n",
-        ledger.identity.location,
+    let mut contact = Vec::new();
+    if let Some(location) = &ledger.identity.location {
+        contact.push(format!("**Location**: {}", location));
+    }
+    contact.push(format!(
+        "**GitHub**: [{}]({})",
         ledger.identity.github_login,
         ledger
             .identity
             .links
             .get("github")
             .cloned()
-            .unwrap_or_default(),
-        ledger.identity.email
+            .unwrap_or_default()
     ));
+    if let Some(email) = &ledger.identity.email {
+        contact.push(format!("**Email**: `{}`", email));
+    }
+    out.push_str(&format!("{}\n\n", contact.join(" | ")));
 
     out.push_str("## Live Substrate Receipts (Verified Empirical State)\n\n");
     out.push_str("| Metric | Value | Verification SSOT |\n");
@@ -193,7 +199,7 @@ pub fn render_public_surface_html(ledger: &EpistemicFactLedger) -> String {
     html.push_str("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n");
     html.push_str(&format!(
         "  <title>{} (@{}) — Sovereign Epistemic Surface</title>\n",
-        ledger.identity.full_name, ledger.identity.handle
+        ledger.identity.display_name(), ledger.identity.handle
     ));
     html.push_str("  <style>\n");
     html.push_str(
@@ -457,19 +463,23 @@ pub fn render_public_surface_html(ledger: &EpistemicFactLedger) -> String {
     html.push_str("      <div class=\"hud-title\">CYNIC Epistemic Engine &bull; Sovereign Surface</div>\n");
     html.push_str(&format!(
         "      <h1>{} <span style=\"color: var(--text-dim); font-weight: 400;\">(@{})</span></h1>\n",
-        ledger.identity.full_name, ledger.identity.handle
+        ledger.identity.display_name(), ledger.identity.handle
     ));
     html.push_str(&format!(
         "      <div class=\"headline\">{}</div>\n",
         ledger.identity.headline_en
     ));
     html.push_str("      <div class=\"meta-bar\">\n");
-    html.push_str(&format!("        <span>📍 {}</span>\n", ledger.identity.location));
+    if let Some(location) = &ledger.identity.location {
+        html.push_str(&format!("        <span>📍 {}</span>\n", location));
+    }
     html.push_str(&format!(
         "        <span>🔗 <a href=\"https://github.com/{}\" target=\"_blank\">github.com/{}</a></span>\n",
         ledger.identity.github_login, ledger.identity.github_login
     ));
-    html.push_str(&format!("        <span>✉️ {}</span>\n", ledger.identity.email));
+    if let Some(email) = &ledger.identity.email {
+        html.push_str(&format!("        <span>✉️ {}</span>\n", email));
+    }
     html.push_str(&format!(
         "        <span>⏱️ Generated: {}</span>\n",
         ledger.generated_at

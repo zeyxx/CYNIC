@@ -339,11 +339,15 @@ pub struct CalibratedSkillGroup {
 /// Identity and public profile metadata.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthorIdentity {
-    pub full_name: String,
+    /// Absent by design when the profile is pseudonymous: nothing is published unless declared.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_name: Option<String>,
     pub handle: String,
     pub github_login: String,
-    pub email: String,
-    pub location: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
     pub headline_fr: String,
     pub headline_en: String,
     pub summary_fr: String,
@@ -360,8 +364,29 @@ pub struct HistoricalEvent {
     pub title: String,
     pub description_fr: String,
     pub description_en: String,
-    pub proof_reference: String,
+    /// `None` means the event is declared by the author, not backed by a checkable artifact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_reference: Option<String>,
 }
+
+impl AuthorIdentity {
+    /// Public display name: the declared full name, else the handle.
+    pub fn display_name(&self) -> &str {
+        self.full_name.as_deref().unwrap_or(&self.handle)
+    }
+}
+
+/// Declarative author profile (`contracts/author-profile.json`): everything the
+/// ledger states about the author that cannot be measured from the repository.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthorProfile {
+    pub schema: String,
+    pub identity: AuthorIdentity,
+    pub skills: Vec<CalibratedSkillGroup>,
+    pub events: Vec<HistoricalEvent>,
+}
+
+pub const AUTHOR_PROFILE_SCHEMA_V1: &str = "cynic.author_profile.v1";
 
 /// Sovereign Epistemic Ledger (SSOT for verifiable facts).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -387,10 +412,10 @@ impl EpistemicFactLedger {
         // 1. Identity & Manifesto Chunk
         let id_content = format!(
             "Identity: {} (@{})\nGitHub: https://github.com/{}\nLocation: {}\n\nHeadline (FR): {}\nHeadline (EN): {}\n\nSummary (FR): {}\nSummary (EN): {}\n\nDevelopment Disclosure:\nFR: {}\nEN: {}\n",
-            self.identity.full_name,
+            self.identity.display_name(),
             self.identity.handle,
             self.identity.github_login,
-            self.identity.location,
+            self.identity.location.as_deref().unwrap_or("undisclosed"),
             self.identity.headline_fr,
             self.identity.headline_en,
             self.identity.summary_fr,

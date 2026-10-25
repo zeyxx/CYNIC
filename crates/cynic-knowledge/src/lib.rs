@@ -2,7 +2,7 @@ pub mod adapters;
 pub mod domain;
 
 pub use adapters::{
-    categorize_interaction, classify_repo_domain, classify_repo_era, extract_git_history,
+    categorize_interaction, classify_repo_domain, classify_repo_era, extract_git_history, load_author_profile,
     find_canonical_registry_path, harvest_live_ledger, load_authority_overrides,
     load_corpus_cache, load_workspace_geometry, parse_document_tree, parse_git_log_output,
     parse_github_repos, parse_interactions_graph, parse_json_contract,
@@ -17,7 +17,7 @@ pub use domain::{
     RerankCacheRecord, RerankItem, RerankRequest, RerankResponse, RERANK_CACHE_SCHEMA_V1,
     RetrievalPolicy, RetrievalProfile, RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1,
     route_query, save_vector_cache, tokenize, top_k_dense, vectorize_chunks,
-    vectorize_chunks_cached, AuthorIdentity, AuthorshipNature, AuthorityOverrides, AuthorityTier, BrokenReference,
+    vectorize_chunks_cached, AuthorIdentity, AuthorProfile, AuthorshipNature, AuthorityOverrides, AuthorityTier, BrokenReference,
     CachedFileRecord, CalibratedSkillGroup, CalibratedSkillItem, ChunkEmbedder, ChunkVector,
     CitedSource, ClaimCategory, ClaimStatus, CodeBlock, CorpusCacheRecord, CorpusManifest,
     CrateGeometryRecord, DenseHit, DocumentChunk, DocumentTree, EpistemicAssemblyConfig,
