@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use crate::domain::AnchorEvent;
 use crate::port::AnchorEventStore;
 
+#[derive(Debug)]
 pub struct InMemoryAnchorStore {
     events: Mutex<Vec<AnchorEvent>>,
     next_id: Mutex<u64>,
