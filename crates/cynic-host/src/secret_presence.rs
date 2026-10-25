@@ -139,6 +139,10 @@ impl RuntimeSecretPresenceSpec {
         )
     }
 
+    pub fn freebox() -> Self {
+        Self::new("freebox", &["FREEBOX_APP_TOKEN"], "freebox-app-token")
+    }
+
     pub fn all_runtime_specs() -> Vec<Self> {
         vec![
             Self::storage_runtime(),
@@ -147,6 +151,7 @@ impl RuntimeSecretPresenceSpec {
             Self::porkbun(),
             Self::forgejo(),
             Self::headscale_key(),
+            Self::freebox(),
             Self::telegram_bot(),
             Self::telegram_chat(),
             Self::huggingface(),

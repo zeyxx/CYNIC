@@ -22,7 +22,7 @@ impl Default for HttpFreeboxProbeAdapter {
     fn default() -> Self {
         Self {
             timeout: Duration::from_secs(3),
-            app_id: "so.cynic.node".to_string(),
+            app_id: "cynic".to_string(),
         }
     }
 }
