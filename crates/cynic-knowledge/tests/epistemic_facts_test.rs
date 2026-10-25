@@ -175,3 +175,23 @@ fn author_profile_is_declarative_and_pseudonymous() {
     let missing = repo_root.join("does-not-exist");
     assert!(cynic_knowledge::load_author_profile(&missing).is_err(), "missing profile must fail closed");
 }
+
+#[test]
+fn harvest_fails_closed_without_measurable_workspace() {
+    // A directory that is not a CYNIC workspace has no profile, no geometry and no git
+    // history. The harvester must refuse, never fill in remembered numbers.
+    let dir = std::env::temp_dir().join(format!("cynic-harvest-empty-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let result = harvest_live_ledger(&dir, None);
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(result.is_err(), "harvest must fail closed on an unmeasurable workspace");
+}
+
+#[test]
+fn harvester_source_holds_no_remembered_metric_defaults() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src = std::fs::read_to_string(manifest_dir.join("src/adapters/epistemic_harvester.rs")).unwrap();
+    for frozen in ["407_854", "unwrap_or(4578)", "unwrap_or(3531)", "unwrap_or(181)", "unwrap_or(4536)"] {
+        assert!(!src.contains(frozen), "frozen metric default {frozen} must not return");
+    }
+}
