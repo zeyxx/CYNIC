@@ -5,7 +5,7 @@ use std::process::ExitCode;
 
 use crate::cli_json::emit_pretty_json;
 
-pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
+pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool, _max_age_days: u64) -> ExitCode {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)

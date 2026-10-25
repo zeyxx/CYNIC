@@ -169,7 +169,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     json,
                 )
             } else {
-                execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json)
+                execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json, max_age_days)
             }
         }
         SourceCommand::Pr { command } => pr::execute_pr(Path::new("."), command),
