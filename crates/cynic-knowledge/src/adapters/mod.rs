@@ -12,7 +12,7 @@ pub mod topology;
 pub use corpus_cache::{load_corpus_cache, save_corpus_cache, sync_workspace_corpus};
 pub use epistemic_harvester::{
     categorize_interaction, classify_repo_domain, classify_repo_era, harvest_live_ledger,
-    git_proof_resolver, load_author_profile, local_repo_name, parse_github_repos, parse_interactions_graph,
+    git_proof_resolver, load_author_profile, local_repo_name, shell_claim_runner, parse_github_repos, parse_interactions_graph,
 };
 pub use git::{extract_git_history, parse_git_log_output, GitExtractError};
 pub use json_contract::{

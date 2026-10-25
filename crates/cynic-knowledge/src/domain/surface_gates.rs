@@ -120,3 +120,65 @@ pub fn check_freshness(generated_at: &str, now: &str, max_age_secs: u64) -> Resu
     }
     Ok(age)
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClaimCheckOutcome {
+    /// The command printed exactly the published number.
+    Match,
+    /// The command printed a different number. This fails the gate.
+    Mismatch { observed: u64 },
+    /// The claim cannot be re-measured here (command failed, printed no single count,
+    /// or there is no number to compare). Reported, never counted as verified.
+    Unverifiable(String),
+    /// The claim declares no verify_command.
+    NoCommand,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaimCheck {
+    pub id: String,
+    pub expected: Option<u64>,
+    pub outcome: ClaimCheckOutcome,
+}
+
+impl ClaimCheck {
+    pub fn is_failure(&self) -> bool {
+        matches!(self.outcome, ClaimCheckOutcome::Mismatch { .. })
+    }
+}
+
+/// A command output counts only when it is one whole unsigned integer.
+pub fn parse_count(stdout: &str) -> Result<u64, String> {
+    let trimmed = stdout.trim();
+    trimmed
+        .parse::<u64>()
+        .map_err(|_| format!("output is not a single count: {:?}", trimmed.chars().take(60).collect::<String>()))
+}
+
+/// Re-runs each claim's `verify_command` through `run` and compares the printed count with
+/// the published `numeric_value`. `run` must only receive commands of a ledger harvested in
+/// this process, never commands read back from a file.
+pub fn check_claims<F>(claims: &[crate::domain::epistemic_facts::VerifiableClaim], run: F) -> Vec<ClaimCheck>
+where
+    F: Fn(&str) -> Result<String, String>,
+{
+    claims
+        .iter()
+        .map(|claim| {
+            let outcome = match (claim.verify_command.as_deref(), claim.numeric_value) {
+                (None, _) => ClaimCheckOutcome::NoCommand,
+                (Some(_), None) => ClaimCheckOutcome::Unverifiable("claim has no numeric value to compare".to_string()),
+                (Some(cmd), Some(expected)) => match run(cmd).and_then(|out| parse_count(&out)) {
+                    Ok(observed) if observed == expected => ClaimCheckOutcome::Match,
+                    Ok(observed) => ClaimCheckOutcome::Mismatch { observed },
+                    Err(why) => ClaimCheckOutcome::Unverifiable(why),
+                },
+            };
+            ClaimCheck {
+                id: claim.id.clone(),
+                expected: claim.numeric_value,
+                outcome,
+            }
+        })
+        .collect()
+}
