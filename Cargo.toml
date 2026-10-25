@@ -38,6 +38,7 @@ members = [
     "crates/cynic-tui",
     "crates/cynic-traces",
     "crates/cynic-knowledge",
+    "crates/cynic-anchoring",
 ]
 resolver = "2"
 
