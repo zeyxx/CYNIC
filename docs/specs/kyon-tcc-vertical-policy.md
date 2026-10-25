@@ -94,6 +94,11 @@ The `GeneralReturn` is a computed view at instant T:
 what you did" — it never says "you should have done more." The person
 decides what matters.
 
+Metrics are stored in an extensible map (BTreeMap<String, f64>). Standard
+keys are defined (sport_minutes, meditation_minutes, nutrition_count,
+projects_materialized, total_events). Divergent profiles add their own keys
+(e.g., stimming_minutes, routine_adherence) without modifying the code.
+
 ## 8. Data model (derived from policy)
 
 An observation is a universal `Observation` (cynic-protocol) with:
