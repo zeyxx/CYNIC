@@ -143,6 +143,20 @@ pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool,
                 }
             }
 
+            // Reinforcement: warn about dirty unclaimed worktrees (potential drift).
+            let dirty_unclaimed: Vec<_> = snapshots
+                .iter()
+                .filter(|s| s.dirty_file_count > 0)
+                .collect();
+            if !dirty_unclaimed.is_empty() {
+                println!();
+                println!("WARNING: {} dirty worktree(s) detected (potential unclaimed mutation):", dirty_unclaimed.len());
+                for s in &dirty_unclaimed {
+                    println!("  - {} (dirty_files={})", s.branch.as_deref().unwrap_or("<detached>"), s.dirty_file_count);
+                }
+                println!("  These worktrees carry uncommitted changes. Claim scope before mutation (AGENTS.md).");
+            }
+
             println!();
             println!(
                 "Summary: {} safe to prune, {} integration eligible, {} retained, {} escalations required.",
