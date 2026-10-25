@@ -5,7 +5,7 @@ pub const DISCOVERY_CAPABILITIES_SCHEMA: &str = "cynic.discovery.capabilities.v1
 pub const DISCOVERY_NODE_SCHEMA: &str = "cynic.discovery.node.v1";
 pub const DISCOVERY_EVENT_SCHEMA: &str = "cynic.discovery.event.v1";
 
-/// Canonical roles in the CYNIC fleet. Distinct from `FleetRole` in
+/// Canonical roles in the CYNIC fleet. Distinct from `InfraRole` in
 /// `federation_authz` — that one is RBAC (what a role *may* do), this one
 /// is observation (what a node *is*).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

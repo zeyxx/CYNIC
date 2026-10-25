@@ -342,6 +342,7 @@
   "nodes": [
     {
       "id": "cynic-host-proxmox",
+      "fleet_capabilities": ["compute"],
       "name": "cynic-host-proxmox",
       "aliases": [
         "pve"
@@ -370,6 +371,7 @@
     },
     {
       "id": "cynic-host-cortex",
+      "fleet_capabilities": ["compute"],
       "name": "cynic-host-cortex",
       "aliases": [
         "ubuntu"
@@ -463,6 +465,7 @@
     },
     {
       "id": "local-kernel",
+      "fleet_capabilities": ["mesh"],
       "name": "local-kernel",
       "aliases": [
         "cynic-kernel-primary",
@@ -504,6 +507,7 @@
     },
     {
       "id": "cynic-lxc-surrealdb",
+      "fleet_capabilities": ["storage"],
       "name": "cynic-lxc-surrealdb",
       "aliases": [
         "cynic-storage-primary",
@@ -577,6 +581,7 @@
     },
     {
       "id": "cynic-builder",
+      "fleet_capabilities": ["build", "compute"],
       "name": "cynic-builder",
       "role": "build_runner",
       "host_family": "linux.ubuntu.systemd",
@@ -810,6 +815,7 @@
     },
     {
       "id": "cynic-lxc-embedding",
+      "fleet_capabilities": ["embedding"],
       "name": "cynic-lxc-embedding",
       "role": "embedding_runner",
       "host_family": "linux.debian.systemd",
@@ -968,6 +974,7 @@
     },
     {
       "id": "forgejo",
+      "fleet_capabilities": ["storage"],
       "name": "forgejo",
       "aliases": [
         "organ-forgejo",
@@ -1010,6 +1017,7 @@
     },
     {
       "id": "cynic-lxc-headscale",
+      "fleet_capabilities": ["mesh"],
       "name": "cynic-lxc-headscale",
       "aliases": [
         "headscale",
@@ -1045,6 +1053,7 @@
     },
     {
       "id": "cynic-compute-01",
+      "fleet_capabilities": ["build", "compute", "inference", "embedding"],
       "name": "cynic-compute-01",
       "aliases": [
         "compute-01",
