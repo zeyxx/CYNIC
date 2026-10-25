@@ -6,24 +6,27 @@
 //!
 //! Authority: foundation.json §37 (portable_host_contract).
 
-use crate::domain::{AnchorEvent, AnchorOutcome, GeneralReturn};
+use cynic_protocol::observation_record::Observation;
 
-/// Port for storing and retrieving anchor events.
+use crate::domain::AnchorOutcome;
+use crate::domain::GeneralReturn;
+
+/// Port for storing and retrieving anchor observations.
 pub trait AnchorEventStore {
-    /// Record a new anchor event. Returns the assigned id.
-    fn record(&self, event: &AnchorEvent) -> Result<u64, String>;
+    /// Record a new anchor observation. Returns the assigned id.
+    fn record(&self, obs: &Observation) -> Result<u64, String>;
 
-    /// Retrieve recent anchor events, newest first.
-    fn recent(&self, limit: usize) -> Result<Vec<AnchorEvent>, String>;
+    /// Retrieve recent anchor observations, newest first.
+    fn recent(&self, limit: usize) -> Result<Vec<Observation>, String>;
 
-    /// Retrieve events pending sync to the kernel.
-    fn pending_sync(&self, limit: usize) -> Result<Vec<AnchorEvent>, String>;
+    /// Retrieve observations pending sync to the kernel.
+    fn pending_sync(&self, limit: usize) -> Result<Vec<Observation>, String>;
 
-    /// Mark events as synced.
+    /// Mark observations as synced.
     fn mark_synced(&self, ids: &[u64], synced_at_ms: i64) -> Result<(), String>;
 }
 
-/// Port for projecting anchor events into a general return view.
+/// Port for projecting anchor observations into a general return view.
 pub trait AnchorProjection {
     /// Compute the general return at instant T for a given time window.
     fn general_return(
@@ -33,10 +36,10 @@ pub trait AnchorProjection {
     ) -> Result<GeneralReturn, String>;
 }
 
-/// Port for syncing anchor events to the CYNIC kernel.
+/// Port for syncing anchor observations to the CYNIC kernel.
 pub trait AnchorSyncPort {
-    /// Sync a batch of anchor events to the kernel. Returns count synced.
-    fn sync_batch(&self, events: &[AnchorEvent]) -> Result<u32, String>;
+    /// Sync a batch of anchor observations to the kernel. Returns count synced.
+    fn sync_batch(&self, observations: &[Observation]) -> Result<u32, String>;
 }
 
 /// Port for storing and retrieving anchor outcomes.
