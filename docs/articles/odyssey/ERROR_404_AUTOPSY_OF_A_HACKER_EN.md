@@ -1,6 +1,6 @@
 # ERROR 404: Autopsy of a Hacker
 ### *From solitary masking to sovereign agents : why I abandoned the zero-sum game to engineer CYNIC.*
-**By @jeanterre13 (Titouan)**
+**By @jeanterre13**
 
 ---
 
@@ -27,7 +27,7 @@ This text is the autopsy of an internal collapse: how the reflex to hack the wor
 
 I grew up in an average French suburb. Average income, average house, average scenery. The textbook definition of an environment where everything looks fine on paper, yet the air is thick with a quiet, systemic decay.
 
-In the middle of that structure sat me: the middle child (an older sister two years ahead, a younger sister six and a half years behind). Being number two in a sibling hierarchy builds a very specific survival engine: you are neither the firstborn carrying the weight of early expectations, nor the youngest being sheltered. You operate in the blind spot. You learn to observe in total silence, dissect micro-tensions, and map the emotional vulnerabilities of your surroundings to preempt chaos.
+In the middle of that structure sat me: the middle child (an older sister, a younger sister). Being number two in a sibling hierarchy builds a very specific survival engine: you are neither the firstborn carrying the weight of early expectations, nor the youngest being sheltered. You operate in the blind spot. You learn to observe in total silence, dissect micro-tensions, and map the emotional vulnerabilities of your surroundings to preempt chaos.
 
 Very early on, I realized my brain was not wired like everyone else's in the room. Unmedicated, undiagnosed hardcore ASD/AuDHD. Not a neat psychiatric label to make people comfortable, but the raw, abrasive reality of it: unfiltered sensory input, inverted social parsing, and a complete inability to participate in the hypocritical theater of neurotypical standards.
 
@@ -127,7 +127,7 @@ Minimal sleep. Heavy daily hash consumption to numb the anxiety. Feedback loops 
 
 Then, a sudden spark cut through the dark: **March 14, 2026**.
 
-I attended the **Google DeepMind hackathon (Gemini 3) in Paris** alongside **S.** Without his physical presence and steady anchor beside me that day, I would have remained paralyzed in my shell, incapable of speaking to a single human being. For the first time in months, I made a non-negotiable decision: not a single hit of cannabis for the entire day, operating in a state of pure build. While there, people offered me weed in the social areas: I refused point-blank.
+I attended the **Google DeepMind hackathon (Gemini 3) in Paris**. For the first time in months, I made a non-negotiable decision: not a single hit of cannabis for the entire day, operating in a state of pure build. While there, people offered me weed in the social areas: I refused point-blank.
 
 It was a physical shock to the system. Surrounded by authentic builders, my head razor-sharp and clean of THC, I felt at home for the first time in my life. **It was during that hackathon day that CYNIC was conceived.**
 
@@ -235,20 +235,6 @@ A hive where every contributor occupied their natural bandwidth without hierarch
 - **@luna_lunera_66, @BruceLeeIsAliv3, and the pack:** The cultural architects, Swiss Army knives, and night-shift operators keeping the engine running 24/7.
 - **Me:** The obsessive onchain forensic analyst, parsing clusters late into the night, mapping invisible geometries in transaction pools.
 
-### The Physical Anchor: S.
-
-While digital chaos raged, I needed an anchor in physical reality to keep my nervous system from detonating.
-
-That anchor has an initial: **S.**
-
-He was far more than a friend. He stepped into this whirlwind beside me without a shred of judgment. When my hyper-fixations pushed me to the edge, he was the release valve.
-
-We shared the same classroom, yet stood as polar opposites. Me: the abstract intellect, slight build, unkempt curly hair, terrified of basic social friction. Him: the voice, physical presence, tall, imposing, tempered by raw grit and trials that build an iron resolve and force total alignment with physical reality.
-
-Where social escalation paralyzed me, he navigated people effortlessly. I held the architectural blueprints; he held the boots-on-the-ground execution.
-
-He taught me the intuitive social dynamics my neurodivergent brain couldn't compute. He modeled what it means to take up space in the physical world, stop hiding behind screens, and carry oneself with dignity. He was my real-world mentor in physical sovereignty.
-
 ### The Word I Owe to the World: THANK YOU
 
 You must gaze into the abyss to understand the true weight of brotherhood.
@@ -288,8 +274,6 @@ That is the end of the SPOF: an autonomous swarm of sovereign builders bound by 
 ### Why We Cannot Retreat
 
 Look around. This ceases to be merely my personal narrative.
-
-I look at my 13-year-old sister today (13 years old, the age I first slipped behind screens). I see her trapped in the same algorithmic vice: the hyper-liquidity of TikTok, the three-second attention span, sensory overload, and the quiet despair of an educational assembly line designed to crush cognitive divergence.
 
 I look at this "generation of the void" around us, numbed by micro-dopamine, trapped in consumerist mirages, or exploding into mindless riots across France where kids smash their own neighborhoods simply because they have been denied any noble horizon. When society offers intense young minds no arena for transcendence, that raw energy inevitably turns into apathy or systemic destruction.
 

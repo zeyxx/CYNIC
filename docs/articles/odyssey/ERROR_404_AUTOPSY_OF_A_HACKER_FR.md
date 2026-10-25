@@ -1,6 +1,6 @@
 # ERROR 404 : Autopsie d’un Hacker
 ### *Du masking solitaire aux agents souverains : pourquoi j'ai quitté le jeu à somme nulle pour bâtir CYNIC.*
-**Par @jeanterre13 (Titouan)**
+**Par @jeanterre13**
 
 ---
 
@@ -28,7 +28,7 @@ Ce texte est l'autopsie d'un naufrage intérieur : comment le réflexe de hacker
 
 J’ai grandi dans une ville moyenne, banlieue standard, revenus moyens, décor moyen. Le profil type du décor où « tout va bien » en surface, mais où l’air est saturé d’une inertie toxique et d'un étouffement silencieux.
 
-Au milieu de tout ça : un enfant du milieu (une grande sœur de deux ans mon aînée, une petite sœur de six ans et demi ma cadette). Cette place de numéro 2 dans une fratrie forge une mécanique particulière : tu n'es ni l’aîné qui essuie les plâtres, ni la dernière qu’on surprotège. Tu es dans l’angle mort. Tu apprends à observer en silence, à décoder les micro-tensions, à cartographier les humeurs et les failles de ton environnement pour anticiper le chaos.
+Au milieu de tout ça : un enfant du milieu (une grande sœur, une petite sœur). Cette place de numéro 2 dans une fratrie forge une mécanique particulière : tu n'es ni l’aîné qui essuie les plâtres, ni la dernière qu’on surprotège. Tu es dans l’angle mort. Tu apprends à observer en silence, à décoder les micro-tensions, à cartographier les humeurs et les failles de ton environnement pour anticiper le chaos.
 
 Très tôt, j'ai su que mon cerveau n'était pas câblé comme celui du reste de la pièce. Un profil AuDHD sans filtre et sans diagnostic officiel : hypersensibilité brute, lecture sociale inversée, et une incapacité à comprendre les conventions imposées par la neurotypie dominante.
 
@@ -128,7 +128,7 @@ Très peu de sommeil. Une consommation journalière et massive de haschisch pour
 
 Le **14 mars 2026**, les choses ont basculé.
 
-Je participe au **hackathon Google DeepMind (Gemini 3) à Paris** aux côtés de **S.** Sans sa présence et son ancrage physique à mes côtés ce jour-là, je serais resté pétrifié dans ma coquille, incapable d'adresser la parole à un seul être humain. Pour la première fois depuis des mois, je prends une décision radicale : ne pas fumer de la journée pour être en état pur de build. Là-bas, au milieu de l'émulation, des gens m'ont proposé du cannabis : j'ai refusé. 
+Je participe au **hackathon Google DeepMind (Gemini 3) à Paris**. Pour la première fois depuis des mois, je prends une décision radicale : ne pas fumer de la journée pour être en état pur de build. Là-bas, au milieu de l'émulation, des gens m'ont proposé du cannabis : j'ai refusé. 
 
 Ce fut un électrochoc physique. Entouré de vrais bâtisseurs, la tête totalement claire et sobre de THC, je me suis senti pour la première fois chez moi. **C'est dans cette journée de hackathon que CYNIC a émergé.**
 
@@ -236,20 +236,6 @@ Une ruche où chacun a pris sa place naturellement, sans hiérarchie pyramidale 
 - **@luna_lunera_66, @BruceLeeIsAliv3, et toute la meute :** Les architectes des mèmes, les couteaux suisses polyvalents, les soldats des raids nocturnes qui font tourner la machine H24. Je ne peux pas citer tout le monde, mais la blockchain et nos cœurs n'oublient personne.
 - **Moi :** Le « schizo » de service, l'enquêteur onchain obsessionnel, le gars qui passe ses nuits à décortiquer les clusters de transactions et à voir des patterns dans le noir.
 
-### L'Ancre du Monde Réel : S.
-
-Mais pendant que la tempête faisait rage en ligne, il fallait un ancrage physique pour que mon système nerveux ne parte pas en fumée.
-
-Cet ancrage a une initiale : **S.**
-
-Il a été bien plus qu'un ami. Il s'est embarqué à mes côtés dans cette folie sans jamais me juger. Quand mes phases de repli et mes obsessions montaient dans le rouge, il était ma soupape de décompression.
-
-Nous étions dans la même classe, et tout chez nous formait une antithèse vivante. Moi : le cerveau abstrait, le corps maigre, les cheveux bouclés mi-longs en bataille, incapable d'aller vers les autres ou d'exister dans une pièce sans angoisse. Lui : la bouche, l'incarnation brute, grand, imposant, forgé par des épreuves qui forcent à développer un caractère d'acier et ramène à la réalité pure du monde. 
-
-Là où j'étais tétanisé par l'escalade sociale, il parlait à n'importe qui sans sourciller. J'avais l'architecture, il avait la projection dans le bitume.
-
-C’est lui qui m’a appris sur le tas les codes sociaux que mon cerveau atypique ne comprenait pas. C’est lui qui m’a montré, par l'exemple, ce que signifie simplement s'autoriser à exister, occuper sa place dans l'espace physique, cesser de fuir derrière des écrans et porter sa responsabilité d'homme avec fierté. Il a été mon modèle de souveraineté dans la matière.
-
 ### Ce mot que je dois au monde : MERCI
 
 Il faut parfois avoir le courage de regarder la mort en face pour mesurer la valeur d'une fraternité.
@@ -289,8 +275,6 @@ C'est ça, la fin du SPOF : un essaim de bâtisseurs souverains alignés par la 
 ### Pourquoi nous ne pouvons plus reculer
 
 Regardez autour de vous. Ceci n'est plus seulement mon histoire privée.
-
-Je regarde ma petite sœur aujourd'hui (13 ans, l'âge où j'ai plongé devant les écrans). Je la vois prise dans le même étau algorithmique : l'hyper-liquidité de TikTok, le zapping permanent de l'attention, la saturation sensorielle et le désespoir muet d'un système éducatif et social conçu pour écraser la divergence.
 
 Je regarde cette génération qui grandit sous nos yeux, saturée de dopamine et de notifications, coincée entre conformisme et ras-le-bol. Quand une société n'offre à ses jeunes esprits aucun terrain d'élévation, aucune mission noble où canaliser leur intensité brute, cette énergie n'a d'autre issue que l'apathie morbide ou l'autodestruction.
 
