@@ -60,6 +60,10 @@ pub struct PrMergeProof {
     pub schema: &'static str,
     pub pr_number: u64,
     pub merged: bool,
+    /// Head branch of the merged PR (observed before merge).
+    pub head_ref: String,
+    /// True only when the remote head branch was deleted and read back as gone.
+    pub branch_deleted: bool,
     pub message: String,
 }
 
@@ -105,7 +109,9 @@ pub trait PrPort: Send + Sync {
 
     /// Merge an open PR by number and return a merge proof.
     /// `style` is provider-specific ("merge", "squash", "rebase").
-    fn merge(&self, number: u64, style: &str) -> Result<PrMergeProof, String>;
+    /// `delete_branch` removes the head branch after merge when true
+    /// (only `agent/*` branches are ever deleted).
+    fn merge(&self, number: u64, style: &str, delete_branch: bool) -> Result<PrMergeProof, String>;
 
     /// Close an open PR without merging and return a close proof.
     /// `delete_branch` removes the head branch after close when true.
