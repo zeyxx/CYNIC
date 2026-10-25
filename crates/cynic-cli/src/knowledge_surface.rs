@@ -95,9 +95,14 @@ pub enum KnowCommand {
         /// Optional destination directory for public_surface.html and public_surface.md [default: docs/public]
         #[arg(long)]
         out_dir: Option<PathBuf>,
-        /// Verify all measurable claims and output PASS/FAIL verdicts.
+        /// List claim statuses and check every event proof_reference against the local git
+        /// history. Exits non-zero if any declared reference does not resolve; nothing is written.
         #[arg(long)]
         verify: bool,
+        /// Check that the already published facts.live.json in --out-dir is at most this many hours
+        /// old. Exits non-zero if it is stale, in the future or unreadable; nothing is regenerated.
+        #[arg(long)]
+        max_age_hours: Option<u64>,
         /// Output live fact ledger as JSON.
         #[arg(long)]
         json: bool,
@@ -750,7 +755,11 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        KnowCommand::Surface { out_dir, verify, json } => {
+        KnowCommand::Surface { out_dir, verify, max_age_hours, json } => {
+            if let Some(hours) = max_age_hours {
+                let published = out_dir.clone().unwrap_or_else(|| repo_root.join("docs/public")).join("facts.live.json");
+                return check_published_surface_freshness(&published, hours);
+            }
             let ledger = match cynic_knowledge::harvest_live_ledger(&repo_root, None) {
                 Ok(ledger) => ledger,
                 Err(e) => {
@@ -758,6 +767,31 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
+            if verify {
+                let verdicts = cynic_knowledge::verify_event_proofs(
+                    &ledger.events,
+                    cynic_knowledge::git_proof_resolver(&repo_root),
+                );
+                let mut failed = 0usize;
+                for v in &verdicts {
+                    match &v.outcome {
+                        cynic_knowledge::ProofOutcome::Verified => {
+                            println!("  [PROOF OK ] {} <- {}", v.event, v.reference.as_deref().unwrap_or(""))
+                        }
+                        cynic_knowledge::ProofOutcome::Undeclared => {
+                            println!("  [DECLARED ] {} (no proof_reference: the author's statement)", v.event)
+                        }
+                        cynic_knowledge::ProofOutcome::Unresolved(why) => {
+                            failed += 1;
+                            eprintln!("  [UNRESOLVED] {}: {}", v.event, why)
+                        }
+                    }
+                }
+                if failed > 0 {
+                    eprintln!("{failed} proof reference(s) do not resolve; surface not written");
+                    return ExitCode::FAILURE;
+                }
+            }
             if json {
                 return crate::emit_json(&ledger, false);
             }
@@ -812,6 +846,44 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 }
             }
             ExitCode::SUCCESS
+        }
+    }
+}
+
+/// Fails unless the published ledger at `path` was generated at most `hours` ago.
+fn check_published_surface_freshness(path: &std::path::Path, hours: u64) -> ExitCode {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            eprintln!("Cannot read the published surface {}: {}", path.display(), e);
+            return ExitCode::FAILURE;
+        }
+    };
+    let generated_at = match serde_json::from_str::<serde_json::Value>(&raw)
+        .ok()
+        .and_then(|v| v.get("generated_at").and_then(|g| g.as_str().map(str::to_string)))
+    {
+        Some(g) => g,
+        None => {
+            eprintln!("{} has no readable generated_at", path.display());
+            return ExitCode::FAILURE;
+        }
+    };
+    let now = match std::process::Command::new("date").args(["-u", "+%Y-%m-%dT%H:%M:%SZ"]).output() {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+        _ => {
+            eprintln!("Cannot read the current time");
+            return ExitCode::FAILURE;
+        }
+    };
+    match cynic_knowledge::check_freshness(&generated_at, &now, hours.saturating_mul(3600)) {
+        Ok(age) => {
+            println!("Published surface is fresh: {age}s old (limit {hours}h)");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("Published surface is NOT fresh: {e}");
+            ExitCode::FAILURE
         }
     }
 }

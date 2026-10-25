@@ -6,6 +6,7 @@ pub mod chunk_quality;
 pub mod commit;
 pub mod continuous_fusion;
 pub mod epistemic_grounding;
+pub mod surface_gates;
 pub mod geometry;
 pub mod graph;
 pub mod graph_expansion;
@@ -33,6 +34,9 @@ pub use chunk_quality::{
 pub use commit::{GIT_COMMIT_SCHEMA_V1, GitCommitRecord};
 pub use continuous_fusion::{
     EmpiricalCdf, NormalizationStrategy, fuse_continuous_convex, min_max_normalize,
+};
+pub use surface_gates::{
+    check_freshness, epoch_seconds, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
 };
 pub use epistemic_grounding::{
     DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD, DEFAULT_MIN_TERM_COVERAGE_RATIO,
