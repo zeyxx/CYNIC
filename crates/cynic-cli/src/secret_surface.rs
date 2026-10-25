@@ -310,21 +310,19 @@ fn execute_resolve(id: &str, json: bool) -> ExitCode {
     }
 }
 
-fn map_filename(id: &str) -> &str {
-    match id {
-        "storage_runtime" => "storage-runtime-password",
-        "proxmox_control" => "proxmox-token",
-        "cloudflare" => "cloudflare-api-token",
-        "porkbun" => "porkbun-api-key",
-        "forgejo" => "forgejo-token",
-        "headscale_key" | "headscale" => "headscale-api-key",
-        "telegram_bot" => "telegram-bot-token",
-        "telegram_chat" => "telegram-chat-id",
-        "huggingface" => "hf-token",
-        "openai" => "openai-api-key",
-        "anthropic" => "anthropic-api-key",
-        other => other,
-    }
+/// Filename of a runtime secret, read from its declared identity spec (single
+/// source of truth). Unknown ids fall back to the id itself.
+fn map_filename(id: &str) -> String {
+    let canonical = if id == "headscale" { "headscale_key" } else { id };
+    RuntimeSecretPresenceSpec::all_runtime_specs()
+        .into_iter()
+        .find(|s| s.identity_id == canonical)
+        .and_then(|s| {
+            s.file_candidates
+                .last()
+                .and_then(|(path, _)| path.file_name().map(|n| n.to_string_lossy().into_owned()))
+        })
+        .unwrap_or_else(|| id.to_string())
 }
 
 fn execute_install(
@@ -409,9 +407,10 @@ fn execute_install(
     // Write through the sealed vault: the value is encrypted under a fresh
     // random data key before it touches disk. Never store plaintext.
     let vault = CompositeSecretProvider::default();
+    let filename = map_filename(id);
     let reference = SecretReference::with_class(
         id,
-        map_filename(id),
+        filename.as_str(),
         cynic_secrets::SecretClass::RuntimeMachineIdentity,
         cynic_secrets::SecretProviderKind::PrincipalOwnedFile,
     );
@@ -427,7 +426,7 @@ fn execute_install(
     }
 
     // Read-back verification
-    let spec = RuntimeSecretPresenceSpec::new(id, &[], map_filename(id));
+    let spec = RuntimeSecretPresenceSpec::new(id, &[], &map_filename(id));
     let observation = observe_runtime_secret_presence(&spec);
 
     let report = SecretInstallReport {
