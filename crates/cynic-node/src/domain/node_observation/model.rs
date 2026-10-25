@@ -17,12 +17,44 @@ pub enum NodeRuntimeStatus {
     MeshActive,
 }
 
+impl NodeRuntimeStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Blocked => "blocked",
+            Self::ProviderFallbackActive => "provider_fallback_active",
+            Self::MeshActive => "mesh_active",
+        }
+    }
+}
+
+impl std::fmt::Display for NodeRuntimeStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeRuntimeSeverity {
     Clear,
     Warning,
     Critical,
+}
+
+impl NodeRuntimeSeverity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Clear => "clear",
+            Self::Warning => "warning",
+            Self::Critical => "critical",
+        }
+    }
+}
+
+impl std::fmt::Display for NodeRuntimeSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

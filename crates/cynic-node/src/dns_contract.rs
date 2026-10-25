@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cynic_host::install_contract::MODE_0644;
+use cynic_protocol::install_contract::MODE_0644;
 use cynic_host::runtime_layout::current_runtime_layout;
 use cynic_types::paths::CynicPaths;
 use serde::Serialize;
@@ -353,7 +353,7 @@ fn package_owns_binary(package: &str, binary: &str) -> bool {
     let layout = current_runtime_layout();
     let package_manager = layout.capabilities().package_manager;
     match package_manager.kind {
-        cynic_host::runtime_layout::PackageManagerKind::Apt => {
+        cynic_protocol::detection::PackageManagerKind::Apt => {
             cynic_host::process_observation::command_stdout(&package_manager.query, &["-S", binary])
                 .is_some_and(|output| {
                     output
@@ -361,8 +361,8 @@ fn package_owns_binary(package: &str, binary: &str) -> bool {
                         .any(|line| line.starts_with(&format!("{package}:")))
                 })
         }
-        cynic_host::runtime_layout::PackageManagerKind::Dnf
-        | cynic_host::runtime_layout::PackageManagerKind::Rpm => {
+        cynic_protocol::detection::PackageManagerKind::Dnf
+        | cynic_protocol::detection::PackageManagerKind::Rpm => {
             cynic_host::process_observation::command_stdout(
                 &package_manager.rpm_query,
                 &["-qf", binary],

@@ -16,7 +16,7 @@ use crate::ports::{
     PreOsPlatformObservationPort,
 };
 use crate::process_observation::{command_exit_success, command_stdout};
-use crate::runtime_layout::{current_runtime_layout, PackageManagerKind};
+use crate::runtime_layout::{PackageManagerKind, PackageManagerKindExt, current_runtime_layout};
 use crate::service_supervisor_observation::observe_service_supervisor;
 
 #[derive(Debug, Default, Clone, Copy)]

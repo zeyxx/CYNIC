@@ -25,83 +25,83 @@ use cynic_host::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct TopologyObservation {
-    pub(crate) source: String,
-    pub(crate) registry_path: Option<String>,
-    pub(crate) canonical_service_plane: String,
-    pub(crate) service_cidr: String,
-    pub(crate) provider_fallback_cidr: String,
-    pub(crate) provider_fallback_gateway: Option<String>,
-    pub(crate) dns_zone: String,
+pub struct TopologyObservation {
+    pub source: String,
+    pub registry_path: Option<String>,
+    pub canonical_service_plane: String,
+    pub service_cidr: String,
+    pub provider_fallback_cidr: String,
+    pub provider_fallback_gateway: Option<String>,
+    pub dns_zone: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkObservation {
-    pub(crate) interfaces: CommandObservation,
-    pub(crate) routes: CommandObservation,
-    pub(crate) provider_fallback_route: CommandObservation,
-    pub(crate) synapse_route: CommandObservation,
-    pub(crate) wireguard: CommandObservation,
-    pub(crate) network_manager_connections: CommandObservation,
-    pub(crate) policy_routes: CommandObservation,
-    pub(crate) namespaces: CommandObservation,
-    pub(crate) firewall: CommandObservation,
+pub struct NetworkObservation {
+    pub interfaces: CommandObservation,
+    pub routes: CommandObservation,
+    pub provider_fallback_route: CommandObservation,
+    pub synapse_route: CommandObservation,
+    pub wireguard: CommandObservation,
+    pub network_manager_connections: CommandObservation,
+    pub policy_routes: CommandObservation,
+    pub namespaces: CommandObservation,
+    pub firewall: CommandObservation,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct DnsObservation {
-    pub(crate) critical_hosts: Vec<DnsResolutionObservation>,
+pub struct DnsObservation {
+    pub critical_hosts: Vec<DnsResolutionObservation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct SystemdObservation {
-    pub(crate) wg_quick_wg0: CommandObservation,
-    pub(crate) network_manager: CommandObservation,
-    pub(crate) systemd_resolved: CommandObservation,
+pub struct SystemdObservation {
+    pub wg_quick_wg0: CommandObservation,
+    pub network_manager: CommandObservation,
+    pub systemd_resolved: CommandObservation,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct ServiceObservation {
-    pub(crate) systemd: SystemdObservation,
-    pub(crate) tcp: Vec<TcpObservation>,
+pub struct ServiceObservation {
+    pub systemd: SystemdObservation,
+    pub tcp: Vec<TcpObservation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeObservation {
-    pub(crate) schema: &'static str,
-    pub(crate) generated_at: String,
-    pub(crate) hostname: String,
-    pub(crate) binary_attestation: BinaryAttestation,
-    pub(crate) status: NodeRuntimeStatus,
-    pub(crate) severity: NodeRuntimeSeverity,
-    pub(crate) capabilities: NodeRuntimeCapabilities,
-    pub(crate) blockers: Vec<NodeRuntimeBlocker>,
-    pub(crate) remediation: Vec<NodeRuntimeRemediation>,
-    pub(crate) topology: TopologyObservation,
-    pub(crate) network_mesh_status: CanonicalNetworkMeshStatusProjection,
-    pub(crate) runtime_observation: SharedRuntimeObservation,
-    pub(crate) network: NetworkObservation,
-    pub(crate) dns: DnsObservation,
-    pub(crate) wireguard_transport: WireguardTransportObservation,
-    pub(crate) dns_projection: DnsProjectionObservation,
-    pub(crate) services: ServiceObservation,
+    pub schema: &'static str,
+    pub generated_at: String,
+    pub hostname: String,
+    pub binary_attestation: BinaryAttestation,
+    pub status: NodeRuntimeStatus,
+    pub severity: NodeRuntimeSeverity,
+    pub capabilities: NodeRuntimeCapabilities,
+    pub blockers: Vec<NodeRuntimeBlocker>,
+    pub remediation: Vec<NodeRuntimeRemediation>,
+    pub topology: TopologyObservation,
+    pub network_mesh_status: CanonicalNetworkMeshStatusProjection,
+    pub runtime_observation: SharedRuntimeObservation,
+    pub network: NetworkObservation,
+    pub dns: DnsObservation,
+    pub wireguard_transport: WireguardTransportObservation,
+    pub dns_projection: DnsProjectionObservation,
+    pub services: ServiceObservation,
 }
 
 #[cfg(any(test, kani))]
 #[derive(Debug, Clone)]
-pub(crate) struct SyntheticNodeObservationContext {
-    pub(crate) wg_quick_unit: String,
-    pub(crate) resolved_unit: String,
-    pub(crate) ip_bin: String,
-    pub(crate) network_manager_bin: String,
-    pub(crate) nft_bin: String,
-    pub(crate) wg_bin: String,
-    pub(crate) systemctl_bin: String,
+pub struct SyntheticNodeObservationContext {
+    pub wg_quick_unit: String,
+    pub resolved_unit: String,
+    pub ip_bin: String,
+    pub network_manager_bin: String,
+    pub nft_bin: String,
+    pub wg_bin: String,
+    pub systemctl_bin: String,
 }
 
 #[cfg(any(test, kani))]
 impl SyntheticNodeObservationContext {
-    pub(crate) fn from_current_runtime() -> Self {
+    pub fn from_current_runtime() -> Self {
         let runtime_layout = current_runtime_layout();
         let host_capabilities = runtime_layout.capabilities();
         Self {
@@ -203,12 +203,12 @@ impl NodeObservation {
         self.severity == NodeRuntimeSeverity::Critical
     }
 
-    pub(crate) fn runtime_artifact_declaration_drift(&self) -> RuntimeArtifactDeclarationDrift {
+    pub fn runtime_artifact_declaration_drift(&self) -> RuntimeArtifactDeclarationDrift {
         self.binary_attestation.declaration_drift()
     }
 
     #[cfg(any(test, kani))]
-    pub(crate) fn synthetic_for_tests(
+    pub fn synthetic_for_tests(
         capabilities: NodeRuntimeCapabilities,
         provider_fallback_gateway: Option<String>,
     ) -> Self {
@@ -220,7 +220,7 @@ impl NodeObservation {
     }
 
     #[cfg(any(test, kani))]
-    pub(crate) fn synthetic_for_tests_with_context(
+    pub fn synthetic_for_tests_with_context(
         capabilities: NodeRuntimeCapabilities,
         provider_fallback_gateway: Option<String>,
         context: &SyntheticNodeObservationContext,

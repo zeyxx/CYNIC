@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use cynic_host::runtime_layout::{observed_hostname, observed_local_ips, observed_service_status};
+use crate::adapters::host_observation::{observed_hostname, observed_local_ips, observed_service_status};
 
 pub(super) trait WatchdogHostRuntimePort {
     fn hostname(&self) -> String;

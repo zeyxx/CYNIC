@@ -1,4 +1,4 @@
-use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{EvidenceEnvelope, TargetCandidate, build_evidence_envelope};
 use serde::Serialize;
 

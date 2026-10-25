@@ -7,7 +7,7 @@ use cynic_host::command_surface::{
 };
 #[cfg(test)]
 use cynic_host::command_surface::render_invocation;
-use cynic_host::install_contract::InstallPathPolicy;
+use cynic_protocol::install_contract::InstallPathPolicy;
 
 // Network plans use the host command contract directly. The node owns only
 // observation/adaptation, never a second command schema.

@@ -2,7 +2,7 @@ use cynic_build::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
 
 use std::{collections::BTreeMap, fs, path::Path};
 
-use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope};
 use sha2::{Digest, Sha256};
 

@@ -708,7 +708,7 @@ async fn admin_evidence(
 /// path: a transition without a stored receipt is a 500, never a silent
 /// claim — the live snapshot is swapped only after this returns `Ok`.
 fn persist_reload_receipt(state: &AppState, receipt: &ReloadReceipt) -> Result<String, String> {
-    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
     let envelope = build_evidence_envelope(
         &format!("node:reload:{}", receipt.node_id),
         &format!("cynic-node/builder-http:{}", receipt.node_id),
@@ -994,7 +994,7 @@ async fn admin_restart(
 }
 
 fn persist_restart_receipt(state: &AppState, receipt: &serde_json::Value) {
-    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
     let observed_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
@@ -1056,7 +1056,7 @@ async fn get_record(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 
     let record = match state.store.read(&id) {
         Ok(Some(record)) => record,
@@ -1396,7 +1396,7 @@ fn drain_gate(state: &AppState) -> Result<(), (StatusCode, String)> {
 /// publication path: a transition without a stored receipt is a 500, never a
 /// silent claim.
 fn persist_drain_receipt(state: &AppState, receipt: &DrainReceipt) -> Result<String, String> {
-    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
     let envelope = build_evidence_envelope(
         &format!("node:drain:{}", receipt.node_id),
         &format!("cynic-node/builder-http:{}", receipt.node_id),

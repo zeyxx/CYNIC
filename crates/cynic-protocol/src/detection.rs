@@ -66,6 +66,44 @@ pub enum SupervisorKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum PackageManagerKind {
+    Apt,
+    Apk,
+    Dnf,
+    Rpm,
+    Winget,
+    Choco,
+    Unknown,
+}
+
+impl PackageManagerKind {
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "apt" | "apt-get" | "debian" | "ubuntu" => Self::Apt,
+            "apk" | "alpine" => Self::Apk,
+            "dnf" => Self::Dnf,
+            "rpm" => Self::Rpm,
+            "winget" | "windows" => Self::Winget,
+            "choco" | "chocolatey" => Self::Choco,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Apt => "apt",
+            Self::Apk => "apk",
+            Self::Dnf => "dnf",
+            Self::Rpm => "rpm",
+            Self::Winget => "winget",
+            Self::Choco => "choco",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum InstallProvenance {
     StandaloneBinary,
     UvTool,
