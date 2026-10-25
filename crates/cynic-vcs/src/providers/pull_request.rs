@@ -173,7 +173,9 @@ impl PrPort for ForgejoPrAdapter {
         })
     }
 
-    fn merge(&self, number: u64, style: &str) -> Result<PrMergeProof, String> {
+    fn merge(&self, number: u64, style: &str, delete_branch: bool) -> Result<PrMergeProof, String> {
+        // Observe: capture the head branch before the PR disappears from the open set.
+        let head_ref = self.get(number)?.head_ref;
         // Forgejo merge returns 204 No Content — discard body, check exit code only.
         let url = format!(
             "{}/api/v1/repos/{}/{}/pulls/{}/merge",
@@ -205,11 +207,32 @@ impl PrPort for ForgejoPrAdapter {
                 String::from_utf8_lossy(&out.stderr)
             ));
         }
+        // Apply: delete the head branch only when it is an agent branch.
+        // Read-back: the branch must answer 404 afterwards, or it is reported kept.
+        let (branch_deleted, note) = if !delete_branch {
+            (false, "kept (--keep-branch)".to_string())
+        } else if !head_ref.starts_with("agent/") {
+            (false, format!("kept (not agent/*): {head_ref}"))
+        } else {
+            let branch_url = format!(
+                "{}/api/v1/repos/{}/{}/branches/{}",
+                self.api_base, self.owner, self.repo, head_ref
+            );
+            match self.curl_delete(&branch_url) {
+                Ok(()) if self.curl_json("GET", &branch_url, None).is_err() => {
+                    (true, format!("branch {head_ref} deleted"))
+                }
+                Ok(()) => (false, format!("branch {head_ref} delete not reflected on read-back")),
+                Err(e) => (false, format!("branch {head_ref} delete failed: {e}")),
+            }
+        };
         Ok(PrMergeProof {
             schema: PR_MERGE_PROOF_SCHEMA,
             pr_number: number,
             merged: true,
-            message: format!("PR #{number} merged via Forgejo (style: {style})"),
+            head_ref,
+            branch_deleted,
+            message: format!("PR #{number} merged via Forgejo (style: {style}); {note}"),
         })
     }
 
