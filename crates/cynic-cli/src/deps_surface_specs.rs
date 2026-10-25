@@ -26,7 +26,7 @@ pub(crate) fn specs() -> Vec<DepSpec> {
         },
         DepSpec {
             id: "cynic",
-            role: "organism_cli",
+            role: "deployment_cli",
             category: "runtime",
             tier: "required",
             bins: &["cynic"],

@@ -716,12 +716,6 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-pkg/src/registry.rs:23",
-      "path": "crates/cynic-pkg/src/registry.rs",
-      "terms": "organism"
-    },
-    {
-      "count": 1,
       "evidence": "crates/cynic-protocol/src/throughput_invoice.rs:19",
       "path": "crates/cynic-protocol/src/throughput_invoice.rs",
       "terms": "metabolic"
