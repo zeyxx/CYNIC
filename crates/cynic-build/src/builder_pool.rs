@@ -195,6 +195,12 @@ pub struct CapacityReading {
     pub node_id: String,
     pub in_flight: u64,
     pub load_average_1m: f64,
+    /// Measured by the node itself; `None` from a node that predates the
+    /// field or could not measure it. Never zero-assumed.
+    pub state_root: Option<String>,
+    pub free_ram_bytes: Option<u64>,
+    pub total_ram_bytes: Option<u64>,
+    pub disk_avail_bytes: Option<u64>,
 }
 
 /// Query one builder's `/capacity` gauge.
@@ -230,6 +236,13 @@ pub fn query_capacity(url: &str) -> Option<CapacityReading> {
                 .get("load_average_1m")
                 .and_then(|n| n.as_f64())
                 .unwrap_or(f64::MAX),
+            state_root: body
+                .get("state_root")
+                .and_then(|n| n.as_str())
+                .map(String::from),
+            free_ram_bytes: body.get("free_ram_bytes").and_then(|n| n.as_u64()),
+            total_ram_bytes: body.get("total_ram_bytes").and_then(|n| n.as_u64()),
+            disk_avail_bytes: body.get("disk_avail_bytes").and_then(|n| n.as_u64()),
         })
     })
     .join()
@@ -494,6 +507,10 @@ mod tests {
             node_id: node_id.to_string(),
             in_flight,
             load_average_1m: load,
+            state_root: None,
+            free_ram_bytes: None,
+            total_ram_bytes: None,
+            disk_avail_bytes: None,
         }
     }
 

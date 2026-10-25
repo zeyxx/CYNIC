@@ -39,6 +39,10 @@ pub enum FleetCommand {
         /// SSH user for alias-form targets (user@host entries carry their own).
         #[arg(long, default_value = "cynic")]
         user: String,
+        /// Never fall back to SSH: a field the node does not report stays
+        /// unmeasured (and the runner is muted for it).
+        #[arg(long)]
+        no_ssh: bool,
         /// Emit JSON.
         #[arg(long)]
         json: bool,
@@ -65,7 +69,7 @@ pub enum FleetCommand {
 
 pub fn execute_fleet(cmd: &FleetCommand) -> ExitCode {
     match cmd {
-        FleetCommand::Observe { user, json } => execute_observe(user, *json),
+        FleetCommand::Observe { user, no_ssh, json } => execute_observe(user, *no_ssh, *json),
         FleetCommand::Remediate {
             runner,
             action,
@@ -216,12 +220,28 @@ fn now_unix_s() -> u64 {
         .unwrap_or(0)
 }
 
+/// Prefer the value the node reported; otherwise measure over SSH unless
+/// forbidden, recording which field needed the fallback.
+fn node_or_ssh<T>(
+    field: &'static str,
+    from_node: Option<T>,
+    no_ssh: bool,
+    ssh_fields: &mut Vec<&'static str>,
+    ssh: impl FnOnce() -> Option<T>,
+) -> Option<T> {
+    if from_node.is_some() || no_ssh {
+        return from_node;
+    }
+    ssh_fields.push(field);
+    ssh()
+}
+
 /// Read-only observe: probe every registry runner, record snapshots.
 ///
 /// Never mutates runners. Rewrites `infra/fleet-capacity.json` with fresh
 /// snapshots. Non-zero exit when any runner is muted or degraded so a cron
 /// can alert.
-fn execute_observe(default_user: &str, json: bool) -> ExitCode {
+fn execute_observe(default_user: &str, no_ssh: bool, json: bool) -> ExitCode {
     let candidates = cynic_host::registry::resolve::list_runner_nodes(None).unwrap_or_default();
     if candidates.is_empty() {
         return fail("no runner nodes in the registry".to_string());
@@ -243,7 +263,17 @@ fn execute_observe(default_user: &str, json: bool) -> ExitCode {
     let mut degraded = Vec::new();
     let mut muted = Vec::new();
 
+    // Nodes answer for themselves over HTTP; SSH only fills what they do not
+    // report (a node that predates the field, or a runner with no node).
+    let pool = cynic_host::runtime_registry::load_runtime_registry(None)
+        .map(|registry| cynic_build::builder_pool::resolve_builder_pool(&registry))
+        .unwrap_or_default();
+
     for entry in &candidates {
+        let reading = pool
+            .iter()
+            .find(|endpoint| endpoint.node_id == entry.node_id)
+            .and_then(|endpoint| cynic_build::builder_pool::query_capacity(&endpoint.url));
         let (user, probe_host) = match entry.ssh_target.split_once('@') {
             Some((u, h)) => (u.to_string(), h.to_string()),
             None => (default_user.to_string(), entry.ssh_target.clone()),
@@ -257,14 +287,46 @@ fn execute_observe(default_user: &str, json: bool) -> ExitCode {
             None,
             None,
         );
+        let mut ssh_fields: Vec<&'static str> = Vec::new();
         let snap = RunnerCapacitySnapshot {
             runner_id: entry.node_id.clone(),
             observed_unix_s: now,
-            free_ram_bytes: probe.probe_free_ram_bytes(),
-            total_ram_bytes: probe.probe_total_ram_bytes(),
-            disk_avail_bytes: probe.probe_disk_avail_bytes(),
-            state_root: probe.probe_state_root(),
+            free_ram_bytes: node_or_ssh(
+                "free_ram_bytes",
+                reading.as_ref().and_then(|r| r.free_ram_bytes),
+                no_ssh,
+                &mut ssh_fields,
+                || probe.probe_free_ram_bytes(),
+            ),
+            total_ram_bytes: node_or_ssh(
+                "total_ram_bytes",
+                reading.as_ref().and_then(|r| r.total_ram_bytes),
+                no_ssh,
+                &mut ssh_fields,
+                || probe.probe_total_ram_bytes(),
+            ),
+            disk_avail_bytes: node_or_ssh(
+                "disk_avail_bytes",
+                reading.as_ref().and_then(|r| r.disk_avail_bytes),
+                no_ssh,
+                &mut ssh_fields,
+                || probe.probe_disk_avail_bytes(),
+            ),
+            state_root: node_or_ssh(
+                "state_root",
+                reading.as_ref().and_then(|r| r.state_root.clone()),
+                no_ssh,
+                &mut ssh_fields,
+                || probe.probe_state_root(),
+            ),
         };
+        if !ssh_fields.is_empty() {
+            eprintln!(
+                "fleet observe: {}: {} measured over SSH (node did not report them)",
+                entry.node_id,
+                ssh_fields.join(", ")
+            );
+        }
         match decide_runner_usability(&snap, now, OBSERVE_FLOOR_RAM_BYTES, RUNNER_STALENESS_SECS) {
             RunnerUsability::Usable => {}
             RunnerUsability::Degraded(_) => degraded.push(entry.node_id.clone()),
@@ -315,6 +377,34 @@ fn execute_observe(default_user: &str, json: bool) -> ExitCode {
 #[cfg(test)]
 mod fleet_observe_tests {
     use super::*;
+
+    #[test]
+    fn node_value_wins_and_ssh_is_never_called() {
+        let mut fields = Vec::new();
+        let value = node_or_ssh("disk_avail_bytes", Some(7u64), false, &mut fields, || {
+            panic!("ssh must not run when the node reported the field")
+        });
+        assert_eq!(value, Some(7));
+        assert!(fields.is_empty());
+    }
+
+    #[test]
+    fn a_missing_node_field_falls_back_to_ssh_and_is_named() {
+        let mut fields = Vec::new();
+        let value = node_or_ssh("disk_avail_bytes", None, false, &mut fields, || Some(9u64));
+        assert_eq!(value, Some(9));
+        assert_eq!(fields, vec!["disk_avail_bytes"]);
+    }
+
+    #[test]
+    fn no_ssh_leaves_a_missing_field_unmeasured() {
+        let mut fields = Vec::new();
+        let value = node_or_ssh::<u64>("disk_avail_bytes", None, true, &mut fields, || {
+            panic!("ssh is forbidden")
+        });
+        assert_eq!(value, None);
+        assert!(fields.is_empty());
+    }
 
     fn snap(runner: &str, observed: u64) -> RunnerCapacitySnapshot {
         RunnerCapacitySnapshot {
