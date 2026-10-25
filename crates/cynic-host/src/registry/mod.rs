@@ -402,20 +402,12 @@ pub mod resolve {
             })
             .ok_or_else(|| "named_runner_node_missing".to_string())?;
         let role = role_for_node(&registry, node_id)?;
-        resolve_role_transport(&path, &registry, &role, "named_runner").map(|mut transport| {
-            transport.node_id = node
-                .id
-                .clone()
-                .or_else(|| node.name.clone())
-                .unwrap_or_default();
-            transport.role = role;
-            transport
-        })
+        resolve_node_transport(&path, node, &role, "named_runner")
     }
 
     fn role_for_node(registry: &RegistryDocument, node_id: &str) -> Result<String, String> {
-        // Resolve through the unique role when exactly one node carries it;
-        // the named path reuses the role transport checks verbatim.
+        // A named node must carry exactly one role; the role itself may be
+        // shared with other runners.
         let roles: Vec<&str> = registry
             .nodes
             .iter()
@@ -509,6 +501,18 @@ pub mod resolve {
                 format!("{concern}_node_ambiguous")
             });
         };
+        resolve_node_transport(path, node, role, concern)
+    }
+
+    /// Validate one already-selected node's SSH transport. Selection (by role
+    /// or by name) stays with the caller so a role shared by several runners
+    /// does not block an explicitly named one.
+    fn resolve_node_transport(
+        path: &Path,
+        node: &RegistryNode,
+        role: &str,
+        concern: &str,
+    ) -> Result<ResolvedBuildRunnerTransport, String> {
         let node_id = node
             .id
             .clone()
