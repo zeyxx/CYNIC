@@ -399,6 +399,25 @@ pub fn git_proof_resolver(workspace_root: &Path) -> impl Fn(&ProofRef) -> Result
     }
 }
 
+/// Runner for `check_claims`: executes a claim command with `sh -c` in the workspace, capped at
+/// 120 seconds. Only hand it commands from a ledger harvested in this process.
+pub fn shell_claim_runner(workspace_root: &Path) -> impl Fn(&str) -> Result<String, String> + '_ {
+    move |cmd: &str| {
+        let out = Command::new("timeout")
+            .args(["120", "sh", "-c", cmd])
+            .current_dir(workspace_root)
+            .output()
+            .map_err(|e| format!("cannot run `{cmd}`: {e}"))?;
+        if out.status.success() {
+            Ok(String::from_utf8_lossy(&out.stdout).to_string())
+        } else {
+            let err = String::from_utf8_lossy(&out.stderr);
+            let first = err.lines().next().unwrap_or("no stderr");
+            Err(format!("command failed ({}): {first}", out.status))
+        }
+    }
+}
+
 /// Loads the declarative author profile. Fails closed: a missing or malformed
 /// profile is an error, never a built-in default.
 pub fn load_author_profile(workspace_root: &Path) -> Result<AuthorProfile, String> {

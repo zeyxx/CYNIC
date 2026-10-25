@@ -36,7 +36,7 @@ pub use continuous_fusion::{
     EmpiricalCdf, NormalizationStrategy, fuse_continuous_convex, min_max_normalize,
 };
 pub use surface_gates::{
-    check_freshness, epoch_seconds, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
+    check_claims, check_freshness, epoch_seconds, parse_count, ClaimCheck, ClaimCheckOutcome, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
 };
 pub use epistemic_grounding::{
     DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD, DEFAULT_MIN_TERM_COVERAGE_RATIO,
