@@ -161,10 +161,15 @@
             "burn_method": {
               "type": "string",
               "enum": [
+                "genesis_supply",
                 "spl_burn_instruction",
                 "supply_delta"
               ],
-              "description": "Required for kind token_supply. A transfer to a dead address is NOT a burn: it does not reduce supply."
+              "description": "Required for kind token_supply. genesis_supply records the initial supply read from the mint creation transaction. spl_burn_instruction and supply_delta measure burns. A transfer to a dead address is NOT a burn: it does not reduce supply."
+            },
+            "baseline_ref": {
+              "$ref": "#/$defs/sha256",
+              "description": "Required when burn_method is supply_delta: receipt_id of the genesis_supply receipt the delta is computed against."
             }
           }
         },
@@ -414,6 +419,68 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "token_supply"
+              },
+              "measurement": {
+                "properties": {
+                  "burn_method": {
+                    "const": "supply_delta"
+                  }
+                },
+                "required": [
+                  "burn_method"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "measurement"
+            ]
+          },
+          "then": {
+            "properties": {
+              "measurement": {
+                "required": [
+                  "baseline_ref"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "measurement": {
+                "properties": {
+                  "burn_method": {
+                    "const": "genesis_supply"
+                  }
+                },
+                "required": [
+                  "burn_method"
+                ]
+              }
+            },
+            "required": [
+              "measurement"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "properties": {
+                  "evidence_kind": {
+                    "const": "solana_tx"
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -577,6 +644,10 @@
     {
       "id": "R10",
       "text": "A transfer to a dead address is not a burn. Token burns are measured by the SPL Burn instruction or by the supply delta of the mint between two slots."
+    },
+    {
+      "id": "R11",
+      "text": "A supply delta is computed against a genesis_supply receipt taken from the mint creation transaction, never against a constant. A launchpad's default supply is a hypothesis to verify with that transaction, not evidence."
     }
   ],
   "definitions_registry": [
@@ -595,6 +666,10 @@
     {
       "definition_id": "x_activity.posts.v1",
       "text": "Posts present in the account's official data export, counted by identifier."
+    },
+    {
+      "definition_id": "token_supply.genesis.v1",
+      "text": "Initial supply, in base units, read from the mint creation transaction at a stated slot and commitment."
     }
   ]
 }
