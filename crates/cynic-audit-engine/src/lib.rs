@@ -1,5 +1,6 @@
 mod artefact_rule;
 pub mod debt_ledger;
+pub mod growth;
 pub mod history;
 mod module_inversion_rule;
 pub mod path_rules;
