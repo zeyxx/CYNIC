@@ -168,11 +168,11 @@
     {
       "id": "B3",
       "kind": "action",
-      "title": "interim: update cynic-compute-01 (cynic + cynic-node) with a backed-up atomic swap, then restart through the sanctioned privilege helper",
-      "state": "blocked",
-      "evidence": "release binaries for 38d12464 built and verified in a scratch dir on compute-01; the swap and restart were denied by the permission classifier on 2026-10-26 and nothing was changed (live sha256 unchanged)",
+      "title": "interim one-off script to swap compute-01 binaries",
+      "state": "deferred",
+      "evidence": "a script was written and deleted on 2026-10-26: operator ruled that scripts must not be added as crutches; the capability belongs in the codebase (B19, B20)",
       "probe": null,
-      "note": "operator chose this on 2026-10-25; blocked on an explicit permission rule or operator run; make release.deploy is NOT usable here: compute-01 is a flat layout"
+      "note": "replaces nothing; kept so the dead end stays visible"
     },
     {
       "id": "B4",
@@ -298,6 +298,47 @@
         "expect": "node-restart only"
       },
       "note": "a restart needs no admin secret on this machine"
+    },
+    {
+      "id": "B17",
+      "kind": "issue",
+      "title": "the layout-aware deploy orchestrator has no caller",
+      "state": "open",
+      "evidence": "cynic-release deploy_orchestrator::deploy_to_machine, deploy_across; executors SshRemoteExecutor and LocalRemoteExecutor exist in deploy_ssh.rs; git grep finds no call site in any crate",
+      "probe": null,
+      "note": "library complete enough to test, never wired to a command"
+    },
+    {
+      "id": "B18",
+      "kind": "issue",
+      "title": "the deploy model covers one binary per machine (the cynic CLI) and no service restart",
+      "state": "open",
+      "evidence": "DeployMachine has a single deploy_path; infra/deploy-locations.json notes that a CLI deploy does not restart cynic-node",
+      "probe": null,
+      "note": "cynic-node, the daemon that serves /capacity, is outside the model"
+    },
+    {
+      "id": "B19",
+      "kind": "action",
+      "title": "add a command that drives deploy_to_machine: dry-run plan by default, --apply to mutate, report with read-backs",
+      "state": "open",
+      "probe": null,
+      "note": "native replacement for ad hoc scripts"
+    },
+    {
+      "id": "B20",
+      "kind": "action",
+      "title": "extend the deploy model: several binaries per machine and a restart through the sanctioned privilege helper (node-restart)",
+      "state": "open",
+      "probe": null,
+      "note": "restart grant exists on compute-01 (B16); builder and others unverified"
+    },
+    {
+      "id": "B22",
+      "kind": "goal",
+      "title": "runner binaries are updated by a native, proven, rollback-able command",
+      "state": "open",
+      "probe": null
     },
     {
       "id": "B13",
@@ -482,16 +523,6 @@
       "note": "the retired-metaphor ratchet needs both the rename and the profile decision"
     },
     {
-      "id": "H9",
-      "enables": "B3",
-      "requires": [
-        "B14",
-        "B16"
-      ],
-      "mode": "all",
-      "note": "facts that make the interim swap possible (layout known, restart sanctioned)"
-    },
-    {
       "id": "H4",
       "enables": "C4",
       "requires": [
@@ -505,11 +536,11 @@
       "id": "H5",
       "enables": "B1",
       "requires": [
-        "B3",
+        "B22",
         "B2"
       ],
       "mode": "any",
-      "note": "runners updated by the interim gate OR by the native path"
+      "note": "runners updated by the native command OR by the signed pipeline"
     },
     {
       "id": "H6",
@@ -527,6 +558,19 @@
         "E4"
       ],
       "mode": "all"
+    },
+    {
+      "id": "H10",
+      "enables": "B22",
+      "requires": [
+        "B17",
+        "B19",
+        "B20",
+        "B14",
+        "B16"
+      ],
+      "mode": "all",
+      "note": "a native command needs the orchestrator wired, the model extended, and the target facts"
     }
   ]
 }
