@@ -7,6 +7,7 @@
 //! `Task`, `Claim`, `Proof`, and the status/error enums are agent-bus-specific
 //! and remain in this module.
 
+pub use cynic_protocol::agent_coordination::ClaimStatus;
 pub use cynic_types::{AgentId, Budget, Hash32, Scope, ScopeKind, TaskId, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -58,15 +59,6 @@ pub struct Claim {
     pub acquired_at_unix_s: u64,
     pub ttl_seconds: u32,
     pub parent_claim_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum ClaimStatus {
-    Active,
-    Expired,
-    Released,
-    Preempted,
-    Blocked,
 }
 
 #[derive(Debug, thiserror::Error)]
