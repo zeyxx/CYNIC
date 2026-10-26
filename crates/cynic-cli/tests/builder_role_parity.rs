@@ -117,3 +117,17 @@ fn every_build_runner_is_enrolled() {
         );
     }
 }
+
+/// The disk gate reads `build_lifecycle` per runner. A runner without one has
+/// its gate silently off (`minimum_available_bytes_for_runner` yields `None`),
+/// which is the same silent gap as a runner with no declared capabilities.
+#[test]
+fn every_build_runner_declares_a_build_lifecycle() {
+    for node in build_runner_nodes() {
+        assert!(
+            node.get("build_lifecycle").is_some(),
+            "{} declares no build_lifecycle: its disk gate would be off",
+            node_id(&node)
+        );
+    }
+}
