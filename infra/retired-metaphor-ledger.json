@@ -1,6 +1,12 @@
 {
   "entries": [
     {
+      "count": 2,
+      "evidence": "contracts/author-profile.json:307",
+      "path": "contracts/author-profile.json",
+      "terms": "Dog"
+    },
+    {
       "count": 8,
       "evidence": "contracts/claims.json:52",
       "path": "contracts/claims.json",
@@ -716,12 +722,6 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-pkg/src/registry.rs:23",
-      "path": "crates/cynic-pkg/src/registry.rs",
-      "terms": "organism"
-    },
-    {
-      "count": 1,
       "evidence": "crates/cynic-protocol/src/throughput_invoice.rs:19",
       "path": "crates/cynic-protocol/src/throughput_invoice.rs",
       "terms": "metabolic"
@@ -745,7 +745,7 @@
       "terms": "DOG"
     },
     {
-      "count": 6,
+      "count": 5,
       "evidence": "docs/public/facts.live.json:154",
       "path": "docs/public/facts.live.json",
       "terms": "organism, dog, Dog, organic"
@@ -843,7 +843,7 @@
     "by_term": {
       "DOG": 3,
       "DOg": 1,
-      "Dog": 32,
+      "Dog": 34,
       "Dogs": 7,
       "METABOLIC": 2,
       "Metabolic": 1,
@@ -861,7 +861,7 @@
       "metabolism": 3,
       "organ": 36,
       "organic": 19,
-      "organism": 33,
+      "organism": 31,
       "organs": 18
     },
     "files": 138,

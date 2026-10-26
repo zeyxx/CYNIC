@@ -20,7 +20,7 @@ pub fn ecosystem_provider_specs() -> &'static [EcosystemProviderSpec] {
             id: "cynic",
             channel: ProviderChannel::Scripted,
             principal: InstallPrincipalKind::OperatorLocal,
-            role: "organism_cli",
+            role: "deployment_cli",
         },
         EcosystemProviderSpec {
             id: "llama.cpp",
