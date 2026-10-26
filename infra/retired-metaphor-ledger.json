@@ -1,6 +1,12 @@
 {
   "entries": [
     {
+      "count": 2,
+      "evidence": "contracts/author-profile.json:307",
+      "path": "contracts/author-profile.json",
+      "terms": "Dog"
+    },
+    {
       "count": 8,
       "evidence": "contracts/claims.json:52",
       "path": "contracts/claims.json",
@@ -739,7 +745,7 @@
       "terms": "DOG"
     },
     {
-      "count": 6,
+      "count": 5,
       "evidence": "docs/public/facts.live.json:154",
       "path": "docs/public/facts.live.json",
       "terms": "organism, dog, Dog, organic"
@@ -837,7 +843,7 @@
     "by_term": {
       "DOG": 3,
       "DOg": 1,
-      "Dog": 32,
+      "Dog": 34,
       "Dogs": 7,
       "METABOLIC": 2,
       "Metabolic": 1,
@@ -855,12 +861,12 @@
       "metabolism": 3,
       "organ": 36,
       "organic": 19,
-      "organism": 32,
+      "organism": 31,
       "organs": 18
     },
-    "files": 137,
+    "files": 138,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 899
+    "occurrences": 900
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {

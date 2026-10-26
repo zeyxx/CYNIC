@@ -972,8 +972,8 @@
     {
       "date": "2026-06-18",
       "title": "VivaTech Paris (10e édition)",
-      "description_fr": "Pitch de CYNIC comme organisme d'arbitrage autonome pour agents LLM.",
-      "description_en": "Pitching CYNIC as an autonomous arbitration organism for LLM agents.",
+      "description_fr": "Pitch de CYNIC comme système d'arbitrage autonome pour agents LLM.",
+      "description_en": "Pitching CYNIC as an autonomous arbitration system for LLM agents.",
       "proof_reference": "CYNIC@8575ee61:docs/vivatech_2026_pitch_cynic.md"
     },
     {
