@@ -440,12 +440,6 @@
     },
     {
       "count": 3,
-      "evidence": "crates/cynic-knowledge/src/adapters/epistemic_harvester.rs:754",
-      "path": "crates/cynic-knowledge/src/adapters/epistemic_harvester.rs",
-      "terms": "Dog, organism"
-    },
-    {
-      "count": 3,
       "evidence": "crates/cynic-knowledge/src/domain/chunk_quality.rs:48",
       "path": "crates/cynic-knowledge/src/domain/chunk_quality.rs",
       "terms": "organic"
@@ -864,9 +858,9 @@
       "organism": 31,
       "organs": 18
     },
-    "files": 138,
+    "files": 137,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 900
+    "occurrences": 897
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {
