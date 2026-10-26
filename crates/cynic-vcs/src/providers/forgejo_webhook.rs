@@ -1,6 +1,6 @@
 //! Webhook handler for Forgejo push/PR events.
 //!
-//! Replaces the bash script `scripts/forgejo-build-webhook` with a native Rust
+//! Replaces the retired bash build-webhook script with a native Rust
 //! surface that respects CYNIC principles:
 //!   - declarative desired state (registry-driven node discovery)
 //!   - observation before action
