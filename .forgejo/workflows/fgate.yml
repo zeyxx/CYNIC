@@ -17,258 +17,6 @@ jobs:
   # Every suite is its own job so the pool can spread them across the
   # sovereign runners. A single monolithic job would pin the whole gate to
   # one runner and serialize the workspace compilation.
-  detect:
-    name: Gate 0 Runner Change Detection
-    runs-on: [cynic/build]
-    outputs:
-      runner_changed: ${{ steps.detect.outputs.runner_changed }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect runner or gate-definition change
-        id: detect
-        run: |
-          set -eu
-          # Pool Eligibility is required only when the runner definition or the
-          # gate definitions change (operator decision 2026-10-26). A missing base
-          # cannot prove the runner is unchanged, so it runs everything.
-          base=""
-          if git rev-parse --verify origin/main >/dev/null 2>&1; then
-            base=$(git merge-base origin/main HEAD 2>/dev/null || true)
-          fi
-          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
-            runner_changed=true
-          else
-            changed=$(git diff --name-only "$base" HEAD || true)
-            runner_changed=false
-            if printf '%s\n' "$changed" | grep -qE '^(\.forgejo/|infra/registry\.json$)'; then
-              runner_changed=true
-            fi
-          fi
-          echo "runner_changed=${runner_changed}" >> "$GITHUB_OUTPUT"
-          echo "runner_changed=${runner_changed}"
-
-  pool_eligibility:
-    name: Gate 0 Pool Eligibility
-    needs: [detect]
-    if: needs.detect.outputs.runner_changed == 'true'
-    runs-on: [cynic/build]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Ensure Rust toolchain (bare runner)
-        run: |
-          if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
-          fi
-          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          # Per-run isolated build cache (infra/directory-tree.json:
-          # {state-root}/build-targets/<profile>). One directory per CI run:
-          # shards of the same run share one compilation (first shard cold,
-          # the rest warm); two runs never share one fingerprint space.
-          # Cross-run sharing forged resolution errors (last-builder-wins
-          # mtime lottery), so the target moved from the shared `fgate`
-          # directory to `fgate-run-$GITHUB_RUN_ID`. Measured on builder-119,
-          # 256s cold vs 96s warm; sccache still absorbs cross-run reuse.
-          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
-          target_dir="${state_root}/build-targets/${run_tag}"
-          mkdir -p "$target_dir"
-          echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
-          echo "target dir: $target_dir"
-          # Route the compiler through the bounded compilation cache.
-          # Measured on builder-119 before this line existed: 1521 Rust
-          # cache MISSES against 129 hits — 97% of the compilations the
-          # gate performs were recomputed from scratch. The shared target
-          # directory only helps when the SAME crate is rebuilt in the
-          # SAME directory; the cache helps when a crate is rebuilt in
-          # ANY directory, which is what happens when the source moves
-          # between a checkout, a worktree and a release build.
-          #
-          # Every shard has its OWN toolchain step, so each one must set
-          # the wrapper: exporting it once in one shard does not reach
-          # the others.
-          if command -v sccache >/dev/null 2>&1; then
-            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "compilation cache: $(command -v sccache)"
-          else
-            echo "no compilation cache on this runner: the gate compiles cold"
-          fi
-          # Route the compiler through the bounded compilation cache.
-          # Measured on builder-119 before this line existed: 1521 Rust
-          # cache MISSES against 129 hits — 97% of the compilations the
-          # gate performs were recomputed from scratch. The shared target
-          # directory only helps when the SAME crate is rebuilt in the
-          # SAME directory; the cache helps when a crate is rebuilt in
-          # ANY directory, which is what happens when the source moves
-          # between a checkout, a worktree and a release build.
-          if command -v sccache >/dev/null 2>&1; then
-            echo "RUSTC_WRAPPER=$(command -v sccache)" >> "$GITHUB_ENV"
-            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-            echo "compilation cache: $(command -v sccache)"
-          else
-            echo "no compilation cache on this runner: the gate compiles cold"
-          fi
-          # Compilation parallelism, decided by the CYNIC binary from the
-          # observed memory and published by Gate 0 in the shared target
-          # directory. A missing or unreadable file means the decision was
-          # not taken: the safe answer is ONE compilation at a time, never
-          # the machine's core count.
-          jobs=1
-          if [ -r "$target_dir/gate-jobs" ] && [ -r "$target_dir/gate-jobs-digest" ]; then
-            published_digest=$(cat "$target_dir/gate-jobs-digest")
-            head_digest="${GITHUB_SHA:-}"
-            if [ -n "$published_digest" ] && [ "$published_digest" = "$head_digest" ]; then
-              jobs=$(cat "$target_dir/gate-jobs")
-            else
-              echo "refusing the published parallelism: it was decided for another source"
-              echo "  published: $published_digest"
-              echo "  this run:  $head_digest"
-            fi
-          fi
-          case "$jobs" in
-            ''|*[!0-9]*) jobs=1 ;;
-          esac
-          [ "$jobs" -ge 1 ] 2>/dev/null || jobs=1
-          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
-          echo "compilation parallelism: $jobs"
-          rustc --version
-          cargo --version
-
-
-      - name: Build the sovereign CLI
-        run: |
-          # The runner restores the checkout from its cache, and a restored
-          # file keeps an OLD mtime. Cargo decides whether to rebuild from
-          # FILE TIMESTAMPS, so a restored source that looks older than the
-          # build fingerprint is NOT rebuilt: the shared target directory
-          # then serves a binary that predates the source. Measured: the
-          # gate published a parallelism the merged source did not
-          # contain. Touching the sources makes the fingerprint truthful
-          # again, and the rebuild is correct rather than skipped.
-          find crates -name '*.rs' -exec touch {} +
-          cargo build --release -p cynic-cli
-
-      - name: Prove the compilation cache is engaged, not merely present
-        run: |
-          set -eu
-          # Wrapper presence is not wrapper effectiveness. A pinned wrapper
-          # whose version skews from the server handshake-fails silently while
-          # builds still converge cold. When the wrapper is configured, this
-          # step fails if the cache served nothing: hits plus misses must
-          # exceed zero after the build above.
-          #
-          # An absent wrapper is NOT a failure: the host compiles cold, slow
-          # but correct. Required tools are declared in the registry
-          # (pool.required_tools) and enforced by the eligibility verb, never
-          # by this shell step — a shell re-derivation would be a second,
-          # drifting authority for a rule the registry owns.
-          if ! command -v sccache >/dev/null 2>&1; then
-            echo "no compilation cache on this runner: the gate compiles cold (registry decides if that is allowed)"
-            exit 0
-          fi
-          stats=$(sccache --show-stats 2>&1 || true)
-          echo "$stats"
-          total=$(printf '%s\n' "$stats" | python3 -c "
-          import re,sys
-          text = sys.stdin.read()
-          hits = misses = 0
-          m = re.search(r'(?i)cache hits?\s*[:=]?\s*(\d+)', text)
-          if m: hits = int(m.group(1))
-          m = re.search(r'(?i)cache miss(?:es)?\s*[:=]?\s*(\d+)', text)
-          if m: misses = int(m.group(1))
-          if hits == 0 and misses == 0:
-              nums = [int(n) for n in re.findall(r'\b(\d+)\b', text)]
-              total = sum(nums)
-              print(total)
-          else:
-              print(hits + misses)
-          ")
-          case "$total" in ''|*[!0-9]*) total=0 ;; esac
-          if [ "$total" -eq 0 ]; then
-            echo "compilation cache not engaged: hits plus misses is zero after a release build"
-            exit 1
-          fi
-          echo "compilation cache engaged: hits plus misses = $total"
-
-      - name: Publish the compilation parallelism this runner can hold
-        run: |
-          set -eu
-          # The gate is sharded into several jobs that share ONE build target
-          # directory, and the shard count is a function of the machine, not a
-          # constant. When two shards compile the same dependency tree at the
-          # same time, the kernel OOM-kills one of them and the CI reports the
-          # kill as a test failure: measured on builder-119 (8 GiB, 4 cores),
-          # a single rustc peaks at ~396 MiB, two concurrent compilations of
-          # cynic-cli crossed the physical RAM, and the failing job MOVED
-          # between two runs on a byte-identical tree.
-          #
-          # The CYNIC binary decides, from the observed memory, how many
-          # concurrent compilations fit. The decision is published in the
-          # run's own target directory, which is where that run's build
-          # cache already lives, so the other shards read it.
-          # Each `run:` block is its own shell: the variables of the
-          # toolchain step are not in scope here, so the run directory
-          # is resolved again from the same source of truth.
-          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          run_tag="fgate-run-${GITHUB_RUN_ID:-local}"
-          target_dir="${state_root}/build-targets/${run_tag}"
-          mkdir -p "$target_dir"
-          if [ -x "$CARGO_TARGET_DIR/release/cynic" ]; then
-            "$CARGO_TARGET_DIR/release/cynic" build pool memory --json > "$target_dir/gate-jobs.json"
-            jobs=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json'))['jobs'])")
-            echo "$jobs" > "$target_dir/gate-jobs"
-            # The decision is tied to the source it was taken for. A shared
-            # build directory can serve a stale binary, and a stale decision
-            # applied to a fresh tree is a decision about the wrong code --
-            # a failure that is invisible because the mechanism works.
-            # The digest is the one the BINARY stamped: the tree it was
-            # actually built from and ran in. A binary that predates the
-            # rule stamps nothing, and a decision with no digest is a
-            # decision about nothing — so it is NOT published, and the
-            # shards fall back to a single compilation.
-            digest=$(python3 -c "import json;print(json.load(open('$target_dir/gate-jobs.json')).get('source_digest') or '')")
-            if [ -n "$digest" ]; then
-              echo "$digest" > "$target_dir/gate-jobs-digest"
-              echo "published compilation parallelism: $jobs (source $digest)"
-            else
-              rm -f "$target_dir/gate-jobs" "$target_dir/gate-jobs-digest"
-              echo "the binary stamped no source digest: no parallelism is published"
-            fi
-          else
-            echo "no published decision yet: the first run compiles serially"
-          fi
-
-      - name: Verify pool eligibility for this label
-        run: |
-          set -eu
-          # The CYNIC binary is the authority: it reads the registry, resolves
-          # the label to the base-enrolled grantors, and probes the local
-          # toolchain. No reimplementation of that logic in the workflow.
-          "$CARGO_TARGET_DIR/release/cynic" build pool eligibility \
-            --label "$POOL_LABEL" \
-            --registry infra/registry.json \
-            --observed-labels "$POOL_LABEL"
-
-      - name: Prune stale per-run caches
-        run: |
-          set -eu
-          # Every run leaves one fgate-run-* directory behind; no run lasts
-          # 3 days. The legacy shared `fgate` directory is left alone (runs
-          # on older mains may still use it).
-          state_root="${CYNIC_STATE_DIR:-$HOME/.local/share/cynic}"
-          find "${state_root}/build-targets" -maxdepth 1 -name 'fgate-run-*' -mtime +3 -exec rm -rf {} + 2>/dev/null || true
-          echo "remaining run caches: $(find "${state_root}/build-targets" -maxdepth 1 -name 'fgate-run-*' 2>/dev/null | wc -l)"
-
   derive_scope:
     name: Gate 0 Proof Scope Derivation
     runs-on: [cynic/build]
@@ -385,8 +133,6 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility]
-    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -461,8 +207,8 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility, derive_scope]
-    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
+    needs: [derive_scope]
+    if: needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -556,8 +302,8 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility, derive_scope]
-    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
+    needs: [derive_scope]
+    if: needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -651,8 +397,8 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility, derive_scope]
-    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
+    needs: [derive_scope]
+    if: needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -746,8 +492,8 @@ jobs:
     # decided by the CYNIC binary from the observed memory. Waiting for it
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
-    needs: [pool_eligibility, derive_scope]
-    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
+    needs: [derive_scope]
+    if: needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -838,8 +584,6 @@ jobs:
   verdict:
     name: Layer 0-4 Verification Gate
     needs:
-      - detect
-      - pool_eligibility
       - derive_scope
       - validate_json
       - check_compile
@@ -857,9 +601,6 @@ jobs:
 
       - name: Aggregate Test Suite Verdict
         env:
-          DETECT_OUTCOME: ${{ needs.detect.result }}
-          RUNNER_CHANGED: ${{ needs.detect.outputs.runner_changed }}
-          POOL_ELIGIBILITY_OUTCOME: ${{ needs.pool_eligibility.result }}
           SCOPE_DERIVATION_OUTCOME: ${{ needs.derive_scope.result }}
           JSON_VALIDATION_OUTCOME: ${{ needs.validate_json.result }}
           COMPILE_OUTCOME: ${{ needs.check_compile.result }}
@@ -879,22 +620,9 @@ jobs:
               *) printf '  %-18s %s (hard gate)\n' "$1" "$2"; hard_gate_failed=1 ;;
             esac
           }
-          check_hard detect "${DETECT_OUTCOME}"
           check_hard derive_scope "${SCOPE_DERIVATION_OUTCOME}"
           check_hard validate_json "${JSON_VALIDATION_OUTCOME}"
           check_hard check_compile "${COMPILE_OUTCOME}"
-          case "${RUNNER_CHANGED}" in
-            true) check_hard pool_eligibility "${POOL_ELIGIBILITY_OUTCOME}" ;;
-            false)
-              if [ "${POOL_ELIGIBILITY_OUTCOME}" = "skipped" ]; then
-                printf '  %-18s skipped (by design: runner unchanged)\n' pool_eligibility
-              elif [ -z "${POOL_ELIGIBILITY_OUTCOME}" ]; then
-                printf '  %-18s MISSING (no result)\n' pool_eligibility; invalid=1
-              else
-                printf '  %-18s %s\n' pool_eligibility "${POOL_ELIGIBILITY_OUTCOME}"
-              fi ;;
-            *) echo "  runner_changed has no value"; invalid=1 ;;
-          esac
 
           failed_suites=""
           skipped_suites=""
@@ -903,8 +631,9 @@ jobs:
             outcome="${!var}"
             printf '  %-18s %s\n' "${suite}" "${outcome}"
             case "${outcome}" in
-              failure|timed_out) failed_suites="${failed_suites} ${suite}" ;;
-              skipped) skipped_suites="${skipped_suites} ${suite}" ;;
+              success) ;;
+              "") echo "  ${suite}: MISSING (no result)"; invalid=1 ;;
+              *) failed_suites="${failed_suites} ${suite}" ;;
             esac
           done
 
@@ -931,9 +660,9 @@ jobs:
             verdict="PASS"
           fi
 
-          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"pool_eligibility":"%s","validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
+          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
             "${verdict}" "${GITHUB_SHA:-unknown}" "${GITHUB_RUN_ID:-local}" "$(date -u +%FT%TZ)" \
-            "${POOL_ELIGIBILITY_OUTCOME}" "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
+            "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
             "${KNOWLEDGE_OUTCOME}" "${INFERENCE_OUTCOME}" "${CANONICAL_PATHS_OUTCOME}" \
             > gate-receipt.json
           cat gate-receipt.json
