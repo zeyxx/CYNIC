@@ -17,8 +17,44 @@ jobs:
   # Every suite is its own job so the pool can spread them across the
   # sovereign runners. A single monolithic job would pin the whole gate to
   # one runner and serialize the workspace compilation.
+  detect:
+    name: Gate 0 Runner Change Detection
+    runs-on: [cynic/build]
+    outputs:
+      runner_changed: ${{ steps.detect.outputs.runner_changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect runner or gate-definition change
+        id: detect
+        run: |
+          set -eu
+          # Pool Eligibility is required only when the runner definition or the
+          # gate definitions change (operator decision 2026-10-26). A missing base
+          # cannot prove the runner is unchanged, so it runs everything.
+          base=""
+          if git rev-parse --verify origin/main >/dev/null 2>&1; then
+            base=$(git merge-base origin/main HEAD 2>/dev/null || true)
+          fi
+          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
+            runner_changed=true
+          else
+            changed=$(git diff --name-only "$base" HEAD || true)
+            runner_changed=false
+            if printf '%s\n' "$changed" | grep -qE '^(\.forgejo/|infra/registry\.json$)'; then
+              runner_changed=true
+            fi
+          fi
+          echo "runner_changed=${runner_changed}" >> "$GITHUB_OUTPUT"
+          echo "runner_changed=${runner_changed}"
+
   pool_eligibility:
     name: Gate 0 Pool Eligibility
+    needs: [detect]
+    if: needs.detect.outputs.runner_changed == 'true'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -350,6 +386,7 @@ jobs:
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
     needs: [pool_eligibility]
+    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -425,6 +462,7 @@ jobs:
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
     needs: [pool_eligibility, derive_scope]
+    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -519,6 +557,7 @@ jobs:
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
     needs: [pool_eligibility, derive_scope]
+    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -613,6 +652,7 @@ jobs:
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
     needs: [pool_eligibility, derive_scope]
+    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -707,6 +747,7 @@ jobs:
     # is what makes the bound effective: a shard that starts before the
     # decision is published would compile with an unbounded parallelism.
     needs: [pool_eligibility, derive_scope]
+    if: always() && needs.pool_eligibility.result != 'failure' && needs.pool_eligibility.result != 'cancelled' && needs.derive_scope.result == 'success'
     runs-on: [cynic/build]
     steps:
       - name: Checkout repository
@@ -797,6 +838,7 @@ jobs:
   verdict:
     name: Layer 0-4 Verification Gate
     needs:
+      - detect
       - pool_eligibility
       - derive_scope
       - validate_json
@@ -815,6 +857,8 @@ jobs:
 
       - name: Aggregate Test Suite Verdict
         env:
+          DETECT_OUTCOME: ${{ needs.detect.result }}
+          RUNNER_CHANGED: ${{ needs.detect.outputs.runner_changed }}
           POOL_ELIGIBILITY_OUTCOME: ${{ needs.pool_eligibility.result }}
           SCOPE_DERIVATION_OUTCOME: ${{ needs.derive_scope.result }}
           JSON_VALIDATION_OUTCOME: ${{ needs.validate_json.result }}
@@ -827,19 +871,30 @@ jobs:
           set -u
 
           hard_gate_failed=0
-          for entry in "pool_eligibility:${POOL_ELIGIBILITY_OUTCOME}" \
-                       "derive_scope:${SCOPE_DERIVATION_OUTCOME}" \
-                       "validate_json:${JSON_VALIDATION_OUTCOME}" \
-                       "check_compile:${COMPILE_OUTCOME}"; do
-            gate="${entry%%:*}"
-            outcome="${entry#*:}"
-            if [ "${outcome}" != "success" ]; then
-              hard_gate_failed=1
-              printf '  %-18s %s (hard gate)\n' "${gate}" "${outcome}"
-            else
-              printf '  %-18s %s\n' "${gate}" "${outcome}"
-            fi
-          done
+          invalid=0
+          check_hard() {
+            case "$2" in
+              success) printf '  %-18s success\n' "$1" ;;
+              "") printf '  %-18s MISSING (no result)\n' "$1"; invalid=1 ;;
+              *) printf '  %-18s %s (hard gate)\n' "$1" "$2"; hard_gate_failed=1 ;;
+            esac
+          }
+          check_hard detect "${DETECT_OUTCOME}"
+          check_hard derive_scope "${SCOPE_DERIVATION_OUTCOME}"
+          check_hard validate_json "${JSON_VALIDATION_OUTCOME}"
+          check_hard check_compile "${COMPILE_OUTCOME}"
+          case "${RUNNER_CHANGED}" in
+            true) check_hard pool_eligibility "${POOL_ELIGIBILITY_OUTCOME}" ;;
+            false)
+              if [ "${POOL_ELIGIBILITY_OUTCOME}" = "skipped" ]; then
+                printf '  %-18s skipped (by design: runner unchanged)\n' pool_eligibility
+              elif [ -z "${POOL_ELIGIBILITY_OUTCOME}" ]; then
+                printf '  %-18s MISSING (no result)\n' pool_eligibility; invalid=1
+              else
+                printf '  %-18s %s\n' pool_eligibility "${POOL_ELIGIBILITY_OUTCOME}"
+              fi ;;
+            *) echo "  runner_changed has no value"; invalid=1 ;;
+          esac
 
           failed_suites=""
           skipped_suites=""
@@ -863,6 +918,11 @@ jobs:
             echo "::warning::Aggregate verdict: suites skipped without a broken hard gate:${skipped_suites}"
           fi
 
+          if [ "${invalid}" -eq 1 ]; then
+            echo "::error::Aggregate verdict: INVALID — a required result is missing. This is a configuration fault, not a test failure."
+            echo "Aggregate verdict: INVALID"
+            exit 2
+          fi
           if [ "${hard_gate_failed}" -eq 1 ] || [ -n "${failed_suites}" ]; then
             echo "Aggregate verdict: FAIL"
             verdict="FAIL"
