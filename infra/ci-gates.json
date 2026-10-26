@@ -8,7 +8,8 @@
   },
   "scope_rules": {
     "always": "Run for every pull request, whatever the diff.",
-    "crates": "Run only when a listed crate is in the proof scope, or when the proof scope is absent (missing scope runs everything)."
+    "crates": "Run only when a listed crate is in the proof scope, or when the proof scope is absent (missing scope runs everything).",
+    "runner_or_infra": "Run only when the runner definition or the gate definitions change: .forgejo/** or infra/registry.json. Operator decision 2026-10-26: not required on every pull request."
   },
   "gates": [
     {
@@ -17,7 +18,7 @@
       "name": "Gate 0 Pool Eligibility",
       "requires": [],
       "runner_capability": "cynic/build",
-      "scope": "always",
+      "scope": "runner_or_infra",
       "builds_cli": true
     },
     {
@@ -92,8 +93,8 @@
     }
   ],
   "open_questions": [
+    "Per-crate test cost is not measured: a test job scales with the reverse-dependency closure (median 6 crates, p90 34, max 43 on 256 code commits).",
     "Which gates are mandatory for every pull request regardless of scope (see socle decision).",
-    "Whether pool_eligibility must run on every PR or only when the runner pool changes.",
     "Whether the proof scope must be emitted as a job output so it survives routing to another machine (today it is a local file)."
   ]
 }
