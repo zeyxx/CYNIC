@@ -35,11 +35,27 @@ jobs:
           # Pool Eligibility is required only when the runner definition or the
           # gate definitions change (operator decision 2026-10-26). A missing base
           # cannot prove the runner is unchanged, so it runs everything.
+          # Base of the change under test. A push compares against the event's
+          # `before` sha (covers every commit of the push), never against
+          # origin/main: on a push to main, HEAD *is* origin/main, which made
+          # every push look like a runner change. A pull request compares with
+          # the merge base. Anything unresolved fails closed (runs everything).
           base=""
-          if git rev-parse --verify origin/main >/dev/null 2>&1; then
+          event="${GITHUB_EVENT_NAME:-}"
+          if [ "$event" = "push" ]; then
+            before=""
+            if [ -n "${GITHUB_EVENT_PATH:-}" ] && [ -r "${GITHUB_EVENT_PATH}" ]; then
+              before=$(grep -o '"before":"[0-9a-f]\{40\}"' "$GITHUB_EVENT_PATH" | head -1 | cut -d'"' -f4 || true)
+            fi
+            case "$before" in
+              0000000000000000000000000000000000000000|"") base="" ;;
+              *) base="$before" ;;
+            esac
+          elif git rev-parse --verify origin/main >/dev/null 2>&1; then
             base=$(git merge-base origin/main HEAD 2>/dev/null || true)
           fi
-          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
+          echo "detect: event=${event:-unknown} base=${base:-none}"
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null || [ "$base" = "$(git rev-parse HEAD)" ]; then
             runner_changed=true
           else
             changed=$(git diff --name-only "$base" HEAD || true)
