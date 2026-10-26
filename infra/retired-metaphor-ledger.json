@@ -757,10 +757,10 @@
       "terms": "metabolic"
     },
     {
-      "count": 10,
-      "evidence": "infra/audit-debt-ledger.json:1667",
+      "count": 2,
+      "evidence": "infra/audit-debt-ledger.json:1619",
       "path": "infra/audit-debt-ledger.json",
-      "terms": "organism, organ, dog, organic, metabolism, metabolic, genome"
+      "terms": "organic"
     },
     {
       "count": 10,
@@ -860,7 +860,7 @@
     },
     "files": 137,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 897
+    "occurrences": 889
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {
