@@ -13,6 +13,7 @@
 //! re-exports only. No logic, no I/O.
 
 pub mod adapters;
+pub mod build_metrics;
 pub mod admin_signal;
 pub mod build;
 pub mod build_artefact;
@@ -68,4 +69,5 @@ pub use ports::{BuildCommandOutput, BuildRunner, FilesystemPort, IdentityPort};
 pub use release_publication::*;
 pub use runner::{install_artifact, run_build};
 pub use runtime_release::*;
+pub use build_metrics::BuildMetrics;
 pub use types::*;
