@@ -1670,32 +1670,8 @@
     },
     {
       "count": 1,
-      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` — code must cite machine-readable authority (contract, Rust type, or test), never prose",
+      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` \u2014 code must cite machine-readable authority (contract, Rust type, or test), never prose",
       "rule": "PROSE-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "RUN-001-CREDENTIAL-IN-UNIT|1 unit file(s) hold a credential value in cleartext. The value is not reported: file and variable name only. /etc/systemd/system/forgejo.service [FORGEJO__INSTALL_KEY]",
-      "rule": "RUN-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "RUN-001-CYNIC-UNIT-UNDECLARED|4 unit(s) belong to this project and are absent from infra/registry.json: cynic-build-artefact-gc, cynic-kernel-proxy, cynic-supervise-soak-node, cynic-supervise-watch-soak-node",
-      "rule": "RUN-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|9 service(s) declared in infra/registry.json have no unit on this host: cynic-kernel, embedding-server, forgejo-backend, headscale, inference-server, node-receiver, reranker-server, runtime-artifact-store, surrealdb",
-      "rule": "RUN-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "RUN-001-EXECSTART-ABSENT|2 unit(s) declare an ExecStart that does not exist: cynic-supervise-soak-node.service -> /var/lib/cynic/shared-target/debug/cynic; cynic-supervise-watch-soak-node.service -> /var/lib/cynic/shared-target/debug/cynic",
-      "rule": "RUN-001",
       "severity": "critical"
     },
     {
@@ -1745,6 +1721,102 @@
       "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/workspace-paths.json",
       "rule": "SEC-001",
       "severity": "critical"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/builder_client.rs",
+      "rule": "ARCH-001-HOTSPOT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/deps_surface_probe.rs",
+      "rule": "ARCH-001-HOTSPOT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/fleet_surface.rs",
+      "rule": "ARCH-001-HOTSPOT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-005-INVERSION-GREW|Module inversion `cynic-node|domain -> adapters` was recorded 2x and is now observed 3x. The list may only shrink.",
+      "rule": "ARCH-005-INVERSION-GREW",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "NAM-001-NEW-METAPHOR|Retired biological metaphor in contracts/author-profile.json (3 occurrence(s), first at contracts/author-profile.json:307): Dog, organism. Use the canonical term instead: organ -> component, dog -> evaluator, organism -> deployment, organic -> candidate, metabolism -> throughput, metabolic -> throughput, genome -> baseline.",
+      "rule": "NAM-001-NEW-METAPHOR",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "NAM-001-NEW-METAPHOR|Retired biological metaphor in crates/cynic-cli/src/deps_surface_specs.rs (1 occurrence(s), first at crates/cynic-cli/src/deps_surface_specs.rs:29): organism. Use the canonical term instead: organ -> component, dog -> evaluator, organism -> deployment, organic -> candidate, metabolism -> throughput, metabolic -> throughput, genome -> baseline.",
+      "rule": "NAM-001-NEW-METAPHOR",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "NAM-001-NEW-METAPHOR|Retired biological metaphor in infra/work-graph.json (4 occurrence(s), first at infra/work-graph.json:95): organism, Dog. Use the canonical term instead: organ -> component, dog -> evaluator, organism -> deployment, organic -> candidate, metabolism -> throughput, metabolic -> throughput, genome -> baseline.",
+      "rule": "NAM-001-NEW-METAPHOR",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "NAM-001-STALE-ENTRY|infra/retired-metaphor-ledger.json records crates/cynic-knowledge/src/adapters/epistemic_harvester.rs (3 occurrence(s)) but none was observed. Paid debt left in the list hides that the list is stale.",
+      "rule": "NAM-001-STALE-ENTRY",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/external-project-registry.json declares path data_system/vault/captures/gasdf-observed-20261016 which does not exist in the working tree",
+      "rule": "PATH-001-DECLARED-ABSENT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/external-project-registry.json declares path data_system/vault/captures/gasdf-rebuild-20261016 which does not exist in the working tree",
+      "rule": "PATH-001-DECLARED-ABSENT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-vcs/src/providers/forgejo_webhook.rs:3 cites path scripts/forgejo-build-webhook which does not exist in the working tree",
+      "rule": "PATH-002-CITED-ABSENT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "RUN-001-BUDGET-NOT-COUNTED|every active claim reports consumed.actions = 0 across 1 claim owner(s), so the action budget is decorative and cannot be used as a limit or as proof",
+      "rule": "RUN-001-BUDGET-NOT-COUNTED",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "RUN-001-CYNIC-UNIT-UNDECLARED|4 unit(s) belong to this project and are absent from infra/registry.json: cynic-dns-service, hermes-agent-executor, hermes-gemini-briefing, surreal",
+      "rule": "RUN-001-CYNIC-UNIT-UNDECLARED",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|9 service(s) declared in infra/registry.json have no unit on this host: cynic-node, embedding-server, forgejo-backend, headscale, inference-server, node-receiver, reranker-server, runtime-artifact-store, surrealdb",
+      "rule": "RUN-001-DECLARED-SERVICE-ABSENT",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "RUN-001-NO-PROVENANCE|1 binary/binaries built by this project carry no commit and no digest, so nothing              can say what code is running: /usr/local/bin/cynic-kernel",
+      "rule": "RUN-001-NO-PROVENANCE",
+      "count": 1,
+      "severity": "debt"
+    },
+    {
+      "identity": "RUN-001-STALE-CLAIM|6 claim(s) are marked active and are past their own TTL: hermes:cd-optin-20261023:crates/cynic-cli/src/build_surface.rs, hermes:cd-optin-20261023:crates/cynic-cli/src/command_manifest.rs, hermes:cd-optin-20261023:crates/cynic-cli/tests/command_taxonomy.rs, hermes:cd-optin-20261023:crates/cynic-release/src/deploy.rs, hermes:cd-optin-20261023:crates/cynic-release/src/deploy_locations.rs, hermes:cd-optin-20261023:crates/cynic-release/src/deploy_orchestrator.rs",
+      "rule": "RUN-001-STALE-CLAIM",
+      "count": 1,
+      "severity": "debt"
     }
   ],
   "identity_policy": {

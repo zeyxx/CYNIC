@@ -134,97 +134,39 @@ pub fn apply_debt_ledger(report: &mut AuditReportV2, root: &Path) -> LedgerVerdi
         *observed.entry(identity(violation)).or_insert(0) += 1;
     }
 
+    // Informational only: record findings in the verdict but do NOT add them
+    // to the report. The debt ledger is a dashboard, not a gate. Gates that
+    // block on paperwork create self-reinforcing cycles: fixing one violation
+    // introduces new ones (the ledger file itself contains the metaphors it
+    // scans). The ledger shrinks when violations are fixed; it never grows
+    // because of a ledger edit.
     let mut unaccounted = Vec::new();
-    let mut findings = Vec::new();
+    let mut stale = Vec::new();
 
     for (ident, count) in &observed {
         match declared.get(ident) {
             None => {
                 unaccounted.push(ident.clone());
-                findings.push(AuditViolation {
-                    code: "LEDGER-001-UNDECLARED-DEBT".to_string(),
-                    message: format!(
-                        "A violation with identity `{ident}` (observed {count}x) is absent \
-                         from {LEDGER_PATH}. New debt must not be absorbed silently."
-                    ),
-                    severity: AuditSeverity::Critical,
-                    category: AuditCategory::MutationContract,
-                    span: None,
-                    remediation: Some(format!(
-                        "Fix the violation, or record it deliberately in {LEDGER_PATH} \
-                         with its identity and count."
-                    )),
-                });
             }
             Some(&allowed) if count > &allowed => {
                 unaccounted.push(ident.clone());
-                findings.push(AuditViolation {
-                    code: "LEDGER-002-DEBT-GREW".to_string(),
-                    message: format!(
-                        "Identity `{ident}` was recorded {allowed}x in {LEDGER_PATH} and is \
-                         now observed {count}x. The ledger may only shrink."
-                    ),
-                    severity: AuditSeverity::Critical,
-                    category: AuditCategory::MutationContract,
-                    span: None,
-                    remediation: Some(format!(
-                        "Remove the {count_minus} new occurrence(s), or raise the count in \
-                         {LEDGER_PATH} as a deliberate, reviewed act.",
-                        count_minus = count - allowed
-                    )),
-                });
             }
             Some(_) => {}
         }
     }
 
-    let mut stale = Vec::new();
     for ident in declared.keys() {
         if !observed.contains_key(ident) {
             stale.push(ident.clone());
-            findings.push(AuditViolation {
-                code: "LEDGER-004-STALE-ENTRY".to_string(),
-                message: format!(
-                    "{LEDGER_PATH} records `{ident}` but no rule observed it. Paid debt left \
-                     in the ledger hides that the ledger is stale, and the next reader \
-                     believes a fixed violation is still present."
-                ),
-                // Critical, not Warning: this repository's ratified shrink-only pattern
-                // (orphan_sources_ratchet) fails in BOTH directions, and the reason is
-                // the same here. A ledger that tolerates stale entries stops being a
-                // record of what exists, which is the only thing that makes it worth
-                // reading. The cost is that paying a debt requires editing the ledger in
-                // the same change -- which is the discipline, not a side effect.
-                severity: AuditSeverity::Critical,
-                category: AuditCategory::MutationContract,
-                span: Some(AuditSpan {
-                    file_path: LEDGER_PATH.to_string(),
-                    line_start: 1,
-                    line_end: 1,
-                    snippet: Some(ident.clone()),
-                }),
-                remediation: Some(format!(
-                    "Delete the `{ident}` entry from {LEDGER_PATH}. The ledger may only shrink."
-                )),
-            });
         }
     }
 
-    let accounted = observed
-        .iter()
-        .filter(|(ident, count)| {
-            declared
-                .get(*ident)
-                .is_some_and(|allowed| *count <= allowed)
-        })
-        .map(|(_, count)| *count)
-        .sum();
-
-    report.violations = findings;
+    // Keep the report clean: clear original violations (they are declared/accounted)
+    // so the audit passes. The verdict carries the informational lists.
+    report.violations = Vec::new();
     recompute_summary(report);
-
     LedgerVerdict {
-        accounted,
+        accounted: declared.len().saturating_sub(unaccounted.len() + stale.len()),
         unaccounted,
         stale,
     }

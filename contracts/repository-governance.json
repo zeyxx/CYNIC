@@ -44,7 +44,6 @@
     "data_system",
     "evidence",
     "references",
-    "scripts",
     "specs",
     "vault"
   ],
@@ -81,7 +80,7 @@
     "architectural_taxonomy": {
       "contracts_canonical": "Normative machine-readable specifications and schemas belong in contracts/.",
       "deploy_canonical": "Host/cluster orchestration (systemd, wireguard, firewall, compose) belongs in deploy/.",
-      "infra_sunset": "The legacy infra/ umbrella is deprecated and phased into contracts/ and deploy/."
+      "infra_active": "infra/ holds runtime configuration and data files. It is not deprecated. Contracts in contracts/ are normative specs."
     }
   },
   "enforcement": {
