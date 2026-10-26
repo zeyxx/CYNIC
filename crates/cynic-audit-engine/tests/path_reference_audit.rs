@@ -113,17 +113,12 @@ const KNOWN: &[&str] = &[
     // Paying it means injecting the resolved state_root instead of reading
     // the environment at the adapter — same future plumbing as above.
     "crates/cynic-host/src/adapters/local_disk.rs",
-    // Remote twin of the CHECKOUTS_BASE shortcut above: the remote
-    // build-artefact adapter lists /var/lib/cynic/checkouts over SSH with
-    // the base coded in the argv. Same payment direction (inject the
-    // resolved base); same assumed-until-then status.
-    "crates/cynic-host/src/adapters/remote_build_artefact.rs",
-    // Third twin of the same CHECKOUTS_BASE shortcut: the remote queue
+    // Second twin of the same CHECKOUTS_BASE shortcut: the remote queue
     // adapter lists the same base over SSH. One debt, three sites — all
     // paid together when the resolved base is injected.
     "crates/cynic-host/src/adapters/remote_queue.rs",
-    // Fourth site of the same CHECKOUTS_BASE shortcut: the agent cleanup
-    // sizes the checkouts over SSH. One debt, four sites.
+    // Third site of the same CHECKOUTS_BASE shortcut: the agent cleanup
+    // sizes the checkouts over SSH. One debt, three sites.
     "crates/cynic-host/src/agent/cleanup.rs",
     // Builder-canonical registry over SSH: the build-evidence observation
     // addresses /etc/cynic/registry.json on the runner — the same fleet

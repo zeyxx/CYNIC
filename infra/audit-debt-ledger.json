@@ -506,12 +506,6 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/fleet_network_observer.rs",
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "count": 1,
       "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/framework_bootstrap/build_runner.rs",
       "rule": "ARCH-001",
       "severity": "debt"
@@ -1737,12 +1731,6 @@
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/fleet_surface.rs",
       "rule": "ARCH-001-HOTSPOT",
-      "count": 1,
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-005-INVERSION-GREW|Module inversion `cynic-node|domain -> adapters` was recorded 2x and is now observed 3x. The list may only shrink.",
-      "rule": "ARCH-005-INVERSION-GREW",
       "count": 1,
       "severity": "debt"
     },

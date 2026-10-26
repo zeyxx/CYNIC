@@ -28,11 +28,8 @@ pub mod execution;
 
 pub mod federation_runtime;
 pub mod filesystem_observation;
-pub mod fleet_build_artefact_observer;
 pub mod fleet_discovery;
-pub mod fleet_disk_observer;
 pub mod fleet_heartbeat;
-pub mod fleet_network_observer;
 pub mod forgejo_control;
 pub mod framework_bootstrap;
 pub mod gc_surfaces;
