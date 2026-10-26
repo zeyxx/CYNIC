@@ -2,8 +2,7 @@
 //!
 //! Each parser takes raw substrate text (from /proc/meminfo, `free -b`, or
 //! /proc/pressure/memory) and returns the canonical protocol types. They are
-//! testable without a host and reused by both LocalMemoryAdapter and
-//! RemoteMemoryAdapter (SSH).
+//! testable without a host and used by LocalMemoryAdapter.
 
 use crate::domain::memory::types::{MemoryPressure, MemoryReport, MemoryUsage, MemoryVolume};
 

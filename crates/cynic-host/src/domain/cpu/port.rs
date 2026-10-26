@@ -1,8 +1,6 @@
 //! CPU observation port (4-layer report assembly).
 //!
-//! `observe_cpu` is implemented by `LocalCpuAdapter` (reads `/proc`/`/sys`)
-//! and `RemoteCpuAdapter<R: ArgvRunner>` (SSH, injected runner). Tests use
-//! `MapArgvRunner` against a fixed payload — no real `/proc` required.
+//! `observe_cpu` is implemented by `LocalCpuAdapter` (reads `/proc`/`/sys`).
 
 use crate::domain::cpu::CpuReport;
 

@@ -1,5 +1,4 @@
-//! Fleet-wide network observation driver (mirrors `fleet_cpu_observer` /
-//! `fleet_disk_observer` / `fleet_memory_observer`).
+//! Fleet-wide network observation driver (mirrors `fleet_disk_observer`).
 //!
 //! Coherence loop: desired state (registry) → observe (per-node /proc + ip) →
 //! reconcile (aggregate) → proof (`FleetNetworkReport`).

@@ -7,8 +7,7 @@
 //!
 //! The transport (SSH invocation) is injected: the CLI supplies
 //! [`LocalArgvRunner`] and tests inject a `MapArgvRunner`. This is the
-//! fleet-aggregation half of the disk coherence loop that mirrors
-//! `fleet_health_observer` for host substrate:
+//! fleet-aggregation half of the disk coherence loop for host substrate:
 //!   desired state (registry) → observe (per-node df) → reconcile (aggregate) →
 //!   proof (`FleetDiskReport`).
 

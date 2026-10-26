@@ -1,8 +1,8 @@
 //! Read-only observation port for the memory vertical.
 //!
 //! Port = pure trait naming WHAT can be observed, never HOW (that is the
-//! adapter's job). Adapters (`LocalMemoryAdapter`, `RemoteMemoryAdapter`)
-//! implement this and are injected by the CLI/host surface.
+//! adapter's job). `LocalMemoryAdapter` implements this and is injected by
+//! the CLI/host surface.
 
 use crate::domain::memory::types::MemoryReport;
 
