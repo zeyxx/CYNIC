@@ -92,7 +92,7 @@
       "kind": "issue",
       "title": "retired-metaphor ratchet (NAM-001) fails on new files",
       "state": "open",
-      "evidence": "organism_cli renamed to deployment_cli in 2 files (branch agent/claude/retired-metaphor-organism-cli); contracts/author-profile.json still has 3 terms",
+      "evidence": "the legacy CLI dependency role was renamed to deployment_cli in 2 files (rename branch is in git history); contracts/author-profile.json still has 3 terms",
       "probe": {
         "argv": [
           "cynic",
@@ -114,7 +114,7 @@
     {
       "id": "A8",
       "kind": "decision",
-      "title": "contracts/author-profile.json carries 3 retired terms (Dog, organism) in historical descriptions of a prototype",
+      "title": "contracts/author-profile.json carries 3 retired biological terms in historical descriptions of a prototype",
       "state": "open",
       "probe": null,
       "note": "personal career data owned by the author/hermes: reword, or record as a deliberate act in infra/retired-metaphor-ledger.json; not decided by the agent"
