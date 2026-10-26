@@ -210,10 +210,6 @@ audit-crate: ## Native crate audit (the honest name of what `check` runs)
 	$(CYNIC_SOURCE_BIN) audit crate --json
 
 .PHONY: check
-check: ## DEPRECATED alias of audit-crate (kept one release, then removed)
-	@echo "==> DEPRECATED: \`make check\` is now \`make audit-crate\`" >&2
-	@$(MAKE) audit-crate
-
 .PHONY: audit
 # The non-vacuity gate (tranche T5). Every guard in the table must FAIL on its
 # pre-fix source; a test that passes before AND after its fix guards nothing.
