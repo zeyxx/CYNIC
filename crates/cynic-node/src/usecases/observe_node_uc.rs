@@ -1,10 +1,11 @@
 use chrono::Utc;
-use cynic_host::runtime_layout::current_runtime_layout;
-
-use crate::adapters::host_observation::{
+use cynic_host::process_observation::{
     command_json, command_reports_active, command_succeeded_with_stdout, resolve_host, tcp_open,
     tcp_probe,
 };
+use cynic_host::runtime_layout::{current_runtime_layout, observed_hostname};
+
+use crate::adapters::registry::LocalRegistryAdapter;
 use crate::adapters::runtime_observation::LocalMeshRuntimeObserver;
 use crate::build_attestation::runtime_binary_attestation;
 use crate::domain::network_projection::{
@@ -13,15 +14,14 @@ use crate::domain::network_projection::{
 };
 use crate::domain::node_observation::{NodeRuntimeCapabilities, classify_runtime};
 use crate::domain::observation_plan::build_observation_plan;
-use crate::domain::observation_runtime::{
-    dns_projection_surface, dns_resolution_observation, hostname,
-};
+use crate::domain::observation_runtime::{dns_projection_surface, dns_resolution_observation};
 use crate::observe::{
     DnsObservation, NetworkObservation, NodeObservation, ServiceObservation, SystemdObservation,
     TopologyObservation,
 };
 use crate::ports::network_interfaces_port::{
     MeshRuntimeObservationPort, NodeRuntimeObservationPort, ProviderServiceCheck,
+    RegistryTopologyPort,
 };
 
 #[derive(Debug, Clone)]
@@ -216,7 +216,7 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
     }
 
     fn observe_hostname(&self) -> String {
-        hostname()
+        observed_hostname()
     }
 
     fn observe_binary_attestation(
@@ -298,7 +298,14 @@ fn build_node_observation_with_context(
     registry_path: Option<&str>,
     context: &NodeObservationCommandContext,
 ) -> NodeObservation {
-    let plan = build_observation_plan(registry_path);
+    let registry = registry_path
+        .filter(|path| std::fs::read_to_string(path).is_ok())
+        .map(|path| (path, LocalRegistryAdapter::new(path)));
+    let plan = build_observation_plan(
+        registry
+            .as_ref()
+            .map(|(path, adapter)| (*path, adapter as &dyn RegistryTopologyPort)),
+    );
     build_node_observation_with_port(
         registry_path,
         plan,

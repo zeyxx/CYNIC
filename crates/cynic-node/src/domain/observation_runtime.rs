@@ -1,9 +1,8 @@
-use crate::adapters::host_observation::observed_hostname;
-use serde::Serialize;
-
-use crate::adapters::host_observation::{
+use cynic_host::process_observation::{
     CommandObservation, command_reports_active, resolved_ip_from_command,
 };
+use serde::Serialize;
+
 use crate::domain::network_projection::{DnsProjectionObservation, dns_projection_observation};
 
 #[derive(Debug, Clone, Serialize)]
@@ -58,8 +57,4 @@ pub(crate) fn dns_projection_surface(
         provider_fallback_active,
         command_reports_active(systemd_resolved),
     )
-}
-
-pub(crate) fn hostname() -> String {
-    observed_hostname()
 }
