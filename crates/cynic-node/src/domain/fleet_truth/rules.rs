@@ -132,6 +132,7 @@ pub(super) fn build_effective_node(
     EffectiveNode {
         name: node.name.clone(),
         role: node.role.clone(),
+        roles: node.roles.clone(),
         constellation: node.constellation.clone(),
         declared_status: node.status.clone(),
         observed_status: observed

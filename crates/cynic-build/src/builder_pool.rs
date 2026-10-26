@@ -33,11 +33,19 @@ pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
     let mut pool = Vec::new();
     if let Some(nodes) = registry.get("nodes").and_then(|n| n.as_array()) {
         for node in nodes {
-            let role = node
+            // Support both single "role" string and "roles" array for
+            // multi-capability nodes (e.g. compute-01 wears 4 hats).
+            let is_builder = node
                 .get("role")
                 .and_then(|r| r.as_str())
-                .unwrap_or_default();
-            if role != "build_runner" {
+                .map(|r| r == "build_runner")
+                .unwrap_or(false)
+                || node
+                    .get("roles")
+                    .and_then(|r| r.as_array())
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("build_runner")))
+                    .unwrap_or(false);
+            if !is_builder {
                 continue;
             }
             let node_id = node

@@ -66,7 +66,13 @@ pub(crate) fn resolve_builder_endpoint(registry_path: &str) -> Option<String> {
     let nodes = doc.get("nodes")?.as_array()?;
     let node = nodes
         .iter()
-        .find(|n| n.get("role").and_then(|r| r.as_str()) == Some("build_runner"))?;
+        .find(|n| {
+            n.get("role").and_then(|r| r.as_str()) == Some("build_runner")
+                || n.get("roles")
+                    .and_then(|r| r.as_array())
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("build_runner")))
+                    .unwrap_or(false)
+        })?;
     let services = node.get("services")?.as_array()?;
     let host = services
         .iter()

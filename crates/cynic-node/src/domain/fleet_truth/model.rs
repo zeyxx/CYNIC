@@ -7,6 +7,8 @@ use serde_json::Value;
 pub struct Node {
     pub name: String,
     pub role: String,
+    #[serde(default)]
+    pub roles: Vec<String>,
     pub status: String,
     pub constellation: Option<String>,
     pub aliases: Vec<String>,
@@ -16,7 +18,18 @@ pub struct Node {
     pub energy_profile: BTreeMap<String, Value>,
 }
 
+impl EffectiveNode {
+    pub fn is_build_runner(&self) -> bool {
+        self.role == "build_runner" || self.roles.iter().any(|r| r == "build_runner")
+    }
+}
+
 impl Node {
+    /// Check if this node has the build_runner role (single or multi-role).
+    pub fn is_build_runner(&self) -> bool {
+        self.role == "build_runner" || self.roles.iter().any(|r| r == "build_runner")
+    }
+
     pub fn identities(&self) -> BTreeSet<String> {
         let mut values = BTreeSet::from([self.name.clone()]);
         values.extend(self.aliases.iter().filter(|v| !v.is_empty()).cloned());
@@ -63,6 +76,8 @@ pub struct Anomaly {
 pub struct EffectiveNode {
     pub name: String,
     pub role: String,
+    #[serde(default)]
+    pub roles: Vec<String>,
     pub constellation: Option<String>,
     pub declared_status: String,
     pub observed_status: String,

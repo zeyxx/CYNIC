@@ -71,3 +71,12 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 - **Replies stay airy**: short sentences, one idea per line, lists over dense blocks, plain words (operator reads with compensated dyslexia).
 - **Shape follows task**: execution → changed / verified / left; explanation → one idea per line, then examples; choice → numbered options with (R); error → likely cause first, then numbered steps; plan → short steps, one question at a time.
+
+## Session Compass (advisory — not law, not a gate)
+
+Orientation par défaut pour chaque session. Overridable par le jugement. Pas d'enforcement.
+Voir `docs/plans/session-compass.md` pour le détail.
+
+**Avant d'agir:** `cynic know search <pattern>` — vérifier si le pattern existe déjà.
+**Avant de créer:** `cynic know search <concept>` — vérifier si le concept existe déjà.
+**Quand tu hésites:** observe d'abord, mesure, puis agis.

@@ -31,7 +31,7 @@ pub struct SelectedBuildRunner {
 /// Build-runner candidates derived from declared nodes + observed status.
 fn build_runner_candidates(nodes: &[Node], effective: &[EffectiveNode]) -> Vec<String> {
     let mut healthy = Vec::new();
-    for node in nodes.iter().filter(|n| n.role == "build_runner") {
+    for node in nodes.iter().filter(|n| n.is_build_runner()) {
         let status = effective
             .iter()
             .find(|e| e.name == node.name)
@@ -126,9 +126,9 @@ pub fn preferred_build_runner_from_declared(preferred: Option<&str>, declared: &
     }
     declared
         .iter()
-        .filter(|n| n.role == "build_runner")
+        .filter(|n| n.is_build_runner())
         .find(|n| n.status == "active")
-        .or_else(|| declared.iter().find(|n| n.role == "build_runner"))
+        .or_else(|| declared.iter().find(|n| n.is_build_runner()))
         .map(|n| n.name.clone())
         .unwrap_or_else(|| "none".to_string())
 }
@@ -142,7 +142,7 @@ pub fn build_selection_report(
 ) -> serde_json::Value {
     let healthy_runners: Vec<String> = declared
         .iter()
-        .filter(|n| n.role == "build_runner")
+        .filter(|n| n.is_build_runner())
         .filter(|n| {
             effective
                 .iter()

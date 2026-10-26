@@ -26,6 +26,10 @@ pub fn load_harness_scenarios_from_value(registry: &Value) -> Result<Vec<Harness
             .and_then(Value::as_str)
             .is_some_and(|role| role == "build_runner")
             || node
+                .get("roles")
+                .and_then(Value::as_array)
+                .is_some_and(|roles| roles.iter().any(|r| r.as_str() == Some("build_runner")))
+            || node
                 .get("id")
                 .and_then(Value::as_str)
                 .is_some_and(|id| id == "cynic-builder")
