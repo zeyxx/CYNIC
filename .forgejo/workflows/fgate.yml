@@ -21,6 +21,21 @@ jobs:
     name: Gate 0 Pool Eligibility
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -237,6 +252,21 @@ jobs:
     name: Gate 0 Proof Scope Derivation
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -323,6 +353,21 @@ jobs:
     name: Gate 1 Contract Validation
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -352,6 +397,21 @@ jobs:
     needs: [pool_eligibility]
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -427,6 +487,21 @@ jobs:
     needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -521,6 +596,21 @@ jobs:
     needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -615,6 +705,21 @@ jobs:
     needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -709,6 +814,21 @@ jobs:
     needs: [pool_eligibility, derive_scope]
     runs-on: [cynic/build]
     steps:
+      - name: Capacity guard (refuse fast, infra verdict)
+        run: |
+          set -eu
+          # Thresholds: disk = cynic-protocol build_disk_capacity minimum (4 GiB);
+          # memory = build_memory_capacity reserved (1 GiB) + one unit (512 MiB).
+          min_disk_kib=4194304
+          min_mem_kib=1572864
+          disk_kib=$(df -Pk / | awk 'NR==2{print $4}')
+          mem_kib=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+          host=$(hostname -s)
+          if [ "$disk_kib" -lt "$min_disk_kib" ] || [ "$mem_kib" -lt "$min_mem_kib" ]; then
+            echo "::error::capacity guard refused on $host: disk_kib=$disk_kib (min $min_disk_kib) mem_kib=$mem_kib (min $min_mem_kib) verdict=infra_capacity"
+            exit 75
+          fi
+          echo "capacity guard ok on $host: disk_kib=$disk_kib mem_kib=$mem_kib"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
