@@ -1,0 +1,56 @@
+{
+  "schema": "cynic.churn_thresholds.v1",
+  "version": "1.0.0",
+  "description": "Thresholds for cynic audit churn. When a metric crosses its threshold, the audit proposes a rule evolution.",
+  "metrics": {
+    "commits_per_week": {
+      "description": "Total commits in the last 7 days",
+      "threshold_warning": 100,
+      "threshold_alarm": 300,
+      "unit": "commits"
+    },
+    "feature_ratio_pct": {
+      "description": "Percentage of commits that are features (feat:) in the last 30 days",
+      "threshold_warning": 40,
+      "threshold_alarm": 25,
+      "unit": "percent",
+      "direction": "below"
+    },
+    "files_touched_per_30d": {
+      "description": "Number of .rs files touched in the last 30 days",
+      "threshold_warning": 2000,
+      "threshold_alarm": 5000,
+      "unit": "files"
+    },
+    "god_object_lines": {
+      "description": "Max lines in any single crate's .rs files",
+      "threshold_warning": 50000,
+      "threshold_alarm": 80000,
+      "unit": "lines"
+    },
+    "active_branches": {
+      "description": "Number of local branches (excluding main)",
+      "threshold_warning": 5,
+      "threshold_alarm": 8,
+      "unit": "branches"
+    },
+    "author_identities": {
+      "description": "Number of distinct author identities in the last 30 days",
+      "threshold_warning": 3,
+      "threshold_alarm": 5,
+      "unit": "identities"
+    },
+    "restore_commits_per_week": {
+      "description": "Commits matching restore/fix(main)/compile in the last 7 days",
+      "threshold_warning": 2,
+      "threshold_alarm": 5,
+      "unit": "commits"
+    },
+    "docs_ratio_pct": {
+      "description": "Percentage of commits that are docs in the last 30 days",
+      "threshold_warning": 20,
+      "threshold_alarm": 35,
+      "unit": "percent"
+    }
+  }
+}
