@@ -1,0 +1,100 @@
+{
+  "schema": "cynic.ci_gates.v1",
+  "version": "1.0.0",
+  "status": "draft",
+  "purpose": "Data-driven declaration of the Forgejo CI gates. Each gate names its job in .forgejo/workflows/fgate.yml, its dependencies, the runner capability it needs, and the proof scope under which it must run. Consumers: the workflow generator (later), and the PR admission (later). This file does not change workflow behaviour by itself.",
+  "capability_labels": {
+    "cynic/build": "Rust build runner (builder or compute-01, observed, not declared)"
+  },
+  "scope_rules": {
+    "always": "Run for every pull request, whatever the diff.",
+    "crates": "Run only when a listed crate is in the proof scope, or when the proof scope is absent (missing scope runs everything).",
+    "runner_or_infra": "Run only when the runner definition or the gate definitions change: .forgejo/** or infra/registry.json. Operator decision 2026-10-26: not required on every pull request."
+  },
+  "gates": [
+    {
+      "id": "pool_eligibility",
+      "job": "pool_eligibility",
+      "name": "Gate 0 Pool Eligibility",
+      "requires": [],
+      "runner_capability": "cynic/build",
+      "scope": "runner_or_infra",
+      "builds_cli": true
+    },
+    {
+      "id": "proof_scope",
+      "job": "derive_scope",
+      "name": "Gate 0 Proof Scope Derivation",
+      "requires": [],
+      "runner_capability": "cynic/build",
+      "scope": "always",
+      "produces": "proof_scope"
+    },
+    {
+      "id": "contract_validation",
+      "job": "validate_json",
+      "name": "Gate 1 Contract Validation",
+      "requires": [],
+      "runner_capability": "cynic/build",
+      "scope": "always"
+    },
+    {
+      "id": "workspace_compilation",
+      "job": "check_compile",
+      "name": "Gate 2 Workspace Compilation",
+      "requires": ["pool_eligibility"],
+      "runner_capability": "cynic/build",
+      "scope": "always"
+    },
+    {
+      "id": "core_types",
+      "job": "test_core_types",
+      "name": "Gate 3 Core Types",
+      "requires": ["pool_eligibility", "proof_scope"],
+      "runner_capability": "cynic/build",
+      "scope": "crates",
+      "crates": ["cynic-types"]
+    },
+    {
+      "id": "knowledge",
+      "job": "test_knowledge",
+      "name": "Gate 3 Knowledge",
+      "requires": ["pool_eligibility", "proof_scope"],
+      "runner_capability": "cynic/build",
+      "scope": "crates",
+      "crates": ["cynic-knowledge"]
+    },
+    {
+      "id": "inference",
+      "job": "test_inference",
+      "name": "Gate 3 Inference",
+      "requires": ["pool_eligibility", "proof_scope"],
+      "runner_capability": "cynic/build",
+      "scope": "crates",
+      "crates": ["cynic-inference"]
+    },
+    {
+      "id": "canonical_paths",
+      "job": "test_canonical_paths",
+      "name": "Gate 3 Canonical Paths",
+      "requires": ["pool_eligibility", "proof_scope"],
+      "runner_capability": "cynic/build",
+      "scope": "crates",
+      "crates": ["cynic-cli"]
+    },
+    {
+      "id": "layer_verification",
+      "job": "verdict",
+      "name": "Layer 0-4 Verification Gate",
+      "requires": [],
+      "runner_capability": "cynic/build",
+      "scope": "always",
+      "aggregates_all_gates": true
+    }
+  ],
+  "open_questions": [
+    "Per-crate test cost is not measured: a test job scales with the reverse-dependency closure (median 6 crates, p90 34, max 43 on 256 code commits).",
+    "Which gates are mandatory for every pull request regardless of scope (see socle decision).",
+    "Whether the proof scope must be emitted as a job output so it survives routing to another machine (today it is a local file)."
+  ]
+}
