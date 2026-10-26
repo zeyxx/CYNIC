@@ -120,6 +120,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit paths [--json]",
                     "cynic audit branch [--json]",
                     "cynic audit all [--json]",
+                    "cynic audit growth [--json]",
                     "cynic audit conformance [--profile <name>] [--node <name>] [--registry <path>] [--json]",
                     "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
                     "cynic audit harness [--kind <name>] [--json]",
@@ -134,7 +135,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
                     "cynic collaborator onboard <collaborator_id> --handle <gh> [--display-name <name>] [--project <slug>] [--note <text>] --yes [--registry <path>]",
-                    "cynic collaborator watch [--project <slug>] [--forgejo-url <url>] [--github-token <t>] [--forgejo-token <t>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "fleet",
+                commands: vec![
                     "cynic fleet observe [--user <u>] [--json]",
                     "cynic fleet remediate <runner> --action <gc-disk|restart-probe> --yes [--user <u>] [--json]",
                 ],
