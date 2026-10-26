@@ -1,14 +1,16 @@
 //! Shared types for the agent bus — re-exported from `cynic-types` (Layer 0).
 //!
-//! `AgentId`, `Budget`, `Scope`, `ScopeKind`, and `Hash32` now live in
-//! `cynic-types` for cross-crate sharing. They are re-exported here so
-//! `crate::types::AgentId` continues to work for all internal callers.
+//! `AgentId`, `Scope`, `ScopeKind`, and `Hash32` live in `cynic-types` for
+//! cross-crate sharing. `AgentBudgets` and `ClaimStatus` live in
+//! `cynic-protocol`, their canonical home. All are re-exported here so
+//! internal callers import one module.
 //!
-//! `Task`, `Claim`, `Proof`, and the status/error enums are agent-bus-specific
+//! `Task`, `Claim`, `Proof`, and the error enums are agent-bus-specific
 //! and remain in this module.
 
+pub use cynic_protocol::agent_citizenship::AgentBudgets;
 pub use cynic_protocol::agent_coordination::ClaimStatus;
-pub use cynic_types::{AgentId, Budget, Hash32, Scope, ScopeKind, TaskId, Timestamp};
+pub use cynic_types::{AgentId, Hash32, Scope, ScopeKind, TaskId, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TaskStatus {
@@ -43,7 +45,7 @@ pub struct Task {
     pub created_at_unix_s: u64,
     pub updated_at_unix_s: u64,
     pub expires_at_unix_s: u64,
-    pub budget: Budget,
+    pub budget: AgentBudgets,
 }
 
 /// A claim on a task — represents an agent actively working on it.
@@ -53,7 +55,7 @@ pub struct Claim {
     pub task_id: String,
     pub agent: AgentId,
     pub status: ClaimStatus,
-    pub budget: Budget,
+    pub budget: AgentBudgets,
     pub consumed_actions: u32,
     pub scope: Scope,
     pub acquired_at_unix_s: u64,
@@ -80,7 +82,7 @@ pub struct Proof {
     pub parent_task_id: String,
     pub child_task_id: String,
     pub scope: Scope,
-    pub consumed_budget: Budget,
+    pub consumed_budget: AgentBudgets,
     pub output_hash: Hash32,
     pub timestamp_unix_s: u64,
 }

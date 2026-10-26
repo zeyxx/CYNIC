@@ -31,9 +31,9 @@ pub async fn create_task(
         created_at_unix_s: now_unix_s(),
         updated_at_unix_s: now_unix_s(),
         expires_at_unix_s: 0,
-        budget: Budget {
-            actions: payload["budget"]["actions"].as_u64().unwrap_or(10) as u32,
-            wall_seconds: payload["budget"]["wall_seconds"].as_u64().unwrap_or(60) as u32,
+        budget: AgentBudgets {
+            actions: payload["budget"]["actions"].as_u64().unwrap_or(10),
+            wall_seconds: payload["budget"]["wall_seconds"].as_u64().unwrap_or(60),
         },
     };
 
