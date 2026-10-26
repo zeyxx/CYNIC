@@ -75,7 +75,7 @@
       "slug": "gasdf",
       "repo": "zeyxx/GASdf",
       "url": "https://github.com/zeyxx/GASdf",
-      "sha": "fa53f628b76c22d19a30ff1e5b5c26c8d75346b3",
+      "sha": "6538b4d78e10e82402c72977d1879f8795fd219a",
       "observed_at": "2026-10-26",
       "purpose": "Gasless relay prototype referential (Phase 0: 1 real on-chain tx). Contractual extraction only; suringenierie (Redis, PostgreSQL, yield, E-Score, holder tiers) is not absorbed. Serves as observed baseline; adapters stay in GASdf, CYNIC reads surfaces and proofs only.",
       "data_demanded": [
