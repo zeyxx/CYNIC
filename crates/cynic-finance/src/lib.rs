@@ -11,6 +11,7 @@
 
 pub mod types;
 pub mod ports;
+pub mod measure;
 pub mod ledger;
 pub mod exchange;
 pub mod rate_calculator;
