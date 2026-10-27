@@ -907,7 +907,7 @@ fn execute_proof_plan(
 pub(crate) fn run_build(
     json: bool,
     observation_path: String,
-    kernel_endpoint: Option<String>,
+    _kernel_endpoint: Option<String>,
     action: String,
     crates: Option<String>,
     apply: bool,
@@ -920,12 +920,9 @@ pub(crate) fn run_build(
         .map_err(|e| format!("observation failed: {e}"))?;
 
     let runner = LocalArgvRunner;
-    let lease_adapter = if let Some(endpoint) = kernel_endpoint {
-        cynic_host::build_evidence::CurlBuildLeaseVerificationAdapter::new(&runner, endpoint, None)
-            .map_err(|e| format!("lease adapter failed: {e}"))?
-    } else {
-        return Err("kernel endpoint required for lease verification".to_string());
-    };
+    // Build lease is verified by the build runner node itself (cynic-node),
+    // not by an external coordination service (kernel). The kernel is retired.
+    let lease_adapter = cynic_host::build_evidence::NodeBuildLeaseVerificationAdapter;
 
     let target_crates = crates
         .map(|c| c.split(',').map(String::from).collect())
