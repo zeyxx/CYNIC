@@ -64,10 +64,6 @@
       "status": "public"
     },
     {
-      "path": ".forgejo/workflows/fgate.yml",
-      "status": "public"
-    },
-    {
       "path": ".forgejo/workflows/release.yml",
       "status": "public"
     },
