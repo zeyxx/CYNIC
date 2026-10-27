@@ -214,16 +214,9 @@ impl HttpFreeboxProbeAdapter {
     }
 
     /// Read the DMZ configuration: whether it is enabled and the host IP it
-    /// targets. Read-only over an authenticated session; no write endpoint.
+    /// targets. Deprecated legacy tuple form; prefer `FreeboxPort::read_dmz`.
     pub fn read_dmz(&self, endpoint: &str) -> Result<(bool, String), String> {
-        let inner_endpoint = endpoint.to_string();
-        let inner_timeout = self.timeout;
-        let inner_app_id = self.app_id.clone();
-        std::thread::spawn(move || {
-            Self::read_dmz_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
-        })
-        .join()
-        .map_err(|_| "freebox_dmz_thread_panicked".to_string())?
+        FreeboxPort::read_dmz(self, endpoint).map(|c| (c.enabled, c.ip))
     }
 
     fn open_authenticated_session(

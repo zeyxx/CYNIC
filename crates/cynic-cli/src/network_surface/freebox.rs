@@ -118,10 +118,10 @@ pub(crate) fn try_execute_freebox(
 
     match command {
         NetworkFreeboxCommand::Observe { endpoint, json } => {
-            let lan = adapter.probe_lan(&endpoint);
-            let wan = adapter.read_wan(&endpoint);
-            let dmz = adapter.read_dmz(&endpoint);
-            let nat = adapter.list_nat_rules(&endpoint);
+            let lan = FreeboxPort::probe_lan(&adapter, &endpoint);
+            let wan = FreeboxPort::read_wan(&adapter, &endpoint);
+            let dmz = FreeboxPort::read_dmz(&adapter, &endpoint);
+            let nat = FreeboxPort::list_nat_rules(&adapter, &endpoint);
 
             if json {
                 let out = json!({
@@ -176,7 +176,7 @@ pub(crate) fn try_execute_freebox(
         }
         NetworkFreeboxCommand::Dmz { command } => match command {
             FreeboxDmzSubcommand::Read { endpoint, json } => {
-                match adapter.read_dmz(&endpoint) {
+                match FreeboxPort::read_dmz(&adapter, &endpoint) {
                     Ok(dmz) => {
                         if json {
                             println!("{}", serde_json::to_string_pretty(&dmz).unwrap_or_default());
