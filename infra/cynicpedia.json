@@ -206,7 +206,7 @@
     {
       "article_id": "contracts-pattern-registry-v1",
       "title": "cynic.pattern_registry.v1",
-      "path": "contracts/pattern-registry.v1.json",
+      "path": "contracts/pattern-registry.schema.json",
       "kind": "contract",
       "provenance": "324e090e30b7ceeff52a9a7488b7ce8d22256b47",
       "status": "published",
@@ -296,7 +296,7 @@
     {
       "article_id": "contracts-risk-matrix-v1",
       "title": "cynic.risk_matrix.v1",
-      "path": "contracts/risk-matrix.v1.json",
+      "path": "contracts/risk-matrix.schema.json",
       "kind": "contract",
       "provenance": "1f7987747e08fb6a12147a97da47278464f926b9",
       "status": "published",
