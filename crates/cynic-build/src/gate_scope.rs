@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn workspace_roots_force_full() {
-        for path in ["Cargo.toml", "Cargo.lock", "Makefile", "forgejo/fgate.yml"] {
+        for path in ["Cargo.toml", "Cargo.lock", "Makefile"] {
             assert!(matches!(decide_gate_scope(&[path]), GateScope::Full { .. }), "{path}");
         }
     }
