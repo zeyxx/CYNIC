@@ -185,6 +185,34 @@ pub(crate) fn submit_build(
     }
     cynic_build::render_workload_proof(&proof, json)?;
     if wait {
+        // Terminal envelope only: an acceptance proof is not a result and must
+        // never land in the proof log. Persist the waited terminal state so
+        // `build proofs list --commit` reads submit results like trigger ones.
+        let completion_status = proof
+            .get("completion")
+            .and_then(|c| c.get("status"))
+            .and_then(|s| s.as_str())
+            .unwrap_or("");
+        if completion_status != "completed" && !completion_status.is_empty() {
+            report_failure_output(&proof, builder_url);
+            return Err(format!("build {completion_status}"));
+        }
+        if completion_status == "completed" {
+            if let Some(wid) = proof.get("workload_id").and_then(|w| w.as_str()) {
+                if let Ok(record) = cynic_build::fetch_workload_record(builder_url, wid) {
+                    if let Some(exit_code) = record
+                        .get("completion")
+                        .and_then(|c| c.get("exit_code"))
+                        .and_then(|e| e.as_i64())
+                    {
+                        if exit_code != 0 {
+                            report_failure_output(&proof, builder_url);
+                            return Err(format!("build failed with exit code {exit_code}"));
+                        }
+                    }
+                }
+            }
+        }
         report_failure_output(&proof, builder_url);
     }
     Ok(())
