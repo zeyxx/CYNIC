@@ -152,9 +152,8 @@ fn execute_domain(desired_state_path: &str, apply: bool, ns_cutover_confirmed: b
                         return fail(format!("porkbun dns authority credential resolution failed: {}", e));
                     }
                 };
-                let mem_probe = cynic_domain_ops::adapters::memory::MemoryEdgeProbe::default()
-                    .with_expected_nameservers(desired.expected_nameservers.clone());
-                (Box::new(porkbun_auth), Box::new(mem_probe))
+                let boxed = Box::new(porkbun_auth);
+                (boxed.clone(), boxed)
             }
             _ => {
                 let cf_account_ref = desired
