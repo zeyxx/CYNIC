@@ -15,6 +15,40 @@ pub fn load_authority_overrides<P: AsRef<Path>>(root: P) -> AuthorityOverrides {
         .unwrap_or_default()
 }
 
+/// Parses a JSONL WAL (one JSON object per line) into chunks.
+/// Each line becomes one DocumentChunk with content from the "content" field.
+pub fn parse_jsonl_wal(source_path: &str, content: &str) -> Vec<DocumentChunk> {
+    let authority = AuthorityTier::from_path(source_path);
+    let mut chunks = Vec::new();
+    for (idx, line) in content.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let parsed: Result<Value, _> = serde_json::from_str(trimmed);
+        let text = match parsed {
+            Ok(v) => {
+                // Extract content field, fall back to whole line
+                v.get("content")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or(trimmed)
+                    .to_string()
+            }
+            Err(_) => trimmed.to_string(),
+        };
+        let line_num = idx + 1;
+        chunks.push(DocumentChunk::new(
+            source_path.to_string(),
+            line_num,
+            line_num,
+            vec!["Observation".to_string()],
+            text,
+            authority,
+        ));
+    }
+    chunks
+}
+
 /// Parses a JSON contract into structural chunks with directory-default authority.
 pub fn parse_json_contract(source_path: &str, content: &str) -> Vec<DocumentChunk> {
     parse_json_contract_with_authority(source_path, content, AuthorityTier::from_path(source_path))
