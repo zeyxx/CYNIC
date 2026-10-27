@@ -1,7 +1,0 @@
-name: runner-proof
-on: push
-jobs:
-  proof:
-    runs-on: [cynic/build]
-    steps:
-      - run: hostname && whoami && uname -m
