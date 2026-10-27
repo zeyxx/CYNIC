@@ -274,7 +274,33 @@ pub fn pressure_score(endpoint: &BuilderEndpoint, reading: Option<&CapacityReadi
         .as_ref()
         .map(|caps| caps.cpu_cores.max(1) as f64)
         .unwrap_or(1.0);
-    (reading.in_flight as f64 + reading.load_average_1m) / cpu
+    // Base pressure: queued work + machine load, normalized by CPU cores.
+    let base = (reading.in_flight as f64 + reading.load_average_1m) / cpu;
+
+    // Capability penalty: a node without enough RAM or disk is not capable
+    // of running a build, even if it is idle. Add a penalty proportional to
+    // how far below the minimum the resource is.
+    let mut penalty = 0.0;
+    // RAM: require at least 1 GiB free. Penalty scales with deficit.
+    if let (Some(free), Some(total)) = (reading.free_ram_bytes, reading.total_ram_bytes) {
+        let min_ram: u64 = 1_073_741_824; // 1 GiB
+        if free < min_ram {
+            penalty += (min_ram - free) as f64 / 1_073_741_824.0 * 10.0;
+        }
+        // Also penalize if RAM is almost full (>90% used).
+        if total > 0 && free < total / 10 {
+            penalty += 5.0;
+        }
+    }
+    // Disk: require at least 5 GiB free. Penalty scales with deficit.
+    if let Some(disk) = reading.disk_avail_bytes {
+        let min_disk: u64 = 5_368_709_120; // 5 GiB
+        if disk < min_disk {
+            penalty += (min_disk - disk) as f64 / 1_073_741_824.0 * 10.0;
+        }
+    }
+
+    base + penalty
 }
 
 /// Pick the healthy builder under the lowest pressure.

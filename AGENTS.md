@@ -4,7 +4,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 ## Gates & Build Policy
 
-- **Builder SSOT**: `10.10.10.119`. NEVER run cargo/rustc locally on cortex (faulty RAM).
+- **Builder SSOT**: Dynamic builder pool via `infra/registry.json` (`cynic-builder` 10.10.10.119, `cynic-compute-01` 192.168.0.25). Selected dynamically at runtime by `/capacity` pressure (lowest load / in_flight). NEVER run cargo/rustc locally on cortex (faulty RAM).
 - **Canonical gates**: `cynic audit crate` (`make audit-crate`; `make check` is a deprecated alias), `cynic audit all` (`make audit`), `make release.deploy`.
 - **Fast checks**: `RUSTFLAGS="-C debuginfo=0" cargo check -p <crate> --lib`, `cynic audit all --json`.
 - Note: `make build` and `make build-release` do not exist.
