@@ -4,7 +4,7 @@ use clap::Subcommand;
 use std::path::Path;
 use std::process::ExitCode;
 
-use cynic_vcs::pull_request::{evaluate_pr_admission, evaluate_pr_close};
+use cynic_vcs::pull_request::{SecretPattern, evaluate_pr_admission, evaluate_pr_close, secret_lint};
 use cynic_vcs::providers::forgejo_pr_port_from_registry;
 use crate::cli_json::emit_pretty_json;
 
@@ -130,6 +130,29 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
             let audit_report = crate::crate_audit::audit_core_crates();
             let builder_ok = audit_report.blocked_count == 0;
 
+            // Secret lint: read patterns from infra/secret-patterns.json and
+            // scan the PR diff. Patterns live in a registry, not hardcoded.
+            let secret_violations = match std::fs::read_to_string("infra/secret-patterns.json") {
+                Ok(raw) => {
+                    #[derive(serde::Deserialize)]
+                    struct PatternRegistry {
+                        patterns: Vec<SecretPattern>,
+                    }
+                    match serde_json::from_str::<PatternRegistry>(&raw) {
+                        Ok(reg) => {
+                            let diff = std::process::Command::new("git")
+                                .args(["diff", &format!("origin/main..{}", pr.head_ref)])
+                                .output()
+                                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                                .unwrap_or_default();
+                            secret_lint(&diff, &reg.patterns)
+                        }
+                        Err(_) => Vec::new(),
+                    }
+                }
+                Err(_) => Vec::new(),
+            };
+
             // Store convergence gate: Forgejo main (source) must equal the GitHub
             // projection, read live from the remotes. Local refs are not consulted:
             // they go stale between fetches and produced false blocks.
@@ -146,7 +169,7 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 return ExitCode::FAILURE;
             }
 
-            let admission = evaluate_pr_admission(pr, builder_ok, true);
+            let admission = evaluate_pr_admission(pr, builder_ok, &secret_violations);
 
             if !admission.admitted {
                 if json {
