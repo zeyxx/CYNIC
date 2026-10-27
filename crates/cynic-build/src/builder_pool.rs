@@ -269,13 +269,24 @@ pub fn pressure_score(endpoint: &BuilderEndpoint, reading: Option<&CapacityReadi
     let Some(reading) = reading else {
         return f64::INFINITY;
     };
-    let cpu = endpoint
-        .capabilities
-        .as_ref()
-        .map(|caps| caps.cpu_cores.max(1) as f64)
+    let caps = endpoint.capabilities.as_ref();
+    let cpu = caps.map(|c| c.cpu_cores.max(1) as f64).unwrap_or(1.0);
+    let ram = caps.map(|c| c.ram_gb.max(1) as f64).unwrap_or(1.0);
+    // GPU bonus: a node with a discrete GPU is more capable for GPU builds.
+    let gpu_factor = caps
+        .map(|c| {
+            if c.gpu.contains("dGPU") || c.gpu.contains("discrete") {
+                1.5
+            } else {
+                1.0
+            }
+        })
         .unwrap_or(1.0);
-    // Base pressure: queued work + machine load, normalized by CPU cores.
-    let base = (reading.in_flight as f64 + reading.load_average_1m) / cpu;
+    // Combined capability: CPU cores * (RAM/8) * GPU factor. More capable
+    // nodes have a higher denominator, lowering their pressure score.
+    let capability = cpu * (ram / 8.0).max(0.5) * gpu_factor;
+    // Base pressure: queued work + machine load, normalized by capability.
+    let base = (reading.in_flight as f64 + reading.load_average_1m) / capability;
 
     // Capability penalty: a node without enough RAM or disk is not capable
     // of running a build, even if it is idle. Add a penalty proportional to
@@ -564,17 +575,18 @@ mod tests {
     }
 
     #[test]
-    fn pressure_normalizes_by_declared_cpus() {
-        // Same absolute load, but the big machine carries it per core.
+    fn pressure_normalizes_by_capability() {
+        // The big machine has more cores, more RAM, and a dGPU, so it
+        // carries the same load with lower pressure.
         let pool = capped_pool();
         let readings = vec![reading("small", 2, 2.0), reading("big", 4, 4.0)];
-        // small: (2+2)/4 = 1.0, big: (4+4)/8 = 1.0 → tie keeps first.
-        let selected = select_by_pressure(&pool, &readings);
-        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("small"));
-        // One more unit on small tips the flow to big.
-        let readings = vec![reading("small", 3, 2.0), reading("big", 4, 4.0)];
+        // small: (2+2)/(4*1*1) = 1.0, big: (4+4)/(8*2*1.5) = 0.33 → big.
         let selected = select_by_pressure(&pool, &readings);
         assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("big"));
+        // Even with less load, small cannot beat big's capability advantage.
+        let readings = vec![reading("small", 0, 0.0), reading("big", 4, 4.0)];
+        let selected = select_by_pressure(&pool, &readings);
+        assert_eq!(selected.map(|s| s.node_id).as_deref(), Some("small"));
     }
 
     #[test]
