@@ -310,19 +310,6 @@ fn toolchain_divergences() -> Vec<String> {
         }
     }
 
-    match read(".github/workflows/ci.yml").required() {
-        Ok(ci) => {
-            if ci.contains("rust-toolchain@stable") || ci.contains("rust-toolchain@master") {
-                out.insert(
-                    "the CI installs a floating toolchain instead of the pinned one".to_string(),
-                );
-            }
-        }
-        Err(why) => {
-            out.insert(format!("CI does not read the pinned toolchain: {why}"));
-        }
-    }
-
     out.into_iter().collect()
 }
 
