@@ -259,3 +259,29 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir_b);
     }
 }
+
+impl cynic_protocol::journal_port::AppendOnlyJournal<EvidenceJournalEntry> for EvidenceJournalStore {
+    fn append(&mut self, entry: EvidenceJournalEntry) -> Result<u64, String> {
+        let outcome = self
+            .append(&entry.event_type, &entry.payload_digest, entry.sealed_at_unix_s)
+            .map_err(|e| e.to_string())?;
+        Ok(outcome.sequence)
+    }
+
+    fn read_all(&self) -> Result<Vec<EvidenceJournalEntry>, String> {
+        self.read_all().map_err(|e| e.to_string())
+    }
+
+    fn verify(&self) -> Result<(), String> {
+        let violations = self.verify_offline();
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(violations.join(", "))
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.read_all().map(|v| v.len()).unwrap_or(0)
+    }
+}
