@@ -1,0 +1,62 @@
+{
+  "$cynic": "forgejo-deployment-record",
+  "$schema": "cynic.forgejo_deployment.v1",
+  "purpose": "Record how the sovereign Forgejo is deployed, so that install, upgrade and supply-chain checks read a versioned fact instead of memory. Every field is either an observed value with its source, or the literal string \"unknown\". Never back-fill a guess.",
+  "updated_at": "2026-10-27",
+  "node_ref": "infra/registry.json nodes[id=forgejo]",
+  "observed": {
+    "host": {
+      "kind": "proxmox_lxc",
+      "proxmox_node": "pve",
+      "vmid": 101,
+      "hostname": "organ-forgejo",
+      "ip": "10.10.10.101",
+      "bridge": "vmbr0",
+      "ostype": "ubuntu",
+      "arch": "amd64",
+      "unprivileged": true,
+      "cores": 2,
+      "memory_mib": 1024,
+      "rootfs": "local-lvm:vm-101-disk-0,size=16G",
+      "onboot": true,
+      "source": "Proxmox API GET /nodes/pve/lxc/101/config, 2026-10-27"
+    },
+    "forgejo": {
+      "version": "11.0.1+gitea-1.22.0",
+      "source": "Forgejo API GET /api/v1/version, 2026-10-27"
+    },
+    "web_ui_entry": "http://10.10.10.101:3000",
+    "ssh_git_transport": "ssh://forgejo@forgejo.synapse.cynic:22"
+  },
+  "unknown": {
+    "install_method": "unknown: binary, package or container image not recorded",
+    "binary_path": "unknown",
+    "binary_sha256": "unknown: no hash recorded at install time",
+    "artifact_origin": "unknown: release URL or repository not recorded",
+    "config_path": "unknown (app.ini location not recorded)",
+    "database_engine": "unknown (sqlite, postgres or mysql not recorded)",
+    "git_version_on_host": "unknown (Forgejo 13+ requires Git >= 2.34.1)",
+    "systemd_unit": "unknown",
+    "backup_procedure": "unknown: no recorded forgejo dump schedule",
+    "installed_by": "unknown",
+    "installed_at": "unknown"
+  },
+  "access": {
+    "proxmox_api": "read-only observation done with the cynic@pve!runtime token",
+    "in_container_shell": "not available to the agent yet: ssh root@10.10.10.101 and ssh cynic@10.10.10.101 refused (publickey)",
+    "required_for_audit": "one of: an SSH principal on organ-forgejo, or a read-only root path on the Proxmox host (registry transport proxmox-forge, then pct exec 101)"
+  },
+  "known_exposure": {
+    "version_status": "behind the 11.x security backports (see Forgejo security-announcements #52, #54, #50 and Codeberg milestones)",
+    "verified_against_this_version": false
+  },
+  "upgrade_gate": {
+    "target_candidate": "15.0.11 (LTS)",
+    "preconditions": [
+      "artifact sha256 checked against the official Codeberg release",
+      "full backup with forgejo dump, stored outside organ-forgejo",
+      "upgrade rehearsed on a copy of the LXC",
+      "release notes 12 to 15 read for breaking changes (done 2026-10-27, see notes in session)"
+    ]
+  }
+}
