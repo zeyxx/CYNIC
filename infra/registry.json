@@ -369,7 +369,10 @@
       "services": [],
       "energy_profile": {
         "class": "always_on"
-      }
+      },
+      "roles": [
+        "hypervisor"
+      ]
     },
     {
       "id": "cynic-host-cortex",
@@ -465,7 +468,10 @@
           }
         ],
         "note": "Overflow runner, RAM-gated (on >= 6G free, off < 4G). Cargo present but the host is RAM-loaded: it must not take a gate job."
-      }
+      },
+      "roles": [
+        "cortex_host"
+      ]
     },
     {
       "id": "local-kernel",
@@ -497,6 +503,9 @@
           "network_plane": "admin",
           "port": 3030
         }
+      ],
+      "roles": [
+        "kernel_primary"
       ]
     },
     {
@@ -588,7 +597,10 @@
       ],
       "energy_profile": {
         "class": "always_on"
-      }
+      },
+      "roles": [
+        "storage_primary"
+      ]
     },
     {
       "id": "cynic-builder",
@@ -825,7 +837,10 @@
           }
         ],
         "note": "Builder-119 verified toolchain 2026-10-19: git, cargo 1.95.0, rustc, node v22.23.3, python3. Toolchain proof includes pkg-config modules (openssl / libssl-dev): openssl-sys needs the dev headers to build."
-      }
+      },
+      "roles": [
+        "build_runner"
+      ]
     },
     {
       "id": "cynic-lxc-embedding",
@@ -895,7 +910,10 @@
         "peer_numeric_drift_vs_cortex": 0.002476,
         "peer_numeric_drift_vs_compute_01": 0.002479,
         "observed_at": "2026-10-18"
-      }
+      },
+      "roles": [
+        "embedding_runner"
+      ]
     },
     {
       "id": "cynic-laptop-ax16pro",
@@ -960,7 +978,10 @@
         "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",
         "residual_unknown": "Endurance under sustained multi-hour load is not measured. Two passes over 2 GiB prove the device writes and reads correctly, not that it sustains 477 GB of daily use."
       },
-      "services": []
+      "services": [],
+      "roles": [
+        "workstation_portable"
+      ]
     },
     {
       "id": "cynic-agent-host",
@@ -986,7 +1007,10 @@
       "services": [],
       "energy_profile": {
         "class": "always_on"
-      }
+      },
+      "roles": [
+        "agent_host"
+      ]
     },
     {
       "id": "forgejo",
@@ -1031,7 +1055,10 @@
           },
           "note": "The SSH principal is `forgejo`, not `git`. Verified 2026-09-28: `git@` is refused while `forgejo@` is accepted, so the repository transport is ssh://forgejo@forgejo.synapse.cynic:22/<owner>/<repo>.git. The host also answers to eleven DNS aliases (organ-forgejo, cynic-lxc-git, \u2026); this target is the canonical one and the aliases are deliberately not copied here."
         }
-      }
+      },
+      "roles": [
+        "forge_primary"
+      ]
     },
     {
       "id": "cynic-lxc-headscale",
@@ -1069,7 +1096,10 @@
       ],
       "energy_profile": {
         "class": "always_on"
-      }
+      },
+      "roles": [
+        "mesh_coordinator"
+      ]
     },
     {
       "id": "cynic-compute-01",

@@ -25,27 +25,27 @@ pub struct BuilderEndpoint {
     pub capabilities: Option<CapabilityRequirements>,
 }
 
-/// Resolve all builder endpoints from the registry.
+/// Resolve all node endpoints for a given role from the registry.
 ///
-/// Returns a list of (node_id, url) pairs for all nodes with role == "build_runner".
+/// Returns a list of (node_id, url) pairs for all nodes whose `roles`
+/// array (or legacy `role` string) contains the requested role.
 /// Does not perform health checks — caller must check.
-pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
+pub fn resolve_node_pool(registry: &Value, role: &str) -> Vec<BuilderEndpoint> {
     let mut pool = Vec::new();
     if let Some(nodes) = registry.get("nodes").and_then(|n| n.as_array()) {
         for node in nodes {
-            // Support both single "role" string and "roles" array for
-            // multi-capability nodes (e.g. compute-01 wears 4 hats).
-            let is_builder = node
+            // Support both single "role" string and "roles" array.
+            let has_role = node
                 .get("role")
                 .and_then(|r| r.as_str())
-                .map(|r| r == "build_runner")
+                .map(|r| r == role)
                 .unwrap_or(false)
                 || node
                     .get("roles")
                     .and_then(|r| r.as_array())
-                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("build_runner")))
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some(role)))
                     .unwrap_or(false);
-            if !is_builder {
+            if !has_role {
                 continue;
             }
             let node_id = node
@@ -54,7 +54,6 @@ pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
                 .unwrap_or_default()
                 .to_string();
             let ip = node.get("network").and_then(|network| {
-                // Use plane_vocabulary if available, else fallback to service field
                 network
                     .get("service")
                     .and_then(|s| s.as_str())
@@ -80,19 +79,23 @@ pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
     pool
 }
 
-/// Resolve all builder endpoints from the registry and health-check each one.
-///
-/// Calls `health_check` on each builder URL. The `healthy` field is set
-/// according to the HTTP response (true = 200 OK, false = anything else).
-///
-/// This is the production entry point — prefer this over `resolve_builder_pool`
-/// when the caller needs to select a builder to dispatch work to.
-pub fn resolve_builder_pool_with_health(registry: &Value) -> Vec<BuilderEndpoint> {
-    let mut pool = resolve_builder_pool(registry);
+/// Backward-compatible alias for build_runner pool.
+pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
+    resolve_node_pool(registry, "build_runner")
+}
+
+/// Resolve all node endpoints for a given role and health-check each one.
+pub fn resolve_node_pool_with_health(registry: &Value, role: &str) -> Vec<BuilderEndpoint> {
+    let mut pool = resolve_node_pool(registry, role);
     for endpoint in &mut pool {
         endpoint.healthy = health_check(&endpoint.url);
     }
     pool
+}
+
+/// Backward-compatible alias.
+pub fn resolve_builder_pool_with_health(registry: &Value) -> Vec<BuilderEndpoint> {
+    resolve_node_pool_with_health(registry, "build_runner")
 }
 
 /// HTTP health-check for a single builder endpoint.
@@ -314,7 +317,11 @@ pub fn select_by_pressure(
 /// the `/capacity` surface (old binaries) stay eligible through the
 /// legacy fallback — they never silently win against a gauge.
 pub fn resolve_builder_pool_with_capacity(registry: &serde_json::Value) -> Option<BuilderEndpoint> {
-    let mut pool = resolve_builder_pool(registry);
+    resolve_node_pool_with_capacity(registry, "build_runner")
+}
+
+pub fn resolve_node_pool_with_capacity(registry: &serde_json::Value, role: &str) -> Option<BuilderEndpoint> {
+    let mut pool = resolve_node_pool(registry, role);
     for endpoint in &mut pool {
         endpoint.healthy = health_check(&endpoint.url);
     }
