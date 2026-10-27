@@ -127,8 +127,25 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             };
 
-            let audit_report = crate::crate_audit::audit_core_crates();
-            let builder_ok = audit_report.blocked_count == 0;
+            // Builder gate: submit a build to the builder for this PR's head commit
+            // and check the result. Replaces the structural audit with a real
+            // compilation check.
+            let builder_url = cynic_build::resolve_builder_url_with_health()
+                .unwrap_or_else(|_| "http://10.10.10.119:9090".to_string());
+            let builder_ok = match cynic_build::submit_workload(
+                &pr.head_sha,
+                None,
+                "check",
+                "cynic-cli-pr-merge",
+                &builder_url,
+                true,
+            ) {
+                Ok(proof) => proof.get("state").and_then(|s| s.as_str()) == Some("completed"),
+                Err(e) => {
+                    eprintln!("builder check failed: {e}");
+                    false
+                }
+            };
 
             // Secret lint: read patterns from infra/secret-patterns.json and
             // scan the PR diff. Patterns live in a registry, not hardcoded.
