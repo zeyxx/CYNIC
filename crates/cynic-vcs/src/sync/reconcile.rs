@@ -129,20 +129,11 @@ pub fn plan(decision: &SyncDecision) -> SyncPlan {
                     });
                 }
             }
-            SyncAction::PushForgejoToGithub { commits: _ } => {
-                if let Some(name) = decision.observation.github.remote_name.as_deref() {
-                    steps.push(SyncStep::GitCommand {
-                        argv: vec![
-                            "git".to_string(),
-                            "push".to_string(),
-                            "--force".to_string(),
-                            name.to_string(),
-                            "main".to_string(),
-                        ],
-                        layer: SourceLayer::Forgejo,
-                    });
-                }
-            }
+            // The GitHub projection is written only by Forgejo's native push mirror
+            // (sync_on_commit). This plan never pushes to GitHub: a forced push from
+            // a local checkout was a second writer that could overwrite the public
+            // projection. The action stays in the decision as an observation.
+            SyncAction::PushForgejoToGithub { commits: _ } => {}
             SyncAction::MergeBranchIntoMain { branch, strategy } => match strategy {
                 MergeStrategy::Merge => {
                     steps.push(SyncStep::GitCommand {
@@ -261,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn forgejo_ahead_returns_push_to_github() {
+    fn forgejo_ahead_plans_no_github_write() {
         let mut obs = mock_observation();
         obs.forgejo.commits_ahead = Some(10);
         let decision = reconcile(&obs);
@@ -269,7 +260,17 @@ mod tests {
             decision
                 .actions
                 .iter()
-                .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 }))
+                .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 })),
+            "the gap is still observed"
+        );
+        let steps = plan(&decision).steps;
+        let writes_github = steps.iter().any(|s| match s {
+            SyncStep::GitCommand { argv, .. } => argv.iter().any(|a| a == "github") || argv.iter().any(|a| a == "--force"),
+            _ => false,
+        });
+        assert!(
+            !writes_github,
+            "the plan must not write GitHub: the Forgejo native mirror owns that"
         );
     }
 

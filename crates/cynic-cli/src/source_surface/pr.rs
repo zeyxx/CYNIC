@@ -130,30 +130,16 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
             let audit_report = crate::crate_audit::audit_core_crates();
             let builder_ok = audit_report.blocked_count == 0;
 
-            // Store convergence gate: main must agree across source layers before merge.
-            let store_converged = std::process::Command::new("git")
-                .args(["rev-parse", "main"])
-                .output()
-                .ok()
-                .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None })
-                .map(|local| {
-                    let origin = std::process::Command::new("git")
-                        .args(["rev-parse", "origin/main"])
-                        .output()
-                        .ok()
-                        .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None });
-                    let github = std::process::Command::new("git")
-                        .args(["rev-parse", "github/main"])
-                        .output()
-                        .ok()
-                        .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None });
-                    match (origin, github) {
-                        (Some(o), Some(g)) => local == o && o == g,
-                        (Some(o), None) => local == o,
-                        _ => true,
-                    }
-                })
-                .unwrap_or(true);
+            // Store convergence gate: Forgejo main (source) must equal the GitHub
+            // projection, read live from the remotes. Local refs are not consulted:
+            // they go stale between fetches and produced false blocks.
+            let store_converged = match crate::source_surface::divergence::live_main_agreement(root) {
+                Ok(agree) => agree,
+                Err(e) => {
+                    eprintln!("blocked: cannot read live main SHAs: {e}");
+                    false
+                }
+            };
 
             if !store_converged {
                 eprintln!("blocked: store divergence detected before merge. Converge first.");
