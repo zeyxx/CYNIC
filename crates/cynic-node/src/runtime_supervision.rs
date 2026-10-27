@@ -67,6 +67,8 @@ where
         60,
     ));
 
+    crate::gc_adapter::spawn_daily_gc(shutdown.clone());
+
     let mut state = NodeState {
         needs_spawn: true,
         child: None,
