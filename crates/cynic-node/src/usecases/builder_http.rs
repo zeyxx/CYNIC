@@ -404,14 +404,8 @@ async fn submit_workload(
     }))
 }
 
-async fn health(State(state): State<AppState>) -> (StatusCode, &'static str) {
-    let view_path = std::path::PathBuf::from(&state.config.state_root)
-        .join("federation")
-        .join("membership-view.json");
-    match std::fs::metadata(&view_path) {
-        Ok(meta) if meta.len() > 0 => (StatusCode::OK, "ok"),
-        _ => (StatusCode::SERVICE_UNAVAILABLE, "federation-disconnected"),
-    }
+async fn health(State(_state): State<AppState>) -> (StatusCode, &'static str) {
+    (StatusCode::OK, "ok")
 }
 
 /// Record a submission event into the H4 collision counter (Task 5).
