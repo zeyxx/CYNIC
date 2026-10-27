@@ -482,20 +482,16 @@ impl DnsAuthorityPort for PorkbunRegistrar {
                 .records
                 .into_iter()
                 .map(|r| {
-                    let mut shape = DnsRecordShape {
+                    let porkbun_rec = PorkbunDnsRecord {
+                        id: r.id,
                         name: r.name,
                         r#type: r.r#type,
                         content: r.content,
-                        proxied: false,
-                        ttl: r.ttl.and_then(|t| t.parse().ok()).unwrap_or(300),
-                        priority: r.prio.and_then(|p| p.parse().ok()),
+                        value: None,
+                        ttl: r.ttl,
+                        priority: r.prio,
                     };
-                    if !shape.name.ends_with(domain) && shape.name != "@" && !shape.name.is_empty() {
-                        shape.name = format!("{}.{domain}", shape.name);
-                    } else if shape.name == "@" || shape.name.is_empty() {
-                        shape.name = domain.to_string();
-                    }
-                    shape
+                    Self::parse_record(porkbun_rec, domain)
                 })
                 .collect(),
             Err(_) => Vec::new(),
@@ -524,11 +520,23 @@ impl DnsAuthorityPort for PorkbunRegistrar {
                 rec.name.clone()
             };
 
+            let r_type_str = match rec.r#type {
+                DnsRecordType::A => "A",
+                DnsRecordType::AAAA => "AAAA",
+                DnsRecordType::CNAME => "CNAME",
+                DnsRecordType::TXT => "TXT",
+                DnsRecordType::MX => "MX",
+                DnsRecordType::NS => "NS",
+                DnsRecordType::CAA => "CAA",
+                DnsRecordType::SRV => "SRV",
+                DnsRecordType::DS => "DS",
+            };
+
             let req = PorkbunDnsCreateRequest {
                 apikey: self.api_key.clone(),
                 secretapikey: self.api_secret.clone(),
                 name: sub,
-                r#type: rec.r#type.clone(),
+                r#type: r_type_str.to_string(),
                 content: rec.content.clone(),
                 ttl: Some(rec.ttl.to_string()),
                 prio: rec.priority.map(|p| p.to_string()),
@@ -558,7 +566,7 @@ impl DnsAuthorityPort for PorkbunRegistrar {
     }
 
     fn export_zone_backup(&self, domain: &str) -> String {
-        let records = self.read_zone_records(domain);
+        let records = DnsAuthorityPort::read_zone_records(self, domain);
         serde_json::to_string_pretty(&records).unwrap_or_default()
     }
 }
