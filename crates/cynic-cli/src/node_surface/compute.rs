@@ -711,7 +711,7 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
                 let live_rules = freebox_endpoint.as_deref().map(|endpoint| {
                     let adapter = HttpFreeboxProbeAdapter {
                         timeout: std::time::Duration::from_secs(3),
-                        app_id: freebox_app_id,
+                        app_id: freebox_app_id.clone(),
                     };
                     adapter
                         .list_fw_redirs(endpoint)
@@ -725,12 +725,23 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
                         })
                         .map_err(|e| e.to_string())
                 });
+                let live_dmz = freebox_endpoint.as_deref().map(|endpoint| {
+                    let adapter = HttpFreeboxProbeAdapter {
+                        timeout: std::time::Duration::from_secs(3),
+                        app_id: freebox_app_id.clone(),
+                    };
+                    adapter
+                        .read_dmz(endpoint)
+                        .map(|(enabled, ip)| serde_json::json!({"enabled": enabled, "ip": ip}))
+                        .map_err(|e| e.to_string())
+                });
                 emit_json(
                     &serde_json::json!({
                         "schema": "cynic.node.compute.approval.v1",
                         "status": "listed",
                         "intents": shown,
                         "live_fw_rules": live_rules,
+                        "live_dmz": live_dmz,
                     }),
                     false,
                 );

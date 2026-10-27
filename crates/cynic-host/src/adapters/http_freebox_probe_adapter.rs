@@ -126,6 +126,73 @@ impl HttpFreeboxProbeAdapter {
         .map_err(|_| "freebox_list_thread_panicked".to_string())?
     }
 
+    /// Read the DMZ configuration: whether it is enabled and the host IP it
+    /// targets. Read-only over an authenticated session; no write endpoint.
+    pub fn read_dmz(&self, endpoint: &str) -> Result<(bool, String), String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::read_dmz_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
+        })
+        .join()
+        .map_err(|_| "freebox_dmz_thread_panicked".to_string())?
+    }
+
+    fn read_dmz_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+    ) -> Result<(bool, String), String> {
+        let token = Self::resolve_app_token().ok_or_else(|| "freebox_app_token_missing".to_string())?;
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let challenge: String = client
+            .get(&format!("{endpoint}/api/v10/login/"))
+            .send()
+            .map_err(|e| format!("freebox_challenge_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/challenge")
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| "freebox_challenge_missing".to_string())?
+            .to_string();
+        let password = Self::compute_password(&token, &challenge)?;
+        let session_token: String = client
+            .post(&format!("{endpoint}/api/v10/login/session/"))
+            .json(&serde_json::json!({ "app_id": app_id, "password": password }))
+            .send()
+            .map_err(|e| format!("freebox_session_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/session_token")
+            .and_then(|st| st.as_str())
+            .ok_or_else(|| "freebox_session_rejected".to_string())?
+            .to_string();
+        let result: Value = client
+            .get(&format!("{endpoint}/api/v10/fw/dmz/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .send()
+            .map_err(|e| format!("freebox_dmz_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result")
+            .cloned()
+            .ok_or_else(|| "freebox_dmz_shape_unexpected".to_string())?;
+        let enabled = result
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .ok_or_else(|| "freebox_dmz_shape_unexpected".to_string())?;
+        let ip = result
+            .get("ip")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        Ok((enabled, ip))
+    }
+
     fn list_fw_redirs_blocking(
         endpoint: &str,
         timeout: Duration,
