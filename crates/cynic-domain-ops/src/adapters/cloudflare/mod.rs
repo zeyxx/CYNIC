@@ -4,7 +4,7 @@
 //! Cloudflare API v4) and `EdgeProbePort` (NS queries via Cloudflare
 //! DNS-over-HTTPS, HTTP edge verification with IP pinning).
 
-use crate::{CloudflareDnsPort, EdgeProbePort, SecretProvider as SecretProviderPort};
+use crate::{DnsAuthorityPort, EdgeProbePort, SecretProvider as SecretProviderPort};
 
 pub mod error;
 
@@ -352,7 +352,7 @@ impl CloudflareClient {
     }
 }
 
-impl CloudflareDnsPort for CloudflareClient {
+impl DnsAuthorityPort for CloudflareClient {
     fn zone_exists(&self, zone: &str) -> bool {
         self.find_zone_id(zone).is_some()
     }

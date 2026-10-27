@@ -23,7 +23,7 @@ use crate::domain::{
     TransformResult, detect_cname_conflict, generate_idempotency_key, reconcile_zone,
     transform_record_for_cloudflare,
 };
-use crate::port::{CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider};
+use crate::port::{DnsAuthorityPort, EdgeProbePort, RegistrarPort, SecretProvider};
 
 use cynic_protocol::domain_ops::*;
 
@@ -112,7 +112,7 @@ fn to_json_value<T: serde::Serialize>(value: &T) -> serde_json::Value {
 pub fn run_domain_ops(
     desired: &DomainOpsDesiredState,
     registrar: &dyn RegistrarPort,
-    cloudflare: &dyn CloudflareDnsPort,
+    dns_authority: &dyn DnsAuthorityPort,
     probe: &dyn EdgeProbePort,
     secrets: &dyn SecretProvider,
     apply: bool,
@@ -175,13 +175,13 @@ pub fn run_domain_ops(
         return proofs; // Stop — must be resolved manually
     }
 
-    // ── 2c. Observe: Cloudflare zone state ─────────────────────────────────
-    let zone_existed = cloudflare.zone_exists(domain);
-    let zone_id = cloudflare.create_zone(domain);
+    // ── 2c. Observe: DNS authority zone state ─────────────────────────────
+    let zone_existed = dns_authority.zone_exists(domain);
+    let zone_id = dns_authority.create_zone(domain);
 
-    // ── 2d. Observe: Cloudflare zone records (if zone existed) ────────────
+    // ── 2d. Observe: DNS authority zone records (if zone existed) ────────
     let cf_records = if zone_existed {
-        cloudflare.read_zone_records(domain)
+        dns_authority.read_zone_records(domain)
     } else {
         Vec::new()
     };
@@ -273,7 +273,7 @@ fn execute_mutations(
     domain: &str,
     availability: &DomainAvailability,
     registrar: &dyn RegistrarPort,
-    cloudflare: &dyn CloudflareDnsPort,
+    dns_authority: &dyn DnsAuthorityPort,
     diff: &ZoneRecordDiff,
     zone_existed: bool,
     zone_id: &str,
@@ -324,7 +324,7 @@ fn execute_mutations(
 
         // Backup before any write (safety invariant: backup-first)
         let _backup = if zone_existed {
-            cloudflare.export_zone_backup(zone_id)
+            dns_authority.export_zone_backup(zone_id)
         } else {
             String::new() // New zone — nothing to backup
         };
@@ -358,7 +358,7 @@ fn execute_mutations(
             .collect();
 
         if !records_to_write.is_empty() {
-            let updated_ids = cloudflare.upsert_records(zone_id, &records_to_write, &migration_key);
+            let updated_ids = dns_authority.upsert_records(zone_id, &records_to_write, &migration_key);
             let _ = updated_ids; // Record IDs from provider — archived in proof
         }
 

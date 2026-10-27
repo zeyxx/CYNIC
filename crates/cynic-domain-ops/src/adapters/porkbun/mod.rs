@@ -1,6 +1,8 @@
-//! Porkbun API adapter — implements `RegistrarPort`.
+//! Porkbun API adapter — implements `RegistrarPort` and `DnsAuthorityPort`.
+//!
+//! Based on architectural patterns by Ahmad Osman (@TheAhmadOsman) for agentic domain ops.
 
-use crate::{RegistrarPort, SecretProvider};
+use crate::{DnsAuthorityPort, RegistrarPort, SecretProvider};
 
 pub mod error;
 pub mod secret;
@@ -43,6 +45,8 @@ struct PorkbunAvailability {
 /// Porkbun DNS record (as returned by the list-records endpoint).
 #[derive(Debug, Deserialize)]
 struct PorkbunDnsRecord {
+    #[serde(default)]
+    id: Option<String>,
     name: String, // relative to zone, e.g. "www" or "@"
     #[serde(rename = "type")]
     r#type: String,
@@ -85,6 +89,48 @@ struct PorkbunNsUpdateRequest {
     id: String,
     secret: String,
     ns: Vec<String>,
+}
+
+/// Porkbun DNS create record request body.
+#[derive(Debug, serde::Serialize)]
+struct PorkbunDnsCreateRequest {
+    apikey: String,
+    secretapikey: String,
+    name: String,
+    #[serde(rename = "type")]
+    r#type: String,
+    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ttl: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prio: Option<String>,
+}
+
+/// Porkbun DNS create record response.
+#[derive(Debug, Deserialize)]
+struct PorkbunDnsCreateResponse {
+    id: Option<serde_json::Value>,
+}
+
+/// Porkbun v3 DNS list response.
+#[derive(Debug, Deserialize)]
+struct PorkbunV3DnsListResponse {
+    #[serde(default)]
+    records: Vec<PorkbunV3DnsRecord>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PorkbunV3DnsRecord {
+    #[serde(default)]
+    id: Option<String>,
+    name: String,
+    #[serde(rename = "type")]
+    r#type: String,
+    content: String,
+    #[serde(default)]
+    ttl: Option<String>,
+    #[serde(default)]
+    prio: Option<String>,
 }
 
 /// Registrar adapter backed by the Porkbun API v2.
@@ -406,4 +452,115 @@ impl RegistrarPort for PorkbunRegistrar {
 }
 
 /// Constant: registrar name string used in all receipts.
+impl DnsAuthorityPort for PorkbunRegistrar {
+    fn zone_exists(&self, domain: &str) -> bool {
+        let endpoint = format!("/domain/getNs/{domain}");
+        self.post_json::<PorkbunNsResponse>(&endpoint, &self.auth())
+            .is_ok()
+    }
+
+    fn read_zone_records(&self, domain: &str) -> Vec<DnsRecordShape> {
+        let endpoint = format!("https://api.porkbun.com/api/json/v3/dns/retrieve/{domain}");
+        let auth_body = serde_json::json!({
+            "apikey": self.api_key,
+            "secretapikey": self.api_secret,
+        });
+
+        let resp: Result<PorkbunV3DnsListResponse, _> = tokio::task::block_in_place(|| {
+            self.client
+                .post(&endpoint)
+                .json(&auth_body)
+                .send()
+                .map_err(PorkbunError::Http)?
+                .json::<PorkbunResponse<PorkbunV3DnsListResponse>>()
+                .map_err(PorkbunError::Http)
+                .and_then(|w| w.data.ok_or_else(|| PorkbunError::ApiError { status: 500, message: "missing data".into() }))
+        });
+
+        match resp {
+            Ok(list) => list
+                .records
+                .into_iter()
+                .map(|r| {
+                    let mut shape = DnsRecordShape {
+                        name: r.name,
+                        r#type: r.r#type,
+                        content: r.content,
+                        proxied: false,
+                        ttl: r.ttl.and_then(|t| t.parse().ok()).unwrap_or(300),
+                        priority: r.prio.and_then(|p| p.parse().ok()),
+                    };
+                    if !shape.name.ends_with(domain) && shape.name != "@" && !shape.name.is_empty() {
+                        shape.name = format!("{}.{domain}", shape.name);
+                    } else if shape.name == "@" || shape.name.is_empty() {
+                        shape.name = domain.to_string();
+                    }
+                    shape
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    fn create_zone(&self, domain: &str) -> String {
+        domain.to_string()
+    }
+
+    fn upsert_records(
+        &self,
+        domain: &str,
+        records: &[DnsRecordShape],
+        _idempotency_key: &str,
+    ) -> Vec<String> {
+        let mut record_ids = Vec::new();
+        let endpoint = format!("https://api.porkbun.com/api/json/v3/dns/create/{domain}");
+
+        for rec in records {
+            let sub = if rec.name == domain || rec.name == "@" {
+                "".to_string()
+            } else if let Some(stripped) = rec.name.strip_suffix(&format!(".{domain}")) {
+                stripped.to_string()
+            } else {
+                rec.name.clone()
+            };
+
+            let req = PorkbunDnsCreateRequest {
+                apikey: self.api_key.clone(),
+                secretapikey: self.api_secret.clone(),
+                name: sub,
+                r#type: rec.r#type.clone(),
+                content: rec.content.clone(),
+                ttl: Some(rec.ttl.to_string()),
+                prio: rec.priority.map(|p| p.to_string()),
+            };
+
+            let post_res: Result<PorkbunResponse<PorkbunDnsCreateResponse>, _> =
+                tokio::task::block_in_place(|| {
+                    self.client
+                        .post(&endpoint)
+                        .json(&req)
+                        .send()
+                        .map_err(PorkbunError::Http)?
+                        .json()
+                        .map_err(PorkbunError::Http)
+                });
+
+            if let Ok(resp) = post_res {
+                if let Some(id_val) = resp.data.and_then(|d| d.id) {
+                    record_ids.push(id_val.to_string());
+                } else {
+                    record_ids.push(format!("created-{}", rec.name));
+                }
+            }
+        }
+
+        record_ids
+    }
+
+    fn export_zone_backup(&self, domain: &str) -> String {
+        let records = self.read_zone_records(domain);
+        serde_json::to_string_pretty(&records).unwrap_or_default()
+    }
+}
+
 const REGISTRAR_NAME: &str = "porkbun";

@@ -6,7 +6,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::port::{CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider};
+use crate::port::{DnsAuthorityPort, EdgeProbePort, RegistrarPort, SecretProvider};
 use cynic_protocol::domain_ops::*;
 use cynic_protocol::secret_reference::SecretReference;
 
@@ -171,7 +171,7 @@ impl MemoryCloudflare {
     }
 }
 
-impl CloudflareDnsPort for MemoryCloudflare {
+impl DnsAuthorityPort for MemoryCloudflare {
     fn zone_exists(&self, zone: &str) -> bool {
         self.zones.borrow().contains_key(zone)
     }

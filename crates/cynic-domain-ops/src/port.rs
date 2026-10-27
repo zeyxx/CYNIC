@@ -55,18 +55,21 @@ pub trait RegistrarPort {
     fn export_zone_backup(&self, domain: &str) -> String;
 }
 
-/// Port for Cloudflare DNS operations (zone management, record CRUD).
-pub trait CloudflareDnsPort {
-    /// Check if a Cloudflare zone exists for the domain.
+/// Port for DNS authority operations (zone management, record CRUD).
+///
+/// Implementations include `CloudflareClient` and `PorkbunRegistrar`.
+/// Based on architectural patterns by Ahmad Osman (@TheAhmadOsman) for agentic domain ops.
+pub trait DnsAuthorityPort {
+    /// Check if a DNS authority zone exists for the domain.
     fn zone_exists(&self, zone: &str) -> bool;
 
-    /// Read all DNS records in the Cloudflare zone. Read-only.
+    /// Read all DNS records in the authority zone. Read-only.
     fn read_zone_records(&self, zone: &str) -> Vec<DnsRecordShape>;
 
-    /// Create a Cloudflare zone. Returns the zone ID.
+    /// Create an authority zone if needed. Returns the zone ID or domain name.
     fn create_zone(&self, zone: &str) -> String;
 
-    /// Upsert DNS records into the Cloudflare zone.
+    /// Upsert DNS records into the authority zone.
     /// The idempotency key is forwarded to the provider API.
     fn upsert_records(
         &self,
@@ -75,9 +78,12 @@ pub trait CloudflareDnsPort {
         idempotency_key: &str,
     ) -> Vec<String>;
 
-    /// Export raw zone backup from Cloudflare for archival (read-back).
+    /// Export raw zone backup from DNS authority for archival (read-back).
     fn export_zone_backup(&self, zone_id: &str) -> String;
 }
+
+/// Backward compatibility alias for `DnsAuthorityPort`.
+pub type CloudflareDnsPort = dyn DnsAuthorityPort;
 
 /// Port for authoritative DNS and HTTP edge verification.
 ///

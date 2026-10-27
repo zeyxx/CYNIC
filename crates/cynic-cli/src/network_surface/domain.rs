@@ -17,7 +17,10 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_domain_ops::{CloudflareClient, PorkbunRegistrar, env_secret, parse_desired_state, run_domain_ops};
+use cynic_domain_ops::{
+    env_secret, parse_desired_state, run_domain_ops, CloudflareClient, DnsAuthorityPort,
+    EdgeProbePort, PorkbunRegistrar,
+};
 use cynic_protocol::domain_ops::ProofStatus;
 use cynic_secrets::CompositeSecretProvider;
 
@@ -131,32 +134,55 @@ fn execute_domain(desired_state_path: &str, apply: bool, ns_cutover_confirmed: b
         }
     };
 
-    // Cloudflare client — use from_secret_refs (resolves token + account_id).
-    // The account_id SecretReference falls back to CF_ACCOUNT_ID env var
-    // when not specified in the desired-state contract.
-    let cf_account_ref = desired
-        .dns_authority_account_id
-        .clone()
-        .unwrap_or_else(|| env_secret("cf-account-id", "CF_ACCOUNT_ID"));
+    // 3. DNS authority and EdgeProbe resolution
+    let (dns_authority, probe): (Box<dyn DnsAuthorityPort>, Box<dyn EdgeProbePort>) =
+        match desired.dns_authority.provider.as_str() {
+            "porkbun" => {
+                let porkbun_auth = match PorkbunRegistrar::from_secret_refs(
+                    &desired.dns_authority.credential,
+                    &desired
+                        .registrar
+                        .credential_secret
+                        .as_ref()
+                        .unwrap_or(&desired.dns_authority.credential),
+                    &secrets,
+                ) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        return fail(format!("porkbun dns authority credential resolution failed: {}", e));
+                    }
+                };
+                let mem_probe = cynic_domain_ops::adapters::memory::MemoryEdgeProbe::default()
+                    .with_expected_nameservers(desired.expected_nameservers.clone());
+                (Box::new(porkbun_auth), Box::new(mem_probe))
+            }
+            _ => {
+                let cf_account_ref = desired
+                    .dns_authority_account_id
+                    .clone()
+                    .unwrap_or_else(|| env_secret("cf-account-id", "CF_ACCOUNT_ID"));
 
-    let cloudflare = match CloudflareClient::from_secret_refs(
-        &desired.dns_authority.credential,
-        &cf_account_ref,
-        &secrets,
-        desired.expected_nameservers.clone(),
-    ) {
-        Ok(c) => c,
-        Err(e) => {
-            return fail(format!("cloudflare credential resolution failed: {}", e));
-        }
-    };
+                let cloudflare = match CloudflareClient::from_secret_refs(
+                    &desired.dns_authority.credential,
+                    &cf_account_ref,
+                    &secrets,
+                    desired.expected_nameservers.clone(),
+                ) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return fail(format!("cloudflare credential resolution failed: {}", e));
+                    }
+                };
+                (Box::new(cloudflare.clone()), Box::new(cloudflare))
+            }
+        };
 
     // 4. Run domain operations (delegates all logic to the runner)
     let proofs = run_domain_ops(
         &desired,
         &registrar,
-        &cloudflare,
-        &cloudflare,
+        dns_authority.as_ref(),
+        probe.as_ref(),
         &secrets,
         apply,
         ns_cutover_confirmed,
