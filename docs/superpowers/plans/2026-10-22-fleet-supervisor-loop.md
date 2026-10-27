@@ -50,7 +50,7 @@
 
 **Files:**
 - Create: `infra/fleet-capacity.json` (seed: `{ "schema": "cynic.fleet.capacity.v1", "snapshots": [] }`)
-- Create: `contracts/fleet-capacity.v1.json` (schema for the registry)
+- Create: `contracts/fleet-capacity.schema.json` (schema for the registry)
 - Test: manual `jq empty` + `python3 -c json.load` in the step (no Rust test; registry is data)
 
 **Interfaces:**
@@ -58,7 +58,7 @@
 - Produces: registry path `infra/fleet-capacity.json`, contract path above.
 
 - [ ] **Step 1: Write both files** with the exact schema string `cynic.fleet.capacity.v1`.
-- [ ] **Step 2: Validate** Run: `jq empty infra/fleet-capacity.json && jq empty contracts/fleet-capacity.v1.json`. Expected: exit 0.
+- [ ] **Step 2: Validate** Run: `jq empty infra/fleet-capacity.json && jq empty contracts/fleet-capacity.schema.json`. Expected: exit 0.
 - [ ] **Step 3: Commit** both files together.
 
 ### Task 3: Scheduled observe arm `cynic fleet observe` (read-only)

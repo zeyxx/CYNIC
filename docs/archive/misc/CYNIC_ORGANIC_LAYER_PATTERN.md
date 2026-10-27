@@ -1,7 +1,7 @@
 # CYNIC Organic Layer Pattern
 
 **Status:** Active pattern (registry entry `organic-layer-pattern` in `infra/pattern-registry.json`)
-**Schema:** `contracts/pattern-registry.v1.json` (`cynic.pattern_registry.v1`)
+**Schema:** `contracts/pattern-registry.schema.json` (`cynic.pattern_registry.v1`)
 **Audience:** contributors and agents implementing or extending CYNIC crates, surfaces, and registries.
 
 ## Purpose
@@ -57,7 +57,7 @@ Representative formalization surfaces:
   `crates/cynic-protocol/src/provider/ports.rs`.
 - Registries: `infra/registry.json`, `infra/runtime-authority.json`,
   `infra/crate-topology.json`, `infra/pattern-registry.json`.
-- Contracts: `contracts/foundation.json`, `contracts/pattern-registry.v1.json`,
+- Contracts: `contracts/foundation.json`, `contracts/pattern-registry.schema.json`,
   `contracts/crate-fusion-dispositions.json`.
 
 ### 3. Implement
@@ -115,7 +115,7 @@ The pattern is bound by the CYNIC invariants (see `AGENTS.md` and
 ## Pattern Registry
 
 `infra/pattern-registry.json` is the machine-readable SSOT for recurring CYNIC
-implementation patterns. It conforms to `contracts/pattern-registry.v1.json`
+implementation patterns. It conforms to `contracts/pattern-registry.schema.json`
 (schema `cynic.pattern_registry.v1`) and records, per pattern: `pattern_id`,
 `name`, the ordered `layers` array, `invariants`, `occurrences`, `status`,
 `created_at`, `updated_at`.

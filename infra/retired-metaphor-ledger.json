@@ -32,8 +32,8 @@
     },
     {
       "count": 1,
-      "evidence": "contracts/pattern-registry.v1.json:72",
-      "path": "contracts/pattern-registry.v1.json",
+      "evidence": "contracts/pattern-registry.schema.json:72",
+      "path": "contracts/pattern-registry.schema.json",
       "terms": "organic"
     },
     {
