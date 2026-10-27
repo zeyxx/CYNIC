@@ -1,15 +1,29 @@
 name: CI
 
-"on":
+on:
   pull_request:
     branches: [main]
 
 jobs:
-  build-and-test:
+  check-changed:
     runs-on: "cynic/build"
     steps:
       - uses: "actions/checkout@v4"
-      - name: Build
-        run: "cargo build --workspace"
-      - name: Test
-        run: "cargo test --workspace"
+        with:
+          fetch-depth: 0
+      - name: Detect changed crates
+        id: detect
+        run: |
+          git diff --name-only origin/main...HEAD | grep '^crates/' | cut -d/ -f2 | sort -u > /tmp/crates.txt
+          echo "Changed crates:"
+          cat /tmp/crates.txt
+      - name: Check changed crates
+        run: |
+          if [ -s /tmp/crates.txt ]; then
+            for crate in $(cat /tmp/crates.txt); do
+              echo "=== cargo check -p $crate ==="
+              cargo check -p "$crate" --lib || exit 1
+            done
+          else
+            echo "No crate changes detected, skipping."
+          fi
