@@ -446,7 +446,7 @@ impl RegistrarPort for PorkbunRegistrar {
     }
 
     fn export_zone_backup(&self, domain: &str) -> String {
-        let records = self.read_zone_records(domain);
+        let records = RegistrarPort::read_zone_records(self, domain);
         serde_json::to_string(&records).unwrap_or_default()
     }
 }
