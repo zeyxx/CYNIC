@@ -62,7 +62,7 @@ const GOD_OBJECTS: &[(&str, usize)] = &[
     ("cynic-node", 55_472),
     ("cynic-protocol", 33_761),
     ("cynic-cli", 25_713),
-    ("cynic-inference", 25_739),
+    // `cynic-inference` is 16_140, under the ceiling: removed, not rewritten (see kernel below).
     // `cynic-kernel` was recorded at 40_434 and is now 5_899 — under the ceiling,
     // so it is no longer a god object at all. The 2026-09-28 purge removed the
     // quarantined orphans (54 files, then 31 more, then the 16 remaining), and

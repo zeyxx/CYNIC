@@ -170,11 +170,11 @@ impl ClaimManager {
     }
 
     pub fn has_budget(&self, claim: &Claim) -> bool {
-        if claim.consumed_actions >= claim.budget.actions {
+        if u64::from(claim.consumed_actions) >= claim.budget.actions {
             return false;
         }
         let elapsed = now_unix_s().saturating_sub(claim.acquired_at_unix_s);
-        elapsed < claim.budget.wall_seconds as u64
+        elapsed < claim.budget.wall_seconds
     }
 
     pub fn consume_action(&self, claim: &mut Claim) {
@@ -211,7 +211,7 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget {
+            budget: AgentBudgets {
                 actions: 10,
                 wall_seconds: 60,
             },
@@ -223,7 +223,7 @@ mod tests {
             parent_task_id: "t1".to_string(),
             child_task_id: "t1".to_string(),
             scope: Scope { kind: ScopeKind::File, path: "src/foo.rs".to_string() },
-            consumed_budget: Budget { actions: 0, wall_seconds: 60 },
+            consumed_budget: AgentBudgets { actions: 0, wall_seconds: 60 },
             output_hash: Hash32([0u8; 32]),
             timestamp_unix_s: 0,
         }).await.unwrap();
@@ -247,7 +247,7 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget {
+            budget: AgentBudgets {
                 actions: 10,
                 wall_seconds: 60,
             },
@@ -266,7 +266,7 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget {
+            budget: AgentBudgets {
                 actions: 10,
                 wall_seconds: 60,
             },

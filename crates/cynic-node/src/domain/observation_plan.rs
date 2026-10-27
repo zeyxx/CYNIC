@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
 
-use crate::adapters::registry::LocalRegistryAdapter;
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
 
 #[derive(Debug, Clone)]
@@ -41,14 +39,16 @@ impl ObservationPlan {
     }
 }
 
-pub(crate) fn build_observation_plan(registry_path: Option<&str>) -> ObservationPlan {
-    let Some(path) = registry_path else {
+/// Build the plan from a readable registry, or fall back to the bootstrap plan.
+///
+/// `registry` pairs the registry path with the port that reads it. The caller
+/// decides whether the registry is readable; the domain performs no I/O.
+pub(crate) fn build_observation_plan(
+    registry: Option<(&str, &dyn RegistryTopologyPort)>,
+) -> ObservationPlan {
+    let Some((path, adapter)) = registry else {
         return ObservationPlan::bootstrap_fallback();
     };
-    if fs::read_to_string(path).is_err() {
-        return ObservationPlan::bootstrap_fallback();
-    }
-    let adapter = LocalRegistryAdapter::new(path);
 
     let mut plan = ObservationPlan::bootstrap_fallback();
     plan.source = "registry".to_string();
@@ -168,7 +168,8 @@ mod tests {
         .expect("write registry");
 
         let path = file.path().to_string_lossy().to_string();
-        let plan = build_observation_plan(Some(&path));
+        let adapter = crate::adapters::registry::LocalRegistryAdapter::new(&path);
+        let plan = build_observation_plan(Some((&path, &adapter)));
 
         assert_eq!(plan.source, "registry");
         assert_eq!(

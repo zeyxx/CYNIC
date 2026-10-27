@@ -124,11 +124,6 @@
       "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:4"
     },
     {
-      "identity": "cynic-node|domain -> adapters",
-      "count": 2,
-      "evidence": "crates/cynic-node/src/domain/observation_runtime.rs:4"
-    },
-    {
       "identity": "cynic-node|ports -> network_actuator",
       "count": 1,
       "evidence": "crates/cynic-node/src/ports/network_command_runner_port.rs:2"

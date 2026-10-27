@@ -141,7 +141,7 @@ impl Coordinator {
                 created_at_unix_s: now(),
                 updated_at_unix_s: now(),
                 expires_at_unix_s: 0,
-                budget: Budget {
+                budget: AgentBudgets {
                     actions: 10,
                     wall_seconds: 300,
                 },
@@ -300,7 +300,7 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget {
+            budget: AgentBudgets {
                 actions: 10,
                 wall_seconds: 60,
             },

@@ -5,6 +5,7 @@ use clap::Subcommand;
 
 use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
 
+pub(crate) mod growth;
 pub(crate) mod host_checks;
 
 #[derive(Subcommand)]
@@ -68,6 +69,13 @@ pub(crate) enum AuditCommand {
         #[cfg(feature = "topology_write")]
         #[arg(long)]
         apply: bool,
+    },
+    /// Measure size, long functions, silenced dead-code lints, declared
+    /// inversions and duplicated type names per crate, grouped by layer.
+    /// Informational: never fails.
+    Growth {
+        #[arg(long)]
+        json: bool,
     },
     /// Scan repository for leaked credentials, tokens, or private keys.
     Secret {
@@ -406,6 +414,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
+        AuditCommand::Growth { json } => growth::execute_growth(*json),
         AuditCommand::Secret { json } => {
             let observation =
                 cynic_release::adapters::secret_lint::scan_for_secrets(Path::new("."));

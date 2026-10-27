@@ -3,8 +3,7 @@
 //! Reads the kernel's `/proc` substrate directly (no external host dependency)
 //! and assembles the 4-layer `MemoryReport` via the pure parsers in
 //! `domain::memory::probe`. This is the localhost-observation surface for the
-//! host/node layer; fleet-wide observation is done through `FleetMemoryObserver`
-//! which drives either this adapter (local) or `RemoteMemoryAdapter` (SSH).
+//! host/node layer; `cynic fleet observe` covers fleet-wide observation.
 
 use std::fs;
 use std::path::Path;

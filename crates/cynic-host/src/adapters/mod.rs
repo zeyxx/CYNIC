@@ -42,13 +42,8 @@ pub mod privilege_projection;
 // Consumers import via cynic_proxmox::adapters::{ProxmoxSshCloneAdapter, ...} directly.
 
 pub mod remote_branch_graph;
-pub mod remote_build_artefact;
 pub mod remote_build_discovery;
-pub mod remote_cpu;
-pub mod remote_disk;
 pub mod remote_execution;
-pub mod remote_memory;
-pub mod remote_network;
 pub mod remote_queue;
 pub mod secret_use_policy_loader;
 pub mod source_admission_adapter;

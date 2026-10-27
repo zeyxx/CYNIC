@@ -1,6 +1,6 @@
 //! Local disk space observation and cleanup adapter.
 
-use crate::fleet_disk_observer::HOST_DISK_REPORT_SCHEMA;
+const HOST_DISK_REPORT_SCHEMA: &str = "cynic.host_disk_report.v1";
 
 use std::collections::BTreeSet;
 use std::fs;

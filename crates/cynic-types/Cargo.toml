@@ -6,7 +6,7 @@ version.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 publish = false
-description = "Layer 0 atomic types: AgentId, Hash32, Budget, Scope, TaskId, Timestamp"
+description = "Layer 0 atomic types: AgentId, Hash32, Scope, TaskId, Timestamp"
 
 [dependencies]
 serde.workspace = true

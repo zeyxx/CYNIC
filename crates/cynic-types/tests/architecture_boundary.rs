@@ -80,13 +80,6 @@ fn timestamp_from_u64() {
 }
 
 #[test]
-fn budget_default_zero() {
-    let b = cynic_types::Budget::default();
-    assert_eq!(b.actions, 0);
-    assert_eq!(b.wall_seconds, 0);
-}
-
-#[test]
 fn scope_kinds_serialized() {
     let s = cynic_types::Scope {
         kind: cynic_types::ScopeKind::Crate,
