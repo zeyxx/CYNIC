@@ -67,7 +67,7 @@ fn external_projects_have_port_wiring_status() {
 
 #[test]
 fn port_contract_has_all_three_ports() {
-    let path = repo_root().join("contracts/external-project-ports.v1.json");
+    let path = repo_root().join("contracts/external-project-ports.schema.json");
     let raw = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     let value: Value = serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
 
