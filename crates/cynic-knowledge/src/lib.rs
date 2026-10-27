@@ -6,7 +6,7 @@ pub use adapters::{
     find_canonical_registry_path, harvest_live_ledger, load_authority_overrides,
     load_corpus_cache, load_workspace_geometry, parse_document_tree, parse_git_log_output,
     parse_github_repos, parse_interactions_graph, parse_json_contract,
-    parse_json_contract_with_authority, parse_markdown_tree, parse_rust_file,
+    parse_json_contract_with_authority, parse_jsonl_wal, parse_markdown_tree, parse_rust_file,
     resolve_service_endpoint_from_registry, save_corpus_cache, sync_workspace_corpus,
     load_rerank_cache, save_rerank_cache, load_canonical_retrieval_policy, GitExtractError,
 };
@@ -117,6 +117,24 @@ pub fn index_workspace_with_commits<P: AsRef<Path>>(root: P, max_commits: usize)
                     );
                     all_chunks.extend(chunks);
                 }
+            }
+        }
+    }
+
+    // 2.5 Scan observation WAL files (.jsonl)
+    for entry in WalkDir::new(root).into_iter().flatten() {
+        if entry.file_type().is_file()
+            && entry.path().extension().is_some_and(|ext| ext == "jsonl")
+        {
+            if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                let rel_path = entry
+                    .path()
+                    .strip_prefix(root)
+                    .unwrap_or(entry.path())
+                    .to_string_lossy()
+                    .to_string();
+                let chunks = crate::adapters::json_contract::parse_jsonl_wal(&rel_path, &content);
+                all_chunks.extend(chunks);
             }
         }
     }

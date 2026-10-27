@@ -16,7 +16,7 @@ pub use epistemic_harvester::{
 };
 pub use git::{extract_git_history, parse_git_log_output, GitExtractError};
 pub use json_contract::{
-    load_authority_overrides, parse_json_contract, parse_json_contract_with_authority,
+    load_authority_overrides, parse_json_contract, parse_json_contract_with_authority, parse_jsonl_wal,
 };
 pub use markdown::{parse_document_tree, parse_markdown_tree};
 pub use registry_resolver::{find_canonical_registry_path, resolve_service_endpoint_from_registry};

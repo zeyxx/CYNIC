@@ -124,6 +124,8 @@ pub(super) struct RegistryNode {
     pub(super) name: Option<String>,
     pub(super) id: Option<String>,
     pub(super) role: Option<String>,
+    #[serde(default)]
+    pub(super) roles: Option<Vec<String>>,
     pub(super) status: Option<String>,
     pub(super) constellation: Option<String>,
     pub(super) aliases: Option<Vec<String>>,

@@ -90,11 +90,54 @@ impl PeerWalFile {
         Ok(())
     }
 
+    /// Read all entries from the WAL file.
+    pub fn read_all_entries(&self) -> Result<Vec<WalEntry>, String> {
+        let mut entries = Vec::new();
+        if !self.path.exists() {
+            return Ok(entries);
+        }
+        let file = File::open(&self.path).map_err(|e| format!("failed to open WAL: {e}"))?;
+        let reader = BufReader::new(file);
+        for (line_num, line) in reader.lines().enumerate() {
+            let line = line.map_err(|e| format!("read error line {line_num}: {e}"))?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let entry: WalEntry = serde_json::from_str(&line)
+                .map_err(|e| format!("corrupted JSON line {line_num}: {e}"))?;
+            entries.push(entry);
+        }
+        Ok(entries)
+    }
+
     pub fn last_hash(&self) -> &str {
         &self.last_hash
     }
 
     pub fn last_sequence(&self) -> u64 {
         self.last_sequence
+    }
+}
+
+
+impl cynic_protocol::journal_port::AppendOnlyJournal<WalEntry> for PeerWalFile {
+    fn append(&mut self, entry: WalEntry) -> Result<u64, String> {
+        PeerWalFile::append(self, &entry)?;
+        Ok(self.last_sequence)
+    }
+
+    fn read_all(&self) -> Result<Vec<WalEntry>, String> {
+        self.read_all_entries()
+    }
+
+    fn verify(&self) -> Result<(), String> {
+        let entries = self.read_all_entries()?;
+        cynic_consensus::peer::verify_wal_chain(&entries, cynic_consensus::peer::GENESIS_PREV_HASH)
+            .map_err(|e| format!("{e}"))?;
+        Ok(())
+    }
+
+    fn len(&self) -> usize {
+        self.read_all_entries().map(|v| v.len()).unwrap_or(0)
     }
 }

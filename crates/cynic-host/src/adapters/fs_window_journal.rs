@@ -317,3 +317,36 @@ mod tests {
         }
     }
 }
+
+impl cynic_protocol::journal_port::AppendOnlyJournal<WindowJournalRecord> for FsWindowJournal {
+    fn append(&mut self, record: WindowJournalRecord) -> Result<u64, String> {
+        FsWindowJournal::append(self, &record).map_err(|e| e.to_string())?;
+        // Read back to get sequence count as proxy (no sequence in record)
+        Ok(self.len() as u64)
+    }
+
+    fn read_all(&self) -> Result<Vec<WindowJournalRecord>, String> {
+        FsWindowJournal::read_records(self)
+            .map(|(records, _)| records)
+            .map_err(|e| e.to_string())
+    }
+
+    fn verify(&self) -> Result<(), String> {
+        let (records, corrupt) = FsWindowJournal::read_records(self).map_err(|e| e.to_string())?;
+        if corrupt > 0 {
+            return Err(format!("{} corrupt lines", corrupt));
+        }
+        let state = cynic_protocol::window_journal::replay(&records);
+        if cynic_protocol::window_journal::journal_is_coherent(&state) {
+            Ok(())
+        } else {
+            Err("incoherent journal".to_string())
+        }
+    }
+
+    fn len(&self) -> usize {
+        FsWindowJournal::read_records(self)
+            .map(|(records, _)| records.len())
+            .unwrap_or(0)
+    }
+}

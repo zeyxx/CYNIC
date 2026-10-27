@@ -137,6 +137,7 @@ impl LocalRegistryAdapter {
         Some(Node {
             name,
             role: node.role.clone().unwrap_or_else(|| "unknown".to_string()),
+            roles: node.roles.clone().unwrap_or_default(),
             status: node.status.clone().unwrap_or_else(|| "unknown".to_string()),
             constellation: node.constellation.clone(),
             aliases: node.aliases.clone().unwrap_or_default(),
