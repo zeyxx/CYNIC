@@ -573,7 +573,7 @@ impl DnsAuthorityPort for PorkbunRegistrar {
 
 impl EdgeProbePort for PorkbunRegistrar {
     fn query_authoritative_ns(&self, domain: &str) -> Vec<String> {
-        self.get_nameservers(domain).unwrap_or_default()
+        self.read_nameservers(domain)
     }
 
     fn http_probe(
@@ -583,60 +583,82 @@ impl EdgeProbePort for PorkbunRegistrar {
         expected_status: Option<u16>,
         follow_redirects: bool,
     ) -> EdgeProbeResult {
-        // Basic direct probe over HTTP
-        let url = format!("https://{fqdn}");
-        let client_res = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
+        let ip = match resolve_to.parse::<std::net::IpAddr>() {
+            Ok(ip) => ip,
+            Err(_) => {
+                return EdgeProbeResult {
+                    schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
+                    fqdn: fqdn.to_string(),
+                    expected_status,
+                    observed_status: None,
+                    observed_redirect: None,
+                    passed: false,
+                };
+            }
+        };
+
+        let addr = std::net::SocketAddr::new(ip, 443);
+        let probe_client = reqwest::blocking::Client::builder()
+            .user_agent("cynic-edge-probe/0.1.0")
+            .resolve(fqdn, addr)
             .redirect(if follow_redirects {
-                reqwest::redirect::Policy::limited(10)
+                reqwest::redirect::Policy::default()
             } else {
                 reqwest::redirect::Policy::none()
             })
             .build();
 
-        let client = match client_res {
+        let client = match probe_client {
             Ok(c) => c,
             Err(_) => {
                 return EdgeProbeResult {
                     schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
                     fqdn: fqdn.to_string(),
-                    ip: resolve_to.to_string(),
-                    reachable: false,
-                    http_status: None,
-                    tls_valid: false,
-                    match_expected: false,
+                    expected_status,
+                    observed_status: None,
+                    observed_redirect: None,
+                    passed: false,
                 };
             }
         };
 
-        match client.get(&url).send() {
-            Ok(resp) => {
-                let status = resp.status().as_u16();
-                let match_expected = expected_status.map_or(true, |s| s == status);
+        let url = format!("https://{fqdn}");
+        let resp = tokio::task::block_in_place(|| client.get(&url).send());
+
+        match resp {
+            Ok(r) => {
+                let status = r.status().as_u16();
+                let redirect = r
+                    .headers()
+                    .get(reqwest::header::LOCATION)
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
+                let passed = match expected_status {
+                    Some(expected) => status == expected,
+                    None => (200..400).contains(&status),
+                };
                 EdgeProbeResult {
                     schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
                     fqdn: fqdn.to_string(),
-                    ip: resolve_to.to_string(),
-                    reachable: true,
-                    http_status: Some(status),
-                    tls_valid: true,
-                    match_expected,
+                    expected_status,
+                    observed_status: Some(status),
+                    observed_redirect: redirect,
+                    passed,
                 }
             }
             Err(_) => EdgeProbeResult {
                 schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
                 fqdn: fqdn.to_string(),
-                ip: resolve_to.to_string(),
-                reachable: false,
-                http_status: None,
-                tls_valid: false,
-                match_expected: false,
+                expected_status,
+                observed_status: None,
+                observed_redirect: None,
+                passed: false,
             },
         }
     }
 
     fn check_tld_delegation(&self, domain: &str) -> DelegationProof {
-        let observed = self.get_nameservers(domain).unwrap_or_default();
+        let observed = self.read_nameservers(domain);
         DelegationProof {
             schema: DOMAIN_OPS_DELEGATION_SCHEMA.to_string(),
             domain: domain.to_string(),
