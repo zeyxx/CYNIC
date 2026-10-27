@@ -56,7 +56,7 @@
     "install_method": "unknown: binary copied to /usr/local/bin on 2026-05-20; no installer script or history found (root and home bash_history empty of install commands)",
     "artifact_origin_at_install": "unknown: the binary matches today's official 11.0.1 hash, but the download source on 2026-05-20 is not recorded",
     "installed_by": "unknown",
-    "backup_procedure": "none found: no forgejo dump job, no cron entry for user forgejo, nothing in /var/backups",
+    "backup_procedure": "no scheduled backup: only the manual dump above",
     "upgrade_history": "unknown: only one binary present"
   },
   "access": {
@@ -67,7 +67,8 @@
   "known_exposure": {
     "version_status": "behind the 11.x security backports (Forgejo security-announcements #50, #52, #54)",
     "verified_against_this_version": false,
-    "note": "release notes of backports not yet checked line by line against 11.0.1"
+    "note": "release notes of backports not yet checked line by line against 11.0.1",
+    "exposure_audit": "delegated to a read-only sub-agent (2026-10-27), result pending"
   },
   "upgrade_gate": {
     "target_candidate": "15.0.11 (LTS)",
@@ -79,5 +80,16 @@
       "upgrade rehearsed on a copy of the LXC first",
       "release notes 12 to 15 read for breaking changes (done 2026-10-27)"
     ]
+  },
+  "backup": {
+    "status": "one manual dump taken 2026-10-27 before any upgrade; no scheduled backup exists yet",
+    "dump_file": "forgejo-dump-20261027T130331.zip",
+    "dump_sha256": "0a9e196558294aa778719b5fd7bd5575a06852fe386afb8bcf59ab3b026f68a3",
+    "copies": [
+      "pve host /root/forgejo-backups (mode 600)",
+      "operator workstation scratch (off-host, mode 600)"
+    ],
+    "integrity": "unzip -t: no errors; sha256 matches the copy inside the LXC",
+    "lxc_rollback_point": "Proxmox LVM snapshot pre-forgejo-15-20261027T130331 on LXC 101 (taken before the dump)"
   }
 }
