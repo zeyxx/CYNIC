@@ -11,6 +11,7 @@ mod actuator;
 mod base;
 mod dns;
 mod domain;
+mod freebox;
 mod mesh;
 mod provider_fallback;
 pub(crate) mod registry;
@@ -234,6 +235,11 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkDomainCommand,
     },
+    /// Freebox OS router management (observe, DMZ, NAT rules, WAN status).
+    Freebox {
+        #[command(subcommand)]
+        command: freebox::NetworkFreeboxCommand,
+    },
 }
 
 pub(crate) use dns::NetworkDnsCommand;
@@ -453,6 +459,7 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
         .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
         .or_else(|cmd| provider_fallback::try_execute_provider_fallback(cmd, &runtime))
         .or_else(|cmd| domain::try_execute_domain(cmd, &runtime))
+        .or_else(|cmd| freebox::try_execute_freebox(cmd, &runtime))
         .or_else(|cmd| registry::try_execute_registry(cmd, &runtime))
         .map_or_else(
             |cmd| match actuator::try_execute_actuator(cmd) {

@@ -4,8 +4,12 @@
 
 use std::time::Duration;
 
-use cynic_network::FreeboxProbePort;
-use cynic_network::{FREEBOX_LAN_OBSERVATION_SCHEMA, FreeboxHostEntry, FreeboxLanObservation};
+use cynic_network::{
+    FreeboxDmzConfig, FreeboxHostEntry, FreeboxLanObservation, FreeboxNatRule,
+    FreeboxNatRuleSpec, FreeboxPort, FreeboxProbePort, FreeboxWanStatus,
+    FREEBOX_DMZ_CONFIG_SCHEMA, FREEBOX_LAN_OBSERVATION_SCHEMA, FREEBOX_NAT_RULE_SCHEMA,
+    FREEBOX_WAN_STATUS_SCHEMA,
+};
 use hmac::{Hmac, KeyInit, Mac};
 use serde_json::Value;
 use sha1::Sha1;
@@ -79,14 +83,8 @@ impl HttpFreeboxProbeAdapter {
     }
 }
 
-impl FreeboxProbePort for HttpFreeboxProbeAdapter {
-    fn probe_freebox_lan(&self, endpoint: &str) -> Result<FreeboxLanObservation, String> {
-        // reqwest::blocking::Client builds and drops a nested tokio runtime.
-        // Dropped inside this CLI's #[tokio::main] context it panics with
-        // "Cannot drop a runtime in a context where blocking is not allowed".
-        // Confine the whole client lifecycle to a plain OS thread (a raw
-        // thread::spawn, not spawn_blocking: the guard travels with the
-        // latter). Same convention as blocking_kernel_request.
+impl FreeboxPort for HttpFreeboxProbeAdapter {
+    fn probe_lan(&self, endpoint: &str) -> Result<FreeboxLanObservation, String> {
         let inner_endpoint = endpoint.to_string();
         let inner_timeout = self.timeout;
         let inner_app_id = self.app_id.clone();
@@ -95,6 +93,95 @@ impl FreeboxProbePort for HttpFreeboxProbeAdapter {
         })
         .join()
         .map_err(|_| "freebox_probe_thread_panicked".to_string())?
+    }
+
+    fn read_wan(&self, endpoint: &str) -> Result<FreeboxWanStatus, String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::read_wan_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
+        })
+        .join()
+        .map_err(|_| "freebox_wan_thread_panicked".to_string())?
+    }
+
+    fn read_dmz(&self, endpoint: &str) -> Result<FreeboxDmzConfig, String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::read_dmz_config_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
+        })
+        .join()
+        .map_err(|_| "freebox_dmz_thread_panicked".to_string())?
+    }
+
+    fn write_dmz(
+        &self,
+        endpoint: &str,
+        enabled: bool,
+        ip: &str,
+    ) -> Result<FreeboxDmzConfig, String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        let inner_ip = ip.to_string();
+        std::thread::spawn(move || {
+            Self::write_dmz_config_blocking(
+                &inner_endpoint,
+                inner_timeout,
+                &inner_app_id,
+                enabled,
+                &inner_ip,
+            )
+        })
+        .join()
+        .map_err(|_| "freebox_dmz_write_thread_panicked".to_string())?
+    }
+
+    fn list_nat_rules(&self, endpoint: &str) -> Result<Vec<FreeboxNatRule>, String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::list_nat_rules_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
+        })
+        .join()
+        .map_err(|_| "freebox_list_nat_thread_panicked".to_string())?
+    }
+
+    fn add_nat_rule(
+        &self,
+        endpoint: &str,
+        spec: &FreeboxNatRuleSpec,
+    ) -> Result<FreeboxNatRule, String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        let inner_spec = spec.clone();
+        std::thread::spawn(move || {
+            Self::add_nat_rule_blocking(&inner_endpoint, inner_timeout, &inner_app_id, &inner_spec)
+        })
+        .join()
+        .map_err(|_| "freebox_add_nat_thread_panicked".to_string())?
+    }
+
+    fn delete_nat_rule(&self, endpoint: &str, rule_id: u32) -> Result<(), String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::delete_fw_redir_blocking(&inner_endpoint, inner_timeout, &inner_app_id, rule_id)
+        })
+        .join()
+        .map_err(|_| "freebox_delete_nat_thread_panicked".to_string())?
+    }
+}
+
+impl FreeboxProbePort for HttpFreeboxProbeAdapter {
+    fn probe_freebox_lan(&self, endpoint: &str) -> Result<FreeboxLanObservation, String> {
+        FreeboxPort::probe_lan(self, endpoint)
     }
 }
 
@@ -137,6 +224,262 @@ impl HttpFreeboxProbeAdapter {
         })
         .join()
         .map_err(|_| "freebox_dmz_thread_panicked".to_string())?
+    }
+
+    fn open_authenticated_session(
+        client: &reqwest::blocking::Client,
+        endpoint: &str,
+        app_id: &str,
+    ) -> Result<String, String> {
+        let token = Self::resolve_app_token().ok_or_else(|| "freebox_app_token_missing".to_string())?;
+        let challenge: String = client
+            .get(&format!("{endpoint}/api/v10/login/"))
+            .send()
+            .map_err(|e| format!("freebox_challenge_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/challenge")
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| "freebox_challenge_missing".to_string())?
+            .to_string();
+        let password = Self::compute_password(&token, &challenge)?;
+        let session_token: String = client
+            .post(&format!("{endpoint}/api/v10/login/session/"))
+            .json(&serde_json::json!({ "app_id": app_id, "password": password }))
+            .send()
+            .map_err(|e| format!("freebox_session_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/session_token")
+            .and_then(|st| st.as_str())
+            .ok_or_else(|| "freebox_session_rejected".to_string())?
+            .to_string();
+        Ok(session_token)
+    }
+
+    fn read_dmz_config_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+    ) -> Result<FreeboxDmzConfig, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let session_token = Self::open_authenticated_session(&client, endpoint, app_id)?;
+        let result: Value = client
+            .get(&format!("{endpoint}/api/v10/fw/dmz/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .send()
+            .map_err(|e| format!("freebox_dmz_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result")
+            .cloned()
+            .ok_or_else(|| "freebox_dmz_shape_unexpected".to_string())?;
+        let enabled = result
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .ok_or_else(|| "freebox_dmz_shape_unexpected".to_string())?;
+        let ip = result
+            .get("ip")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        Ok(FreeboxDmzConfig {
+            schema: FREEBOX_DMZ_CONFIG_SCHEMA.to_string(),
+            enabled,
+            ip,
+        })
+    }
+
+    fn write_dmz_config_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+        enabled: bool,
+        ip: &str,
+    ) -> Result<FreeboxDmzConfig, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let session_token = Self::open_authenticated_session(&client, endpoint, app_id)?;
+        let body = serde_json::json!({
+            "enabled": enabled,
+            "ip": ip,
+        });
+        let result: Value = client
+            .put(&format!("{endpoint}/api/v10/fw/dmz/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .json(&body)
+            .send()
+            .map_err(|e| format!("freebox_dmz_write_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result")
+            .cloned()
+            .ok_or_else(|| "freebox_dmz_write_shape_unexpected".to_string())?;
+
+        let res_enabled = result
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(enabled);
+        let res_ip = result
+            .get("ip")
+            .and_then(|v| v.as_str())
+            .unwrap_or(ip)
+            .to_string();
+
+        Ok(FreeboxDmzConfig {
+            schema: FREEBOX_DMZ_CONFIG_SCHEMA.to_string(),
+            enabled: res_enabled,
+            ip: res_ip,
+        })
+    }
+
+    fn read_wan_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+    ) -> Result<FreeboxWanStatus, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let session_token = Self::open_authenticated_session(&client, endpoint, app_id)?;
+        let result: Value = client
+            .get(&format!("{endpoint}/api/v10/connection/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .send()
+            .map_err(|e| format!("freebox_wan_status_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result")
+            .cloned()
+            .ok_or_else(|| "freebox_wan_shape_unexpected".to_string())?;
+
+        let state = result
+            .get("state")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let ipv4 = result
+            .get("ipv4")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let ipv6 = result
+            .get("ipv6")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let rate_down_bps = result.get("rate_down").and_then(|v| v.as_u64());
+        let rate_up_bps = result.get("rate_up").and_then(|v| v.as_u64());
+        let bytes_down_total = result.get("bytes_down").and_then(|v| v.as_u64());
+        let bytes_up_total = result.get("bytes_up").and_then(|v| v.as_u64());
+
+        Ok(FreeboxWanStatus {
+            schema: FREEBOX_WAN_STATUS_SCHEMA.to_string(),
+            state,
+            ipv4,
+            ipv6,
+            rate_down_bps,
+            rate_up_bps,
+            bytes_down_total,
+            bytes_up_total,
+        })
+    }
+
+    fn list_nat_rules_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+    ) -> Result<Vec<FreeboxNatRule>, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let session_token = Self::open_authenticated_session(&client, endpoint, app_id)?;
+        let rules: Vec<Value> = client
+            .get(&format!("{endpoint}/api/v10/fw/redir/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .send()
+            .map_err(|e| format!("freebox_redir_list_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result")
+            .and_then(|r| r.as_array())
+            .ok_or_else(|| "freebox_redir_shape_unexpected".to_string())?
+            .clone();
+
+        Ok(rules
+            .iter()
+            .map(|r| FreeboxNatRule {
+                schema: FREEBOX_NAT_RULE_SCHEMA.to_string(),
+                id: r.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                enabled: r.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+                ip: r.get("ip").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                protocol: r.get("ip_proto").and_then(|v| v.as_str()).unwrap_or("tcp").to_string(),
+                wan_port_start: r.get("wan_port_start").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                wan_port_end: r.get("wan_port_end").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                lan_port: r.get("lan_port").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                comment: r.get("comment").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            })
+            .collect())
+    }
+
+    fn add_nat_rule_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+        spec: &FreeboxNatRuleSpec,
+    ) -> Result<FreeboxNatRule, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let session_token = Self::open_authenticated_session(&client, endpoint, app_id)?;
+        let body = serde_json::json!({
+            "enabled": spec.enabled,
+            "ip": spec.ip,
+            "ip_proto": spec.protocol,
+            "wan_port_start": spec.wan_port_start,
+            "wan_port_end": spec.wan_port_end,
+            "lan_port": spec.lan_port,
+            "comment": spec.comment,
+        });
+
+        let resp: Value = client
+            .post(&format!("{endpoint}/api/v10/fw/redir/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .json(&body)
+            .send()
+            .map_err(|e| format!("freebox_redir_add_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?;
+
+        if !resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let msg = resp
+                .get("msg")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown_error");
+            return Err(format!("freebox_redir_add_rejected:{msg}"));
+        }
+
+        let result = resp
+            .pointer("/result")
+            .ok_or_else(|| "freebox_redir_add_missing_result".to_string())?;
+
+        Ok(FreeboxNatRule {
+            schema: FREEBOX_NAT_RULE_SCHEMA.to_string(),
+            id: result.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            enabled: result.get("enabled").and_then(|v| v.as_bool()).unwrap_or(spec.enabled),
+            ip: result.get("ip").and_then(|v| v.as_str()).unwrap_or(&spec.ip).to_string(),
+            protocol: result.get("ip_proto").and_then(|v| v.as_str()).unwrap_or(&spec.protocol).to_string(),
+            wan_port_start: result.get("wan_port_start").and_then(|v| v.as_u64()).unwrap_or(spec.wan_port_start as u64) as u16,
+            wan_port_end: result.get("wan_port_end").and_then(|v| v.as_u64()).unwrap_or(spec.wan_port_end as u64) as u16,
+            lan_port: result.get("lan_port").and_then(|v| v.as_u64()).unwrap_or(spec.lan_port as u64) as u16,
+            comment: result.get("comment").and_then(|v| v.as_str()).unwrap_or(&spec.comment).to_string(),
+        })
     }
 
     fn read_dmz_blocking(
