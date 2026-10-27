@@ -12,7 +12,7 @@ use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use cynic_network::{FreeboxNatRuleSpec, FreeboxPort};
 
 use crate::network_surface::NetworkCommand;
-use crate::runtime_env::ResolvedRuntimePaths;
+use crate::runtime_paths::RuntimePaths;
 
 #[derive(Subcommand, Debug, Clone)]
 pub(crate) enum NetworkFreeboxCommand {
@@ -107,7 +107,7 @@ pub(crate) enum FreeboxNatSubcommand {
 
 pub(crate) fn try_execute_freebox(
     cmd: NetworkCommand,
-    _runtime: &ResolvedRuntimePaths,
+    _runtime: &RuntimePaths,
 ) -> Result<ExitCode, NetworkCommand> {
     let command = match cmd {
         NetworkCommand::Freebox { command } => command,
