@@ -138,7 +138,7 @@ Each external project declares a policy. Proposed location (CYNIC side):
 
 ```
 infra/external-projects.json          # central registry (SSOT): list of projects
-contracts/external-project-policy.v1.json  # schema for per-project policy
+contracts/external-project-policy.schema.json  # schema for per-project policy
 ```
 
 Per-project policy fields (minimum):
@@ -191,7 +191,7 @@ Roadmap item 7 is aspirational. Today the three projects are **external leaf
 nodes**: CYNIC observes them, does not depend on them, does not build them.
 
 Candidate ports (hypothesis, to be validated bottom-up). Status: `not_started`
-for all. See `contracts/external-project-ports.v1.json`.
+for all. See `contracts/external-project-ports.schema.json`.
 
 - `SourcePort` (cynic-vcs) — clone/fetch/branch/push/PR for external repos.
   Reuses CYNIC's source lifecycle, parameterized by remote.
@@ -209,7 +209,7 @@ CYNIC must never attempt to "arm" or deploy aegis-core components.
 **Port wiring prerequisites (all must hold):**
 1. Build/test baseline observed on builder (done 2026-10-18 for all three).
 2. Read-back proof (build/test commands verified, not just observed).
-3. Contract updated (`contracts/external-project-ports.v1.json`).
+3. Contract updated (`contracts/external-project-ports.schema.json`).
 4. Port traits defined in domain crates (pure, no I/O). Adapters in adapters/.
 5. CLI surface projects port status (already: `cynic audit external`).
 
@@ -227,7 +227,7 @@ EvidencePort last (requires schema mapping).
 - **OQ-2** — resolved: canonical clone root = `~/.cynic/external/`
   (`${HOME}/.cynic/external`), outside the CYNIC tree. Done.
 - **OQ-3** — resolved: single registry `infra/external-projects.json` plus
-  schema `contracts/external-project-policy.v1.json`. Done.
+  schema `contracts/external-project-policy.schema.json`. Done.
 - **OQ-4** — deferred: collaborator trust promotion criteria to be defined
   with proof in a follow-up. `infra/collaborators.json` ships
   `trust_level=observed` only.
@@ -243,7 +243,7 @@ Done:
    `operator_user.key_paths`.
 3. `infra/external-projects.json` — seed registry for the 3 projects.
 4. `infra/collaborators.json` — seed registry (1 collaborator, observed).
-5. `contracts/external-project-policy.v1.json` — policy schema.
+5. `contracts/external-project-policy.schema.json` — policy schema.
 
 Still open (gated on builder observation):
 

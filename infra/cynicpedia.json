@@ -96,7 +96,7 @@
     {
       "article_id": "contracts-external-project-policy-v1",
       "title": "cynic.external_project_policy.v1",
-      "path": "contracts/external-project-policy.v1.json",
+      "path": "contracts/external-project-policy.schema.json",
       "kind": "contract",
       "provenance": "6045266e2ce7a64331deb4e4df7137cc58921319",
       "status": "published",
@@ -106,7 +106,7 @@
     {
       "article_id": "contracts-external-project-ports-v1",
       "title": "cynic.external_project_ports.v1",
-      "path": "contracts/external-project-ports.v1.json",
+      "path": "contracts/external-project-ports.schema.json",
       "kind": "contract",
       "provenance": "3c64c3decdaf097e4a67175b9f581fb25d2f7228",
       "status": "published",
