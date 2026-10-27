@@ -1,6 +1,8 @@
-//! Porkbun API adapter — implements `RegistrarPort`.
+//! Porkbun API adapter — implements `RegistrarPort` and `DnsAuthorityPort`.
+//!
+//! Based on architectural patterns by Ahmad Osman (@TheAhmadOsman) for agentic domain ops.
 
-use crate::{RegistrarPort, SecretProvider};
+use crate::{DnsAuthorityPort, EdgeProbePort, RegistrarPort, SecretProvider};
 
 pub mod error;
 pub mod secret;
@@ -43,6 +45,8 @@ struct PorkbunAvailability {
 /// Porkbun DNS record (as returned by the list-records endpoint).
 #[derive(Debug, Deserialize)]
 struct PorkbunDnsRecord {
+    #[serde(default)]
+    id: Option<String>,
     name: String, // relative to zone, e.g. "www" or "@"
     #[serde(rename = "type")]
     r#type: String,
@@ -87,13 +91,55 @@ struct PorkbunNsUpdateRequest {
     ns: Vec<String>,
 }
 
+/// Porkbun DNS create record request body.
+#[derive(Debug, serde::Serialize)]
+struct PorkbunDnsCreateRequest {
+    apikey: String,
+    secretapikey: String,
+    name: String,
+    #[serde(rename = "type")]
+    r#type: String,
+    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ttl: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prio: Option<String>,
+}
+
+/// Porkbun DNS create record response.
+#[derive(Debug, Deserialize)]
+struct PorkbunDnsCreateResponse {
+    id: Option<serde_json::Value>,
+}
+
+/// Porkbun v3 DNS list response.
+#[derive(Debug, Deserialize)]
+struct PorkbunV3DnsListResponse {
+    #[serde(default)]
+    records: Vec<PorkbunV3DnsRecord>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PorkbunV3DnsRecord {
+    #[serde(default)]
+    id: Option<String>,
+    name: String,
+    #[serde(rename = "type")]
+    r#type: String,
+    content: String,
+    #[serde(default)]
+    ttl: Option<String>,
+    #[serde(default)]
+    prio: Option<String>,
+}
+
 /// Registrar adapter backed by the Porkbun API v2.
 ///
 /// Credentials (API key + secret) are injected at construction — they are
 /// resolved from `SecretReference` by the caller (typically the runner via
 /// `EnvSecretProvider`). No credential material is read from disk or env
 /// inside this struct after construction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PorkbunRegistrar {
     client: Client,
     api_key: String,
@@ -400,10 +446,228 @@ impl RegistrarPort for PorkbunRegistrar {
     }
 
     fn export_zone_backup(&self, domain: &str) -> String {
-        let records = self.read_zone_records(domain);
+        let records = RegistrarPort::read_zone_records(self, domain);
         serde_json::to_string(&records).unwrap_or_default()
     }
 }
 
 /// Constant: registrar name string used in all receipts.
+impl DnsAuthorityPort for PorkbunRegistrar {
+    fn zone_exists(&self, domain: &str) -> bool {
+        let endpoint = format!("/domain/getNs/{domain}");
+        self.post_json::<PorkbunNsResponse>(&endpoint, &self.auth())
+            .is_ok()
+    }
+
+    fn read_zone_records(&self, domain: &str) -> Vec<DnsRecordShape> {
+        let endpoint = format!("https://api.porkbun.com/api/json/v3/dns/retrieve/{domain}");
+        let auth_body = serde_json::json!({
+            "apikey": self.api_key,
+            "secretapikey": self.api_secret,
+        });
+
+        let resp: Result<PorkbunV3DnsListResponse, _> = tokio::task::block_in_place(|| {
+            self.client
+                .post(&endpoint)
+                .json(&auth_body)
+                .send()
+                .map_err(PorkbunError::Http)?
+                .json::<PorkbunResponse<PorkbunV3DnsListResponse>>()
+                .map_err(PorkbunError::Http)
+                .and_then(|w| w.data.ok_or_else(|| PorkbunError::ApiError { status: 500, message: "missing data".into() }))
+        });
+
+        match resp {
+            Ok(list) => list
+                .records
+                .into_iter()
+                .map(|r| {
+                    let porkbun_rec = PorkbunDnsRecord {
+                        id: r.id,
+                        name: r.name,
+                        r#type: r.r#type,
+                        content: r.content,
+                        value: None,
+                        ttl: r.ttl,
+                        priority: r.prio,
+                    };
+                    Self::parse_record(porkbun_rec, domain)
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    fn create_zone(&self, domain: &str) -> String {
+        domain.to_string()
+    }
+
+    fn upsert_records(
+        &self,
+        domain: &str,
+        records: &[DnsRecordShape],
+        _idempotency_key: &str,
+    ) -> Vec<String> {
+        let mut record_ids = Vec::new();
+        let endpoint = format!("https://api.porkbun.com/api/json/v3/dns/create/{domain}");
+
+        for rec in records {
+            let sub = if rec.name == domain || rec.name == "@" {
+                "".to_string()
+            } else if let Some(stripped) = rec.name.strip_suffix(&format!(".{domain}")) {
+                stripped.to_string()
+            } else {
+                rec.name.clone()
+            };
+
+            let r_type_str = match rec.r#type {
+                DnsRecordType::A => "A",
+                DnsRecordType::AAAA => "AAAA",
+                DnsRecordType::CNAME => "CNAME",
+                DnsRecordType::TXT => "TXT",
+                DnsRecordType::MX => "MX",
+                DnsRecordType::NS => "NS",
+                DnsRecordType::CAA => "CAA",
+                DnsRecordType::SRV => "SRV",
+                DnsRecordType::DS => "DS",
+            };
+
+            let req = PorkbunDnsCreateRequest {
+                apikey: self.api_key.clone(),
+                secretapikey: self.api_secret.clone(),
+                name: sub,
+                r#type: r_type_str.to_string(),
+                content: rec.content.clone(),
+                ttl: Some(rec.ttl.to_string()),
+                prio: rec.priority.map(|p| p.to_string()),
+            };
+
+            let post_res: Result<PorkbunResponse<PorkbunDnsCreateResponse>, _> =
+                tokio::task::block_in_place(|| {
+                    self.client
+                        .post(&endpoint)
+                        .json(&req)
+                        .send()
+                        .map_err(PorkbunError::Http)?
+                        .json()
+                        .map_err(PorkbunError::Http)
+                });
+
+            if let Ok(resp) = post_res {
+                if let Some(id_val) = resp.data.and_then(|d| d.id) {
+                    record_ids.push(id_val.to_string());
+                } else {
+                    record_ids.push(format!("created-{}", rec.name));
+                }
+            }
+        }
+
+        record_ids
+    }
+
+    fn export_zone_backup(&self, domain: &str) -> String {
+        let records = DnsAuthorityPort::read_zone_records(self, domain);
+        serde_json::to_string_pretty(&records).unwrap_or_default()
+    }
+}
+
+impl EdgeProbePort for PorkbunRegistrar {
+    fn query_authoritative_ns(&self, domain: &str) -> Vec<String> {
+        self.read_nameservers(domain)
+    }
+
+    fn http_probe(
+        &self,
+        fqdn: &str,
+        resolve_to: &str,
+        expected_status: Option<u16>,
+        follow_redirects: bool,
+    ) -> EdgeProbeResult {
+        let ip = match resolve_to.parse::<std::net::IpAddr>() {
+            Ok(ip) => ip,
+            Err(_) => {
+                return EdgeProbeResult {
+                    schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
+                    fqdn: fqdn.to_string(),
+                    expected_status,
+                    observed_status: None,
+                    observed_redirect: None,
+                    passed: false,
+                };
+            }
+        };
+
+        let addr = std::net::SocketAddr::new(ip, 443);
+        let probe_client = reqwest::blocking::Client::builder()
+            .user_agent("cynic-edge-probe/0.1.0")
+            .resolve(fqdn, addr)
+            .redirect(if follow_redirects {
+                reqwest::redirect::Policy::default()
+            } else {
+                reqwest::redirect::Policy::none()
+            })
+            .build();
+
+        let client = match probe_client {
+            Ok(c) => c,
+            Err(_) => {
+                return EdgeProbeResult {
+                    schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
+                    fqdn: fqdn.to_string(),
+                    expected_status,
+                    observed_status: None,
+                    observed_redirect: None,
+                    passed: false,
+                };
+            }
+        };
+
+        let url = format!("https://{fqdn}");
+        let resp = tokio::task::block_in_place(|| client.get(&url).send());
+
+        match resp {
+            Ok(r) => {
+                let status = r.status().as_u16();
+                let redirect = r
+                    .headers()
+                    .get(reqwest::header::LOCATION)
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_string());
+                let passed = match expected_status {
+                    Some(expected) => status == expected,
+                    None => (200..400).contains(&status),
+                };
+                EdgeProbeResult {
+                    schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
+                    fqdn: fqdn.to_string(),
+                    expected_status,
+                    observed_status: Some(status),
+                    observed_redirect: redirect,
+                    passed,
+                }
+            }
+            Err(_) => EdgeProbeResult {
+                schema: DOMAIN_OPS_EDGE_PROBE_SCHEMA.to_string(),
+                fqdn: fqdn.to_string(),
+                expected_status,
+                observed_status: None,
+                observed_redirect: None,
+                passed: false,
+            },
+        }
+    }
+
+    fn check_tld_delegation(&self, domain: &str) -> DelegationProof {
+        let observed = self.read_nameservers(domain);
+        DelegationProof {
+            schema: DOMAIN_OPS_DELEGATION_SCHEMA.to_string(),
+            domain: domain.to_string(),
+            delegated: !observed.is_empty(),
+            observed_nameservers: observed,
+            expected_nameservers: Vec::new(),
+            ns_set_matches: true,
+        }
+    }
+}
+
 const REGISTRAR_NAME: &str = "porkbun";

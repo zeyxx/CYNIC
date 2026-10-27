@@ -28,7 +28,9 @@ pub use crate::domain::{
     classify_record, generate_idempotency_key, policy_for_record_type, reconcile_zone,
     transform_record_for_cloudflare,
 };
-pub use crate::port::{CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider};
+pub use crate::port::{
+    CloudflareDnsPort, DnsAuthorityPort, EdgeProbePort, RegistrarPort, SecretProvider,
+};
 pub use crate::runner::run_domain_ops;
 
 pub use crate::adapters::cloudflare::CloudflareClient;

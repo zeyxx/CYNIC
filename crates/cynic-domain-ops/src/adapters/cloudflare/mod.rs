@@ -4,7 +4,7 @@
 //! Cloudflare API v4) and `EdgeProbePort` (NS queries via Cloudflare
 //! DNS-over-HTTPS, HTTP edge verification with IP pinning).
 
-use crate::{CloudflareDnsPort, EdgeProbePort, SecretProvider as SecretProviderPort};
+use crate::{DnsAuthorityPort, EdgeProbePort, SecretProvider as SecretProviderPort};
 
 pub mod error;
 
@@ -95,7 +95,7 @@ struct CfZonePayload {
 /// CloudflareClient — single struct implementing both CloudflareDnsPort
 /// and EdgeProbePort. Configured at construction with API token and
 /// expected NS set (for delegation verification).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CloudflareClient {
     http: Client,
     account_id: String,
@@ -352,7 +352,7 @@ impl CloudflareClient {
     }
 }
 
-impl CloudflareDnsPort for CloudflareClient {
+impl DnsAuthorityPort for CloudflareClient {
     fn zone_exists(&self, zone: &str) -> bool {
         self.find_zone_id(zone).is_some()
     }
