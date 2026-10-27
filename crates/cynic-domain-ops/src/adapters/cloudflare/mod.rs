@@ -95,7 +95,7 @@ struct CfZonePayload {
 /// CloudflareClient — single struct implementing both CloudflareDnsPort
 /// and EdgeProbePort. Configured at construction with API token and
 /// expected NS set (for delegation verification).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CloudflareClient {
     http: Client,
     account_id: String,
