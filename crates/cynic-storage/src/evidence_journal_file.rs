@@ -262,18 +262,17 @@ mod tests {
 
 impl cynic_protocol::journal_port::AppendOnlyJournal<EvidenceJournalEntry> for EvidenceJournalStore {
     fn append(&mut self, entry: EvidenceJournalEntry) -> Result<u64, String> {
-        let outcome = self
-            .append(&entry.event_type, &entry.payload_digest, entry.sealed_at_unix_s)
+        let outcome = EvidenceJournalStore::append(self, &entry.event_type, &entry.payload_digest, entry.sealed_at_unix_s)
             .map_err(|e| e.to_string())?;
         Ok(outcome.sequence)
     }
 
     fn read_all(&self) -> Result<Vec<EvidenceJournalEntry>, String> {
-        self.read_all().map_err(|e| e.to_string())
+        EvidenceJournalStore::read_all(self).map_err(|e| e.to_string())
     }
 
     fn verify(&self) -> Result<(), String> {
-        let violations = self.verify_offline();
+        let violations = EvidenceJournalStore::verify_offline(self);
         if violations.is_empty() {
             Ok(())
         } else {
@@ -282,6 +281,6 @@ impl cynic_protocol::journal_port::AppendOnlyJournal<EvidenceJournalEntry> for E
     }
 
     fn len(&self) -> usize {
-        self.read_all().map(|v| v.len()).unwrap_or(0)
+        EvidenceJournalStore::read_all(self).map(|v| v.len()).unwrap_or(0)
     }
 }
