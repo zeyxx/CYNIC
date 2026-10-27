@@ -34,6 +34,7 @@ pub mod deploy_uc;
 pub mod external_build;
 pub mod external_build_uc;
 pub mod gate_scope;
+pub mod gc;
 pub mod harness;
 pub mod harness_authority;
 pub mod place;
