@@ -80,7 +80,8 @@ pub fn plan_worktree_allocation(
         repo_str,
         "worktree".to_string(),
         "add".to_string(),
-        "-B".to_string(),
+        // -b, not -B: -B silently resets an existing branch to base_ref (data loss).
+        "-b".to_string(),
         request.branch.clone(),
         target_str,
         base_ref.clone(),
@@ -150,7 +151,7 @@ mod tests {
                 "/home/user/CYNIC",
                 "worktree",
                 "add",
-                "-B",
+                "-b",
                 "agent/worker/poh-fix",
                 "/var/lib/cynic/worktrees/agent_worker_poh-fix",
                 "origin/main"
