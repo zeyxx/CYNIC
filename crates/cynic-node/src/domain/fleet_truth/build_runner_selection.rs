@@ -175,6 +175,7 @@ mod tests {
         Node {
             name: name.to_string(),
             role: role.to_string(),
+            roles: vec![],
             status: status.to_string(),
             constellation: None,
             aliases: vec![],
@@ -188,6 +189,7 @@ mod tests {
         EffectiveNode {
             name: name.to_string(),
             role: role.to_string(),
+            roles: vec![],
             constellation: None,
             declared_status: status.to_string(),
             observed_status: status.to_string(),

@@ -14,6 +14,7 @@ fn active_node_without_observation_is_critical_and_stale() {
         &[Node {
             name: "cynic-vm-anvil".to_string(),
             role: "build_runner".to_string(),
+            roles: Vec::new(),
             status: "active".to_string(),
             constellation: None,
             aliases: Vec::new(),
@@ -43,6 +44,7 @@ fn observed_identity_satisfies_active_node() {
         &[Node {
             name: "cynic-vm-anvil".to_string(),
             role: "build_runner".to_string(),
+            roles: Vec::new(),
             status: "active".to_string(),
             constellation: None,
             aliases: vec!["forge".to_string()],
@@ -78,6 +80,7 @@ fn watchdog_constellation_evidence_flows_into_effective_summary() {
         &[Node {
             name: "cynic-vm-v2".to_string(),
             role: "kernel_primary".to_string(),
+            roles: Vec::new(),
             status: "active".to_string(),
             constellation: Some("kernel".to_string()),
             aliases: Vec::new(),
