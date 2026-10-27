@@ -483,13 +483,16 @@
       "network": {
         "service": "10.10.10.100"
       },
-      "status": "candidate",
-      "deploy_target": true,
+      "status": "retired",
+      "retired_on": "2026-10-27",
+      "retired_reason": "Operator stopped and disabled cynic-kernel.service on cortex. Running binary (commit c26e4d7, 2026-08-11) is not reproducible from main: its REST routes (/node-control, /coord, /agent-workspace, /auth/agent, /audit) are not served by any code on main. Consumers listed in infra/kernel-consumers.json.",
+      "deploy_target": false,
       "services": [
         {
           "name": "cynic-kernel",
           "artifact": "cynic-kernel",
           "scheme": "http",
+          "status": "stopped",
           "endpoint_host": "192.168.100.2",
           "network_plane": "admin",
           "port": 3030
