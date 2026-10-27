@@ -62,7 +62,6 @@ pub(super) fn render_node_control_config(
     };
     Ok(Some(format!(
         "[node_control]\n\
-kernel_url = \"${{CYNIC_KERNEL_URL}}\"\n\
 node_id = {node_id}\n\
 signing_key_path = \"${{CYNIC_STATE_ROOT}}/identity/node-signing.key\"\n\
 enrollment_request_path = \"${{CYNIC_STATE_ROOT}}/identity/enrollment-request.json\"\n\

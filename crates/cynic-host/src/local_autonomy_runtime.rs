@@ -20,7 +20,6 @@ use crate::peer_resolver_mesh::MeshPeerResolver;
 pub struct LocalAutonomyRuntime {
     registry_path: String,
     local_node_id: String,
-    kernel_url: Option<String>,
     interval_secs: u64,
 }
 
@@ -29,14 +28,8 @@ impl LocalAutonomyRuntime {
         Self {
             registry_path: registry_path.into(),
             local_node_id: local_node_id.into(),
-            kernel_url: None,
             interval_secs: 30,
         }
-    }
-
-    pub fn with_kernel_url(mut self, url: impl Into<String>) -> Self {
-        self.kernel_url = Some(url.into());
-        self
     }
 
     pub fn with_interval(mut self, secs: u64) -> Self {
@@ -64,14 +57,8 @@ impl LocalAutonomyRuntime {
             && os_observation.dmesg_oom_count == 0
             && os_observation.available_mem_mib >= 2048;
 
-        // 2. Kernel reachability
-        let (kernel_reachable, kernel_lease_valid) = match &self.kernel_url {
-            Some(url) => {
-                let reachable = self.probe_kernel(url);
-                (reachable, reachable)
-            }
-            None => (false, false),
-        };
+        // 2. Kernel reachability — kernel is retired. Node is always autonomous.
+        let (kernel_reachable, kernel_lease_valid) = (false, false);
 
         // 3. Mesh peers (via PeerResolver)
         let mesh_reachable_peers = if Path::new(&self.registry_path).exists() {
