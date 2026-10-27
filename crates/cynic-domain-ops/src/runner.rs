@@ -196,7 +196,7 @@ pub fn run_domain_ops(
             domain,
             &availability,
             registrar,
-            cloudflare,
+            dns_authority,
             &diff,
             zone_existed,
             &zone_id,
