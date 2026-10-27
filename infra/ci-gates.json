@@ -1,22 +1,32 @@
 {
-  "schema": "cynic.ci_gates.v1",
-  "version": "1.0.0",
+  "schema": "cynic.ci_plan.v1",
+  "version": "2.0.0",
   "status": "draft",
-  "purpose": "Data-driven declaration of the Forgejo CI gates. Each gate names its job in .forgejo/workflows/fgate.yml, its dependencies, the runner capability it needs, and the proof scope under which it must run. Consumers: the workflow generator (later), and the PR admission (later). This file does not change workflow behaviour by itself.",
+  "purpose": "Declaration of the Forgejo CI gates, one entry per job of .forgejo/workflows/fgate.yml. The crate graph is not restated here: it lives in infra/crate-topology.json (SSOT). A gate that proves a crate names it in `proves`; crates/cynic-audit-engine/tests/ci_plan_coherence.rs checks that every name exists in the topology and that every job of the workflow is declared here. This file does not change workflow behaviour by itself: no job reads it yet.",
+  "crate_source": "infra/crate-topology.json",
   "capability_labels": {
     "cynic/build": "Rust build runner (builder or compute-01, observed, not declared)"
   },
   "scope_rules": {
     "always": "Run for every pull request, whatever the diff.",
-    "crates": "Run only when a listed crate is in the proof scope, or when the proof scope is absent (missing scope runs everything).",
+    "affected": "Run only when the crate named in `proves` is affected by the diff: changed crates plus every crate that depends on them, transitively, per infra/crate-topology.json.",
     "runner_or_infra": "Run only when the runner definition or the gate definitions change: .forgejo/** or infra/registry.json. Operator decision 2026-10-26: not required on every pull request."
   },
   "gates": [
     {
+      "id": "runner_change_detection",
+      "job": "detect",
+      "name": "Gate 0 Runner Change Detection",
+      "requires": [],
+      "runner_capability": "cynic/build",
+      "scope": "always",
+      "produces": "runner_changed"
+    },
+    {
       "id": "pool_eligibility",
       "job": "pool_eligibility",
       "name": "Gate 0 Pool Eligibility",
-      "requires": [],
+      "requires": ["runner_change_detection"],
       "runner_capability": "cynic/build",
       "scope": "runner_or_infra",
       "builds_cli": true
@@ -52,8 +62,8 @@
       "name": "Gate 3 Core Types",
       "requires": ["pool_eligibility", "proof_scope"],
       "runner_capability": "cynic/build",
-      "scope": "crates",
-      "crates": ["cynic-types"]
+      "scope": "affected",
+      "proves": "cynic-types"
     },
     {
       "id": "knowledge",
@@ -61,8 +71,8 @@
       "name": "Gate 3 Knowledge",
       "requires": ["pool_eligibility", "proof_scope"],
       "runner_capability": "cynic/build",
-      "scope": "crates",
-      "crates": ["cynic-knowledge"]
+      "scope": "affected",
+      "proves": "cynic-knowledge"
     },
     {
       "id": "inference",
@@ -70,8 +80,8 @@
       "name": "Gate 3 Inference",
       "requires": ["pool_eligibility", "proof_scope"],
       "runner_capability": "cynic/build",
-      "scope": "crates",
-      "crates": ["cynic-inference"]
+      "scope": "affected",
+      "proves": "cynic-inference"
     },
     {
       "id": "canonical_paths",
@@ -79,8 +89,8 @@
       "name": "Gate 3 Canonical Paths",
       "requires": ["pool_eligibility", "proof_scope"],
       "runner_capability": "cynic/build",
-      "scope": "crates",
-      "crates": ["cynic-cli"]
+      "scope": "affected",
+      "proves": "cynic-cli"
     },
     {
       "id": "layer_verification",
@@ -93,7 +103,7 @@
     }
   ],
   "open_questions": [
-    "Per-crate test cost is not measured: a test job scales with the reverse-dependency closure (median 6 crates, p90 34, max 43 on 256 code commits).",
+    "Per-crate test cost is not measured: a test job scales with the reverse-dependency closure (median 6 crates, p90 34 on 249 code commits, topology-based).",
     "Which gates are mandatory for every pull request regardless of scope (see socle decision).",
     "Whether the proof scope must be emitted as a job output so it survives routing to another machine (today it is a local file)."
   ]
