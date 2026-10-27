@@ -252,7 +252,11 @@ pub fn persist_membership_view(
     std::fs::create_dir_all(&dir).map_err(|e| format!("create federation dir: {e}"))?;
     let path = view_path(state_root);
     let body = serde_json::to_string_pretty(view).map_err(|e| format!("serialize view: {e}"))?;
-    std::fs::write(&path, body + "\n").map_err(|e| format!("write view: {e}"))?;
+    // Atomic replace: a crash mid-write must never leave a truncated view
+    // behind (a zero-byte view blocked every later tick).
+    let tmp_path = dir.join("membership-view.json.tmp");
+    std::fs::write(&tmp_path, body + "\n").map_err(|e| format!("write view: {e}"))?;
+    std::fs::rename(&tmp_path, &path).map_err(|e| format!("commit view: {e}"))?;
     Ok(path)
 }
 
@@ -265,9 +269,25 @@ pub fn load_membership_view(
         return Ok(None);
     }
     let body = std::fs::read_to_string(&path).map_err(|e| format!("read view: {e}"))?;
-    serde_json::from_str(&body)
-        .map(Some)
-        .map_err(|e| format!("parse view: {e}"))
+    match serde_json::from_str(&body) {
+        Ok(view) => Ok(Some(view)),
+        Err(error) => {
+            // A corrupt or truncated view must not block the tick forever:
+            // move it aside and continue as if no previous view existed.
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            let quarantine = path.with_file_name(format!("membership-view.json.corrupt-{stamp}"));
+            std::fs::rename(&path, &quarantine).map_err(|e| format!("quarantine view: {e}"))?;
+            tracing::warn!(
+                %error,
+                quarantine = %quarantine.display(),
+                "membership view unreadable, quarantined"
+            );
+            Ok(None)
+        }
+    }
 }
 
 /// One full tick against persisted state: load → decide → persist.
@@ -528,6 +548,18 @@ use cynic_network::{TransportKind, TransportState};
         assert!(path.ends_with("membership-view.json"));
         let loaded = load_membership_view(&tmp).expect("load").expect("present");
         assert_eq!(loaded, view);
+        std::fs::remove_dir_all(&tmp).expect("cleanup");
+    }
+
+    #[test]
+    fn corrupt_view_is_quarantined_not_fatal() {
+        let tmp =
+            std::env::temp_dir().join(format!("cynic-membership-corrupt-{}", std::process::id()));
+        std::fs::create_dir_all(tmp.join("federation")).expect("mkdir");
+        std::fs::write(view_path(&tmp), b"").expect("write empty view");
+        let loaded = load_membership_view(&tmp).expect("corrupt view must not be fatal");
+        assert!(loaded.is_none(), "corrupt view is treated as absent");
+        assert!(!view_path(&tmp).exists(), "corrupt view moved aside");
         std::fs::remove_dir_all(&tmp).expect("cleanup");
     }
 
