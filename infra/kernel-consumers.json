@@ -1,0 +1,138 @@
+{
+  "schema": "cynic.kernel_consumers.v1",
+  "version": "1.0.0",
+  "observed_on": "2026-10-27",
+  "subject": "local-kernel (cynic-kernel.service, stopped and disabled on cortex)",
+  "basis": "origin/main source only. A consumer is orphaned when the route it calls is not served by any code on main.",
+  "consumers": [
+    {
+      "id": "agent-claims-cli",
+      "path": "crates/cynic-cli/src/agent_surface/coordination.rs",
+      "lines": "1-4, 1390, 1411",
+      "capability": "agent_coordination",
+      "calls": "/agent-workspace/claims/* (via kernel REST base)",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "agent-commands-cli",
+      "path": "crates/cynic-cli/src/command_manifest.rs",
+      "lines": "69, 227-231",
+      "capability": "agent_coordination",
+      "calls": "cynic agent register|identify|claim|release|status --kernel-base",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "node-agent-cli",
+      "path": "crates/cynic-cli/src/node_surface/agent.rs",
+      "lines": "23-24, 42-43, 169, 190",
+      "capability": "node_control",
+      "calls": "kernel_endpoint (default http://127.0.0.1:3030)",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "node-surface-cli",
+      "path": "crates/cynic-cli/src/node_surface/mod.rs",
+      "lines": "82",
+      "capability": "node_control",
+      "calls": "kernel_endpoint (default http://127.0.0.1:3030)",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "build-lease-cli",
+      "path": "crates/cynic-cli/src/build_surface/runner.rs",
+      "lines": "882-899",
+      "capability": "build_lease",
+      "calls": "CurlBuildLeaseVerificationAdapter; errors without kernel_endpoint",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset",
+      "blocking": "build"
+    },
+    {
+      "id": "build-lease-adapter",
+      "path": "crates/cynic-host/src/build_evidence.rs",
+      "lines": "91-97, 200 (test)",
+      "capability": "build_lease",
+      "calls": "coord_verify_path on kernel_url",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset",
+      "blocking": "build"
+    },
+    {
+      "id": "node-control-client",
+      "path": "crates/cynic-node/src/adapters/http_node_control.rs",
+      "lines": "26, 76-92, 320-473",
+      "capability": "node_control",
+      "calls": "/node-control/{node}/desired-state, /status, /agent-workloads, /agent-workloads/{id}/accept, /completion",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset",
+      "note": "base_url comes from configuration; value on builder not verified"
+    },
+    {
+      "id": "federation-kernel-observer",
+      "path": "crates/cynic-host/src/federation_runtime.rs",
+      "lines": "371",
+      "capability": "health_probe",
+      "calls": "KernelReachabilityObserver 127.0.0.1:3030",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "process-convergence-health",
+      "path": "crates/cynic-host/src/process_convergence/decision.rs",
+      "lines": "151, 181",
+      "capability": "health_probe",
+      "calls": "health_port 3030",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "process-convergence-record",
+      "path": "crates/cynic-host/src/process_convergence/record.rs",
+      "lines": "265",
+      "capability": "health_probe",
+      "calls": "health_port 3030",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "discovery-cli",
+      "path": "crates/cynic-cli/src/discovery_surface.rs",
+      "lines": "105",
+      "capability": "discovery",
+      "calls": "kernel URL (failed to reach kernel)",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset"
+    },
+    {
+      "id": "network-probe-list",
+      "path": "crates/cynic-cli/src/network_surface/execution.rs",
+      "lines": "533",
+      "capability": "network_audit",
+      "calls": "default port list includes 3030",
+      "server_on_main": false,
+      "status": "orphaned",
+      "target": "unset",
+      "note": "port list only, no kernel call"
+    }
+  ],
+  "unknowns": [
+    "Whether cynic-node on main covers agent claims, audit or sessions: no code found.",
+    "Value of node-control base_url on cynic-builder.",
+    "Whether any other host calls 192.168.100.2:3030 (one SYN-SENT seen from 192.168.0.11 via mesh 100.74.31.10:3030)."
+  ]
+}
