@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// specialized for the source-control domain. A sync plan is only
 /// executable when `admitted == true` and `blockers.is_empty()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SourceAdmissionReport {
+pub struct SyncAdmissionReport {
     pub schema: &'static str,
     pub decision_digest: String,
     pub gates_evaluated: Vec<String>,
@@ -18,7 +18,7 @@ pub struct SourceAdmissionReport {
     pub blockers: Vec<String>,
 }
 
-impl SourceAdmissionReport {
+impl SyncAdmissionReport {
     /// Construct a blocked admission with the given gate failures.
     pub fn blocked(
         decision: &SyncDecision,

@@ -1,7 +1,7 @@
 //! Pure source-admission logic — evaluates gate proofs and a sync decision
-//! to produce a [`SourceAdmissionReport`] verdict. Zero I/O.
+//! to produce a [`SyncAdmissionReport`] verdict. Zero I/O.
 
-use super::types::{SourceAdmissionReport, SyncDecision};
+use super::types::{SyncAdmissionReport, SyncDecision};
 
 /// Pure admission rule — given gate proofs and a sync decision, produce
 /// an admission verdict.
@@ -13,7 +13,7 @@ use super::types::{SourceAdmissionReport, SyncDecision};
 pub fn admit_source_sync(
     decision: &SyncDecision,
     gate_passed: &[(&str, bool)],
-) -> SourceAdmissionReport {
+) -> SyncAdmissionReport {
     let mut gates_evaluated = Vec::new();
     let mut gates_passed = Vec::new();
     let mut gates_failed = Vec::new();
@@ -38,9 +38,9 @@ pub fn admit_source_sync(
     }
 
     if blockers.is_empty() {
-        SourceAdmissionReport::admitted(decision, gates_evaluated, gates_passed)
+        SyncAdmissionReport::admitted(decision, gates_evaluated, gates_passed)
     } else {
-        SourceAdmissionReport::blocked(decision, gates_passed, gates_failed, blockers)
+        SyncAdmissionReport::blocked(decision, gates_passed, gates_failed, blockers)
     }
 }
 

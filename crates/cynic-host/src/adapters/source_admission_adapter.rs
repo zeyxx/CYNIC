@@ -1,9 +1,9 @@
-//! Host adapter collecting gate proofs and producing a [`SourceAdmissionReport`]
+//! Host adapter collecting gate proofs and producing a [`SyncAdmissionReport`]
 //! for a source sync decision.
 
 use std::path::Path;
 
-use cynic_vcs::sync::{SourceAdmissionReport, SyncDecision};
+use cynic_vcs::sync::{SyncAdmissionReport, SyncDecision};
 
 use cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs;
 
@@ -13,7 +13,7 @@ use cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs;
 /// - `secret_lint` — no secrets in source
 /// - `git_clean` — worktree clean (no dirty files)
 /// - `build_proof` — builder converged on this commit (SSOT for compilation)
-pub fn admit_source_sync(root: &Path, decision: &SyncDecision) -> SourceAdmissionReport {
+pub fn admit_source_sync(root: &Path, decision: &SyncDecision) -> SyncAdmissionReport {
     let gate_proofs = collect_host_gate_proofs(root);
 
     let gate_passed: Vec<(&str, bool)> = gate_proofs
