@@ -187,6 +187,16 @@ fn ls_remote_sha(url: &str, refname: &str) -> Result<String, String> {
     Ok(sha)
 }
 
+/// True when Forgejo main (source) and the GitHub projection main are the same
+/// commit, both read live from the remotes. No local ref is consulted.
+pub(crate) fn live_main_agreement(root: &Path) -> Result<bool, String> {
+    let registry_path = root.join("infra/registry.json");
+    let (forgejo_url, github_url) = resolve_remotes(&registry_path)?;
+    let forgejo = ls_remote_sha(&forgejo_url, "refs/heads/main")?;
+    let github = ls_remote_sha(&github_url, "refs/heads/main")?;
+    Ok(forgejo == github)
+}
+
 fn ancestry_status(forgejo_sha: &str, github_sha: &str, forgejo_url: &str, github_url: &str) -> Result<&'static str, String> {
     let tmp = std::env::temp_dir().join(format!("cynic-divergence-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&tmp);
