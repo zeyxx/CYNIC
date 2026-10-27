@@ -6,7 +6,48 @@
 //!
 //! Conforms to contracts/source-lifecycle.json (cynic.source_lifecycle.v1).
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+
+/// A secret pattern loaded from a registry (not hardcoded).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecretPattern {
+    pub id: String,
+    pub name: String,
+    pub regex: String,
+    pub severity: String,
+}
+
+/// A violation found by the secret lint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecretViolation {
+    pub pattern_id: String,
+    pub pattern_name: String,
+    pub severity: String,
+    pub matched_text: String,
+}
+
+/// Scan a diff for secrets using the provided patterns.
+///
+/// Pure function: no I/O, no registry read. The caller supplies patterns
+/// loaded from `infra/secret-patterns.json`. Returns an empty vec if clean.
+pub fn secret_lint(diff: &str, patterns: &[SecretPattern]) -> Vec<SecretViolation> {
+    let mut violations = Vec::new();
+    for pattern in patterns {
+        let Ok(re) = Regex::new(&pattern.regex) else {
+            continue;
+        };
+        for m in re.find_iter(diff) {
+            violations.push(SecretViolation {
+                pattern_id: pattern.id.clone(),
+                pattern_name: pattern.name.clone(),
+                severity: pattern.severity.clone(),
+                matched_text: m.as_str().to_string(),
+            });
+        }
+    }
+    violations
+}
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -125,7 +166,7 @@ pub trait PrPort: Send + Sync {
 pub fn evaluate_pr_admission(
     pr: &PullRequest,
     builder_check_passed: bool,
-    secret_lint_passed: bool,
+    secret_violations: &[SecretViolation],
 ) -> PrAdmissionReport {
     let mut blockers = Vec::new();
     let mut required_checks = Vec::new();
@@ -136,7 +177,7 @@ pub fn evaluate_pr_admission(
     }
 
     required_checks.push("secret_lint_passed".to_string());
-    if !secret_lint_passed {
+    if !secret_violations.is_empty() {
         blockers.push("secret_lint_violations_detected".to_string());
     }
 
@@ -191,28 +232,40 @@ mod tests {
 
     #[test]
     fn admit_clean_pr() {
-        let verdict = evaluate_pr_admission(&open_pr(10), true, true);
+        let verdict = evaluate_pr_admission(&open_pr(10), true, &[]);
         assert!(verdict.admitted, "blockers: {:?}", verdict.blockers);
         assert!(verdict.blockers.is_empty());
     }
 
     #[test]
     fn refuse_failing_builder() {
-        let verdict = evaluate_pr_admission(&open_pr(10), false, true);
+        let verdict = evaluate_pr_admission(&open_pr(10), false, &[]);
         assert!(!verdict.admitted);
         assert_eq!(verdict.blockers, vec!["builder_gate_unproven_or_failed"]);
     }
 
     #[test]
     fn refuse_secret_lint_violation() {
-        let verdict = evaluate_pr_admission(&open_pr(10), true, false);
+        let violation = SecretViolation {
+            pattern_id: "test".to_string(),
+            pattern_name: "test".to_string(),
+            severity: "critical".to_string(),
+            matched_text: "secret".to_string(),
+        };
+        let verdict = evaluate_pr_admission(&open_pr(10), true, &[violation]);
         assert!(!verdict.admitted);
         assert_eq!(verdict.blockers, vec!["secret_lint_violations_detected"]);
     }
 
     #[test]
     fn refuse_all_gates_failed_reports_two_blockers() {
-        let verdict = evaluate_pr_admission(&open_pr(10), false, false);
+        let violation = SecretViolation {
+            pattern_id: "test".to_string(),
+            pattern_name: "test".to_string(),
+            severity: "critical".to_string(),
+            matched_text: "secret".to_string(),
+        };
+        let verdict = evaluate_pr_admission(&open_pr(10), false, &[violation]);
         assert!(!verdict.admitted);
         assert_eq!(verdict.blockers.len(), 2, "expected 2 blockers, got: {:?}", verdict.blockers);
     }
@@ -222,7 +275,7 @@ mod tests {
         let mut pr = open_pr(10);
         pr.has_conflicts = true;
         pr.mergeable = false;
-        let verdict = evaluate_pr_admission(&pr, true, true);
+        let verdict = evaluate_pr_admission(&pr, true, &[]);
         assert!(!verdict.admitted);
         assert!(verdict.blockers.contains(&"merge_conflict_detected".to_string()));
     }
@@ -231,9 +284,50 @@ mod tests {
     fn refuse_non_open_pr() {
         let mut pr = open_pr(10);
         pr.state = PrState::Merged;
-        let verdict = evaluate_pr_admission(&pr, true, true);
+        let verdict = evaluate_pr_admission(&pr, true, &[]);
         assert!(!verdict.admitted);
         assert!(verdict.blockers.iter().any(|b| b.starts_with("pr_not_open:")));
+    }
+
+    #[test]
+    fn secret_lint_detects_github_pat() {
+        let patterns = vec![SecretPattern {
+            id: "github_pat".to_string(),
+            name: "GitHub PAT".to_string(),
+            regex: "ghp_[A-Za-z0-9]{36,}".to_string(),
+            severity: "critical".to_string(),
+        }];
+        let diff = "diff --git a/f.txt b/f.txt
++token = ghp_abcdefghijklmnopqrstuvwxyz1234567890ab";
+        let v = secret_lint(diff, &patterns);
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].pattern_id, "github_pat");
+    }
+
+    #[test]
+    fn secret_lint_clean_diff() {
+        let patterns = vec![SecretPattern {
+            id: "github_pat".to_string(),
+            name: "GitHub PAT".to_string(),
+            regex: "ghp_[A-Za-z0-9]{36,}".to_string(),
+            severity: "critical".to_string(),
+        }];
+        let diff = "diff --git a/f.txt b/f.txt
++let x = 42;";
+        let v = secret_lint(diff, &patterns);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn secret_lint_skips_invalid_regex() {
+        let patterns = vec![SecretPattern {
+            id: "bad".to_string(),
+            name: "Bad".to_string(),
+            regex: "[invalid".to_string(),
+            severity: "high".to_string(),
+        }];
+        let v = secret_lint("anything", &patterns);
+        assert!(v.is_empty());
     }
 
     #[test]
