@@ -1,0 +1,15 @@
+name: CI
+
+"on":
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: "cynic/build"
+    steps:
+      - uses: "actions/checkout@v4"
+      - name: Build
+        run: "cargo build --workspace"
+      - name: Test
+        run: "cargo test --workspace"
