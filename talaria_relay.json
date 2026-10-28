@@ -1,0 +1,62 @@
+{
+  "schema": "cynic.domain_ops.desired_state.v1",
+  "domain": "talaria.build",
+  "registrar": {
+    "provider": "porkbun",
+    "credential": {
+      "id": "porkbun-api-key",
+      "class": "RuntimeMachineIdentity",
+      "provider": "principal_owned_file",
+      "locator": "porkbun-api-key"
+    },
+    "credential_secret": {
+      "id": "porkbun-secret-key",
+      "class": "RuntimeMachineIdentity",
+      "provider": "principal_owned_file",
+      "locator": "porkbun-secret-key"
+    }
+  },
+  "dns_authority": {
+    "provider": "porkbun",
+    "credential": {
+      "id": "porkbun-api-key",
+      "class": "RuntimeMachineIdentity",
+      "provider": "principal_owned_file",
+      "locator": "porkbun-api-key"
+    }
+  },
+  "proxy_policy": {
+    "web_records": "dns_only",
+    "mail_records": "dns_only",
+    "verification_records": "dns_only",
+    "dnssec_records": "dns_only"
+  },
+  "expected_nameservers": [],
+  "edge_probes": [],
+  "zone_records": [
+    {
+      "name": "relay.talaria.build",
+      "type": "A",
+      "content": "82.65.26.228",
+      "proxied": false,
+      "ttl": 300,
+      "priority": null
+    },
+    {
+      "name": "mesh.talaria.build",
+      "type": "A",
+      "content": "82.65.26.228",
+      "proxied": false,
+      "ttl": 300,
+      "priority": null
+    },
+    {
+      "name": "api.talaria.build",
+      "type": "A",
+      "content": "82.65.26.228",
+      "proxied": false,
+      "ttl": 300,
+      "priority": null
+    }
+  ]
+}
