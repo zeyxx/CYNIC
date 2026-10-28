@@ -51,7 +51,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 15313
+      "loc": 15473
     },
     "cynic-channel": {
       "consumers": [
@@ -108,7 +108,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45713
+      "loc": 46163
     },
     "cynic-consensus": {
       "consumers": [
@@ -158,7 +158,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 4025
+      "loc": 4297
     },
     "cynic-eval": {
       "consumers": [
@@ -262,7 +262,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 90941
+      "loc": 90580
     },
     "cynic-inference": {
       "consumers": [
@@ -338,7 +338,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 9702
+      "loc": 9754
     },
     "cynic-lifecycle": {
       "consumers": [
@@ -428,7 +428,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 7059
+      "loc": 7996
     },
     "cynic-node": {
       "consumers": [
@@ -463,7 +463,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 66221
+      "loc": 66453
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -559,7 +559,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 42823
+      "loc": 42019
     },
     "cynic-proxmox": {
       "consumers": [
@@ -653,7 +653,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 5764
+      "loc": 5789
     },
     "cynic-supervisor": {
       "consumers": [
@@ -739,7 +739,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 13225
+      "loc": 13321
     },
     "cynic-workload": {
       "consumers": [
@@ -1007,7 +1007,7 @@
     "crates": 38,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 409103,
+    "loc_total": 410162,
     "pending_disposition": 3,
     "runtime_edges": 169,
     "unjustified": 0,
