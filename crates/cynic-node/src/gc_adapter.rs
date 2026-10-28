@@ -7,9 +7,14 @@
 use std::time::Duration;
 use tracing::{info, warn};
 
-const BUILD_TARGETS_DIR: &str = "/var/lib/cynic/build-targets";
+use cynic_types::CynicPaths;
+
 const PRESSURE_THRESHOLD: f64 = 0.8;
 const GC_INTERVAL: Duration = Duration::from_secs(86400); // daily
+
+fn build_targets_dir() -> std::path::PathBuf {
+    CynicPaths::state_dir().join("build-targets")
+}
 
 /// Run one GC cycle. Returns the number of profiles removed.
 pub fn run_gc_once() -> usize {
@@ -32,7 +37,7 @@ pub fn run_gc_once() -> usize {
     // 4. Delete.
     let mut removed = 0;
     for name in &to_remove {
-        let path = std::path::Path::new(BUILD_TARGETS_DIR).join(name);
+        let path = build_targets_dir().join(name);
         if std::fs::remove_dir_all(&path).is_ok() {
             removed += 1;
             info!("gc: removed build target '{}'", name);
@@ -66,7 +71,7 @@ pub fn spawn_daily_gc(shutdown: tokio_util::sync::CancellationToken) {
 
 fn disk_pressure() -> Option<f64> {
     let output = std::process::Command::new("df")
-        .args(["--output=pcent", BUILD_TARGETS_DIR])
+        .args(["--output=pcent", &build_targets_dir().to_string_lossy()])
         .output()
         .ok()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -80,7 +85,7 @@ fn disk_pressure() -> Option<f64> {
 }
 
 fn list_profiles() -> Option<Vec<cynic_build::gc::TargetProfile>> {
-    let entries = std::fs::read_dir(BUILD_TARGETS_DIR).ok()?;
+    let entries = std::fs::read_dir(build_targets_dir()).ok()?;
     let now = std::time::SystemTime::now();
     let mut profiles = Vec::new();
     for entry in entries.flatten() {

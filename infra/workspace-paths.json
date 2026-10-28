@@ -26,11 +26,6 @@
       "file": "crates/cynic-protocol/src/agent_host_sandbox.rs"
     },
     {
-      "site": "docs/design/MULTI_AGENT_ISOLATION_DESIGN.md:137",
-      "form": "3. Ne PLUS travailler directement dans `<canonical_path>`",
-      "file": "docs/design/MULTI_AGENT_ISOLATION_DESIGN.md"
-    },
-    {
       "site": "docs/specs/checklist.md:216",
       "form": "<canonical_path>",
       "file": "docs/specs/checklist.md"
