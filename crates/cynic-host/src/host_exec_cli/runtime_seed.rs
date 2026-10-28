@@ -1,6 +1,6 @@
 use std::{fs, process::ExitCode};
 
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 use cynic_protocol::{RuntimeSeedObservation, RuntimeSeedRequest, reconcile_runtime_seed};
 
 use crate::{

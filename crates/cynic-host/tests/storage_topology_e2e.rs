@@ -4,7 +4,7 @@ use cynic_host::domain::storage::{
     StorageTopologyObservationPort, apply_and_prove_storage_topology, apply_client_policy_file,
     plan_storage_topology_apply, reconcile_storage_topology, storage_topology_report,
 };
-use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_process::{ArgvOutput, MapArgvRunner};
 use cynic_storage::client_policy::{
     ClientPolicy, STORAGE_CLIENT_POLICY_SCHEMA, StorageClientPolicy,
 };

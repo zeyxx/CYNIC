@@ -17,7 +17,7 @@ use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressur
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::build_artefact::plan_build_artefacts;
 use crate::domain::queue::probe::build_queue_plan;
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use std::time::Duration;
 use cynic_types::paths::CynicPaths;
 

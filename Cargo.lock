@@ -871,11 +871,11 @@ dependencies = [
  "cynic-forensics",
  "cynic-inference",
  "cynic-intel",
- "cynic-lifecycle",
  "cynic-lxc",
  "cynic-network",
  "cynic-node-protocol",
  "cynic-pkg",
+ "cynic-process",
  "cynic-protocol",
  "cynic-release",
  "cynic-sandbox",
@@ -1024,26 +1024,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-lifecycle"
-version = "0.9.0"
-dependencies = [
- "chrono",
- "cynic-build",
- "cynic-process",
- "cynic-protocol",
- "cynic-release",
- "cynic-storage",
- "cynic-types",
- "hex",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "tracing",
-]
-
-[[package]]
 name = "cynic-lxc"
 version = "0.9.0"
 dependencies = [
@@ -1135,12 +1115,12 @@ dependencies = [
  "cynic-host",
  "cynic-inference",
  "cynic-kernel",
- "cynic-lifecycle",
  "cynic-lxc",
  "cynic-market",
  "cynic-network",
  "cynic-node-protocol",
  "cynic-pool",
+ "cynic-process",
  "cynic-protocol",
  "cynic-proxmox",
  "cynic-release",
@@ -1293,7 +1273,7 @@ dependencies = [
 name = "cynic-sandbox"
 version = "0.9.0"
 dependencies = [
- "cynic-lifecycle",
+ "cynic-process",
  "cynic-protocol",
  "serde",
  "serde_json",

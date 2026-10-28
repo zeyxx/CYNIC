@@ -5,7 +5,7 @@ use cynic_protocol::{
 };
 use sha2::{Digest, Sha256};
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_types::paths::CynicPaths;
 
 pub trait BuildRunnerObservationPort {
@@ -183,7 +183,7 @@ mod tests {
     use cynic_protocol::LEASE_VERIFICATION_SCHEMA;
 
     use super::*;
-    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_process::{ArgvOutput, MapArgvRunner};
 
     #[test]
     fn live_verifier_rejects_response_for_another_guard() {

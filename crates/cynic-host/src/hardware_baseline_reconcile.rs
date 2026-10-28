@@ -5,7 +5,7 @@ use crate::hardware_baseline_apply::{
     HardwareBaselineBundleProof, HardwareBaselineBundleStorePort, build_hardware_baseline_bundle,
 };
 use crate::runtime_layout::HostRuntimeLayout;
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 pub const HARDWARE_BASELINE_RECONCILE_SCHEMA: &str =
     "cynic.host.hardware_baseline_reconcile_request.v1";
@@ -162,7 +162,7 @@ mod tests {
     use crate::hardware_conformance::{
         EvidenceState, HardwareDevice, HardwareInventory, HardwareObservation, assess_hardware,
     };
-    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_process::{ArgvOutput, MapArgvRunner};
 
     struct Store;
 

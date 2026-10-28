@@ -12,7 +12,7 @@ use crate::domain::branch_graph::port::{BranchGraphObservationError, BranchGraph
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
 };
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_protocol::branch_graph::BranchGraph;
 
 pub struct RemoteBranchGraphAdapter<R: ArgvRunner> {
@@ -98,7 +98,7 @@ impl<R: ArgvRunner> cynic_protocol::branch_graph::BranchObservationPort
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_process::{ArgvOutput, MapArgvRunner};
     use std::sync::Arc;
 
     fn ok(stdout: &str) -> ArgvOutput {

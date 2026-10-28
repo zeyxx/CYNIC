@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_build::{BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference};
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_vcs::{
     SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
     SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,

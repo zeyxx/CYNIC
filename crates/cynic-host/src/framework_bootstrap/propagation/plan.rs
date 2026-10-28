@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::registry::resolve_framework_transport;
 use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use super::decision::decide_framework_propagation;
 use super::observe::{

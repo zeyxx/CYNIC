@@ -18,7 +18,7 @@ use crate::{
         reconcile_build_cache,
     },
 };
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_types::paths::CynicPaths;
 
 pub const BUILD_RUNNER_BOOTSTRAP_PLAN_SCHEMA: &str = "cynic.build_runner.bootstrap_plan.v1";
@@ -457,7 +457,7 @@ pub fn reconcile_build_runner_bootstrap(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::ArgvOutput;
+    use cynic_process::ArgvOutput;
     #[test]
     fn admission_scope_names_no_retired_make_spellings() {
         // Scope names only (nothing composes argv from them), but a reader

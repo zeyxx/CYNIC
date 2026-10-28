@@ -3,7 +3,7 @@
 //! Observe the substrate first, then choose the adapter (CYNIC §3).
 
 use crate::toolchain::specs::ToolchainRegistry;
-use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_process::{ArgvOutput, ArgvRunner};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

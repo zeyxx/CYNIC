@@ -50,7 +50,7 @@ cynic-kernel = { path = "../cynic-kernel" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-build = { path = "../cynic-build" }
 cynic-host = { path = "../cynic-host" }
-cynic-lifecycle = { path = "../cynic-lifecycle" }
+cynic-process = { path = "../cynic-process" }
 cynic-network = { path = "../cynic-network" }
 cynic-ssh = { path = "../cynic-ssh" }
 cynic-consensus = { path = "../cynic-consensus" }

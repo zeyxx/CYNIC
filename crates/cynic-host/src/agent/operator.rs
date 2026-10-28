@@ -9,7 +9,7 @@
 //! The LLM is a tool, never the authority. The agent decides what to ask,
 //! whether to use the response, and when to escalate.
 
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::llm_port::*;
 
 /// Operator agent that observes and acts on the organism.
@@ -127,7 +127,7 @@ impl<R: ArgvRunner> OperatorAgentPort for OperatorAgent<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::MapArgvRunner;
+    use cynic_process::MapArgvRunner;
 
     struct FakeLlm {
         response: String,
@@ -170,7 +170,7 @@ mod tests {
                         "branch".to_string(),
                         "--show-current".to_string(),
                     ],
-                    cynic_lifecycle::ArgvOutput {
+                    cynic_process::ArgvOutput {
                         exit_code: Some(0),
                         stdout: "main".to_string(),
                         stderr: String::new(),
@@ -183,7 +183,7 @@ mod tests {
                         "status".to_string(),
                         "--short".to_string(),
                     ],
-                    cynic_lifecycle::ArgvOutput {
+                    cynic_process::ArgvOutput {
                         exit_code: Some(0),
                         stdout: " M file.rs".to_string(),
                         stderr: String::new(),
@@ -197,7 +197,7 @@ mod tests {
                         "--oneline".to_string(),
                         "-5".to_string(),
                     ],
-                    cynic_lifecycle::ArgvOutput {
+                    cynic_process::ArgvOutput {
                         exit_code: Some(0),
                         stdout: "abc123 commit 1\ndef456 commit 2".to_string(),
                         stderr: String::new(),

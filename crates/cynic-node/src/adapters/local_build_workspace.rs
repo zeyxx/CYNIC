@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use crate::ports::{
     agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspacePortError},
@@ -218,7 +218,7 @@ fn error(code: &str) -> AgentWorkspacePortError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::LocalArgvRunner;
+    use cynic_process::LocalArgvRunner;
     use crate::ports::agent_workspace_port::AgentWorkspaceLayout;
 
     fn git(args: &[&str], dir: &std::path::Path) -> bool {

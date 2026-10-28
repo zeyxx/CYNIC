@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use super::decision::{activation_argv, plan_dns_activation};
 use super::filesystem::{

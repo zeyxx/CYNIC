@@ -1,6 +1,6 @@
 //! Tests for LocalBwrapSubstrateAdapter realizing ComputeSubstratePort.
 
-use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_process::{ArgvOutput, ArgvRunner};
 use cynic_protocol::agent_isolation::SandboxStrategy;
 use cynic_protocol::compute::{ComputeRequirements, ComputeSubstratePort, SubstrateKind};
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;

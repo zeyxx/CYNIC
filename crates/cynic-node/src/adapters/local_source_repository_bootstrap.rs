@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_vcs::{
     SOURCE_REPOSITORY_BOOTSTRAP_OBSERVATION_SCHEMA, SourceRepositoryBootstrapObservation,
     SourceRepositoryBootstrapRequest,

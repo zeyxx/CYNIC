@@ -2,7 +2,7 @@
 //!
 //! Executes REAL bubblewrap processes on the host to prove isolation boundaries.
 
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 use cynic_protocol::compute::{ComputeRequirements, ComputeSubstratePort};
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;
 use std::sync::Arc;

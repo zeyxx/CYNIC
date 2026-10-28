@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
-cynic-lifecycle = { path = "../cynic-lifecycle" }
+cynic-process = { path = "../cynic-process" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"

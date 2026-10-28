@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 use cynic_vcs::{
     SOURCE_REPOSITORY_BOOTSTRAP_REPORT_SCHEMA, SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,
     SourceRepositoryBootstrapDecision, SourceRepositoryBootstrapProofAuthority,

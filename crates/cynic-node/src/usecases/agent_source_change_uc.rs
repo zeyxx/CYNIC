@@ -6,7 +6,7 @@ use std::{
 };
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 
 use crate::{
     adapters::{

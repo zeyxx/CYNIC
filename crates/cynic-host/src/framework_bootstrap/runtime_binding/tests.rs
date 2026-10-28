@@ -1,7 +1,7 @@
 use std::net::TcpListener;
 use std::os::unix::fs::MetadataExt;
 
-use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_process::{ArgvOutput, MapArgvRunner};
 use cynic_types::paths::CynicPaths;
 
 use super::{apply_runtime_binding, observe_runtime_binding, plan_runtime_binding};
