@@ -1,27 +1,12 @@
 //! Build triggering, execution and proof verification.
 
 use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
-use cynic_build::{BuildRunner, ports::BuildCommandOutput};
 use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
+use cynic_process::ArgvRunner;
 use cynic_vcs::SourceSnapshot;
-
-struct LocalBuildRunner;
-
-impl BuildRunner for LocalBuildRunner {
-    fn run_command(&self, argv: &[&str]) -> BuildCommandOutput {
-        let out = LocalArgvRunner.run(argv);
-        BuildCommandOutput {
-            exit_code: out.exit_code,
-            stdout: out.stdout,
-            stderr: out.stderr,
-            spawn_error: out.spawn_error,
-        }
-    }
-}
 
 pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
     cynic_build::resolve_builder_url_with_health()
