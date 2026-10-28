@@ -24,6 +24,40 @@ pub struct WorktreeAllocationPlan {
     pub argv: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorktreeAllocationReceipt {
+    pub status: &'static str,
+    pub branch: String,
+    pub base_ref: String,
+    pub target_path: PathBuf,
+    pub schema: &'static str,
+}
+
+/// Execute a planned worktree allocation through an injectable ArgvRunner.
+pub fn execute_worktree_allocation<R: cynic_protocol::argv::ArgvRunner>(
+    plan: &WorktreeAllocationPlan,
+    runner: &R,
+) -> Result<WorktreeAllocationReceipt, String> {
+    if let Some(parent) = plan.target_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    let argv_slices: Vec<&str> = plan.argv.iter().map(|s| s.as_str()).collect();
+    let output = runner.run(&argv_slices);
+
+    if !output.success() {
+        return Err(output.summary());
+    }
+
+    Ok(WorktreeAllocationReceipt {
+        status: "allocated",
+        branch: plan.branch.clone(),
+        base_ref: plan.base_ref.clone(),
+        target_path: plan.target_path.clone(),
+        schema: ISOLATED_WORKTREE_ALLOCATION_SCHEMA,
+    })
+}
+
 /// Slugify a branch name safely for directory allocation.
 pub fn branch_to_directory_slug(branch: &str) -> String {
     branch
@@ -127,6 +161,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn executes_worktree_allocation_with_stubbed_runner() {
+        use cynic_lifecycle::MapArgvRunner;
+        use cynic_protocol::argv::ArgvOutput;
+
+        let repo = Path::new("/home/user/CYNIC");
+        let ws_root = Path::new("/tmp/cynic-vcs-wt-test");
+        let target = PathBuf::from("/tmp/cynic-vcs-wt-test/agent_worker_poh-fix");
+        let req = WorktreeAllocationRequest {
+            branch: "agent/worker/poh-fix".to_string(),
+            base_ref: None,
+            target_path: Some(target.clone()),
+        };
+
+        let plan = plan_worktree_allocation(repo, ws_root, &req).unwrap();
+        let runner = MapArgvRunner {
+            responses: vec![(
+                vec![],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: None,
+                },
+            )],
+        };
+
+        let receipt = execute_worktree_allocation(&plan, &runner).unwrap();
+        assert_eq!(receipt.status, "allocated");
+        assert_eq!(receipt.branch, plan.branch);
+        assert_eq!(receipt.base_ref, plan.base_ref);
+        assert_eq!(receipt.target_path, plan.target_path);
+    }
     #[test]
     fn plans_allocation_purely() {
         let repo = Path::new("/home/user/CYNIC");

@@ -1,0 +1,19 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-ssh"
+version.workspace = true
+edition.workspace = true
+authors = ["CYNIC Sovereign Collective"]
+description = "Pure SSH transport helpers: options, argv construction, validation, command/outcome types."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+cynic-types = { path = "../cynic-types" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+tempfile = "3.27"

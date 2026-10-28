@@ -32,6 +32,7 @@ members = [
     "crates/cynic-pool",
     "crates/cynic-askesis",
     "crates/cynic-secrets",
+    "crates/cynic-ssh",
     "crates/cynic-domain-ops",
     "crates/cynic-finance",
     "crates/cynic-fleet",

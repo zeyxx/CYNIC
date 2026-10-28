@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::git_topology_observer::{count_dirty_files, observe_head_sha};
-use crate::runner::VcsRunner;
+use crate::runner::{ArgvRunner, VcsRunner};
 use crate::source_worktree::{ObservedWorktreeSnapshot, reconcile_worktree_convergence_pure};
 use crate::observe_source_worktree_inventory;
 
@@ -120,6 +120,42 @@ pub fn plan_worktree_convergence(
     reconcile_worktree_convergence_pure(root_canonical, &default_branch, &head_sha, snapshots, &[], now_ms)
 }
 
+/// High-level orchestration: observe + plan worktree convergence in one call.
+///
+/// Encapsulates timestamp computation, observation, canonicalization and
+/// default-branch resolution so callers (CLI) only render and decide apply.
+pub fn run_worktree_convergence_plan<R: VcsRunner>(
+    root: &Path,
+    workspace_store: &Path,
+    runner: &R,
+) -> crate::source_worktree::WorktreeConvergencePlan {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let (head_sha, snapshots) =
+        observe_worktree_convergence_snapshots(root, workspace_store, runner, now_ms);
+    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let default_branch = "main".to_string();
+    plan_worktree_convergence(root_canonical, default_branch, head_sha, &snapshots)
+}
+
+/// High-level apply: run the convergence plan through the runner, computing
+/// the timestamp internally. Returns the apply proof.
+pub fn apply_worktree_convergence_plan<R>(
+    plan: &crate::source_worktree::WorktreeConvergencePlan,
+    runner: &R,
+    dry_run: bool,
+) -> crate::source_worktree::WorktreeConvergenceProof
+where
+    R: VcsRunner + ArgvRunner,
+{
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    crate::reconcile::apply_worktree_convergence(plan, runner, dry_run, now)
+}
 /// Observe the inputs `plan_publication` needs: the tracked file list and
 /// the bytes of every path the contract publishes.
 ///

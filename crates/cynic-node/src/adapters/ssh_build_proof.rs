@@ -82,14 +82,13 @@ impl SshBuildProof {
     }
 
     fn run_remote(&self, argv: &[String]) -> Result<(bool, String, String), String> {
-        let mut cmd = Command::new("ssh");
-        cmd.arg(self.ssh_target());
-        for arg in argv {
-            cmd.arg(arg);
-        }
-        let output = cmd
+        let target = self.ssh_target();
+        let full = cynic_ssh::argv::ssh_argv(&target, argv)
+            .map_err(|e| format!("invalid ssh argv: {e}"))?;
+        let output = Command::new(&full[0])
+            .args(&full[1..])
             .output()
-            .map_err(|e| format!("spawn ssh {}: {e}", self.ssh_target()))?;
+            .map_err(|e| format!("spawn ssh {}: {e}", target))?;
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         Ok((output.status.success(), stdout, stderr))

@@ -8,6 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
+use cynic_lifecycle::ArgvRunner;
+
 use crate::agent_surface::types::{
     AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport,
     AgentReleaseReport, AgentStatusReport, AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA,
@@ -86,19 +88,12 @@ pub(crate) fn resolve_builder_endpoint(registry_path: &str) -> Option<String> {
 /// Runs `git remote get-url origin`; returns `"unknown"` when git is
 /// unavailable or has no origin — never a hardcoded URL.
 pub(crate) fn resolve_git_remote() -> String {
-    std::process::Command::new("git")
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
-            } else {
-                None
-            }
-        })
-        .filter(|s| !s.is_empty())
-        .unwrap_or("unknown".to_string())
+    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "remote", "get-url", "origin"]);
+    if output.success() && !output.stdout.trim().is_empty() {
+        output.stdout.trim().to_string()
+    } else {
+        "unknown".to_string()
+    }
 }
 
 fn now_unix_ms() -> u64 {
@@ -490,24 +485,14 @@ pub(crate) const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";
 /// (the caller composes the dated filename).
 fn claim_event_log_dir() -> Option<std::path::PathBuf> {
     // Try git root first; fall back to current directory.
-    let root = std::process::Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| {
-            let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
-        })
-        .unwrap_or_else(|| {
-            std::env::current_dir()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default()
-        });
+    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
+    let root = if output.success() && !output.stdout.trim().is_empty() {
+        output.stdout.trim().to_string()
+    } else {
+        std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default()
+    };
     if root.is_empty() {
         return None;
     }
@@ -610,16 +595,9 @@ fn claims_file_path() -> std::path::PathBuf {
     // Anchor to the enclosing git worktree so a claim from a subdirectory
     // lands in the same projection as every other agent. Fall back to the
     // cwd when outside git (explicit unknown, same file name).
-    if let Ok(output) = std::process::Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-    {
-        if output.status.success() {
-            let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !root.is_empty() {
-                return std::path::PathBuf::from(root).join(".agent-claims.json");
-            }
-        }
+    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
+    if output.success() && !output.stdout.trim().is_empty() {
+        return std::path::PathBuf::from(output.stdout.trim()).join(".agent-claims.json");
     }
     std::path::PathBuf::from(".agent-claims.json")
 }

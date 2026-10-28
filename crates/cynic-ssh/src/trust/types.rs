@@ -49,7 +49,7 @@ pub struct SshTrustVerification {
 /// anchor decision. Discovery alone never grants trust.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct SshTrustInspectionReport {
-    pub inspection: crate::transport::SshTargetInspectionReport,
+    pub inspection: crate::inspection::SshTargetInspectionReport,
     pub verification: SshTrustVerification,
 }
 

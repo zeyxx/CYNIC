@@ -16,23 +16,29 @@ use crate::emit_json;
 
 pub(crate) fn execute_queue(json: bool, apply: bool) -> ExitCode {
     // Store convergence gate: block if main diverges across source layers.
-    let store_converged = std::process::Command::new("git")
-        .args(["rev-parse", "main"])
-        .output()
-        .ok()
-        .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None })
-        .map(|local| {
-            let origin = std::process::Command::new("git")
-                .args(["rev-parse", "origin/main"])
-                .output()
-                .ok()
-                .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).trim().to_string()) } else { None });
-            match origin {
-                Some(o) => local == o,
-                None => true,
-            }
-        })
-        .unwrap_or(true);
+    let store_converged = {
+        use cynic_lifecycle::ArgvRunner;
+        let local = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "main"]);
+        let local = if local.success() {
+            Some(local.stdout.trim().to_string())
+        } else {
+            None
+        };
+        local
+            .map(|local| {
+                let origin = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "origin/main"]);
+                let origin = if origin.success() {
+                    Some(origin.stdout.trim().to_string())
+                } else {
+                    None
+                };
+                match origin {
+                    Some(o) => local == o,
+                    None => true,
+                }
+            })
+            .unwrap_or(true)
+    };
     if !store_converged {
         eprintln!("blocked: store divergence detected. Converge before queueing.");
         return ExitCode::FAILURE;

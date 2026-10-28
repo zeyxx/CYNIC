@@ -4,6 +4,7 @@ use clap::Subcommand;
 use cynic_node_protocol::federation::FederationReconciliation;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use std::process::Command;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -253,16 +254,21 @@ fn probe_ping(addr: &str) -> (bool, Option<String>) {
 
 fn probe_ssh(principal: &str, host: &str) -> (bool, Option<String>) {
     let target = format!("{}@{}", principal, host);
-    match Command::new("ssh")
-        .args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", &target, "hostname"])
-        .output()
-    {
-        Ok(o) if o.status.success() => (true, None),
-        Ok(o) => {
-            let msg = String::from_utf8_lossy(&o.stderr).trim().to_string();
-            (false, if msg.is_empty() { Some("ssh failed".to_string()) } else { Some(msg) })
-        }
-        Err(e) => (false, Some(e.to_string())),
+    let argv = match cynic_ssh::argv::ssh_argv(&target, &["hostname"]) {
+        Ok(a) => a,
+        Err(e) => return (false, Some(e)),
+    };
+    let runner = LocalArgvRunner;
+    let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+    let output = runner.run(&refs);
+    if let Some(err) = output.spawn_error {
+        return (false, Some(err));
+    }
+    if output.success() {
+        (true, None)
+    } else {
+        let msg = output.stderr.trim().to_string();
+        (false, if msg.is_empty() { Some("ssh failed".to_string()) } else { Some(msg) })
     }
 }
 

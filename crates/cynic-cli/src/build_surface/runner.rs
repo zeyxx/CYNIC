@@ -4,7 +4,7 @@ use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_b
 use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_vcs::SourceSnapshot;
 
@@ -19,12 +19,10 @@ pub(crate) fn resolve_gate_scope(
     commit: &str,
 ) -> (cynic_build::gate_scope::GateScope, Vec<String>) {
     use cynic_build::gate_scope::{GateScope, decide_gate_scope};
-    let output = std::process::Command::new("git")
-        .args(["diff", "--name-only", &format!("{commit}^"), commit])
-        .output();
-    match output {
-        Ok(out) if out.status.success() => {
-            let text = String::from_utf8_lossy(&out.stdout);
+    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "diff", "--name-only", &format!("{commit}^"), commit]);
+    match out {
+        o if o.success() => {
+            let text = o.stdout;
             let paths: Vec<&str> = text.lines().collect();
             let owned: Vec<String> = paths.iter().map(|p| p.to_string()).collect();
             (decide_gate_scope(&paths), owned)
@@ -733,26 +731,23 @@ fn run_one_proof(
 /// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
 /// Failure fails open (empty marker = caller falls back to Full).
 fn scoped_diff_paths(commit: &str) -> Option<Vec<String>> {
-    let output = std::process::Command::new("git")
-        .args(["diff", "--name-only", &format!("{commit}^"), commit])
-        .output()
-        .ok()?;
-    if !output.status.success() {
+    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "diff", "--name-only", &format!("{commit}^"), commit]);
+    if !out.success() {
         return None;
     }
-    let text = String::from_utf8_lossy(&output.stdout);
+    let text = out.stdout;
     Some(text.lines().map(str::to_string).collect())
 }
 
 /// Crate-topology consumers lookup from the enclosing repo checkout.
 /// None when the topology file is missing — the plan then skips narrowing.
 fn scoped_topology_consumers() -> Option<impl Fn(&str) -> Vec<String>> {
-    let top = std::process::Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
+    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
+    let top = if out.success() && !out.stdout.trim().is_empty() {
+        out.stdout.trim().to_string()
+    } else {
+        return None;
+    };
     let path = std::path::Path::new(&top).join("infra/crate-topology.json");
     let raw = std::fs::read_to_string(path).ok()?;
     let value: serde_json::Value = serde_json::from_str(&raw).ok()?;

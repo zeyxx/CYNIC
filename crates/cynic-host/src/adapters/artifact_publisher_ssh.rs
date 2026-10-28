@@ -16,6 +16,8 @@ use cynic_lifecycle::domain::artifact_publication::{
 };
 use cynic_lifecycle::ports::artifact_publisher_port::ArtifactPublisher;
 use cynic_lifecycle::{ArgvRunner, MapArgvRunner};
+use cynic_ssh::argv::{scp_argv, ssh_argv, validate_remote_segment as validate_remote_segment_ssh, validate_target as validate_ssh_target_ssh};
+use cynic_ssh::options::SSH_BATCH_OPTIONS;
 
 /// SSH publisher targeting `request.target.target` (e.g. `cynic@host`).
 pub struct SshArtifactPublisher<R: ArgvRunner = MapArgvRunner> {
@@ -30,50 +32,16 @@ impl SshArtifactPublisher<MapArgvRunner> {
 
 impl<R: ArgvRunner> SshArtifactPublisher<R> {
     fn scp_argv(&self, source: &str, target: &str) -> Result<Vec<String>, PublishError> {
-        validate_ssh_target(target)?;
-        if source.is_empty() || source.starts_with('-') || source.contains(char::is_whitespace) {
-            return Err(PublishError::Transport(
-                "invalid local artefact path".to_string(),
-            ));
-        }
-        Ok(vec![
-            "scp".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            "-o".to_string(),
-            "ConnectTimeout=10".to_string(),
-            source.to_string(),
-            target.to_string(),
-        ])
+        scp_argv(source, target).map_err(|_| PublishError::Transport("invalid ssh target".to_string()))
     }
 }
 
 fn validate_ssh_target(target: &str) -> Result<(), PublishError> {
-    if target.trim().is_empty()
-        || target.starts_with('-')
-        || target.contains(char::is_whitespace)
-        || target.chars().any(|c| ";|&$()<>".contains(c))
-    {
-        return Err(PublishError::Transport("invalid ssh target".to_string()));
-    }
-    Ok(())
+    validate_ssh_target_ssh(target).map_err(|_| PublishError::Transport("invalid ssh target".to_string()))
 }
 
 fn validate_remote_segment(segment: &str) -> Result<(), PublishError> {
-    if segment.is_empty()
-        || segment == "."
-        || segment == ".."
-        || !segment
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
-    {
-        return Err(PublishError::Transport(
-            "invalid remote path segment".to_string(),
-        ));
-    }
-    Ok(())
+    validate_remote_segment_ssh(segment).map_err(|_| PublishError::Transport("invalid remote path segment".to_string()))
 }
 
 impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
@@ -95,20 +63,14 @@ impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
             request.proof_sha, request.artefact_name
         );
         let remote_dir = format!(".cynic-releases/{}", request.proof_sha);
-        let mkdir_argv = vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            "-o".to_string(),
-            "ConnectTimeout=10".to_string(),
-            request.target.target.clone(),
-            format!("mkdir -p {remote_dir}"),
-        ];
         validate_ssh_target(&request.target.target)?;
         validate_remote_segment(&request.proof_sha)?;
         validate_remote_segment(&request.artefact_name)?;
+        let mkdir_argv = ssh_argv(
+            &request.target.target,
+            &[format!("mkdir -p {remote_dir}")],
+        )
+        .map_err(|_| PublishError::Transport("invalid ssh target".to_string()))?;
         let mkdir_refs: Vec<&str> = mkdir_argv.iter().map(String::as_str).collect();
         let mkdir_out = self.runner.run(&mkdir_refs);
         if !mkdir_out.success() {
