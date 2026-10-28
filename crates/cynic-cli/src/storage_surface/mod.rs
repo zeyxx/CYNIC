@@ -1,5 +1,7 @@
 //! Storage CLI surface — multi-model projection, SurrealDB and storage capabilities.
 
+pub mod sync;
+
 use clap::Subcommand;
 use std::process::ExitCode;
 
@@ -9,6 +11,13 @@ use crate::{emit_json, fail};
 pub enum StorageCommand {
     /// Probe SurrealDB health and connectivity via cynic-surreal.
     Ping {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
+    /// Synchronize knowledge graph and documents into SurrealDB.
+    Sync {
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -39,14 +48,34 @@ pub enum StorageCommand {
     },
 }
 
+fn get_client(endpoint: Option<String>) -> (String, cynic_storage::SurrealHttpClient) {
+    let ep = endpoint
+        .or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok())
+        .or_else(|| std::env::var("SURREALDB_URL").ok())
+        .unwrap_or_else(crate::runtime_surface::resolve_surrealdb_endpoint);
+    let config = cynic_storage::SurrealConfig::new(ep.clone(), "cynic", "runtime", "root");
+    let mut client = cynic_storage::SurrealHttpClient::new(config);
+    if std::env::var("CYNIC_STORAGE_PASSWORD").is_err()
+        && std::env::var("SURREALDB_PASSWORD").is_err()
+    {
+        client = client.with_password("cynic");
+    }
+    (ep, client)
+}
+
 pub fn execute_storage(command: StorageCommand) -> ExitCode {
-    match command {
+    tokio::task::block_in_place(|| match command {
         StorageCommand::Ping { json: _, endpoint } => {
-            let ep = endpoint.map(|s| s.to_string()).or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok()).or_else(|| std::env::var("SURREALDB_URL").ok()).unwrap_or_else(|| crate::runtime_surface::resolve_surrealdb_endpoint());
-            let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
-            let client = cynic_storage::SurrealHttpClient::new(config);
+            let (_ep, client) = get_client(endpoint);
             match cynic_storage::SurrealStoragePort::check_health(&client) {
                 Ok(report) => emit_json(&report, !report.healthy),
+                Err(e) => fail(e),
+            }
+        }
+        StorageCommand::Sync { json: _, endpoint } => {
+            let (ep, client) = get_client(endpoint);
+            match sync::execute_storage_sync(&client, &ep) {
+                Ok(report) => emit_json(&report, false),
                 Err(e) => fail(e),
             }
         }
@@ -55,9 +84,7 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
             sql,
             endpoint,
         } => {
-            let ep = endpoint.map(|s| s.to_string()).or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok()).or_else(|| std::env::var("SURREALDB_URL").ok()).unwrap_or_else(|| crate::runtime_surface::resolve_surrealdb_endpoint());
-            let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
-            let client = cynic_storage::SurrealHttpClient::new(config);
+            let (_ep, client) = get_client(endpoint);
             match cynic_storage::SurrealStoragePort::execute_sql(&client, &sql) {
                 Ok(results) => emit_json(&results, false),
                 Err(e) => fail(e),
@@ -81,5 +108,5 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
                 Err(e) => fail(e),
             }
         }
-    }
+    })
 }
