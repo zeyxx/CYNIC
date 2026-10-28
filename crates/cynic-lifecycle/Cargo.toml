@@ -11,6 +11,7 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-process = { path = "../cynic-process" }
 cynic-types = { path = "../cynic-types" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-build = { path = "../cynic-build" }

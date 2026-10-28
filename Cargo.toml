@@ -20,6 +20,7 @@ members = [
     "crates/cynic-build",
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",
+    "crates/cynic-process",
     "crates/cynic-network",
     "crates/cynic-eval",
     "crates/cynic-consensus",
