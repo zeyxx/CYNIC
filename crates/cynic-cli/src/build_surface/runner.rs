@@ -914,7 +914,21 @@ pub(crate) fn run_build(
         .observe()
         .map_err(|e| format!("observation failed: {e}"))?;
 
-    let runner = LocalArgvRunner;
+struct LocalBuildRunner;
+
+impl cynic_build::BuildRunner for LocalBuildRunner {
+    fn run_command(&self, argv: &[&str]) -> cynic_build::ports::BuildCommandOutput {
+        let out = cynic_lifecycle::LocalArgvRunner.run(argv);
+        cynic_build::ports::BuildCommandOutput {
+            exit_code: out.exit_code,
+            stdout: out.stdout,
+            stderr: out.stderr,
+            spawn_error: out.spawn_error,
+        }
+    }
+}
+
+    let runner = LocalBuildRunner;
     // Build lease is verified by the build runner node itself (cynic-node),
     // not by an external coordination service (kernel). The kernel is retired.
     let lease_adapter = cynic_host::build_evidence::NodeBuildLeaseVerificationAdapter;
