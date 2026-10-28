@@ -27,37 +27,32 @@ pub(crate) fn execute_allocate_worktree(
             }
         };
 
-    // Ensure parent directory exists
-    if let Some(parent) = plan.target_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-
-    // Execute through cynic-host's runner
+    // Execute through the L2 allocation function
     let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
-    let argv_slices: Vec<&str> = plan.argv.iter().map(|s| s.as_str()).collect();
-    let output = cynic_vcs::ArgvRunner::run(&runner, &argv_slices);
-
-    if !output.success() {
-        eprintln!("blocked: git worktree add failed: {}", output.summary());
-        return ExitCode::FAILURE;
-    }
+    let receipt = match cynic_vcs::isolated_worktree::execute_worktree_allocation(&plan, &runner) {
+        Ok(r) => r,
+        Err(err) => {
+            eprintln!("blocked: git worktree add failed: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     if json {
         emit_pretty_json(&serde_json::json!({
-            "schema": "cynic.vcs.isolated_worktree_allocated.v1",
-            "status": "allocated",
-            "branch": plan.branch,
-            "base_ref": plan.base_ref,
-            "target_path": plan.target_path,
+            "schema": receipt.schema,
+            "status": receipt.status,
+            "branch": receipt.branch,
+            "base_ref": receipt.base_ref,
+            "target_path": receipt.target_path,
         }))
     } else {
         println!("=== Isolated Worktree Allocated ===");
-        println!("Branch:      {}", plan.branch);
-        println!("Base Ref:    {}", plan.base_ref);
-        println!("Target Path: {}", plan.target_path.display());
+        println!("Branch:      {}", receipt.branch);
+        println!("Base Ref:    {}", receipt.base_ref);
+        println!("Target Path: {}", receipt.target_path.display());
         println!(
             "\nWork in isolation with: cd {}",
-            plan.target_path.display()
+            receipt.target_path.display()
         );
         ExitCode::SUCCESS
     }

@@ -6,41 +6,18 @@ use std::process::ExitCode;
 use crate::cli_json::emit_pretty_json;
 
 pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
     let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
-    let (head_sha, snapshots) =
-        cynic_vcs::source_worktree_cli::observe_worktree_convergence_snapshots(
-            root,
-            workspace_store,
-            &runner,
-            now_ms,
-        );
-    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    let default_branch = "main".to_string();
-    let plan = cynic_vcs::source_worktree_cli::plan_worktree_convergence(
-        root_canonical,
-        default_branch.clone(),
-        head_sha.clone(),
-        &snapshots,
-    );
+    let plan = cynic_vcs::source_worktree_cli::run_worktree_convergence_plan(root, workspace_store, &runner);
 
     if apply {
-        let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let proof = cynic_vcs::reconcile::apply_worktree_convergence(&plan, &runner, false, now);
+        let proof = cynic_vcs::source_worktree_cli::apply_worktree_convergence_plan(&plan, &runner, false);
 
         if json {
             emit_pretty_json(&proof)
         } else {
             println!("=== CYNIC Worktree Convergence Execution Journal ===");
             println!("Repository: {}", root.display());
-            println!("Main HEAD:  {}", head_sha);
+            println!("Main HEAD:  {}", plan.main_head_sha);
             println!("Actions Executed ({}):", proof.executed_actions.len());
             for (idx, action) in proof.executed_actions.iter().enumerate() {
                 let status_sym = if action.success { "✓" } else { "✗" };
@@ -75,6 +52,8 @@ pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool,
             }
         }
     } else {
+        let default_branch = &plan.default_branch;
+        let head_sha = &plan.main_head_sha;
         if json {
             emit_pretty_json(&plan)
         } else {
@@ -141,20 +120,6 @@ pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool,
                         println!("      Reason:   {}", reason);
                     }
                 }
-            }
-
-            // Reinforcement: warn about dirty unclaimed worktrees (potential drift).
-            let dirty_unclaimed: Vec<_> = snapshots
-                .iter()
-                .filter(|s| s.dirty_file_count > 0)
-                .collect();
-            if !dirty_unclaimed.is_empty() {
-                println!();
-                println!("WARNING: {} dirty worktree(s) detected (potential unclaimed mutation):", dirty_unclaimed.len());
-                for s in &dirty_unclaimed {
-                    println!("  - {} (dirty_files={})", s.branch.as_deref().unwrap_or("<detached>"), s.dirty_file_count);
-                }
-                println!("  These worktrees carry uncommitted changes. Claim scope before mutation (AGENTS.md).");
             }
 
             println!();

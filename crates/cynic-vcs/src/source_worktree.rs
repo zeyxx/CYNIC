@@ -104,6 +104,8 @@ pub struct WorktreeConvergenceApplyProof {
     pub all_successful: bool,
 }
 
+pub type WorktreeConvergenceProof = WorktreeConvergenceApplyProof;
+
 /// Pure zero-I/O reconciliation function.
 /// Fresh worktrees are never pruned: an agent that just created its
 /// workspace must not lose it to a concurrent convergence pass before it
