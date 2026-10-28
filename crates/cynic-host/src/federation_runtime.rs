@@ -178,24 +178,10 @@ impl KernelReachabilityObserver {
 
 impl KernelObserver for KernelReachabilityObserver {
     fn observe_kernel(&self) -> KernelObservation {
-        let mut reachable = false;
-        for port in &self.kernel_ports {
-            let addr = format!("{}:{}", self.kernel_ip, port);
-            if let Ok(socket_addr) = addr.parse() {
-                if std::net::TcpStream::connect_timeout(
-                    &socket_addr,
-                    std::time::Duration::from_millis(self.timeout_ms),
-                )
-                .is_ok()
-                {
-                    reachable = true;
-                    break;
-                }
-            }
-        }
+        // Kernel is retired. Node is always autonomous.
         KernelObservation {
-            reachable,
-            lease_valid: reachable, // simplified: reachable implies valid lease
+            reachable: false,
+            lease_valid: false,
         }
     }
 }
