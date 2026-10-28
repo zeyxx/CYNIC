@@ -14,7 +14,12 @@ pub use dns as dns_resolver;
 pub use dns::activation as dns_activation;
 pub mod firewall_policy;
 pub mod freebox;
+pub mod peer_handshake;
+pub use peer_handshake::*;
+pub mod mesh;
 pub mod mesh_bundle;
+pub mod notification_outbox;
+pub use notification_outbox::*;
 pub mod mesh_plan;
 pub mod fleet_membership;
 pub mod plane_vocabulary;
@@ -26,6 +31,7 @@ pub mod telemetry;
 pub mod transport_readback;
 pub mod transport_security;
 pub mod types;
+pub mod usecases;
 pub mod watchdog_alerter;
 
 // Re-export adapters for direct and legacy access
@@ -50,6 +56,7 @@ pub use freebox::{
     FreeboxWanStatus, FREEBOX_DMZ_CONFIG_SCHEMA, FREEBOX_NAT_RULE_SCHEMA,
     FREEBOX_WAN_STATUS_SCHEMA,
 };
+pub use mesh::*;
 pub use mesh_bundle::*;
 pub use mesh_plan::*;
 pub use registry_maintenance::*;

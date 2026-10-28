@@ -6,55 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_host::process_observation::capture_command;
 use cynic_host::runtime_layout::current_runtime_layout;
-use serde::Serialize;
 
-pub const PEER_HANDSHAKE_SCHEMA: &str = "cynic.wg_peer_handshake_observation.v1";
-
-// ---------------------------------------------------------------------------
-// Output types
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WireguardHandshakeObservation {
-    pub schema: &'static str,
-    pub interface: String,
-    pub observed_at_unix_s: u64,
-    pub peers: Vec<PeerHandshakeStatus>,
-    /// Number of peers whose handshake age exceeds `stale_threshold_s`.
-    pub stale_count: usize,
-    /// Number of peers whose handshake age exceeds `dead_threshold_s`.
-    pub dead_count: usize,
-    pub ok_count: usize,
-    /// Peers that have never completed a handshake (`last_handshake_unix_s == 0`).
-    pub unknown_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct PeerHandshakeStatus {
-    /// First 16 chars of the public key — enough to identify in logs without
-    /// leaking the full key into observation JSON.
-    pub public_key_prefix: String,
-    pub last_handshake_unix_s: u64,
-    pub age_s: u64,
-    pub state: HandshakeState,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum HandshakeState {
-    Ok,
-    Stale,
-    Dead,
-    NeverSeen,
-}
-
-// ---------------------------------------------------------------------------
-// Port trait — enables unit tests without a real `wg` binary
-// ---------------------------------------------------------------------------
-
-pub trait PeerHandshakePort {
-    fn observe(&self, interface: &str, stale_s: u64, dead_s: u64) -> WireguardHandshakeObservation;
-}
+pub use cynic_network::peer_handshake::*;
+pub use cynic_network::PEER_HANDSHAKE_SCHEMA;
 
 /// Production implementation: shells out to the `wg` binary resolved from the
 /// current runtime layout.
