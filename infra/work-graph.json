@@ -472,6 +472,60 @@
       "state": "deferred",
       "probe": null,
       "note": "line 334 'inattaquables' to soften; FR.html to regenerate"
+    },
+    {
+      "id": "S1",
+      "kind": "issue",
+      "title": "cynic-storage domain schism: Proxmox host volume controller mixed with SMR binary WAL and RAG vector buffers",
+      "state": "open",
+      "evidence": "crates/cynic-storage contains storage_controller_uc, proxmox_storage traits, alongside binary wal and simd vector buffer",
+      "probe": null,
+      "note": "Proxmox LVM/ZFS storage management belongs in cynic-host/cynic-node, separate from cryptographic persistence"
+    },
+    {
+      "id": "S2",
+      "kind": "issue",
+      "title": "WAL fragmentation and duplication across 4 separate append-only journals",
+      "state": "open",
+      "evidence": "WalFsAdapter (binary), LocalEvidenceSpool (jsonl), PeerWalFile, and docs/observations/wal.jsonl coexist without unified reader",
+      "probe": null,
+      "note": "Unify all journal writers/readers under cynic-protocol::AppendOnlyJournal port"
+    },
+    {
+      "id": "S3",
+      "kind": "issue",
+      "title": "SurrealDB zombie coupling persists in cynic-storage/src/surreal and cynic-cli storage surface",
+      "state": "open",
+      "evidence": "SurrealHttpClient and SurrealStoragePort invoked in cynic-cli/src/storage_surface and runtime_surface despite SPEC-CYNIC-STORAGE-V1",
+      "probe": null,
+      "note": "Remove legacy SurrealDB HTTP client and redirect cynic storage CLI commands to embedded SQLite/WAL inspect"
+    },
+    {
+      "id": "S4",
+      "kind": "issue",
+      "title": "RAG knowledge pipeline decoupled from agent state persistence",
+      "state": "open",
+      "evidence": "RAG has dense SIMD vectors, BM25, and reranker, while agent sessions live in RAM/Surreal and claims live in raw Git JSON",
+      "probe": null,
+      "note": "Agent states, claims, and memory crystals need formal SMR event reducers rather than ad-hoc git JSON mutations"
+    },
+    {
+      "id": "S5",
+      "kind": "issue",
+      "title": "SqliteProjectionAdapter implemented but unwired to domain consumers",
+      "state": "open",
+      "evidence": "crates/cynic-storage/src/projection has SqliteProjectionAdapter, but no crate outside cynic-storage tests queries it",
+      "probe": null,
+      "note": "Domain state machines (agent sessions, node status, task queue) lack active projection reducers reading from the WAL"
+    },
+    {
+      "id": "S6",
+      "kind": "issue",
+      "title": "CLI storage surface sprawl across 4 competing command families",
+      "state": "open",
+      "evidence": "crates/cynic-cli implements storage subcommands across storage_surface, runtime_surface, node_surface, and host_surface with duplicate ping/query/capabilities",
+      "probe": null,
+      "note": "Harmonize all storage interactions under canonical cynic storage family; respect no_hyphen_in_cli_commands constitutional law"
     }
   ],
   "hyperedges": [
