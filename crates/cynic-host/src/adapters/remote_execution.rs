@@ -1,5 +1,7 @@
 use crate::ports::RemoteExecutionPort;
 
+use cynic_ssh::argv::{scp_argv, ssh_argv};
+
 /// SSH argv adapter used by the current registered transport profile.
 ///
 /// The framework policy never owns these flags; replacing SSH with an agent
@@ -18,55 +20,18 @@ pub fn remote_execution_adapter(
 
 impl RemoteExecutionPort for SshRemoteExecutionAdapter {
     fn exec_argv(&self, target: &str, remote_argv: &[&str]) -> Result<Vec<String>, String> {
-        validate_target(target)?;
         if remote_argv.is_empty() || remote_argv.iter().any(|arg| arg.is_empty()) {
             return Err("remote_execution_argv_missing".to_string());
         }
-        let mut argv = vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            "-o".to_string(),
-            "ConnectTimeout=10".to_string(),
-            target.to_string(),
-        ];
-        argv.extend(remote_argv.iter().map(|argument| (*argument).to_string()));
-        Ok(argv)
+        ssh_argv(target, remote_argv).map_err(|_| "remote_execution_target_invalid".to_string())
     }
 
     fn copy_argv(&self, source: &str, target: &str) -> Result<Vec<String>, String> {
-        validate_target(target)?;
-        if source.is_empty() || source.starts_with('-') || target.contains(char::is_whitespace) {
+        if source.is_empty() || source.starts_with('-') {
             return Err("remote_execution_copy_path_invalid".to_string());
         }
-        Ok(vec![
-            "scp".to_string(),
-            "-r".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            "-o".to_string(),
-            "ConnectTimeout=10".to_string(),
-            source.to_string(),
-            target.to_string(),
-        ])
+        scp_argv(source, target).map_err(|_| "remote_execution_copy_path_invalid".to_string())
     }
-}
-
-fn validate_target(target: &str) -> Result<(), String> {
-    if target.trim().is_empty()
-        || target.starts_with('-')
-        || target.contains(char::is_whitespace)
-        || target
-            .chars()
-            .any(|character| ";|&$()<>".contains(character))
-    {
-        return Err("remote_execution_target_invalid".to_string());
-    }
-    Ok(())
 }
 
 #[cfg(test)]

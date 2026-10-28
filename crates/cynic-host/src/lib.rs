@@ -99,8 +99,8 @@ pub mod source_sync;
 pub mod source_worktree;
 pub mod space_gc;
 
-pub mod ssh_config;
-pub mod ssh_trust;
+pub use cynic_ssh::config as ssh_config;
+pub use cynic_ssh::trust as ssh_trust;
 pub mod storage_capabilities;
 pub mod storage_credential_sync;
 pub(crate) mod storage_identity;

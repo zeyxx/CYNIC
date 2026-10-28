@@ -32,7 +32,6 @@ pub(crate) enum GitCommand {
 #[derive(Debug, Subcommand)]
 pub(crate) enum GitBranchCommand {
     /// Branch graph (parent inference) — thin via LocalBranchGraphAdapter.
-    #[command(alias = "graph")]
     Graph {
         #[arg(long)]
         json: bool,

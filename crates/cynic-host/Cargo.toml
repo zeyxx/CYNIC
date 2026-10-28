@@ -23,6 +23,7 @@ cynic-build = { path = "../cynic-build" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
+cynic-ssh = { path = "../cynic-ssh" }
 cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }
 cynic-lxc = { path = "../cynic-lxc" }

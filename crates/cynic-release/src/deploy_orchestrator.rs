@@ -27,7 +27,7 @@ use crate::deploy_locations::{DeployLayout, DeployMachine, DeployLocationsContra
 use crate::deploy_remote::{
     backup_path_for, build_backup_command, build_identity_command, build_sha256_command,
     build_smoke_command, build_stage_command, build_swap_command, parse_identity_git_sha,
-    parse_sha256, DeployStepReport, Readback, RemoteCommand, RemoteExecutorPort, RemoteOutcome,
+    parse_sha256, Readback, RemoteCommand, RemoteExecutorPort, RemoteOutcome,
     TransportForm,
 };
 use crate::deploy_ssh::transport_for;
@@ -215,7 +215,7 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
         }
     };
     let stage = build_stage_command(state_root, &artifact.tag);
-    let stage_outcome = executor.run(machine, &stage);
+    let stage_outcome = executor.run(&machine.ssh_target, &stage);
     if !stage_outcome.success() {
         outcome.failure = Some(GateFailure::Unreachable(format!(
             "staging directory creation failed: {}",
@@ -226,7 +226,7 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
 
     // Step 2: read the live binary's sha256, so the backup is named after
     // the bytes it actually holds.
-    let live_sha = match executor.run(machine, &sha_command(&deploy_path_ref)) {
+    let live_sha = match executor.run(&machine.ssh_target, &sha_command(&deploy_path_ref)) {
         RemoteOutcome {
             exit_code: 0,
             stdout,
@@ -247,7 +247,7 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
     // Step 3: back the live binary up. A deploy without a backup cannot be
     // undone, so the backup is not optional.
     let backup = backup_path_for(&machine.backup_pattern, &deploy_path_ref, &live_sha);
-    let backup_outcome = executor.run(machine, &build_backup_command(&deploy_path_ref, &backup));
+    let backup_outcome = executor.run(&machine.ssh_target, &build_backup_command(&deploy_path_ref, &backup));
     if !backup_outcome.success() {
         outcome.failure = Some(GateFailure::Swap(format!(
             "backup failed: {}",
@@ -274,7 +274,7 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
             return outcome;
         }
     };
-    let swap_outcome = executor.run(machine, &swap);
+    let swap_outcome = executor.run(&machine.ssh_target, &swap);
     if !swap_outcome.success() {
         outcome.failure = Some(GateFailure::Swap(format!(
             "swap failed: exit={} {}",
@@ -286,7 +286,7 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
     outcome.swapped = true;
 
     // Step 5: read back — three independent observations.
-    let observed_sha = match executor.run(machine, &sha_command(&deploy_path_ref)) {
+    let observed_sha = match executor.run(&machine.ssh_target, &sha_command(&deploy_path_ref)) {
         RemoteOutcome {
             exit_code: 0,
             stdout,
@@ -302,9 +302,9 @@ pub fn deploy_to_machine<E: RemoteExecutorPort>(
             return outcome;
         }
     };
-    let identity = executor.run(machine, &build_identity_command(&deploy_path_ref));
+    let identity = executor.run(&machine.ssh_target, &build_identity_command(&deploy_path_ref));
     let observed_git_sha = parse_identity_git_sha(&identity.stdout).unwrap_or_default();
-    let smoke = executor.run(machine, &build_smoke_command(&deploy_path_ref));
+    let smoke = executor.run(&machine.ssh_target, &build_smoke_command(&deploy_path_ref));
     outcome.readback = Some(Readback {
         sha256: observed_sha.clone(),
         git_sha: observed_git_sha.clone(),
@@ -398,7 +398,7 @@ mod tests {
     }
 
     impl RemoteExecutorPort for FakeExecutor {
-        fn run(&self, _target: &DeployMachine, command: &RemoteCommand) -> RemoteOutcome {
+        fn run(&self, _target: &str, command: &RemoteCommand) -> RemoteOutcome {
             self.seen.borrow_mut().push(command.argv.clone());
             let script = command.argv.get(2).cloned().unwrap_or_default();
             if command.argv[0] == "sha256sum" {

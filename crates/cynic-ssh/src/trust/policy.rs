@@ -1,10 +1,16 @@
-use crate::clock::now_unix_ms;
-use crate::transport::SshTargetInspectionReport;
+use crate::inspection::SshTargetInspectionReport;
 
 use super::types::{
     SSH_TRUST_ADMISSION_SCHEMA, SSH_TRUST_VERIFICATION_MAX_AGE_MS, SSH_TRUST_VERIFICATION_SCHEMA,
     SshTrustAdmissionReport, SshTrustAnchor, SshTrustStore, SshTrustVerification,
 };
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
+}
 
 pub fn verify_ssh_target_trust(
     inspection: &SshTargetInspectionReport,
@@ -173,7 +179,7 @@ pub fn plan_ssh_trust_admission(
 
 #[cfg(test)]
 mod tests {
-    use crate::transport::{
+    use crate::inspection::{
         ExecutableObservation, SshHostKeyObservation, SshTargetInspectionReport,
     };
 

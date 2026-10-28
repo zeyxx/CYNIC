@@ -878,6 +878,7 @@ dependencies = [
  "cynic-release",
  "cynic-sandbox",
  "cynic-secrets",
+ "cynic-ssh",
  "cynic-storage",
  "cynic-types",
  "cynic-vcs",
@@ -893,7 +894,6 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "sha1 0.11.0",
  "sha2 0.11.1",
  "sysinfo 0.39.6",
  "tempfile",
@@ -1099,10 +1099,12 @@ dependencies = [
  "cynic-types",
  "dirs",
  "hex",
+ "hmac",
  "regex",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
+ "sha1 0.11.0",
  "sysinfo 0.37.2",
  "tempfile",
  "thiserror 2.0.21",
@@ -1140,6 +1142,7 @@ dependencies = [
  "cynic-release",
  "cynic-sandbox",
  "cynic-secrets",
+ "cynic-ssh",
  "cynic-storage",
  "cynic-supervisor",
  "cynic-types",
@@ -1262,6 +1265,7 @@ name = "cynic-release"
 version = "0.9.0"
 dependencies = [
  "cynic-protocol",
+ "cynic-ssh",
  "regex",
  "serde",
  "serde_json",
@@ -1301,6 +1305,17 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "zeroize",
+]
+
+[[package]]
+name = "cynic-ssh"
+version = "0.9.0"
+dependencies = [
+ "cynic-protocol",
+ "cynic-types",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

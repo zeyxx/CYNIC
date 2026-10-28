@@ -31,45 +31,7 @@ use crate::deploy_locations::{DeployLayout, DeployMachine};
 /// Schema of the remote deploy report.
 pub const REMOTE_DEPLOY_REPORT_SCHEMA: &str = "cynic.release.remote_deploy_report.v1";
 
-/// How a command was carried to the target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TransportForm {
-    /// The target is the machine this process runs on.
-    Local,
-    /// The target is reached over SSH.
-    Ssh,
-}
-
-/// A command to run on a target.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RemoteCommand {
-    /// The program and its arguments, exactly, with no shell involved.
-    pub argv: Vec<String>,
-}
-
-/// The result of running a command on a target.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RemoteOutcome {
-    /// Exit code of the command (or 255 when the transport itself failed).
-    pub exit_code: i32,
-    pub stdout: String,
-    pub stderr: String,
-    /// True when the command could not be started at all.
-    pub transport_failed: bool,
-}
-
-impl RemoteOutcome {
-    pub fn success(&self) -> bool {
-        !self.transport_failed && self.exit_code == 0
-    }
-}
-
-/// A transport that can run a command on a target.
-pub trait RemoteExecutorPort {
-    /// Run a command on the target, returning the observed outcome.
-    fn run(&self, target: &DeployMachine, command: &RemoteCommand) -> RemoteOutcome;
-}
+pub use cynic_ssh::{RemoteCommand, RemoteExecutorPort, RemoteOutcome, TransportForm};
 
 /// One measured fact read back from a target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

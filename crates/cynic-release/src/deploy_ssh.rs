@@ -24,16 +24,8 @@ use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
 use crate::deploy_locations::DeployMachine;
 use crate::deploy_remote::{RemoteCommand, RemoteExecutorPort, RemoteOutcome, TransportForm};
-
-/// SSH options every remote command carries.
-pub const SSH_BATCH_OPTIONS: [&str; 6] = [
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=yes",
-    "-o",
-    "ConnectTimeout=10",
-];
+use cynic_ssh::options::SSH_BATCH_OPTIONS;
+use cynic_ssh::argv::validate_remote_script as ssh_validate_remote_script;
 
 /// The endpoints to try for a machine, in order.
 pub fn endpoint_candidates(machine: &DeployMachine) -> Vec<String> {
@@ -61,13 +53,7 @@ pub fn is_local(machine: &DeployMachine) -> bool {
 
 /// Refuse a remote script that could execute more than one command.
 pub fn validate_remote_script(script: &str) -> Result<(), String> {
-    if script.contains('\n') || script.contains('\r') {
-        return Err("remote script must be a single line".to_string());
-    }
-    if script.contains('\0') {
-        return Err("remote script must not contain NUL".to_string());
-    }
-    Ok(())
+    ssh_validate_remote_script(script)
 }
 
 /// The SSH argv for a remote command.
@@ -121,16 +107,16 @@ impl<R: ArgvRunner> SshRemoteExecutor<R> {
         self
     }
 
-    fn candidates(&self, machine: &DeployMachine) -> Vec<String> {
+    fn candidates(&self, target: &str) -> Vec<String> {
         if !self.endpoints.is_empty() {
             return self.endpoints.clone();
         }
-        endpoint_candidates(machine)
+        vec![target.to_string()]
     }
 }
 
 impl<R: ArgvRunner> RemoteExecutorPort for SshRemoteExecutor<R> {
-    fn run(&self, target: &DeployMachine, command: &RemoteCommand) -> RemoteOutcome {
+    fn run(&self, target: &str, command: &RemoteCommand) -> RemoteOutcome {
         let mut last = RemoteOutcome {
             exit_code: 255,
             stdout: String::new(),
@@ -196,7 +182,7 @@ impl<R: ArgvRunner> LocalRemoteExecutor<R> {
 }
 
 impl<R: ArgvRunner> RemoteExecutorPort for LocalRemoteExecutor<R> {
-    fn run(&self, _target: &DeployMachine, command: &RemoteCommand) -> RemoteOutcome {
+    fn run(&self, _target: &str, command: &RemoteCommand) -> RemoteOutcome {
         if command.argv.is_empty() {
             return RemoteOutcome {
                 exit_code: 255,
