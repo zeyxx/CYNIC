@@ -13,7 +13,7 @@ use crate::dns_contract::{
 };
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
 
-use super::types::{DnsActivationFileSpec, DnsActivationSpec};
+use cynic_network::dns_activation::{DnsActivationFileSpec, DnsActivationSpec};
 use cynic_network::dns::{SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
 
 pub(crate) fn resolve_dns_activation_spec(

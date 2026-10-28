@@ -2,7 +2,7 @@ use super::types::{
     DnsActivationAction, DnsActivationObservation, DnsActivationPlan, DnsActivationSpec,
 };
 
-pub(crate) fn plan_dns_activation(
+pub fn plan_dns_activation(
     spec: &DnsActivationSpec,
     observation: &DnsActivationObservation,
 ) -> DnsActivationPlan {
@@ -103,7 +103,7 @@ fn safe_absolute_path(path: &std::path::Path) -> bool {
         })
 }
 
-pub(super) fn activation_argv(spec: &DnsActivationSpec) -> Vec<Vec<String>> {
+pub fn activation_argv(spec: &DnsActivationSpec) -> Vec<Vec<String>> {
     vec![
         vec![
             spec.service_manager_bin.clone(),

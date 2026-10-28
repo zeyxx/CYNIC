@@ -8,13 +8,13 @@ use sha2::Digest;
 
 use super::types::DnsActivationSpec;
 
-pub(super) struct Backup {
+pub struct Backup {
     path: PathBuf,
     bytes: Option<Vec<u8>>,
     mode: Option<u32>,
 }
 
-pub(super) fn capture_backups(spec: &DnsActivationSpec) -> Result<Vec<Backup>, String> {
+pub fn capture_backups(spec: &DnsActivationSpec) -> Result<Vec<Backup>, String> {
     spec.files
         .iter()
         .map(|file| {
@@ -41,7 +41,7 @@ pub(super) fn capture_backups(spec: &DnsActivationSpec) -> Result<Vec<Backup>, S
         .collect()
 }
 
-pub(super) fn rollback_files_and_directories(
+pub fn rollback_files_and_directories(
     backups: &[Backup],
     created_directories: &[PathBuf],
 ) -> Result<(), String> {
@@ -66,7 +66,7 @@ pub(super) fn rollback_files_and_directories(
     }
 }
 
-pub(super) fn missing_parent_directories(spec: &DnsActivationSpec) -> Result<Vec<PathBuf>, String> {
+pub fn missing_parent_directories(spec: &DnsActivationSpec) -> Result<Vec<PathBuf>, String> {
     let mut missing = BTreeSet::new();
     for file in &spec.files {
         let parent = Path::new(&file.target)
@@ -79,7 +79,7 @@ pub(super) fn missing_parent_directories(spec: &DnsActivationSpec) -> Result<Vec
     Ok(paths)
 }
 
-pub(super) fn atomic_install(
+pub fn atomic_install(
     source: &Path,
     target: &Path,
     mode: u32,

@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct DnsActivationFileSpec {
+pub struct DnsActivationFileSpec {
     pub source: String,
     pub target: String,
     pub sha256: String,
@@ -9,7 +9,7 @@ pub(crate) struct DnsActivationFileSpec {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct DnsActivationSpec {
+pub struct DnsActivationSpec {
     pub schema: &'static str,
     pub zone: String,
     pub bundle_dir: String,
@@ -27,7 +27,7 @@ pub(crate) struct DnsActivationSpec {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct DnsActivationFileObservation {
+pub struct DnsActivationFileObservation {
     pub target: String,
     pub present: bool,
     pub regular: bool,
@@ -38,7 +38,7 @@ pub(crate) struct DnsActivationFileObservation {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct DnsActivationObservation {
+pub struct DnsActivationObservation {
     pub schema: &'static str,
     pub files: Vec<DnsActivationFileObservation>,
     pub service_active: Option<bool>,
@@ -50,38 +50,38 @@ pub(crate) struct DnsActivationObservation {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub(crate) enum DnsActivationAction {
+pub enum DnsActivationAction {
     InstallFile { source: String, target: String },
     ExecuteArgv { argv: Vec<String> },
     ObserveReadBack,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct DnsActivationPlan {
-    pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) mutates: bool,
-    pub(crate) zone: String,
-    pub(crate) provider: String,
-    pub(crate) actions: Vec<DnsActivationAction>,
-    pub(crate) blockers: Vec<String>,
-    pub(crate) unknowns: Vec<String>,
-    pub(crate) evidence_refs: Vec<String>,
-    pub(crate) rollback_intent: &'static str,
+pub struct DnsActivationPlan {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub mutates: bool,
+    pub zone: String,
+    pub provider: String,
+    pub actions: Vec<DnsActivationAction>,
+    pub blockers: Vec<String>,
+    pub unknowns: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub rollback_intent: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct DnsActivationApplyReport {
-    pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) mutates: bool,
-    pub(crate) requested_apply: bool,
-    pub(crate) plan: DnsActivationPlan,
-    pub(crate) before: DnsActivationObservation,
-    pub(crate) after: Option<DnsActivationObservation>,
-    pub(crate) rollback_after: Option<DnsActivationObservation>,
-    pub(crate) executed_argv: Vec<Vec<String>>,
-    pub(crate) rolled_back: bool,
-    pub(crate) blockers: Vec<String>,
-    pub(crate) rollback_intent: &'static str,
+pub struct DnsActivationApplyReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub mutates: bool,
+    pub requested_apply: bool,
+    pub plan: DnsActivationPlan,
+    pub before: DnsActivationObservation,
+    pub after: Option<DnsActivationObservation>,
+    pub rollback_after: Option<DnsActivationObservation>,
+    pub executed_argv: Vec<Vec<String>>,
+    pub rolled_back: bool,
+    pub blockers: Vec<String>,
+    pub rollback_intent: &'static str,
 }

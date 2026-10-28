@@ -5,7 +5,7 @@ use cynic_process::ArgvRunner;
 use super::filesystem::{Backup, rollback_files_and_directories};
 use super::types::{DnsActivationObservation, DnsActivationSpec};
 
-pub(super) fn rollback_after_activation(
+pub fn rollback_after_activation(
     spec: &DnsActivationSpec,
     before: &DnsActivationObservation,
     backups: &[Backup],
@@ -91,7 +91,7 @@ pub(super) fn rollback_after_activation(
     }
 }
 
-pub(super) fn rollback_matches(
+pub fn rollback_matches(
     before: &DnsActivationObservation,
     after: &DnsActivationObservation,
 ) -> bool {
