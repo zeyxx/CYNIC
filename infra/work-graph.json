@@ -526,6 +526,15 @@
       "evidence": "crates/cynic-cli implements storage subcommands across storage_surface, runtime_surface, node_surface, and host_surface with duplicate ping/query/capabilities",
       "probe": null,
       "note": "Harmonize all storage interactions under canonical cynic storage family; respect no_hyphen_in_cli_commands constitutional law"
+    },
+    {
+      "id": "S7",
+      "kind": "issue",
+      "title": "Thin CLI Surface violation: vertically extract KnowCommand::Ask into cynic-knowledge::domain::oracle",
+      "state": "open",
+      "evidence": "crates/cynic-cli/src/knowledge_surface.rs embeds ~300 lines of streaming HTTP inference, API key discovery, and graph traversal orchestration",
+      "probe": null,
+      "note": "Move domain orchestration from CLI to cynic-knowledge library; keep CLI as a thin argv parser only"
     }
   ],
   "hyperedges": [

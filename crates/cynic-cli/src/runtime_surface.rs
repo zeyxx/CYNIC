@@ -567,62 +567,58 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             let json = profile.json;
             host_checks::execute_metrics(json, &profile, proof.as_deref())
         }
-        RuntimeCommand::Storage { command } => match command {
-            RuntimeStorageCommand::Capabilities { json, url } => {
-                crate::storage_surface::execute_storage(
-                    crate::storage_surface::StorageCommand::Capabilities { json, url },
-                )
-            }
-            RuntimeStorageCommand::Credential { json, endpoint } => {
-                match execute_storage_credential_sync(json, endpoint.as_deref()) {
-                    Ok(()) => ExitCode::SUCCESS,
-                    Err(e) => fail(e),
+        RuntimeCommand::Storage { command } => {
+            eprintln!("cynic: 'runtime storage' is deprecated; use canonical 'cynic storage' directly");
+            match command {
+                RuntimeStorageCommand::Capabilities { json, url } => {
+                    crate::storage_surface::execute_storage(
+                        crate::storage_surface::StorageCommand::Capabilities { json, url },
+                    )
                 }
-            }
-            RuntimeStorageCommand::Client {
-                command:
-                    RuntimeStorageClientCommand::Policy {
-                        command:
-                            RuntimeStorageClientPolicyCommand::Set {
-                                policy_path,
-                                endpoints,
-                                timeout_ms,
-                                write_quorum,
-                                apply,
-                                json,
-                            },
+                RuntimeStorageCommand::Credential { json, endpoint } => {
+                    crate::storage_surface::execute_storage(
+                        crate::storage_surface::StorageCommand::Credential { json, endpoint },
+                    )
+                }
+                RuntimeStorageCommand::Ping { json, endpoint } => {
+                    crate::storage_surface::execute_storage(
+                        crate::storage_surface::StorageCommand::Ping { json, endpoint },
+                    )
+                }
+                RuntimeStorageCommand::Query {
+                    json,
+                    sql,
+                    endpoint,
+                } => crate::storage_surface::execute_storage(
+                    crate::storage_surface::StorageCommand::Query {
+                        json,
+                        sql,
+                        endpoint,
                     },
-            } => storage_topology::execute_client_policy_set(
-                &policy_path,
-                &endpoints,
-                timeout_ms,
-                write_quorum,
-                apply,
-                json,
-            ),
-            RuntimeStorageCommand::Ping { json: _, endpoint } => {
-                let ep = endpoint.map(|s| s.to_string()).or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok()).or_else(|| std::env::var("SURREALDB_URL").ok()).unwrap_or_else(|| resolve_surrealdb_endpoint());
-                let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
-                let client = cynic_storage::SurrealHttpClient::new(config);
-                match cynic_storage::SurrealStoragePort::check_health(&client) {
-                    Ok(report) => emit_json(&report, !report.healthy),
-                    Err(e) => fail(e),
-                }
+                ),
+                RuntimeStorageCommand::Client {
+                    command:
+                        RuntimeStorageClientCommand::Policy {
+                            command:
+                                RuntimeStorageClientPolicyCommand::Set {
+                                    policy_path,
+                                    endpoints,
+                                    timeout_ms,
+                                    write_quorum,
+                                    apply,
+                                    json,
+                                },
+                        },
+                } => storage_topology::execute_client_policy_set(
+                    &policy_path,
+                    &endpoints,
+                    timeout_ms,
+                    write_quorum,
+                    apply,
+                    json,
+                ),
             }
-            RuntimeStorageCommand::Query {
-                json: _,
-                sql,
-                endpoint,
-            } => {
-                let ep = endpoint.map(|s| s.to_string()).or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok()).or_else(|| std::env::var("SURREALDB_URL").ok()).unwrap_or_else(|| resolve_surrealdb_endpoint());
-                let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
-                let client = cynic_storage::SurrealHttpClient::new(config);
-                match cynic_storage::SurrealStoragePort::execute_sql(&client, &sql) {
-                    Ok(results) => emit_json(&results, false),
-                    Err(e) => fail(e),
-                }
-            }
-        },
+        }
         RuntimeCommand::Execution {
             command: RuntimeExecutionCommand::Context { json, hosts },
         } => execution_context::execute_execution_context(json, &hosts),
