@@ -7,6 +7,7 @@
 
 pub mod actuator;
 pub mod adapters;
+pub mod command_surface;
 pub mod discovery;
 pub mod dns;
 pub use dns as dns_resolver;
@@ -39,6 +40,7 @@ pub use adapters::finance as finance_adapters;
 pub use adapters::headscale as headscale_client;
 
 pub use actuator::*;
+pub use command_surface::*;
 pub use discovery::*;
 pub use dns::*;
 pub use dns_resolver::{DnsEndpoint, DnsResolutionPort};
