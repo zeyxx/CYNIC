@@ -1,6 +1,7 @@
 //! Native synchronization of workspace knowledge graph and documents into SurrealDB.
 
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use cynic_knowledge::domain::graph::{KnowledgeEdgeKind, KnowledgeGraph};
@@ -18,13 +19,25 @@ pub struct StorageSyncReport {
     pub elapsed_ms: u64,
 }
 
+fn find_repo_root(start: &Path) -> Option<PathBuf> {
+    let mut current = start.to_path_buf();
+    loop {
+        if current.join(".git").exists() || current.join("Cargo.toml").exists() {
+            return Some(current);
+        }
+        if !current.pop() {
+            return None;
+        }
+    }
+}
+
 pub fn execute_storage_sync(
     client: &SurrealHttpClient,
     endpoint: &str,
 ) -> Result<StorageSyncReport, String> {
     let start = Instant::now();
-    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let repo_root = crate::find_repo_root(&cwd).unwrap_or(cwd);
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let repo_root = find_repo_root(&cwd).unwrap_or(cwd);
 
     let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
     let graph = KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
