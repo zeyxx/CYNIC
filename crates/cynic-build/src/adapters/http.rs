@@ -168,7 +168,7 @@ mod tests {
     }
 }
 
-use crate::deploy::{
+use cynic_release::{
     DeployKind, DeployPort, DeployRequest, DeployResult, DeployOutput,
 };
 

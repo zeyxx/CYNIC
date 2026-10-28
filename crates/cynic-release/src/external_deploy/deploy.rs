@@ -12,7 +12,21 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ports::BuildCommandOutput;
+/// Command output captured by an adapter. Mirrors the build crate's
+/// `BuildCommandOutput` without coupling to `cynic-build`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandOutput {
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub spawn_error: Option<String>,
+}
+
+impl CommandOutput {
+    pub fn success(&self) -> bool {
+        self.spawn_error.is_none() && self.exit_code == Some(0)
+    }
+}
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -115,7 +129,7 @@ pub struct DeployOutput {
 }
 
 impl DeployOutput {
-    pub fn from_command_output(output: &BuildCommandOutput) -> Self {
+    pub fn from_command_output(output: &CommandOutput) -> Self {
         Self {
             stdout: output.stdout.clone(),
             stderr: output.stderr.clone(),
