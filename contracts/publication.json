@@ -40,14 +40,6 @@
       "status": "public"
     },
     {
-      "path": ".github/workflows/ci.yml",
-      "status": "public"
-    },
-    {
-      "path": ".github/workflows/ci-sync.yml",
-      "status": "public"
-    },
-    {
       "path": ".github/CODEOWNERS",
       "status": "public"
     },
