@@ -522,10 +522,10 @@
       "id": "S6",
       "kind": "issue",
       "title": "CLI storage surface sprawl across 4 competing command families",
-      "state": "open",
-      "evidence": "crates/cynic-cli implements storage subcommands across storage_surface, runtime_surface, node_surface, and host_surface with duplicate ping/query/capabilities",
+      "state": "resolved",
+      "evidence": "Canonicalized under cynic storage; runtime storage deprecated with redirection in PR #491",
       "probe": null,
-      "note": "Harmonize all storage interactions under canonical cynic storage family; respect no_hyphen_in_cli_commands constitutional law"
+      "note": "Harmonized all storage interactions under canonical cynic storage family in PR #491"
     },
     {
       "id": "S7",
@@ -535,6 +535,24 @@
       "evidence": "crates/cynic-cli/src/knowledge_surface.rs embeds ~300 lines of streaming HTTP inference, API key discovery, and graph traversal orchestration",
       "probe": null,
       "note": "Move domain orchestration from CLI to cynic-knowledge library; keep CLI as a thin argv parser only"
+    },
+    {
+      "id": "S8",
+      "kind": "task",
+      "title": "Deploy LiquidAI LFM3-1.7B-GGUF inference on cynic-compute-01 (:8088)",
+      "state": "open",
+      "evidence": "LFM3-1.7B tri-hybrid 256K released on HuggingFace; cynic-compute-01 currently running LFM2.5-2.6B",
+      "probe": null,
+      "note": "Governed by docs/specs/SPEC-RAG-ENHANCEMENT-LFM3-AND-GRAPH-FIRST.md Task T1"
+    },
+    {
+      "id": "S9",
+      "kind": "task",
+      "title": "SurrealDB Graph-First query expansion and topological prompt synthesis",
+      "state": "open",
+      "evidence": "Naive chunk retrieval misses architectural relationships; SurrealDB already stores doc->enforces/depends_on/cites edges",
+      "probe": null,
+      "note": "Governed by docs/specs/SPEC-RAG-ENHANCEMENT-LFM3-AND-GRAPH-FIRST.md Tasks T2 & T3"
     }
   ],
   "hyperedges": [
