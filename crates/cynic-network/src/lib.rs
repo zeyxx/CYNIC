@@ -41,7 +41,11 @@ pub use discovery::*;
 pub use dns::*;
 pub use dns_resolver::{DnsEndpoint, DnsResolutionPort};
 pub use firewall_policy::*;
-pub use freebox::FreeboxProbePort;
+pub use freebox::{
+    FreeboxDmzConfig, FreeboxNatRule, FreeboxNatRuleSpec, FreeboxPort, FreeboxProbePort,
+    FreeboxWanStatus, FREEBOX_DMZ_CONFIG_SCHEMA, FREEBOX_NAT_RULE_SCHEMA,
+    FREEBOX_WAN_STATUS_SCHEMA,
+};
 pub use mesh_plan::*;
 pub use registry_maintenance::*;
 pub use telemetry::*;

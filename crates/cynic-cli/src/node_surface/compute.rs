@@ -17,7 +17,7 @@ use cynic_protocol::provider::{
     NodeSubstrateDesiredState, NodeSubstrateObservationPort, NodeSubstratePower,
     NodeSubstrateProvisioningSpec,
 };
-use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
+use cynic_network::adapters::HttpFreeboxProbeAdapter;
 use cynic_proxmox::adapters::{
     DestructiveAction, DestructiveIntent, FleetLease, ObservedGuest, ProxmoxControlAdapter, ProxmoxSshCloneAdapter,
     ProxmoxSshSubstrateAdapter, approve as approve_intent, consume as consume_intent, enqueue,

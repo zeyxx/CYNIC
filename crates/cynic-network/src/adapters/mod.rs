@@ -7,11 +7,13 @@
 
 pub mod dns_resolver;
 pub mod finance;
+pub mod freebox;
 pub mod headscale;
 pub mod host_probe;
 
 pub use dns_resolver::RegistryDnsResolver;
 pub use finance::NetworkFinanceMeter;
+pub use freebox::HttpFreeboxProbeAdapter;
 pub use headscale::{HeadscaleClient, HeadscaleConfig};
 pub use host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
 

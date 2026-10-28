@@ -95,4 +95,8 @@ fn network_adapters_are_isolated_imperative_shell() {
         adapters_dir.join("host_probe.rs").exists(),
         "host_probe adapter must be in adapters/"
     );
+    assert!(
+        adapters_dir.join("freebox.rs").exists(),
+        "freebox adapter must be in adapters/"
+    );
 }
