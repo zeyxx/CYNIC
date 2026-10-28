@@ -1431,6 +1431,58 @@
         "inference_runner",
         "embedding_runner"
       ]
+    },
+    {
+      "id": "cynic-ingress-bastion",
+      "name": "cynic-ingress-bastion",
+      "aliases": [
+        "ingress-109",
+        "edge-ingress"
+      ],
+      "role": "ingress_edge",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": false,
+      "proxmox_id": "lxc/109",
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "10.10.10.128",
+          "trust": "ssh_trust_anchor",
+          "principal": "root"
+        }
+      },
+      "network": {
+        "service": "10.10.10.128"
+      },
+      "services": [
+        {
+          "name": "caddy",
+          "scheme": "https",
+          "port": 443,
+          "network_plane": "service",
+          "unit": "caddy.service",
+          "supervisor": {
+            "provider": "systemd"
+          },
+          "health": {
+            "kind": "http",
+            "path": "/health",
+            "port": 80
+          }
+        },
+        {
+          "name": "nftables",
+          "unit": "nftables.service",
+          "supervisor": {
+            "provider": "systemd"
+          }
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      },
+      "note": "CYNIC Sovereign Ingress Bastion. Isolated DMZ edge terminating TLS (Let's Encrypt) and anti-SYN flood packet defense for relay.talaria.build, mesh.talaria.build, api.talaria.build. Holds zero secrets or crypto keys."
     }
   ],
   "fleet_desired": {
