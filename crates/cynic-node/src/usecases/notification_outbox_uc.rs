@@ -11,13 +11,7 @@ use std::sync::Mutex;
 
 pub const NOTIFICATION_OUTBOX_REPORT_SCHEMA: &str = "cynic.node.notification_outbox_report.v1";
 
-/// Trait for durable outbox persistence.
-pub trait NotificationOutboxStorePort: Send + Sync {
-    fn enqueue(&self, entry: NotificationOutboxEntry) -> Result<(), String>;
-    fn list_pending(&self) -> Result<Vec<NotificationOutboxEntry>, String>;
-    fn mark_delivered(&self, notification_id: &str, receipt: &str) -> Result<(), String>;
-    fn mark_failed(&self, notification_id: &str, reason: &str) -> Result<(), String>;
-}
+pub use cynic_network::NotificationOutboxStorePort;
 
 /// Trait for notification transport adapter (e.g. Telegram, Console).
 pub trait NotificationTransportPort: Send + Sync {
