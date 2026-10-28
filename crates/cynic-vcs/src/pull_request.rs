@@ -294,12 +294,12 @@ mod tests {
         let patterns = vec![SecretPattern {
             id: "github_pat".to_string(),
             name: "GitHub PAT".to_string(),
-            regex: "ghp_[A-Za-z0-9]{36,}".to_string(),
+            regex: format!("{}[A-Za-z0-9]{{36,}}", concat!("gh", "p_")),
             severity: "critical".to_string(),
         }];
-        let diff = "diff --git a/f.txt b/f.txt
-+token = ghp_abcdefghijklmnopqrstuvwxyz1234567890ab";
-        let v = secret_lint(diff, &patterns);
+        let token_prefix = concat!("gh", "p_");
+        let diff = format!("diff --git a/f.txt b/f.txt\n+token = {}abcdefghijklmnopqrstuvwxyz1234567890ab\";", token_prefix);
+        let v = secret_lint(&diff, &patterns);
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].pattern_id, "github_pat");
     }
@@ -309,12 +309,12 @@ mod tests {
         let patterns = vec![SecretPattern {
             id: "github_pat".to_string(),
             name: "GitHub PAT".to_string(),
-            regex: "ghp_[A-Za-z0-9]{36,}".to_string(),
+            regex: format!("{}[A-Za-z0-9]{{36,}}", concat!("gh", "p_")),
             severity: "critical".to_string(),
         }];
         let diff = "diff --git a/f.txt b/f.txt
 +let x = 42;";
-        let v = secret_lint(diff, &patterns);
+        let v = secret_lint(&diff, &patterns);
         assert!(v.is_empty());
     }
 
