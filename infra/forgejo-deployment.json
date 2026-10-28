@@ -1,0 +1,95 @@
+{
+  "$cynic": "forgejo-deployment-record",
+  "$schema": "cynic.forgejo_deployment.v1",
+  "purpose": "Record how the sovereign Forgejo is deployed, so that install, upgrade and supply-chain checks read a versioned fact instead of memory. Every field is either an observed value with its source, or the literal string \"unknown\". Never back-fill a guess.",
+  "updated_at": "2026-10-27",
+  "node_ref": "infra/registry.json nodes[id=forgejo]",
+  "observed": {
+    "host": {
+      "kind": "proxmox_lxc",
+      "proxmox_node": "pve",
+      "pve_ssh_observed": "root@10.10.10.1 (registry says proxmox-forge = 192.168.0.37, closed: registry entry is stale)",
+      "vmid": 101,
+      "hostname": "organ-forgejo",
+      "ip": "10.10.10.101",
+      "bridge": "vmbr0",
+      "ostype": "ubuntu",
+      "os_release": "Ubuntu 24.04 LTS",
+      "arch": "amd64",
+      "unprivileged": true,
+      "cores": 2,
+      "memory_mib": 1024,
+      "rootfs": "local-lvm:vm-101-disk-0,size=16G",
+      "onboot": true,
+      "git_version": "2.43.0",
+      "source": "pct config 101 and pct exec 101, 2026-10-27"
+    },
+    "forgejo": {
+      "version": "11.0.1+gitea-1.22.0",
+      "binary_path": "/usr/local/bin/forgejo",
+      "binary_sha256": "f09969518f017b3cb984b4abeea43442362c374b9ed8aad6e4219c5d30f041f6",
+      "binary_sha256_matches_official_release": true,
+      "binary_sha256_source": "https://codeberg.org/forgejo/forgejo/releases/download/v11.0.1/forgejo-11.0.1-linux-amd64.sha256",
+      "binary_signature_checked": false,
+      "binary_installed": "2026-05-20 17:41 UTC (mtime)",
+      "build_tags": "bindata, timetzdata, sqlite, sqlite_unlock_notify",
+      "go_toolchain": "go1.24.2",
+      "service_unit": "/etc/systemd/system/forgejo.service",
+      "service_user": "forgejo",
+      "exec_start": "/usr/local/bin/forgejo web --config /etc/forgejo/app.ini",
+      "config_path": "/etc/forgejo/app.ini (mode 600)",
+      "database": {
+        "type": "sqlite3",
+        "path_key_present": true,
+        "file": "/var/lib/forgejo/data/forgejo.db",
+        "size_mib_2026_10_27": 67
+      },
+      "data_dir": "/var/lib/forgejo/data (188 MiB: repositories, attachments, lfs, packages, actions logs)",
+      "process_started": "2026-10-14 22:20",
+      "source": "systemd unit, /proc, sha256sum, forgejo --version, 2026-10-27"
+    },
+    "web_ui_entry": "http://10.10.10.101:3000",
+    "ssh_git_transport": "ssh://forgejo@forgejo.synapse.cynic:22",
+    "secrets_present_in_config": "SECRET_KEY, INTERNAL_TOKEN, LFS_JWT_SECRET, JWT_SECRET (names only recorded; values never copied anywhere)"
+  },
+  "unknown": {
+    "install_method": "unknown: binary copied to /usr/local/bin on 2026-05-20; no installer script or history found (root and home bash_history empty of install commands)",
+    "artifact_origin_at_install": "unknown: the binary matches today's official 11.0.1 hash, but the download source on 2026-05-20 is not recorded",
+    "installed_by": "unknown",
+    "backup_procedure": "no scheduled backup: only the manual dump above",
+    "upgrade_history": "unknown: only one binary present"
+  },
+  "access": {
+    "proxmox_api": "read-only, token cynic@pve!runtime",
+    "proxmox_ssh": "root@10.10.10.1 read-only (agreed 2026-10-27)",
+    "in_container": "pct exec 101, read-only commands only (agreed 2026-10-27)"
+  },
+  "known_exposure": {
+    "version_status": "behind the 11.x security backports (Forgejo security-announcements #50, #52, #54)",
+    "verified_against_this_version": false,
+    "note": "release notes of backports not yet checked line by line against 11.0.1",
+    "exposure_audit": "delegated to a read-only sub-agent (2026-10-27), result pending"
+  },
+  "upgrade_gate": {
+    "target_candidate": "15.0.11 (LTS)",
+    "target_sha256_source": "https://codeberg.org/forgejo/forgejo/releases/download/v15.0.11/forgejo-15.0.11-linux-amd64.sha256",
+    "preconditions": [
+      "Proxmox snapshot of LXC 101 as rollback point (pct snapshot 101), taken before any change",
+      "forgejo dump stored outside the LXC (no backup exists today)",
+      "artifact sha256 checked against the official .sha256 before replacing the binary",
+      "upgrade rehearsed on a copy of the LXC first",
+      "release notes 12 to 15 read for breaking changes (done 2026-10-27)"
+    ]
+  },
+  "backup": {
+    "status": "one manual dump taken 2026-10-27 before any upgrade; no scheduled backup exists yet",
+    "dump_file": "forgejo-dump-20261027T130331.zip",
+    "dump_sha256": "0a9e196558294aa778719b5fd7bd5575a06852fe386afb8bcf59ab3b026f68a3",
+    "copies": [
+      "pve host /root/forgejo-backups (mode 600)",
+      "operator workstation scratch (off-host, mode 600)"
+    ],
+    "integrity": "unzip -t: no errors; sha256 matches the copy inside the LXC",
+    "lxc_rollback_point": "Proxmox LVM snapshot pre-forgejo-15-20261027T130331 on LXC 101 (taken before the dump)"
+  }
+}
