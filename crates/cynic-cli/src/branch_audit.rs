@@ -37,10 +37,9 @@
 //! audit that could delete branches would be a mutation surface pretending
 //! to be an observer.
 
-use std::path::Path;
-use std::process::Command;
-
 use serde::Serialize;
+
+use cynic_lifecycle::ArgvRunner;
 
 use crate::rust_source::workspace_root;
 
@@ -412,16 +411,21 @@ fn base_patch_ids(base_ref: &str) -> Vec<String> {
 }
 
 fn patch_id(commit: &str) -> Option<String> {
-    let show = Command::new("git")
-        .current_dir(workspace_root())
-        .args(["show", "--pretty=format:", commit])
-        .output()
-        .ok()?;
-    if !show.status.success() {
+    let root = workspace_root();
+    let show = cynic_lifecycle::LocalArgvRunner.run(&[
+        "git",
+        "-C",
+        root.to_str().unwrap_or("."),
+        "show",
+        "--pretty=format:",
+        commit,
+    ]);
+    if !show.success() {
         return None;
     }
-    let piped = Command::new("git")
-        .current_dir(workspace_root())
+    // patch-id reads the diff on stdin and emits a stable id on stdout.
+    let mut piped = std::process::Command::new("git")
+        .current_dir(&root)
         .args(["patch-id", "--stable"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -429,11 +433,10 @@ fn patch_id(commit: &str) -> Option<String> {
         .spawn()
         .ok()?;
     use std::io::Write;
-    let mut child = piped;
-    if let Some(stdin) = child.stdin.as_mut() {
-        let _ = stdin.write_all(&show.stdout);
+    if let Some(stdin) = piped.stdin.as_mut() {
+        let _ = stdin.write_all(show.stdout.as_bytes());
     }
-    let out = child.wait_with_output().ok()?;
+    let out = piped.wait_with_output().ok()?;
     String::from_utf8_lossy(&out.stdout)
         .split_whitespace()
         .next()
@@ -441,15 +444,15 @@ fn patch_id(commit: &str) -> Option<String> {
 }
 
 fn git(args: &[&str]) -> String {
-    let root: &Path = &workspace_root();
-    Command::new("git")
-        .current_dir(root)
-        .args(args)
-        .output()
-        .ok()
-        .filter(|out| out.status.success())
-        .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
-        .unwrap_or_default()
+    let root = workspace_root();
+    let mut argv = vec!["git", "-C", root.to_str().unwrap_or(".")];
+    argv.extend_from_slice(args);
+    let out = cynic_lifecycle::LocalArgvRunner.run(&argv);
+    if out.success() {
+        out.stdout
+    } else {
+        String::new()
+    }
 }
 
 fn count_lines(text: &str) -> usize {
