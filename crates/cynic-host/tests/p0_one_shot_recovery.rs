@@ -10,7 +10,7 @@ use cynic_host::framework_bootstrap::build_runner::{
 use cynic_host::one_shot_authority::{
     LocalOneShotCapabilityAuthority, OneShotCapabilityAuthorityPort,
 };
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 use cynic_protocol::{
     ONE_SHOT_CAPABILITY_OUTCOME_SCHEMA, ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability,
     OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus,

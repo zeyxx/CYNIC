@@ -8,7 +8,7 @@ use cynic_build::build::{
 };
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_lifecycle::ArgvOutput;
+use cynic_process::ArgvOutput;
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ─────────────────────────────────────────────

@@ -25,7 +25,7 @@ use cynic_host::harness_progression::{
     HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
     decide_harness_progression,
 };
-use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_process::{ArgvOutput, MapArgvRunner};
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ────────────────────────────────────────────────────────────

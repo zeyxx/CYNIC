@@ -1,5 +1,5 @@
 use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use super::types::{FrameworkPropagationObservation, FrameworkPropagationProbe};
 use cynic_types::paths::CynicPaths;

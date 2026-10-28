@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 /// Desired state — the tunnel configuration. Portable; no substrate details.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -251,7 +251,7 @@ impl KernelTunnelManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::MapArgvRunner;
+    use cynic_process::MapArgvRunner;
     use std::sync::Arc;
 
     fn test_config(tmp: &std::path::Path) -> KernelTunnelConfig {

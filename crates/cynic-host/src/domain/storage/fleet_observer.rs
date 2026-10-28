@@ -7,7 +7,7 @@ use cynic_storage::topology::{StorageTopologyObserved, StorageTopologyReport};
 
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 use super::local_adapter::LocalStorageTopologyAdapter;
 use super::probe::{StorageTopologyObservationPort, storage_topology_report};

@@ -1,6 +1,6 @@
 use std::fs;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_protocol::AgentEvidenceRef;
 use cynic_workload::{
     AGENT_WORKSPACE_LIFECYCLE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_OBSERVATION_SCHEMA,

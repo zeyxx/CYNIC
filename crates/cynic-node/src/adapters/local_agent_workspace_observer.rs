@@ -3,7 +3,7 @@ use std::{
     path::{Component, Path},
 };
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, digest_json};
 use cynic_workload::{
     AGENT_WORKSPACE_OBSERVATION_SCHEMA, AgentWorkspaceClaimObservation, AgentWorkspaceObservation,

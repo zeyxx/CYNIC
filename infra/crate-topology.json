@@ -37,7 +37,6 @@
         "cynic-cli",
         "cynic-discovery",
         "cynic-host",
-        "cynic-lifecycle",
         "cynic-node"
       ],
       "depends_on": [
@@ -84,7 +83,6 @@
         "cynic-intel",
         "cynic-kernel",
         "cynic-knowledge",
-        "cynic-lifecycle",
         "cynic-network",
         "cynic-node",
         "cynic-node-protocol",
@@ -242,7 +240,6 @@
         "cynic-forensics",
         "cynic-inference",
         "cynic-intel",
-        "cynic-lifecycle",
         "cynic-lxc",
         "cynic-network",
         "cynic-node-protocol",
@@ -340,27 +337,6 @@
       "layer": "L1",
       "loc": 9754
     },
-    "cynic-lifecycle": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host",
-        "cynic-mcp",
-        "cynic-node",
-        "cynic-proxmox",
-        "cynic-sandbox"
-      ],
-      "depends_on": [
-        "cynic-build",
-        "cynic-protocol",
-        "cynic-storage",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 6929
-    },
     "cynic-lxc": {
       "consumers": [
         "cynic-host",
@@ -398,7 +374,6 @@
       "consumers": [],
       "depends_on": [
         "cynic-host",
-        "cynic-lifecycle",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
@@ -442,7 +417,6 @@
         "cynic-host",
         "cynic-inference",
         "cynic-kernel",
-        "cynic-lifecycle",
         "cynic-lxc",
         "cynic-market",
         "cynic-network",
@@ -532,7 +506,6 @@
         "cynic-inference",
         "cynic-intel",
         "cynic-kernel",
-        "cynic-lifecycle",
         "cynic-lxc",
         "cynic-market",
         "cynic-mcp",
@@ -568,7 +541,6 @@
       ],
       "depends_on": [
         "cynic-host",
-        "cynic-lifecycle",
         "cynic-protocol",
         "cynic-secrets",
         "cynic-types"
@@ -601,7 +573,6 @@
         "cynic-node"
       ],
       "depends_on": [
-        "cynic-lifecycle",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
@@ -640,7 +611,6 @@
         "cynic-cli",
         "cynic-host",
         "cynic-kernel",
-        "cynic-lifecycle",
         "cynic-node"
       ],
       "depends_on": [
@@ -704,7 +674,6 @@
         "cynic-inference",
         "cynic-kernel",
         "cynic-knowledge",
-        "cynic-lifecycle",
         "cynic-lxc",
         "cynic-network",
         "cynic-node",
@@ -733,9 +702,7 @@
         "cynic-secrets",
         "cynic-types"
       ],
-      "dev_depends_on": [
-        "cynic-lifecycle"
-      ],
+      "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L2",
@@ -764,9 +731,7 @@
       "loc": 6383
     },
     "cynic-process": {
-      "consumers": [
-        "cynic-lifecycle"
-      ],
+      "consumers": [],
       "depends_on": [
         "cynic-protocol"
       ],
@@ -809,7 +774,6 @@
     "cynic-kernel",
     "cynic-pool",
     "cynic-inference",
-    "cynic-lifecycle",
     "cynic-market",
     "cynic-sandbox",
     "cynic-host",
@@ -838,7 +802,7 @@
   },
   "justification_rule": "Every member must be a binary, have at least one dependent, or appear in pending_disposition with a written reason. A crate that is none of these is a node with in-degree zero: it cannot take part in a runtime loop, and every layer that names it is describing a boundary nothing crosses. pending_disposition may only shrink.",
   "layer_debt": {
-    "count": 11,
+    "count": 9,
     "edges": [
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)",
@@ -848,8 +812,6 @@
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-storage (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)",
-      "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-build (L2)",
-      "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-storage (L2)",
       "ARCH-004-UPWARD-EDGE cynic-network (L1) depends on cynic-finance (L2)"
     ],
     "reasons": {
@@ -883,14 +845,6 @@
       },
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)": {
         "reason": "cynic-host (L1) depends on cynic-vcs (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
-        "since": "2026-09-28"
-      },
-      "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-build (L2)": {
-        "reason": "cynic-lifecycle (L1) depends on cynic-build (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
-        "since": "2026-09-28"
-      },
-      "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-storage (L2)": {
-        "reason": "cynic-lifecycle (L1) depends on cynic-storage (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
         "since": "2026-09-28"
       },
       "ARCH-004-UPWARD-EDGE cynic-network (L1) depends on cynic-finance (L2)": {
@@ -963,7 +917,7 @@
     "rule": "An edge from crate A to crate B is legal when layer(B) is listed in layer_policy.layers[layer(A)].may_depend_on. may_depend_on is derived from rank: every layer whose rank is at most the source layer's, plus every unlayered layer. A layer with a negative rank is unlayered cross-cutting code and may depend on anything. Same-layer edges are legal and common, especially inside L2.",
     "schema": "cynic.crate_topology.layer_policy.v1"
   },
-  "layer_rule": "An edge from crate A to crate B is legal when layer(B) is lower than layer(A), or equal to it. Same-layer edges are legal and common, especially inside L2. An edge is illegal when layer(B) is higher than layer(A): dependencies flow downward. L0 is pure: no I/O, no adapter. cross_cutting is unlayered (rank -1) and may be depended on from any layer, and its own outgoing edges are not checked. This rule IS enforced: ARCH-004 in cynic-host/src/audit_engine/topology.rs emits ARCH-004-UPWARD-EDGE at Critical severity, which maps to audit status blocked. Measured on the 47-crate graph, ARCH-004 currently reports 12 ascending edges, all L1 -> L2: cynic-host -> cynic-build, cynic-eval, cynic-inference, cynic-intel, cynic-node-protocol, cynic-storage, cynic-vcs, cynic-vcs-providers; cynic-discovery-host -> cynic-build, cynic-discovery; cynic-lifecycle -> cynic-build, cynic-storage. KNOWN GAP: crates/cynic-host/tests/crate_topology_coherence.rs asserts emptiness for the other ARCH-004 violation classes but has NO assertion for ARCH-004-UPWARD-EDGE, so the rule runs under `cynic audit` and is invisible to the test gate. The 12 edges are counted, documented and unfixed; adding the missing assertion would turn the gate red on them, which is the point.",
+  "layer_rule": "An edge from crate A to crate B is legal when layer(B) is lower than layer(A), or equal to it. Same-layer edges are legal and common, especially inside L2. An edge is illegal when layer(B) is higher than layer(A): dependencies flow downward. L0 is pure: no I/O, no adapter. cross_cutting is unlayered (rank -1) and may be depended on from any layer, and its own outgoing edges are not checked. This rule IS enforced: ARCH-004 in cynic-host/src/audit_engine/topology.rs emits ARCH-004-UPWARD-EDGE at Critical severity, which maps to audit status blocked. Measured on the 47-crate graph, ARCH-004 currently reports 12 ascending edges, all L1 -> L2: cynic-host -> cynic-build, cynic-eval, cynic-inference, cynic-intel, cynic-node-protocol, cynic-storage, cynic-vcs, cynic-vcs-providers; cynic-discovery-host -> cynic-build, cynic-discovery; KNOWN GAP: crates/cynic-host/tests/crate_topology_coherence.rs asserts emptiness for the other ARCH-004 violation classes but has NO assertion for ARCH-004-UPWARD-EDGE, so the rule runs under `cynic audit` and is invisible to the test gate. The 12 edges are counted, documented and unfixed; adding the missing assertion would turn the gate red on them, which is the point.",
   "layers": {
     "L0": [
       "cynic-protocol",
@@ -974,7 +928,6 @@
       "cynic-forensics",
       "cynic-host",
       "cynic-knowledge",
-      "cynic-lifecycle",
       "cynic-lxc",
       "cynic-network",
       "cynic-pkg",

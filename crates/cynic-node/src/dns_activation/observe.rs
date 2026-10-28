@@ -2,7 +2,7 @@ use std::fs;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use sha2::{Digest, Sha256};
 
 use super::types::{DnsActivationFileObservation, DnsActivationObservation, DnsActivationSpec};

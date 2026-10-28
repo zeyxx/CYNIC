@@ -17,7 +17,7 @@ use crate::registry::{
     resolve_observed_direct_management_link,
 };
 use crate::runtime_layout::current_runtime_layout;
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
     let layout = current_runtime_layout();
@@ -374,7 +374,7 @@ fn apply_direct_management_projection(
 mod tests {
     use super::{execute_with_runner, project_direct_management_target_from_registry};
     use crate::network_actuation::NetworkActuationObservation;
-    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_process::{ArgvOutput, MapArgvRunner};
     use std::fs;
 
     #[test]

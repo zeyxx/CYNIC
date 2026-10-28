@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use crate::clock::now_unix_ms;
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_protocol::{
     RUNTIME_SEED_OBSERVATION_SCHEMA, RuntimeSeedObservation, RuntimeSeedRequest,
     SecurityEvidenceState,

@@ -5,7 +5,7 @@
 //!   reconcile_cleanup() -> CleanupDecision (pure)
 //!   apply() -> CleanupProof (via ArgvRunner SSH)
 
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::cleanup::*;
 use cynic_types::paths::CynicPaths;
 
@@ -160,20 +160,20 @@ fn infer_target_kind(path: &str) -> CleanupTargetKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::MapArgvRunner;
+    use cynic_process::MapArgvRunner;
 
     fn fake_runner() -> MapArgvRunner {
         MapArgvRunner {
             responses: vec![
                 (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
-                 cynic_lifecycle::ArgvOutput {
+                 cynic_process::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "Filesystem                        1B-blocks         Used    Available Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   42949672960   42949672960     0 100% /".to_string(),
                      stderr: String::new(),
                      spawn_error: None,
                  }),
                 (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "du".to_string(), "-sh".to_string(), "/var/lib/cynic/checkouts/*".to_string()],
-                 cynic_lifecycle::ArgvOutput {
+                 cynic_process::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "2.5G\t/var/lib/cynic/checkouts/abc123\n402M\t/var/lib/cynic/checkouts/def456".to_string(),
                      stderr: String::new(),

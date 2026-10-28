@@ -9,7 +9,7 @@
 //! The I/O functions (`observe_source_worktree`, `observe_source_push_target`,
 //! `GitSourceControlAdapter`, `SourceLock`, etc.) remain here in `cynic-host`
 //! because they depend on `crate::execution`, `crate::repo_access`, and
-//! `cynic_lifecycle::ArgvRunner` (L1 host substrate).
+//! `cynic_process::ArgvRunner` (L1 host substrate).
 
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,7 @@ use cynic_vcs::{
 use crate::execution::stderr_with_spawn_error;
 use crate::repo_access::current_repo_access_status;
 use crate::source_lease::SourceLeaseVerifier;
-use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_process::{ArgvOutput, ArgvRunner};
 
 // Re-export the pure types so existing `crate::source_control::` paths keep resolving.
 pub use cynic_vcs::source_control::{

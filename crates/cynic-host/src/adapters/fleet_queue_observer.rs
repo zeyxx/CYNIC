@@ -4,7 +4,7 @@ use crate::adapters::local_queue::LocalQueueAdapter;
 use crate::adapters::remote_queue::RemoteQueueAdapter;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::queue::QueuePlan;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

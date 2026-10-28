@@ -5,7 +5,7 @@
 //! minimum) is absent, whatever the registry claims.
 
 use crate::domain::pool_eligibility::{ToolKind, ToolObservation};
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 /// Probe the local host for the given tool names.
 pub struct LocalToolchainProbe<R: ArgvRunner> {
@@ -100,7 +100,7 @@ impl<R: ArgvRunner> LocalToolchainProbe<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_process::{ArgvOutput, MapArgvRunner};
 
     fn runner(responses: Vec<(Vec<String>, ArgvOutput)>) -> MapArgvRunner {
         MapArgvRunner { responses }

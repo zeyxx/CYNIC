@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use super::types::SourceSnapshotPlan;
 

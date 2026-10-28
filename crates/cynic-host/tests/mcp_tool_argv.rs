@@ -2,7 +2,7 @@
 //! passes results through unchanged, and never masks a spawn failure.
 
 use cynic_host::mcp_tool::{CliArgvToolAdapter, McpToolPort};
-use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_process::{ArgvOutput, MapArgvRunner};
 
 fn stubbed_runner() -> MapArgvRunner {
     MapArgvRunner {

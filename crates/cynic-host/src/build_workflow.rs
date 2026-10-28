@@ -176,7 +176,7 @@ mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use cynic_build::BuildRunnerObservation;
-    use cynic_lifecycle::MapArgvRunner;
+    use cynic_process::MapArgvRunner;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
     use cynic_vcs::SourceSnapshot;
 

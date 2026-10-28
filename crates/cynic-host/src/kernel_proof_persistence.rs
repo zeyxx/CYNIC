@@ -2,7 +2,7 @@ use cynic_protocol::RuntimeProofPersistenceRecord;
 use serde::Serialize;
 use serde_json::Value;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 pub const KERNEL_PROOF_PERSISTENCE_REPORT_SCHEMA: &str =
     "cynic.host.kernel_proof_persistence_report.v1";
