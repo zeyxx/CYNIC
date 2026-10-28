@@ -4,7 +4,7 @@ use clap::Subcommand;
 use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_types::paths::CynicPaths;
 
-use crate::{emit_json, fail};
+use crate::fail;
 use crate::host_profile_selection::ProfileArgs;
 
 pub(crate) mod hub_surface;
