@@ -1,10 +1,11 @@
 use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_network::actuator::membrane_admission as pure_membrane_admission;
 
-pub(crate) const NETWORK_ACTUATOR_SUDOERS_SUBJECT: &str = "cynic";
-pub(crate) const NETWORK_ACTUATOR_POLICY_FILENAME: &str = "network-actuator.policy.json";
-pub(crate) const NETWORK_ACTUATOR_MANIFEST_FILENAME: &str = "manifest.json";
-pub(crate) const NETWORK_ACTUATOR_MEMBRANE_CONTRACT: &str =
-    "single cynic binary admitted by the privilege membrane; no helper binary; bounded network-actuate only";
+pub(crate) use cynic_network::actuator::{
+    NETWORK_ACTUATOR_MANIFEST_FILENAME, NETWORK_ACTUATOR_MEMBRANE_CONTRACT,
+    NETWORK_ACTUATOR_POLICY_FILENAME, NETWORK_ACTUATOR_SUDOERS_SUBJECT,
+    bundle_required_files,
+};
 
 /// Executor of network actuation: the basket-managed `cynic` binary.
 /// There is no `cynic-network-actuator` binary anymore; the capability
@@ -26,14 +27,7 @@ pub(crate) fn membrane_path() -> String {
 
 /// Admission class the membrane must contain for network actuation.
 pub(crate) fn membrane_admission() -> String {
-    format!("{} privilege exec network-actuate", executor_path())
-}
-
-pub(crate) fn bundle_required_files() -> [&'static str; 2] {
-    [
-        NETWORK_ACTUATOR_MANIFEST_FILENAME,
-        NETWORK_ACTUATOR_POLICY_FILENAME,
-    ]
+    pure_membrane_admission(&executor_path())
 }
 
 #[cfg(test)]
