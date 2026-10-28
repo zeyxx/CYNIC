@@ -135,8 +135,8 @@ pub fn execute_storage_sync(
         ));
     }
 
-    // 4. Batch execution (batches of 50 statements for bounded payloads)
-    let batch_size = 50;
+    // 4. Batch execution (batches of 25 statements for resilient payloads)
+    let batch_size = 25;
     let mut batches_executed = 0;
     for batch in statements.chunks(batch_size) {
         let batch_sql = batch.join("\n");

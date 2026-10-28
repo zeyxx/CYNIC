@@ -62,8 +62,14 @@ impl SurrealHttpClient {
         Self {
             config,
             password,
-            timeout: Duration::from_secs(5),
+            timeout: Duration::from_secs(30),
         }
+    }
+
+    /// Explicitly configure request timeout.
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
     }
 
     /// Explicitly provide credentials (for testing or bounded caller contexts).
