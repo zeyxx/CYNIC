@@ -8,7 +8,8 @@ use super::types::{
     KernelIdentityEvidence, KernelReleaseAction, KernelReleaseEvent, KernelReleaseReport,
     KernelReleaseSpec,
 };
-use crate::{ArgvRunner, MutationClass, load_state, phase_policy};
+use cynic_protocol::argv::ArgvRunner;
+use serde_json::Value;
 
 type ReconcileError = (Option<Box<KernelReleaseSpec>>, String);
 
@@ -36,21 +37,19 @@ fn reconcile(
         .map_err(|error| (None, format!("parse {}: {error}", spec_path.display())))?;
     validate_spec(&spec).map_err(|error| (Some(Box::new(spec.clone())), error))?;
 
-    let lifecycle = load_state(lifecycle_state_path);
-    let phase = lifecycle.current_phase.as_str();
+    let raw_state = fs::read_to_string(lifecycle_state_path)
+        .map_err(|error| (None, format!("read {}: {error}", lifecycle_state_path.display())))?;
+    let state: Value = serde_json::from_str(&raw_state)
+        .map_err(|error| (None, format!("parse {}: {error}", lifecycle_state_path.display())))?;
+    let phase = state
+        .get("current_phase")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+
     if spec.phase != phase {
         return Err((
             Some(Box::new(spec)),
             format!("release spec phase does not match lifecycle phase {phase}"),
-        ));
-    }
-    if !phase_policy(&lifecycle.current_phase)
-        .allowed_mutations
-        .contains(&MutationClass::KernelRuntime)
-    {
-        return Err((
-            Some(Box::new(spec)),
-            format!("kernel runtime mutation is not allowed in {phase}"),
         ));
     }
 
@@ -448,7 +447,10 @@ fn event_for(
     KernelReleaseEvent {
         schema: KERNEL_RELEASE_EVENT_SCHEMA.to_string(),
         seq: 0,
-        timestamp_unix_ms: super::super::time::now_ms(),
+        timestamp_unix_ms: {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+        },
         artifact_id: spec.artifact.id.clone(),
         service_id: spec.service_id.clone(),
         node_id: spec.node_id.clone(),

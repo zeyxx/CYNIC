@@ -22,7 +22,6 @@ pub mod evidence_cli;
 pub mod forge_task_contract;
 pub mod gate;
 pub mod harness_context;
-pub mod kernel_release;
 mod observe;
 mod plan;
 mod policy;
@@ -44,7 +43,7 @@ pub use forge_task_contract::{
     validate_forge_lifecycle_contract, validate_repo_affecting_hermes_task,
 };
 pub use gate::run_gates;
-pub use kernel_release::{
+pub use cynic_release::kernel_release::{
     KernelReleaseReport, KernelReleaseSpec, reconcile_kernel_release,
     reconcile_runtime_artifact_release,
 };
