@@ -20,8 +20,8 @@ DEFINE FIELD line_start ON chunk TYPE int;
 DEFINE FIELD line_end ON chunk TYPE int;
 DEFINE FIELD section ON chunk TYPE option<string>;
 DEFINE FIELD authority ON chunk TYPE option<string>;
--- Index vectoriel HNSW pour embeddings 1024-dim (modèle embeddinggemma / bge)
-DEFINE INDEX chunk_vec_idx ON chunk FIELDS embedding HNSW DIMENSION 1024 DIST COSINE TYPE F32;
+-- Index vectoriel HNSW pour embeddings 768-dim (modèle embeddinggemma-2 / bge)
+DEFINE INDEX chunk_vec_idx ON chunk FIELDS embedding HNSW DIMENSION 768 DIST COSINE TYPE F32;
 
 -- 3. Relations de Graphe natives (Arêtes typées)
 DEFINE TABLE cites TYPE RELATION;          -- in: doc/chunk, out: doc
