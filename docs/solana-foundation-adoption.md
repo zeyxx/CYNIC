@@ -44,3 +44,19 @@
 ## References / examples
 - program-examples, crypto-primitives-examples: cloned to ~/.hermes/cache/scratch/solana-refs/.
 - payment-channels, mpp, mpp-specs: cloned to ~/.hermes/cache/scratch/.
+
+## 2. Adoption Active : Surfpool (LiteSVM Mainnet Fork Local)
+
+- **Date d'adoption :** 2026-10-28
+- **Version adoptée :** `surfpool 1.7.0` (Docker officiel `surfpool/surfpool:latest`).
+- **Hôte de déploiement :** `cynic-compute-01` (`192.168.0.25`).
+- **Service systemd :** `surfpool.service` (user service `titouan`).
+- **Endpoints :**
+  - RPC JSON : `http://192.168.0.25:8899`
+  - WebSocket : `ws://192.168.0.25:8900`
+  - Studio : `http://192.168.0.25:18488`
+- **Cas d'usage :**
+  - Remplacement total de Devnet et de `solana-test-validator` pour GASdf et Kora.
+  - Clone à la volée de l'état réel Mainnet (ex: USDC `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, pools Jupiter).
+  - Tests d'intégration et simulations à 0 coût sans consommation de SOL réels.
+- **Vérification machine :** Validé via `GASdf/scripts/test-local-surfpool.mjs` (slot 462536387, mint USDC parsé en direct).
