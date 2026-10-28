@@ -16,6 +16,7 @@ pub mod deploy_remote;
 pub mod deploy_ssh;
 pub mod error;
 pub mod evaluator;
+pub mod external_deploy;
 pub mod ports;
 pub mod types;
 
@@ -29,5 +30,6 @@ pub use deploy_remote::*;
 pub use deploy_ssh::*;
 pub use error::*;
 pub use evaluator::*;
+pub use external_deploy::*;
 pub use ports::*;
 pub use types::*;

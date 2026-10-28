@@ -8,7 +8,7 @@
 //! NEGATIVE BOUNDARY: no std::process::Command, no SSH, no HTTP, no filesystem
 //! I/O.
 
-use crate::deploy::{
+use crate::external_deploy::{
     admit_external_deploy, build_deploy_proof, DeployKind, DeployPort, DeployProof, DeployRequest,
 };
 
@@ -114,17 +114,17 @@ pub fn rollback_on_failure(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deploy::{DeployMutationPolicy, DeployOutput};
+    use crate::external_deploy::{DeployMutationPolicy, DeployOutput};
 
     struct MockDeployPort {
-        deploy_result: crate::deploy::DeployResult,
-        health_result: crate::deploy::DeployResult,
-        rollback_result: crate::deploy::DeployResult,
+        deploy_result: crate::external_deploy::DeployResult,
+        health_result: crate::external_deploy::DeployResult,
+        rollback_result: crate::external_deploy::DeployResult,
         calls: std::sync::Mutex<Vec<String>>,
     }
 
     impl DeployPort for MockDeployPort {
-        fn deploy_artifact(&self, request: &DeployRequest) -> crate::deploy::DeployResult {
+        fn deploy_artifact(&self, request: &DeployRequest) -> crate::external_deploy::DeployResult {
             self.calls.lock().unwrap().push("deploy".to_string());
             let mut r = self.deploy_result.clone();
             r.target_host_id = request.target_host_id.clone();
@@ -132,7 +132,7 @@ mod tests {
             r
         }
 
-        fn rollback(&self, request: &DeployRequest) -> crate::deploy::DeployResult {
+        fn rollback(&self, request: &DeployRequest) -> crate::external_deploy::DeployResult {
             self.calls.lock().unwrap().push("rollback".to_string());
             let mut r = self.rollback_result.clone();
             r.target_host_id = request.target_host_id.clone();
@@ -145,7 +145,7 @@ mod tests {
             r
         }
 
-        fn health_check(&self, request: &DeployRequest) -> crate::deploy::DeployResult {
+        fn health_check(&self, request: &DeployRequest) -> crate::external_deploy::DeployResult {
             self.calls.lock().unwrap().push("health".to_string());
             let mut r = self.health_result.clone();
             r.target_host_id = request.target_host_id.clone();
@@ -166,8 +166,8 @@ mod tests {
         }
     }
 
-    fn ok_deploy() -> crate::deploy::DeployResult {
-        crate::deploy::DeployResult {
+    fn ok_deploy() -> crate::external_deploy::DeployResult {
+        crate::external_deploy::DeployResult {
             kind: DeployKind::Deploy,
             target_host_id: "staging-node-1".to_string(),
             artifact_ref: "sha256:abc123".to_string(),
@@ -181,8 +181,8 @@ mod tests {
         }
     }
 
-    fn ok_health() -> crate::deploy::DeployResult {
-        crate::deploy::DeployResult {
+    fn ok_health() -> crate::external_deploy::DeployResult {
+        crate::external_deploy::DeployResult {
             kind: DeployKind::HealthCheck,
             target_host_id: "staging-node-1".to_string(),
             artifact_ref: "sha256:abc123".to_string(),
@@ -196,8 +196,8 @@ mod tests {
         }
     }
 
-    fn fail_deploy() -> crate::deploy::DeployResult {
-        crate::deploy::DeployResult {
+    fn fail_deploy() -> crate::external_deploy::DeployResult {
+        crate::external_deploy::DeployResult {
             kind: DeployKind::Deploy,
             target_host_id: "staging-node-1".to_string(),
             artifact_ref: "sha256:abc123".to_string(),
@@ -211,8 +211,8 @@ mod tests {
         }
     }
 
-    fn fail_health() -> crate::deploy::DeployResult {
-        crate::deploy::DeployResult {
+    fn fail_health() -> crate::external_deploy::DeployResult {
+        crate::external_deploy::DeployResult {
             kind: DeployKind::HealthCheck,
             target_host_id: "staging-node-1".to_string(),
             artifact_ref: "sha256:abc123".to_string(),
@@ -222,8 +222,8 @@ mod tests {
         }
     }
 
-    fn ok_rollback() -> crate::deploy::DeployResult {
-        crate::deploy::DeployResult {
+    fn ok_rollback() -> crate::external_deploy::DeployResult {
+        crate::external_deploy::DeployResult {
             kind: DeployKind::Rollback,
             target_host_id: "staging-node-1".to_string(),
             artifact_ref: "sha256:def456".to_string(),
