@@ -186,7 +186,7 @@ fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            let runner = std::sync::Arc::new(cynic_lifecycle::LocalArgvRunner);
+            let runner = std::sync::Arc::new(cynic_process::LocalArgvRunner);
             let adapter =
                 match cynic_discovery::RemoteBuildDiscoveryAdapter::new(runner, ssh_target) {
                     Ok(a) => a,

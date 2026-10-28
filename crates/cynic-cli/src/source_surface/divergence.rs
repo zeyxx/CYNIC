@@ -3,7 +3,7 @@
 //! Read-only by construction: runs `git ls-remote` + `git merge-base` only.
 //! No push, no force-update, no mutation.
 
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;

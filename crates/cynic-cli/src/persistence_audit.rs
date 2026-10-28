@@ -1,7 +1,7 @@
 //! Persistence audit surface — declared vs observed guest boot persistence.
 //!
 //! Projection only: the rule lives in
-//! [`cynic_lifecycle::domain::persistence_drift`], which is pure and carries
+//! [`cynic_host::domain::persistence_drift`], which is pure and carries
 //! its own tests. This module reads the registry, collects the observed
 //! state from a provider observation port, and renders the verdict. A
 //! surface projects; it does not own.
@@ -14,7 +14,7 @@ use std::process::ExitCode;
 
 use serde::Deserialize;
 
-use cynic_lifecycle::domain::persistence_drift::{
+use cynic_host::domain::persistence_drift::{
     DeclaredGuest, DeclaredPersistence, ObservedGuest, ObservedPersistence, PersistenceDrift,
     evaluate_persistence_drift,
 };

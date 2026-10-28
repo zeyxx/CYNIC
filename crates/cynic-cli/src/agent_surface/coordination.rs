@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use crate::agent_surface::types::{
     AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport,
@@ -88,7 +88,7 @@ pub(crate) fn resolve_builder_endpoint(registry_path: &str) -> Option<String> {
 /// Runs `git remote get-url origin`; returns `"unknown"` when git is
 /// unavailable or has no origin — never a hardcoded URL.
 pub(crate) fn resolve_git_remote() -> String {
-    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "remote", "get-url", "origin"]);
+    let output = cynic_process::LocalArgvRunner.run(&["git", "remote", "get-url", "origin"]);
     if output.success() && !output.stdout.trim().is_empty() {
         output.stdout.trim().to_string()
     } else {
@@ -485,7 +485,7 @@ pub(crate) const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";
 /// (the caller composes the dated filename).
 fn claim_event_log_dir() -> Option<std::path::PathBuf> {
     // Try git root first; fall back to current directory.
-    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
+    let output = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
     let root = if output.success() && !output.stdout.trim().is_empty() {
         output.stdout.trim().to_string()
     } else {
@@ -595,7 +595,7 @@ fn claims_file_path() -> std::path::PathBuf {
     // Anchor to the enclosing git worktree so a claim from a subdirectory
     // lands in the same projection as every other agent. Fall back to the
     // cwd when outside git (explicit unknown, same file name).
-    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
+    let output = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
     if output.success() && !output.stdout.trim().is_empty() {
         return std::path::PathBuf::from(output.stdout.trim()).join(".agent-claims.json");
     }

@@ -9,6 +9,8 @@ pub mod disk;
 pub mod ecosystem_package;
 pub mod filesystem;
 pub mod git;
+pub mod host_family_drift;
+pub mod persistence_drift;
 pub mod memory;
 pub mod network;
 pub mod package_provenance;

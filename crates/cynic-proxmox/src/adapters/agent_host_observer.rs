@@ -13,7 +13,7 @@
 //!   match). No substring guessing.
 //! - Storage content is queried on `desired.storage_pool`, not on `local`.
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_protocol::AgentHostDesired;
 use reqwest::Certificate;
 use reqwest::blocking::Client;
@@ -373,7 +373,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshAgentHostObserver<'a, R> {
         Ok(Self { runner, ssh_target })
     }
 
-    fn pvesh(&self, args: &[String]) -> Result<cynic_lifecycle::ArgvOutput, String> {
+    fn pvesh(&self, args: &[String]) -> Result<cynic_process::ArgvOutput, String> {
         let mut argv = vec![
             "ssh".to_string(),
             "-o".to_string(),
@@ -617,7 +617,7 @@ impl<R: ArgvRunner> AgentHostObservationPort for ProxmoxSshAgentHostObserver<'_,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+    use cynic_process::{ArgvOutput, ArgvRunner};
     use cynic_protocol::AgentHostDesired;
 
     // ---- Mock runner -------------------------------------------------------

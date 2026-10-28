@@ -26,4 +26,4 @@ pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 /// `cynic-lifecycle` (L1) in tests — downward dependency, DAG-legal — but
 /// production code must never fabricate runners.
 #[cfg(test)]
-pub use cynic_lifecycle::MapArgvRunner;
+pub use cynic_process::MapArgvRunner;

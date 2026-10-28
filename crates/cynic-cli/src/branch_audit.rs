@@ -39,7 +39,7 @@
 
 use serde::Serialize;
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 use crate::rust_source::workspace_root;
 
@@ -412,7 +412,7 @@ fn base_patch_ids(base_ref: &str) -> Vec<String> {
 
 fn patch_id(commit: &str) -> Option<String> {
     let root = workspace_root();
-    let show = cynic_lifecycle::LocalArgvRunner.run(&[
+    let show = cynic_process::LocalArgvRunner.run(&[
         "git",
         "-C",
         root.to_str().unwrap_or("."),
@@ -447,7 +447,7 @@ fn git(args: &[&str]) -> String {
     let root = workspace_root();
     let mut argv = vec!["git", "-C", root.to_str().unwrap_or(".")];
     argv.extend_from_slice(args);
-    let out = cynic_lifecycle::LocalArgvRunner.run(&argv);
+    let out = cynic_process::LocalArgvRunner.run(&argv);
     if out.success() {
         out.stdout
     } else {

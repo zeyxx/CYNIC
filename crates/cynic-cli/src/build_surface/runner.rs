@@ -1,12 +1,27 @@
 //! Build triggering, execution and proof verification.
 
 use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
+use cynic_build::{BuildRunner, ports::BuildCommandOutput};
 use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_vcs::SourceSnapshot;
+
+struct LocalBuildRunner;
+
+impl BuildRunner for LocalBuildRunner {
+    fn run_command(&self, argv: &[&str]) -> BuildCommandOutput {
+        let out = LocalArgvRunner.run(argv);
+        BuildCommandOutput {
+            exit_code: out.exit_code,
+            stdout: out.stdout,
+            stderr: out.stderr,
+            spawn_error: out.spawn_error,
+        }
+    }
+}
 
 pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
     cynic_build::resolve_builder_url_with_health()
@@ -19,7 +34,7 @@ pub(crate) fn resolve_gate_scope(
     commit: &str,
 ) -> (cynic_build::gate_scope::GateScope, Vec<String>) {
     use cynic_build::gate_scope::{GateScope, decide_gate_scope};
-    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "diff", "--name-only", &format!("{commit}^"), commit]);
+    let out = cynic_process::LocalArgvRunner.run(&["git", "diff", "--name-only", &format!("{commit}^"), commit]);
     match out {
         o if o.success() => {
             let text = o.stdout;
@@ -731,7 +746,7 @@ fn run_one_proof(
 /// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
 /// Failure fails open (empty marker = caller falls back to Full).
 fn scoped_diff_paths(commit: &str) -> Option<Vec<String>> {
-    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "diff", "--name-only", &format!("{commit}^"), commit]);
+    let out = cynic_process::LocalArgvRunner.run(&["git", "diff", "--name-only", &format!("{commit}^"), commit]);
     if !out.success() {
         return None;
     }
@@ -742,7 +757,7 @@ fn scoped_diff_paths(commit: &str) -> Option<Vec<String>> {
 /// Crate-topology consumers lookup from the enclosing repo checkout.
 /// None when the topology file is missing — the plan then skips narrowing.
 fn scoped_topology_consumers() -> Option<impl Fn(&str) -> Vec<String>> {
-    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
+    let out = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
     let top = if out.success() && !out.stdout.trim().is_empty() {
         out.stdout.trim().to_string()
     } else {
@@ -918,7 +933,7 @@ struct LocalBuildRunner;
 
 impl cynic_build::BuildRunner for LocalBuildRunner {
     fn run_command(&self, argv: &[&str]) -> cynic_build::ports::BuildCommandOutput {
-        let out = cynic_lifecycle::LocalArgvRunner.run(argv);
+        let out = cynic_process::LocalArgvRunner.run(argv);
         cynic_build::ports::BuildCommandOutput {
             exit_code: out.exit_code,
             stdout: out.stdout,
@@ -927,7 +942,6 @@ impl cynic_build::BuildRunner for LocalBuildRunner {
         }
     }
 }
-
     let runner = LocalBuildRunner;
     // Build lease is verified by the build runner node itself (cynic-node),
     // not by an external coordination service (kernel). The kernel is retired.
