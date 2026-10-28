@@ -1,14 +1,11 @@
 use cynic_process::{ArgvOutput, MapArgvRunner};
 use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 
-use super::apply::root_authority_blocker;
-use super::decision::plan_dns_activation;
-use super::registry::resolve_dns_activation_spec;
-use super::rollback::rollback_matches;
-use super::types::{
-    DnsActivationFileObservation, DnsActivationFileSpec, DnsActivationObservation,
-    DnsActivationSpec,
+use cynic_network::dns_activation::{
+    DnsActivationFileObservation, DnsActivationFileSpec, DnsActivationObservation, DnsActivationSpec,
+    plan_dns_activation, rollback_matches, root_authority_blocker,
 };
+use super::registry::resolve_dns_activation_spec;
 
 fn spec() -> DnsActivationSpec {
     DnsActivationSpec {

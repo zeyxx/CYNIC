@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 use super::types::{DnsActivationFileObservation, DnsActivationObservation, DnsActivationSpec};
 
-pub(crate) fn observe_dns_activation(
+pub fn observe_dns_activation(
     spec: &DnsActivationSpec,
     runner: &dyn ArgvRunner,
 ) -> DnsActivationObservation {

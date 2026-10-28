@@ -12,7 +12,7 @@ use super::types::{
     DnsActivationApplyReport, DnsActivationObservation, DnsActivationPlan, DnsActivationSpec,
 };
 
-pub(crate) fn apply_dns_activation(
+pub fn apply_dns_activation(
     spec: &DnsActivationSpec,
     yes: bool,
     runner: &dyn ArgvRunner,
@@ -208,7 +208,7 @@ pub(crate) fn apply_dns_activation(
     )
 }
 
-pub(super) fn root_authority_blocker(runner: &dyn ArgvRunner) -> Option<String> {
+pub fn root_authority_blocker(runner: &dyn ArgvRunner) -> Option<String> {
     let observed = runner.run(&["id", "-u"]);
     if !observed.success() {
         return Some("dns_activation_root_authority_unobservable".to_string());

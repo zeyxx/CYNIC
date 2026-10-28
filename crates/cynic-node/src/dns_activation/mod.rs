@@ -1,12 +1,7 @@
-mod apply;
-mod decision;
-mod filesystem;
-mod observe;
-mod registry;
-mod rollback;
-mod types;
+pub use cynic_network::dns_activation::*;
 
-pub(crate) use apply::apply_dns_activation;
+mod registry;
+
 pub(crate) use registry::resolve_dns_activation_spec;
 
 pub fn apply_dns_activation_value(

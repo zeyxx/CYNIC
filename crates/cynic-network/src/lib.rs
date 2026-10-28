@@ -9,6 +9,7 @@ pub mod actuator;
 pub mod adapters;
 pub mod discovery;
 pub mod dns;
+pub mod dns_activation;
 pub mod dns_resolver;
 pub mod firewall_policy;
 pub mod freebox;
