@@ -370,6 +370,9 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             // embedding engine resolves, lexical BM25 otherwise. The vector
             // cache is engine-bound — a foreign engine recomputes instead
             // of silently mixing vectors.
+            let repo_root_for_dense = repo_root.clone();
+            let question_for_dense = question.clone();
+            let cache_chunks = cache.chunks_by_path();
             let dense_data: Result<
                 (
                     Vec<cynic_knowledge::DocumentChunk>,
@@ -377,7 +380,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     Vec<f32>,
                 ),
                 String,
-            > = tokio::task::block_in_place(|| {
+            > = std::thread::spawn(move || {
                 let backend =
                     cynic_inference::adapters::embedding::http::EmbeddingBackend::from_env()
                         .map_err(|e| format!("no embedding engine: {e}"))?;
@@ -409,7 +412,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         }
                     })
                     .collect();
-                let vector_cache_path = repo_root.join(
+                let vector_cache_path = repo_root_for_dense.join(
                     cynic_eval::bench::retrieval_gain::vector_cache_filename_for(
                         &format!("{model}@{engine_key}"),
                         &pipeline.tag(),
@@ -424,7 +427,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 .unwrap_or_else(|| {
                     cynic_knowledge::VectorCacheRecord::new(&model, &pipeline.tag(), &engine)
                 });
-                let mut chunks: Vec<_> = cache.chunks_by_path().into_values().flatten().collect();
+                let mut chunks: Vec<_> = cache_chunks.into_values().flatten().collect();
                 chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
                 let templated = cynic_eval::bench::retrieval_gain::TemplatedEmbedder::new(
                     &bridge,
@@ -447,7 +450,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     }
                     eprintln!("dense index: {reused} reused, {embedded} embedded");
                 }
-                let query_text = pipeline.query_text(&question);
+                let query_text = pipeline.query_text(&question_for_dense);
                 let mut query_vectors =
                     cynic_knowledge::ChunkEmbedder::embed_batch(&templated, &[query_text.as_str()])
                         .map_err(|e| format!("query embed failed: {e}"))?;
@@ -455,7 +458,9 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     .pop()
                     .ok_or_else(|| "query embed returned nothing".to_string())?;
                 Ok::<_, String>((chunks, vectors, query_vector))
-            });
+            })
+            .join()
+            .unwrap_or_else(|_| Err("dense retrieval thread panicked".into()));
             // Owned triple keeps `chunks` alive for the borrow in `fused`.
             let dense_owned = match dense_data {
                 Ok(triple) => Some(triple),
@@ -555,12 +560,11 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     "stream": true
                 });
 
-                let mut answer_text = None;
-                let mut duration_ms = 0u128;
-                let mut error_msg = None;
                 let is_json = json;
+                let target_endpoint_thread = target_endpoint.clone();
+                let payload_thread = payload.clone();
 
-                tokio::task::block_in_place(|| {
+                let (answer_text, duration_ms, error_msg) = std::thread::spawn(move || {
                     use std::io::{BufRead, BufReader, Write};
 
                     let client = reqwest::blocking::Client::builder()
@@ -589,8 +593,12 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         })
                         .map(|k| k.trim().to_string());
 
+                    let mut answer = None;
+                    let mut duration = 0u128;
+                    let mut err = None;
+
                     if let Ok(client) = client {
-                        let mut req = client.post(&target_endpoint).json(&payload);
+                        let mut req = client.post(&target_endpoint_thread).json(&payload_thread);
                         if let Some(ref key) = api_key {
                             req = req.header("Authorization", format!("Bearer {}", key));
                         }
@@ -632,26 +640,32 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                                             }
                                         }
                                     }
-                                    duration_ms = start.elapsed().as_millis();
+                                    duration = start.elapsed().as_millis();
                                     if !accumulated.is_empty() {
                                         if !is_json {
                                             println!(
                                                 "\n\n[Temps d'inférence : {} ms]",
-                                                duration_ms
+                                                duration
                                             );
                                         }
-                                        answer_text = Some(accumulated);
+                                        answer = Some(accumulated);
                                     }
                                 } else {
-                                    error_msg = Some(format!("HTTP {}", resp.status().as_u16()));
+                                    err = Some(format!("HTTP {}", resp.status().as_u16()));
                                 }
                             }
                             Err(e) => {
-                                error_msg = Some(format!("Connection error: {}", e));
+                                err = Some(format!("Connection error: {}", e));
                             }
                         }
+                    } else {
+                        err = Some("Failed to construct HTTP client".into());
                     }
-                });
+
+                    (answer, duration, err)
+                })
+                .join()
+                .unwrap_or_else(|_| (None, 0, Some("Inference thread panicked".into())));
 
                 if json {
                     let out = serde_json::json!({
