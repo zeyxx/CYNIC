@@ -7,6 +7,7 @@ use std::process::ExitCode;
 use cynic_vcs::pull_request::{SecretPattern, evaluate_pr_admission, evaluate_pr_close, secret_lint};
 use cynic_vcs::providers::forgejo_pr_port_from_registry;
 use crate::cli_json::emit_pretty_json;
+use cynic_lifecycle::LocalArgvRunner;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum PrCommand {
@@ -157,11 +158,10 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                     }
                     match serde_json::from_str::<PatternRegistry>(&raw) {
                         Ok(reg) => {
-                            let diff = std::process::Command::new("git")
-                                .args(["diff", &format!("origin/main..{}", pr.head_ref)])
-                                .output()
-                                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                                .unwrap_or_default();
+                            let target = "origin/main";
+                            let source = &pr.head_ref;
+                            let output = LocalArgvRunner.run(&["git", "diff", "--stat", &format!("{target}...{source}")]);
+                            let diff = output.stdout;
                             secret_lint(&diff, &reg.patterns)
                         }
                         Err(_) => Vec::new(),
@@ -203,7 +203,13 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                     Ok(proof) => {
                         // Local cleanup only after a confirmed remote merge of an agent branch.
                         let local = if !keep_branch && proof.head_ref.starts_with("agent/") {
-                            Some(prune_local_branch(&proof.head_ref))
+                            Some(
+                                cynic_vcs::source_worktree::prune_merged_branch_worktree(
+                                    &proof.head_ref,
+                                    &cynic_lifecycle::LocalArgvRunner,
+                                )
+                                .unwrap_or_else(|e| e),
+                            )
                         } else {
                             None
                         };
@@ -264,78 +270,5 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             }
         }
-    }
-}
-
-/// Remove the local linked worktree and local branch of a merged agent PR.
-///
-/// Best-effort and bounded: the main worktree (first entry of
-/// `git worktree list`) is never removed, a dirty worktree is kept, and the
-/// local branch is deleted only after the remote merge was confirmed by the caller.
-fn prune_local_branch(branch: &str) -> String {
-    use std::process::Command;
-
-    let listing = match Command::new("git")
-        .args(["worktree", "list", "--porcelain"])
-        .output()
-    {
-        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).into_owned(),
-        _ => return "local: worktree list failed, kept".to_string(),
-    };
-
-    // Each block: `worktree <path>` then optional `branch refs/heads/<name>`.
-    let mut entries: Vec<(String, Option<String>)> = Vec::new();
-    for block in listing.split("\n\n") {
-        let mut path = None;
-        let mut head = None;
-        for line in block.lines() {
-            if let Some(p) = line.strip_prefix("worktree ") {
-                path = Some(p.to_string());
-            } else if let Some(b) = line.strip_prefix("branch refs/heads/") {
-                head = Some(b.to_string());
-            }
-        }
-        if let Some(p) = path {
-            entries.push((p, head));
-        }
-    }
-
-    let mut notes: Vec<String> = Vec::new();
-    // Index 0 is the main worktree: it is never removed here.
-    for (path, head) in entries.iter().skip(1) {
-        if head.as_deref() != Some(branch) {
-            continue;
-        }
-        let dirty = Command::new("git")
-            .args(["-C", path, "status", "--porcelain"])
-            .output()
-            .map(|o| !o.stdout.is_empty())
-            .unwrap_or(true);
-        if dirty {
-            return format!("local: worktree {path} is dirty, kept");
-        }
-        match Command::new("git").args(["worktree", "remove", path]).status() {
-            Ok(s) if s.success() => notes.push(format!("worktree {path} removed")),
-            _ => return format!("local: worktree {path} removal failed"),
-        }
-    }
-
-    let refname = format!("refs/heads/{branch}");
-    let exists = Command::new("git")
-        .args(["show-ref", "--verify", "--quiet", &refname])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if exists {
-        match Command::new("git").args(["branch", "-D", branch]).status() {
-            Ok(s) if s.success() => notes.push(format!("local branch {branch} deleted")),
-            _ => notes.push(format!("local branch {branch} kept (git refused)")),
-        }
-    }
-
-    if notes.is_empty() {
-        "local: nothing to prune".to_string()
-    } else {
-        format!("local: {}", notes.join("; "))
     }
 }

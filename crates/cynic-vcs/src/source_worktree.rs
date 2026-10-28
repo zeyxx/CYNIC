@@ -3,6 +3,7 @@
 //! Conforms to `contracts/foundation.json` §481 and `infra/workspace-paths.json`.
 //! ZERO I/O: operates strictly on snapshots, producing deterministic plans.
 
+use crate::runner::ArgvRunner;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -503,5 +504,122 @@ mod tests {
             });
             assert!(pruned, "{path} should still prune");
         }
+    }
+}
+
+/// Remove the local linked worktree and local branch of a merged agent PR.
+///
+/// Best-effort and bounded: the main worktree (first entry of
+/// `git worktree list`) is never removed, a dirty worktree is kept, and the
+/// local branch is deleted only after the remote merge was confirmed by the caller.
+pub fn prune_merged_branch_worktree<R: ArgvRunner>(
+    branch: &str,
+    runner: &R,
+) -> Result<String, String> {
+    let listing_out = runner.run(&["git", "worktree", "list", "--porcelain"]);
+    if !listing_out.success() {
+        return Ok("local: worktree list failed, kept".to_string());
+    }
+    let listing = listing_out.stdout;
+
+    // Each block: `worktree <path>` then optional `branch refs/heads/<name>`.
+    let mut entries: Vec<(String, Option<String>)> = Vec::new();
+    for block in listing.split("\n\n") {
+        let mut path = None;
+        let mut head = None;
+        for line in block.lines() {
+            if let Some(p) = line.strip_prefix("worktree ") {
+                path = Some(p.to_string());
+            } else if let Some(b) = line.strip_prefix("branch refs/heads/") {
+                head = Some(b.to_string());
+            }
+        }
+        if let Some(p) = path {
+            entries.push((p, head));
+        }
+    }
+
+    let mut notes: Vec<String> = Vec::new();
+    // Index 0 is the main worktree: it is never removed here.
+    for (path, head) in entries.iter().skip(1) {
+        if head.as_deref() != Some(branch) {
+            continue;
+        }
+        let dirty_out = runner.run(&["git", "-C", path, "status", "--porcelain"]);
+        let dirty = if dirty_out.success() {
+            !dirty_out.stdout.is_empty()
+        } else {
+            true
+        };
+        if dirty {
+            return Ok(format!("local: worktree {path} is dirty, kept"));
+        }
+        let remove_out = runner.run(&["git", "worktree", "remove", path]);
+        if !remove_out.success() {
+            return Ok(format!("local: worktree {path} removal failed"));
+        }
+        notes.push(format!("worktree {path} removed"));
+    }
+
+    let refname = format!("refs/heads/{branch}");
+    let showref_out = runner.run(&["git", "show-ref", "--verify", "--quiet", &refname]);
+    let exists = showref_out.success();
+    if exists {
+        let del_out = runner.run(&["git", "branch", "-D", branch]);
+        if del_out.success() {
+            notes.push(format!("local branch {branch} deleted"));
+        } else {
+            notes.push(format!("local branch {branch} kept (git refused)"));
+        }
+    }
+
+    if notes.is_empty() {
+        Ok("local: nothing to prune".to_string())
+    } else {
+        Ok(format!("local: {}", notes.join("; ")))
+    }
+}
+
+#[cfg(test)]
+mod prune_merged_branch_worktree_tests {
+    use super::*;
+    use crate::runner::{ArgvOutput, MapArgvRunner};
+
+    #[test]
+    fn clean_execution() {
+        let branch = "agent/foo";
+        let wt_path = "/repo/.worktrees/foo";
+        let listing = format!(
+            "worktree /repo\nHEAD abc\nbranch refs/heads/main\n\nworktree {wt_path}\nHEAD def\nbranch refs/heads/{branch}\n"
+        );
+        let runner = MapArgvRunner {
+            responses: vec![
+                (
+                    vec!["git".into(), "worktree".into(), "list".into(), "--porcelain".into()],
+                    ArgvOutput { exit_code: Some(0), stdout: listing, stderr: String::new(), spawn_error: None },
+                ),
+                (
+                    vec!["git".into(), "-C".into(), wt_path.into(), "status".into(), "--porcelain".into()],
+                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                ),
+                (
+                    vec!["git".into(), "worktree".into(), "remove".into(), wt_path.into()],
+                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                ),
+                (
+                    vec!["git".into(), "show-ref".into(), "--verify".into(), "--quiet".into(), format!("refs/heads/{branch}")],
+                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                ),
+                (
+                    vec!["git".into(), "branch".into(), "-D".into(), branch.into()],
+                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                ),
+            ],
+        };
+        let result = prune_merged_branch_worktree(branch, &runner);
+        assert_eq!(
+            result,
+            Ok(format!("local: worktree {wt_path} removed; local branch {branch} deleted"))
+        );
     }
 }
