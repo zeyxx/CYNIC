@@ -8,7 +8,7 @@
 //! is transport-agnostic; this port is the seam that lets a concrete
 //! adapter (HTTP PUT / SSH) honour it.
 
-use crate::domain::artifact_publication::{
+use super::{
     ArtifactPublicationRequest, PublishError, PublishedArtefact,
 };
 

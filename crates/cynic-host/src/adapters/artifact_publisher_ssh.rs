@@ -11,10 +11,10 @@
 
 use std::path::Path;
 
-use cynic_lifecycle::domain::artifact_publication::{
+use cynic_release::artifact_publication::{
     ArtifactPublicationRequest, PublishError, PublishedArtefact, TransportProtocol,
 };
-use cynic_lifecycle::ports::artifact_publisher_port::ArtifactPublisher;
+use cynic_release::artifact_publication::ArtifactPublisher;
 use cynic_lifecycle::{ArgvRunner, MapArgvRunner};
 use cynic_ssh::argv::{scp_argv, ssh_argv, validate_remote_segment as validate_remote_segment_ssh, validate_target as validate_ssh_target_ssh};
 use cynic_ssh::options::SSH_BATCH_OPTIONS;
@@ -101,7 +101,7 @@ impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_lifecycle::domain::artifact_publication::PublicationTarget;
+    use cynic_release::artifact_publication::PublicationTarget;
     use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     fn request() -> ArtifactPublicationRequest {

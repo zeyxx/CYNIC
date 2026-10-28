@@ -10,10 +10,10 @@
 use std::fs;
 use std::path::Path;
 
-use cynic_lifecycle::domain::artifact_publication::{
+use cynic_release::artifact_publication::{
     ArtifactPublicationRequest, PublishError, PublishedArtefact, TransportProtocol,
 };
-use cynic_lifecycle::ports::artifact_publisher_port::ArtifactPublisher;
+use cynic_release::artifact_publication::ArtifactPublisher;
 
 /// HTTP PUT publisher targeting the runtime's provider_control endpoint.
 ///
@@ -109,7 +109,7 @@ mod tests {
         let pub_http = HttpArtifactPublisher::new("https://10.10.10.119:8006");
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
-            target: cynic_lifecycle::domain::artifact_publication::PublicationTarget {
+            target: cynic_release::artifact_publication::PublicationTarget {
                 node: "synapse".into(),
                 target: "cynic@10.10.10.119".into(),
                 protocol: TransportProtocol::Ssh,
@@ -127,7 +127,7 @@ mod tests {
         let pub_http = HttpArtifactPublisher::new("https://pve.service.cynic:8006");
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
-            target: cynic_lifecycle::domain::artifact_publication::PublicationTarget {
+            target: cynic_release::artifact_publication::PublicationTarget {
                 node: "synapse".into(),
                 target: "pve.service.cynic".into(),
                 protocol: TransportProtocol::HttpPut,

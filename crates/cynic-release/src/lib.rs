@@ -7,6 +7,7 @@
 //! - ports: driven interfaces for execution layers
 
 pub mod adapters;
+pub mod artifact_publication;
 pub mod build_proof;
 pub mod contracts;
 pub mod deploy;
@@ -17,6 +18,7 @@ pub mod deploy_ssh;
 pub mod error;
 pub mod evaluator;
 pub mod external_deploy;
+pub mod kernel_release;
 pub mod ports;
 pub mod types;
 

@@ -10,10 +10,9 @@
 use std::path::Path;
 
 use super::types::KernelReleaseSpec;
-use crate::domain::artifact_publication::{
-    ArtifactPublicationRequest, PublishError, PublishedArtefact, select_transport,
+use crate::artifact_publication::{
+    ArtifactPublicationRequest, PublishError, PublishedArtefact, select_transport, ArtifactPublisher,
 };
-use crate::ports::artifact_publisher_port::ArtifactPublisher;
 
 /// Build the publication request for a successfully released spec.
 ///
@@ -67,8 +66,8 @@ pub fn publish_released_artifact(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::artifact_publication::TransportProtocol;
-    use crate::ports::artifact_publisher_port::ArtifactPublisher;
+    use crate::artifact_publication::TransportProtocol;
+    use crate::artifact_publication::ArtifactPublisher;
     use cynic_protocol::artifact_release::{
         ArtifactPublicationTarget, RuntimeArtifactSpec,
     };
