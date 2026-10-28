@@ -37,6 +37,7 @@ cynic-fleet = { path = "../cynic-fleet" }
 cynic-tui = { path = "../cynic-tui" }
 cynic-supervisor = { path = "../cynic-supervisor" }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-ssh = { path = "../cynic-ssh" }
 cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }

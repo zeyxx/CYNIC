@@ -115,41 +115,38 @@ fn shell_json(reports: &[NodeCeremonyReport], json: bool) {
     }
 }
 
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_ssh::argv;
+
 fn run_ssh(target: &str, remote: &str) -> Result<String, String> {
-    let output = std::process::Command::new("ssh")
-        .args([
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=10",
-            target,
-            remote,
-        ])
-        .output()
-        .map_err(|e| format!("ssh_unavailable: {e}"))?;
-    if !output.status.success() {
+    let argv = argv::ssh_script_argv(target, remote)
+        .map_err(|e| format!("ssh_argv_invalid: {e}"))?;
+    let runner = LocalArgvRunner;
+    let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+    let output = runner.run(&refs);
+    if let Some(err) = output.spawn_error {
+        return Err(format!("ssh_unavailable: {err}"));
+    }
+    if !output.success() {
         return Err(format!(
             "ssh_remote_failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
+            output.stderr.trim()
         ));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(output.stdout.trim().to_string())
 }
 
 fn scp_to(target: &str, local: &str, remote_path: &str) -> Result<(), String> {
     let destination = format!("{target}:{remote_path}");
-    let status = std::process::Command::new("scp")
-        .args([
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=10",
-            local,
-            &destination,
-        ])
-        .status()
-        .map_err(|e| format!("scp_unavailable: {e}"))?;
-    if !status.success() {
+    let argv = argv::scp_argv(local, &destination)
+        .map_err(|e| format!("scp_argv_invalid: {e}"))?;
+    let runner = LocalArgvRunner;
+    let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+    let output = runner.run(&refs);
+    if let Some(err) = output.spawn_error {
+        return Err(format!("scp_unavailable: {err}"));
+    }
+    if !output.success() {
         return Err(format!("scp_failed for {target}"));
     }
     Ok(())

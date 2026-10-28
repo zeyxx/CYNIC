@@ -737,6 +737,7 @@ dependencies = [
  "cynic-release",
  "cynic-sandbox",
  "cynic-secrets",
+ "cynic-ssh",
  "cynic-storage",
  "cynic-supervisor",
  "cynic-traces",
