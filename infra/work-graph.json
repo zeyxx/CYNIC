@@ -517,6 +517,15 @@
       "evidence": "crates/cynic-storage/src/projection has SqliteProjectionAdapter, but no crate outside cynic-storage tests queries it",
       "probe": null,
       "note": "Domain state machines (agent sessions, node status, task queue) lack active projection reducers reading from the WAL"
+    },
+    {
+      "id": "S6",
+      "kind": "issue",
+      "title": "CLI storage surface sprawl across 4 competing command families",
+      "state": "open",
+      "evidence": "crates/cynic-cli implements storage subcommands across storage_surface, runtime_surface, node_surface, and host_surface with duplicate ping/query/capabilities",
+      "probe": null,
+      "note": "Harmonize all storage interactions under canonical cynic storage family; respect no_hyphen_in_cli_commands constitutional law"
     }
   ],
   "hyperedges": [
