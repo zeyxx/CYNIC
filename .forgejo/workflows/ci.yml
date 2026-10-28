@@ -21,8 +21,12 @@ jobs:
         run: |
           if [ -s /tmp/crates.txt ]; then
             for crate in $(cat /tmp/crates.txt); do
-              echo "=== cargo check -p $crate ==="
-              cargo check -p "$crate" --lib || exit 1
+              if [ -d "crates/$crate" ]; then
+                echo "=== cargo check -p $crate ==="
+                cargo check -p "$crate" --lib || exit 1
+              else
+                echo "=== skipping deleted crate $crate ==="
+              fi
             done
           else
             echo "No crate changes detected, skipping."
