@@ -1,0 +1,13 @@
+[package]
+name = "cynic-process"
+version = "0.1.0"
+edition = "2021"
+description = "Substrate OS process execution and memory mocking adapters implementing cynic-protocol::argv"
+
+[package.metadata.cynic]
+layer = "L1"
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true }

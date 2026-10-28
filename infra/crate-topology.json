@@ -762,6 +762,21 @@
       "kind": "library",
       "layer": "cross_cutting",
       "loc": 6383
+    },
+    "cynic-process": {
+      "consumers": [
+        "cynic-lifecycle"
+      ],
+      "depends_on": [
+        "cynic-protocol"
+      ],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L1",
+      "loc": 0,
+      "domain": "process",
+      "description": "OS process spawning and in-memory test runner"
     }
   },
   "extraction_order": [
@@ -963,6 +978,7 @@
       "cynic-lxc",
       "cynic-network",
       "cynic-pkg",
+      "cynic-process",
       "cynic-proxmox",
       "cynic-release",
       "cynic-sandbox",
