@@ -16,12 +16,14 @@ pub enum StorageCommand {
         #[arg(long)]
         endpoint: Option<String>,
     },
-    /// Synchronize knowledge graph and documents into SurrealDB.
+    /// Synchronize knowledge graph, documents and chunks into SurrealDB.
     Sync {
         #[arg(long)]
         json: bool,
         #[arg(long)]
         endpoint: Option<String>,
+        #[arg(long)]
+        embed: bool,
     },
     /// Execute a SurrealQL query via cynic-surreal authenticated client.
     Query {
@@ -64,7 +66,7 @@ fn get_client(endpoint: Option<String>) -> (String, cynic_storage::SurrealHttpCl
 }
 
 pub fn execute_storage(command: StorageCommand) -> ExitCode {
-    tokio::task::block_in_place(|| match command {
+    std::thread::spawn(move || match command {
         StorageCommand::Ping { json: _, endpoint } => {
             let (_ep, client) = get_client(endpoint);
             match cynic_storage::SurrealStoragePort::check_health(&client) {
@@ -72,9 +74,13 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
                 Err(e) => fail(e),
             }
         }
-        StorageCommand::Sync { json: _, endpoint } => {
+        StorageCommand::Sync {
+            json: _,
+            endpoint,
+            embed,
+        } => {
             let (ep, client) = get_client(endpoint);
-            match sync::execute_storage_sync(&client, &ep) {
+            match sync::execute_storage_sync(&client, &ep, embed) {
                 Ok(report) => emit_json(&report, false),
                 Err(e) => fail(e),
             }
@@ -108,5 +114,10 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
                 Err(e) => fail(e),
             }
         }
+    })
+    .join()
+    .unwrap_or_else(|_| {
+        eprintln!("storage thread panicked");
+        ExitCode::FAILURE
     })
 }

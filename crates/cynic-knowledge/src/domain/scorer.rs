@@ -247,6 +247,11 @@ impl LexicalIndex {
     pub fn chunk_count(&self) -> usize {
         self.chunks.len()
     }
+
+    /// Returns a slice of all indexed document chunks.
+    pub fn chunks(&self) -> &[DocumentChunk] {
+        &self.chunks
+    }
 }
 
 /// Relative BM25 confidence margin: (top1 - top2) / top1. Zero when the top
