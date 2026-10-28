@@ -3,9 +3,10 @@
 //! Read-only by construction: runs `git ls-remote` + `git merge-base` only.
 //! No push, no force-update, no mutation.
 
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use serde::Serialize;
 use std::path::Path;
-use std::process::{Command, ExitCode};
+use std::process::ExitCode;
 
 use crate::cli_json::emit_pretty_json;
 
@@ -59,20 +60,17 @@ pub(crate) fn execute_divergence(root: &Path, json: bool) -> ExitCode {
     };
 
     // Count orphan branches (no upstream tracking) as drift signal.
-    let orphan_branch_count = std::process::Command::new("git")
-        .args(["branch", "--format=%(refname:short) %(upstream:short)"])
-        .output()
-        .ok()
-        .map(|o| {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .filter(|l| {
-                    let parts: Vec<&str> = l.split_whitespace().collect();
-                    parts.len() == 1 || parts.get(1).map(|u| u.is_empty()).unwrap_or(true)
-                })
-                .count()
-        })
-        .unwrap_or(0);
+    let orphan_branch_count = {
+        let output = LocalArgvRunner.run(&["git", "branch", "--format=%(refname:short) %(upstream:short)"]);
+        output
+            .stdout
+            .lines()
+            .filter(|l| {
+                let parts: Vec<&str> = l.split_whitespace().collect();
+                parts.len() == 1 || parts.get(1).map(|u| u.is_empty()).unwrap_or(true)
+            })
+            .count()
+    };
 
     let report = DivergenceReport {
         schema: "cynic.source.divergence.v1",
@@ -165,17 +163,14 @@ fn resolve_remotes(registry_path: &Path) -> Result<(String, String), String> {
 }
 
 fn ls_remote_sha(url: &str, refname: &str) -> Result<String, String> {
-    let out = Command::new("git")
-        .args(["ls-remote", url, refname])
-        .output()
-        .map_err(|e| format!("spawn git ls-remote: {e}"))?;
-    if !out.status.success() {
+    let output = LocalArgvRunner.run(&["git", "ls-remote", url, refname]);
+    if !output.success() {
         return Err(format!(
             "git ls-remote failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
+            output.stderr.trim()
         ));
     }
-    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stdout = output.stdout;
     let sha = stdout
         .split_whitespace()
         .next()
@@ -216,28 +211,22 @@ fn ancestry_status(forgejo_sha: &str, github_sha: &str, forgejo_url: &str, githu
 }
 
 fn is_ancestor(repo: &Path, ancestor: &str, descendant: &str) -> bool {
-    Command::new("git")
-        .args(["-C", repo.to_str().unwrap_or("."), "merge-base", "--is-ancestor", ancestor, descendant])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    let output = LocalArgvRunner.run(&["git", "-C", repo.to_str().unwrap_or("."), "merge-base", "--is-ancestor", ancestor, descendant]);
+    output.success()
 }
 
 fn run_git(repo: &Path, args: &[&str]) -> Result<String, String> {
-    let mut cmd = Command::new("git");
-    cmd.arg("-C").arg(repo);
-    for a in args {
-        cmd.arg(a);
-    }
-    let out = cmd.output().map_err(|e| format!("spawn git: {e}"))?;
-    if !out.status.success() {
+    let mut argv = vec!["git", "-C", repo.to_str().unwrap_or(".")];
+    argv.extend_from_slice(args);
+    let output = LocalArgvRunner.run(&argv);
+    if !output.success() {
         return Err(format!(
             "git {:?} failed: {}",
             args,
-            String::from_utf8_lossy(&out.stderr).trim()
+            output.stderr.trim()
         ));
     }
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    Ok(output.stdout)
 }
 
 #[cfg(test)]

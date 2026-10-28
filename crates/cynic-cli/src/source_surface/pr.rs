@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use cynic_vcs::pull_request::{SecretPattern, evaluate_pr_admission, evaluate_pr_close, secret_lint};
 use cynic_vcs::providers::forgejo_pr_port_from_registry;
 use crate::cli_json::emit_pretty_json;
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum PrCommand {
