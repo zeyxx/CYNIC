@@ -35,6 +35,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 - **Cleanup at passage**: when the work is merged or abandoned, the agent that allocated the worktree removes it and deletes its branch (local and remote) in the same session. Leave nothing behind.
 - **Main only through a PR**: never cherry-pick or merge old branches onto `main` outside a PR. Three commits that reached `main` without one (`9d3bf7d6`, `ad5ce4eb`, `6f371183`) broke the build for every agent.
 - **Sovereign merges**: Forgejo is the sovereign store, GitHub the public projection. Merge only via `cynic source pr merge` on the sovereign side; never `gh pr merge` (it writes to the projection and splits the line — 2026-10-23). The hourly drift watch pages on divergence; converge before any further merge.
+- **Never push to GitHub directly**: Direct `git push github ...` is strictly forbidden. The automated mirror handles replication from sovereign Forgejo to GitHub. Agents interact exclusively with Forgejo (`origin`).
 - **Claims**: Scope claim before mutation; release with proof reference.
 
 ## Convergence Procedure (Git & Worktree Hygiene)
@@ -47,11 +48,10 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
    - Archive dead branches (0 commits ahead): `cynic git reconcile --apply`.
    - GC stale worktrees: `cynic source worktree --apply`.
 4. **Verify**: `cynic audit all` must show:
-   - `store_convergence.converged = true` (main == origin/main == github/main).
+   - `store_convergence.converged = true` (main == origin/main == github/main via automated mirror).
    - `branch_drift.orphan_count <= 50`.
    - `host_observed = true`.
-5. **Converge**: push main to both origin and github; verify SHAs match.
-6. **Never push to main directly** — always via PR merge on sovereign side.
+5. **Never push to main or GitHub directly** — always via PR merge on sovereign side (Forgejo). Automated mirror replicates to GitHub.
 
 ### Gates
 - `cynic audit crate` (`make audit-crate`) — crate-level audit.
