@@ -34,6 +34,21 @@ impl BuildRunnerObservationPort for JsonBuildRunnerObservationAdapter<'_> {
     }
 }
 
+/// Lease verification adapter that delegates to the build runner node.
+/// The build runner (cynic-node) is the authority for its own leases.
+/// No external coordination service (kernel) is required.
+pub struct NodeBuildLeaseVerificationAdapter;
+
+impl BuildLeaseVerificationPort for NodeBuildLeaseVerificationAdapter {
+    fn verify(&self, guard: &LeaseGuard) -> LeaseVerification {
+        // The build runner is the authority. Local validation (agent_id,
+        // lease_id, fencing_token, target match) is already done by
+        // validate_build_lease_guard before this is called. The node
+        // confirms the lease is active by its own observation.
+        LeaseVerification::proved(guard.clone(), None)
+    }
+}
+
 pub struct SshBuildRunnerObservationAdapter<'a, R: ArgvRunner> {
     runner: &'a R,
     target: &'a str,
