@@ -20,11 +20,11 @@
 
 use serde_json::Value;
 
+use crate::dns::{DnsEndpoint, DnsResolutionPort};
 use crate::dns::{
     DEFAULT_DNS_ZONE, SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
     SERVICE_DNS_SERVICE_FILENAME,
 };
-use crate::dns_resolver::{DnsEndpoint, DnsResolutionPort};
 use crate::plane_vocabulary::plane_address;
 
 /// Read-only registry-backed DNS resolver.
@@ -108,13 +108,9 @@ impl DnsResolutionPort for RegistryDnsResolver {
             return Some(fqdn);
         }
 
-        // 2. Fallback: construct FQDN from node name + zone
-        let zone = self.service_dns_zone();
-        if zone.is_empty() {
-            None
-        } else {
-            Some(format!("{}.{}", node_name, zone))
-        }
+        // No DNS reservation: a node must be registered to resolve.
+        let _ = node_name;
+        None
     }
 
     fn resolve_endpoint(&self, node_name: &str) -> Option<DnsEndpoint> {
