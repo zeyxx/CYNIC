@@ -1,6 +1,6 @@
 //! Proxmox LXC container implementation of the canonical `ComputeSubstratePort`.
 
-use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_process::{ArgvOutput, ArgvRunner};
 use cynic_protocol::agent_isolation::SandboxStrategy;
 use cynic_protocol::compute::{
     CommandExecutionResult, ComputeRequirements, ComputeSubstratePort, RunnerAllocation,

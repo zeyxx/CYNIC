@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 cynic-host = { path = "../cynic-host" }
-cynic-lifecycle = { path = "../cynic-lifecycle" }
+cynic-process = { path = "../cynic-process" }
 cynic-protocol = { path = "../cynic-protocol" }
 rmcp = { version = "3.1.0", features = ["server", "transport-io", "macros"] }
 serde.workspace = true

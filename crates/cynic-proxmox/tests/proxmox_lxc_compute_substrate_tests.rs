@@ -1,6 +1,6 @@
 //! Tests for ProxmoxLxcSubstrateAdapter realizing ComputeSubstratePort.
 
-use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_process::{ArgvOutput, ArgvRunner};
 use cynic_protocol::agent_isolation::SandboxStrategy;
 use cynic_protocol::compute::{ComputeRequirements, ComputeSubstratePort, SubstrateKind};
 use cynic_proxmox::adapters::proxmox_lxc_compute_substrate::ProxmoxLxcSubstrateAdapter;

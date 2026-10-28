@@ -4,7 +4,7 @@ use cynic_protocol::{
     NodeSubstratePower,
 };
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 
 pub struct ProxmoxSshSubstrateAdapter<'a, R: ArgvRunner> {
@@ -44,7 +44,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshSubstrateAdapter<'a, R> {
         Ok((kind, id))
     }
 
-    fn pvesh(&self, args: &[String]) -> Result<cynic_lifecycle::ArgvOutput, String> {
+    fn pvesh(&self, args: &[String]) -> Result<cynic_process::ArgvOutput, String> {
         let mut argv = vec![
             "ssh".to_string(),
             "-o".to_string(),

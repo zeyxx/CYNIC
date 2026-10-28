@@ -110,7 +110,7 @@ impl CynicMcpServer {
         }
         let observation = cynic_host::mcp_runtime::observe_mcp_runtime(
             args.binary.trim(),
-            &cynic_lifecycle::LocalArgvRunner,
+            &cynic_process::LocalArgvRunner,
         );
         serde_json::to_value(&observation)
             .map(Json)

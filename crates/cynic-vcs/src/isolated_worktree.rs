@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn executes_worktree_allocation_with_stubbed_runner() {
-        use cynic_lifecycle::MapArgvRunner;
+        use cynic_process::MapArgvRunner;
         use cynic_protocol::argv::ArgvOutput;
 
         let repo = Path::new("/home/user/CYNIC");

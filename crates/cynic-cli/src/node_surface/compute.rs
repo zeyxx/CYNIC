@@ -2,7 +2,7 @@
 
 use crate::emit_json;
 use clap::Subcommand;
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 use cynic_network::adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 use cynic_node::usecases::compute_provisioning_uc::{
     ComputeProvisioningIntent, execute_compute_provisioning,

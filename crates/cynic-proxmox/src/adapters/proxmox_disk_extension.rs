@@ -3,7 +3,7 @@
 //! Lives in `adapters/` (substrate), not `agent/` (workloads).
 //! The cleanup agent (`agent/cleanup.rs`) calls this adapter.
 
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 use serde_json::Value;
 
 pub struct ProxmoxSshDiskExtensionAdapter<'a, R: ArgvRunner> {
@@ -20,7 +20,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshDiskExtensionAdapter<'a, R> {
         Ok(Self { runner, ssh_target })
     }
 
-    fn pvesh(&self, args: &[String]) -> Result<cynic_lifecycle::ArgvOutput, String> {
+    fn pvesh(&self, args: &[String]) -> Result<cynic_process::ArgvOutput, String> {
         let mut argv = vec![
             "ssh".to_string(),
             "-o".to_string(),
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_ssh_target() {
-        let runner = cynic_lifecycle::MapArgvRunner::default();
+        let runner = cynic_process::MapArgvRunner::default();
         assert!(ProxmoxSshDiskExtensionAdapter::new(&runner, "").is_err());
     }
 }

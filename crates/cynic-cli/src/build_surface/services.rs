@@ -2,7 +2,7 @@
 
 use clap::Subcommand;
 use cynic_types::paths::CynicPaths;
-use cynic_lifecycle::LocalArgvRunner;
+use cynic_process::LocalArgvRunner;
 
 /// One workload across the federation.
 #[derive(Subcommand, Debug)]

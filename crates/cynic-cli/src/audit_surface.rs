@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use clap::Subcommand;
 
 use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 pub(crate) mod growth;
 pub(crate) mod host_checks;
@@ -310,7 +310,7 @@ impl StoreConvergence {
 }
 
 fn git_rev_parse(refname: &str) -> Option<String> {
-    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", refname]);
+    let output = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", refname]);
     if !output.success() {
         return None;
     }
@@ -357,7 +357,7 @@ impl BranchDrift {
 fn count_orphan_branches() -> usize {
     // Use git branch status --json if available, otherwise count branches
     // with no upstream tracking as a proxy for orphan branches.
-    let output = cynic_lifecycle::LocalArgvRunner.run(&["git", "branch", "--format=%(refname:short) %(upstream:short)"]);
+    let output = cynic_process::LocalArgvRunner.run(&["git", "branch", "--format=%(refname:short) %(upstream:short)"]);
     match output {
         o if o.success() => {
             o.stdout

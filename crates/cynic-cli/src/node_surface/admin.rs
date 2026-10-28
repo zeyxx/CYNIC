@@ -115,7 +115,7 @@ fn shell_json(reports: &[NodeCeremonyReport], json: bool) {
     }
 }
 
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_ssh::argv;
 
 fn run_ssh(target: &str, remote: &str) -> Result<String, String> {

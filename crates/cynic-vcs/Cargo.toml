@@ -25,5 +25,5 @@ hex.workspace = true
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 
 [dev-dependencies]
-cynic-lifecycle = { path = "../cynic-lifecycle" }
+cynic-process = { path = "../cynic-process" }
 tempfile = "3.17"

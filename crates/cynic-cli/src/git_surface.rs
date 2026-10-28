@@ -2,7 +2,7 @@ use crate::cli_json::emit_pretty_json;
 use clap::Subcommand;
 use std::path::Path;
 use std::process::ExitCode;
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum GitCommand {
@@ -140,7 +140,7 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                             let action_str = format!("{:?}", a);
                             // Parse branch from "Archive { branch: \"...\", ... }" or "GcWorktree { branch: \"...\", ... }"
                             if let Some(branch) = extract_branch_from_action(&action_str) {
-                                let res = cynic_lifecycle::LocalArgvRunner.run(&["git", "branch", "-D", &branch]);
+                                let res = cynic_process::LocalArgvRunner.run(&["git", "branch", "-D", &branch]);
                                 match res {
                                     o if o.success() => {
                                         println!("  ✓ archived: {}", branch);

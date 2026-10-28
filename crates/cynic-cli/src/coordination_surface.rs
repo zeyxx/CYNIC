@@ -15,7 +15,7 @@ use crate::coordination_log::{
     append_entry, default_coordination_log_path, read_entries,
 };
 use crate::emit_json;
-use cynic_lifecycle::ArgvRunner;
+use cynic_process::ArgvRunner;
 
 /// Agent coordination fire-and-forget log.
 #[derive(Debug, Clone, Subcommand)]
@@ -553,13 +553,13 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             if !got_pr {
                 // Fallback: git merge commits vs total commits on HEAD.
                 let ws_root_str = ws_root.to_string_lossy().into_owned();
-                let total_out = cynic_lifecycle::LocalArgvRunner
+                let total_out = cynic_process::LocalArgvRunner
                     .run(&["git", "-C", &ws_root_str, "rev-list", "--count", "HEAD"])
                     .stdout
                     .trim()
                     .parse::<usize>()
                     .unwrap_or(0);
-                let merged_out = cynic_lifecycle::LocalArgvRunner
+                let merged_out = cynic_process::LocalArgvRunner
                     .run(&["git", "-C", &ws_root_str, "rev-list", "--count", "--merges", "HEAD"])
                     .stdout
                     .trim()

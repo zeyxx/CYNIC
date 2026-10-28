@@ -18,7 +18,7 @@ use cynic_protocol::build_memory_capacity::{
     decide_memory_capacity_with_cores, stamp_source_digest, MemoryCapacityAssessment,
     MemoryCapacityDecision, DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,
 };
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use serde::Deserialize;
 use std::fs;
 
@@ -441,7 +441,7 @@ fn observed_source_digest() -> String {
             return sha;
         }
     }
-    let out = cynic_lifecycle::LocalArgvRunner.run(&["git", "rev-parse", "HEAD"]);
+    let out = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", "HEAD"]);
     if out.success() && !out.stdout.trim().is_empty() {
         return out.stdout.trim().to_string();
     }

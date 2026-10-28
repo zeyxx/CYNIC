@@ -728,11 +728,11 @@ dependencies = [
  "cynic-intel",
  "cynic-kernel",
  "cynic-knowledge",
- "cynic-lifecycle",
  "cynic-network",
  "cynic-node",
  "cynic-node-protocol",
  "cynic-pkg",
+ "cynic-process",
  "cynic-protocol",
  "cynic-proxmox",
  "cynic-release",
@@ -1082,7 +1082,7 @@ name = "cynic-mcp"
 version = "0.9.0"
 dependencies = [
  "cynic-host",
- "cynic-lifecycle",
+ "cynic-process",
  "cynic-protocol",
  "rmcp",
  "serde",
@@ -1256,7 +1256,7 @@ name = "cynic-proxmox"
 version = "0.9.0"
 dependencies = [
  "cynic-host",
- "cynic-lifecycle",
+ "cynic-process",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
@@ -1404,8 +1404,8 @@ dependencies = [
 name = "cynic-vcs"
 version = "0.9.0"
 dependencies = [
- "cynic-lifecycle",
  "cynic-network",
+ "cynic-process",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",

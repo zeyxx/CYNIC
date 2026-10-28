@@ -4,7 +4,7 @@ use clap::Subcommand;
 use cynic_node_protocol::federation::FederationReconciliation;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use std::process::Command;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
