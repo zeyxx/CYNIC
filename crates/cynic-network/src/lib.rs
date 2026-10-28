@@ -12,6 +12,7 @@ pub mod dns;
 pub mod dns_resolver;
 pub mod firewall_policy;
 pub mod freebox;
+pub mod mesh_bundle;
 pub mod mesh_plan;
 pub mod fleet_membership;
 pub mod plane_vocabulary;
@@ -46,6 +47,7 @@ pub use freebox::{
     FreeboxWanStatus, FREEBOX_DMZ_CONFIG_SCHEMA, FREEBOX_NAT_RULE_SCHEMA,
     FREEBOX_WAN_STATUS_SCHEMA,
 };
+pub use mesh_bundle::*;
 pub use mesh_plan::*;
 pub use registry_maintenance::*;
 pub use telemetry::*;
