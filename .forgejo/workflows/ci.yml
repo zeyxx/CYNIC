@@ -14,7 +14,7 @@ jobs:
       - name: Detect changed crates
         id: detect
         run: |
-          git diff --name-only origin/main...HEAD | grep '^crates/' | cut -d/ -f2 | sort -u > /tmp/crates.txt
+          (git diff --name-only origin/main...HEAD | grep '^crates/' | cut -d/ -f2 | sort -u > /tmp/crates.txt) || true
           echo "Changed crates:"
           cat /tmp/crates.txt
       - name: Check changed crates
