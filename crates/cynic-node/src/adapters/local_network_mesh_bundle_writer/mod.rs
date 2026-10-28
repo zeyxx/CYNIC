@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::ports::network_mesh_bundle_writer_port::NetworkMeshBundleWriterPort;
 
+#[allow(dead_code)]
 pub(crate) struct LocalNetworkMeshBundleWriter;
 
 impl NetworkMeshBundleWriterPort for LocalNetworkMeshBundleWriter {
