@@ -4,12 +4,12 @@
 
 use std::time::Duration;
 
-use cynic_network::{
-    FreeboxDmzConfig, FreeboxHostEntry, FreeboxLanObservation, FreeboxNatRule,
-    FreeboxNatRuleSpec, FreeboxPort, FreeboxProbePort, FreeboxWanStatus,
-    FREEBOX_DMZ_CONFIG_SCHEMA, FREEBOX_LAN_OBSERVATION_SCHEMA, FREEBOX_NAT_RULE_SCHEMA,
+use crate::freebox::{
+    FreeboxDmzConfig, FreeboxNatRule, FreeboxNatRuleSpec, FreeboxPort, FreeboxProbePort,
+    FreeboxWanStatus, FREEBOX_DMZ_CONFIG_SCHEMA, FREEBOX_NAT_RULE_SCHEMA,
     FREEBOX_WAN_STATUS_SCHEMA,
 };
+use crate::types::{FreeboxHostEntry, FreeboxLanObservation, FREEBOX_LAN_OBSERVATION_SCHEMA};
 use hmac::{Hmac, KeyInit, Mac};
 use serde_json::Value;
 use sha1::Sha1;

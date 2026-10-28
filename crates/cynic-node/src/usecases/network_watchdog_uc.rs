@@ -7,7 +7,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use cynic_host::domain::network::freebox::FreeboxProbePort;
+use cynic_network::FreeboxProbePort;
 use cynic_host::domain::network::reconcile_network_watchdog_outbox;
 use cynic_network::{
     DnsServiceAssessment, InterfacePressure, NetworkAlertLevel, NetworkWatchdogAssessment,

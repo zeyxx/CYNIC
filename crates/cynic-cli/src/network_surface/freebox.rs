@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use clap::Subcommand;
 use serde_json::json;
 
-use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
+use cynic_network::adapters::HttpFreeboxProbeAdapter;
 use cynic_network::{FreeboxNatRuleSpec, FreeboxPort};
 
 use crate::network_surface::NetworkCommand;
