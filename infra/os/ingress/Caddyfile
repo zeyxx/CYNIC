@@ -1,0 +1,43 @@
+# CYNIC Sovereign Ingress Bastion — Caddyfile
+# Handles Let's Encrypt TLS & Edge Routing for *.talaria.build
+# Principle: Zero secrets, zero application state, pure L7 dispatch.
+
+{
+    email hostmaster@talaria.build
+    # Strict TLS policy
+    servers {
+        protocols h1 h2 h3
+    }
+}
+
+# 1. GASdf Relayer x402 (Solana Sponsored Swaps)
+relay.talaria.build {
+    # Forward to isolated LXC 107 (GASdf Relay service)
+    reverse_proxy 10.10.10.127:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Basic DoS / Abuse mitigation at L7
+    request_body {
+        max_size 5MB
+    }
+}
+
+# 2. CYNIC Mesh VPN Coordinator (Headscale)
+mesh.talaria.build {
+    # Forward to isolated LXC 100 (Headscale coordination plane)
+    reverse_proxy 10.10.10.40:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+# 3. Public API (Reserved for sovereign CYNIC public surface)
+api.talaria.build {
+    respond "CYNIC Sovereign Public API — Planned" 200
+}
