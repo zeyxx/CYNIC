@@ -2,6 +2,7 @@ use crate::cli_json::emit_pretty_json;
 use clap::Subcommand;
 use std::path::Path;
 use std::process::ExitCode;
+use cynic_lifecycle::ArgvRunner;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum GitCommand {
@@ -139,20 +140,19 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                             let action_str = format!("{:?}", a);
                             // Parse branch from "Archive { branch: \"...\", ... }" or "GcWorktree { branch: \"...\", ... }"
                             if let Some(branch) = extract_branch_from_action(&action_str) {
-                                let res = std::process::Command::new("git")
-                                    .args(["branch", "-D", &branch])
-                                    .output();
+                                let res = cynic_lifecycle::LocalArgvRunner.run(&["git", "branch", "-D", &branch]);
                                 match res {
-                                    Ok(o) if o.status.success() => {
+                                    o if o.success() => {
                                         println!("  ✓ archived: {}", branch);
                                         applied += 1;
                                     }
-                                    Ok(o) => {
-                                        let err = String::from_utf8_lossy(&o.stderr);
+                                    o if o.spawn_error.is_none() => {
+                                        let err = o.stderr;
                                         println!("  ✗ failed: {} — {}", branch, err.trim());
                                         failed += 1;
                                     }
-                                    Err(e) => {
+                                    o => {
+                                        let e = o.spawn_error.unwrap_or_default();
                                         println!("  ✗ error: {} — {}", branch, e);
                                         failed += 1;
                                     }

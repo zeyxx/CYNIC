@@ -15,6 +15,7 @@ use crate::coordination_log::{
     append_entry, default_coordination_log_path, read_entries,
 };
 use crate::emit_json;
+use cynic_lifecycle::ArgvRunner;
 
 /// Agent coordination fire-and-forget log.
 #[derive(Debug, Clone, Subcommand)]
@@ -551,31 +552,18 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             }
             if !got_pr {
                 // Fallback: git merge commits vs total commits on HEAD.
-                let total_out = std::process::Command::new("git")
-                    .args(["rev-list", "--count", "HEAD"])
-                    .current_dir(&ws_root)
-                    .output()
-                    .ok()
-                    .filter(|o| o.status.success())
-                    .and_then(|o| {
-                        String::from_utf8_lossy(&o.stdout)
-                            .trim()
-                            .parse::<usize>()
-                            .ok()
-                    })
+                let ws_root_str = ws_root.to_string_lossy().into_owned();
+                let total_out = cynic_lifecycle::LocalArgvRunner
+                    .run(&["git", "-C", &ws_root_str, "rev-list", "--count", "HEAD"])
+                    .stdout
+                    .trim()
+                    .parse::<usize>()
                     .unwrap_or(0);
-                let merged_out = std::process::Command::new("git")
-                    .args(["rev-list", "--count", "--merges", "HEAD"])
-                    .current_dir(&ws_root)
-                    .output()
-                    .ok()
-                    .filter(|o| o.status.success())
-                    .and_then(|o| {
-                        String::from_utf8_lossy(&o.stdout)
-                            .trim()
-                            .parse::<usize>()
-                            .ok()
-                    })
+                let merged_out = cynic_lifecycle::LocalArgvRunner
+                    .run(&["git", "-C", &ws_root_str, "rev-list", "--count", "--merges", "HEAD"])
+                    .stdout
+                    .trim()
+                    .parse::<usize>()
                     .unwrap_or(0);
                 total = total_out;
                 merged = merged_out;
