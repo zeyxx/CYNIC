@@ -8,6 +8,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::adapters::topology::load_workspace_geometry;
+use crate::domain::surface_gates::ProofRef;
 use crate::domain::epistemic_facts::{
     AuthorProfile, AuthorshipNature, ClaimCategory, ClaimStatus, EpistemicFactLedger,
     InteractionCategory, InteractionRecord, InteractionsGraph, RepoEra, RepoProvenance,
@@ -351,6 +352,72 @@ fn run_cmd_stdout(cmd: &str, args: &[&str], dir: &Path) -> Option<String> {
         })
 }
 
+/// Runs a command and parses stdout as a count. Fails closed, naming the metric.
+fn measure_count(metric: &str, cmd: &str, args: &[&str], dir: &Path) -> Result<u64, String> {
+    let out = run_cmd_stdout(cmd, args, dir)
+        .ok_or_else(|| format!("metric {metric}: `{cmd}` failed or is unavailable"))?;
+    out.parse()
+        .map_err(|_| format!("metric {metric}: `{cmd}` printed {out:?}, expected a count"))
+}
+
+/// Same as `measure_count` for a shell pipeline.
+fn measure_shell_count(metric: &str, script: &str, dir: &Path) -> Result<u64, String> {
+    measure_count(metric, "sh", &["-c", script], dir)
+}
+
+/// Name of the repository checked out at `workspace_root`, read from the `origin` remote URL.
+pub fn local_repo_name(workspace_root: &Path) -> Option<String> {
+    let url = run_cmd_stdout("git", &["remote", "get-url", "origin"], workspace_root)?;
+    let last = url.trim_end_matches('/').rsplit(['/', ':']).next()?;
+    let name = last.strip_suffix(".git").unwrap_or(last);
+    (!name.is_empty()).then(|| name.to_string())
+}
+
+/// Resolver for `verify_event_proofs`: a reference holds when `git cat-file -e <rev>:<path>`
+/// succeeds in the local checkout. A reference to any other repository cannot be checked
+/// here and is reported unresolved, never assumed good.
+pub fn git_proof_resolver(workspace_root: &Path) -> impl Fn(&ProofRef) -> Result<(), String> + '_ {
+    let local = local_repo_name(workspace_root);
+    move |r: &ProofRef| {
+        match local.as_deref() {
+            Some(name) if name == r.repo => {}
+            Some(name) => return Err(format!("{}@{}: repository {} is not the local checkout ({name})", r.repo, r.rev, r.repo)),
+            None => return Err(format!("{}@{}: local repository name is unknown", r.repo, r.rev)),
+        }
+        let spec = format!("{}:{}", r.rev, r.path);
+        let ok = Command::new("git")
+            .args(["cat-file", "-e", &spec])
+            .current_dir(workspace_root)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if ok {
+            Ok(())
+        } else {
+            Err(format!("{}@{}: {} not found at that revision", r.repo, r.rev, r.path))
+        }
+    }
+}
+
+/// Runner for `check_claims`: executes a claim command with `sh -c` in the workspace, capped at
+/// 120 seconds. Only hand it commands from a ledger harvested in this process.
+pub fn shell_claim_runner(workspace_root: &Path) -> impl Fn(&str) -> Result<String, String> + '_ {
+    move |cmd: &str| {
+        let out = Command::new("timeout")
+            .args(["120", "sh", "-c", cmd])
+            .current_dir(workspace_root)
+            .output()
+            .map_err(|e| format!("cannot run `{cmd}`: {e}"))?;
+        if out.status.success() {
+            Ok(String::from_utf8_lossy(&out.stdout).to_string())
+        } else {
+            let err = String::from_utf8_lossy(&out.stderr);
+            let first = err.lines().next().unwrap_or("no stderr");
+            Err(format!("command failed ({}): {first}", out.status))
+        }
+    }
+}
+
 /// Loads the declarative author profile. Fails closed: a missing or malformed
 /// profile is an error, never a built-in default.
 pub fn load_author_profile(workspace_root: &Path) -> Result<AuthorProfile, String> {
@@ -499,7 +566,7 @@ pub fn harvest_live_ledger(
             statement: "Strict hygienic staging: zero commits in history use untracked 'git add -A' or 'git add .'".to_string(),
             status: if git_add_all_violations == 0 { ClaimStatus::Demonstrated } else { ClaimStatus::Partial },
             evidence: "git log commit subjects".to_string(),
-            verify_command: Some("git log --format='%s' | grep -ciE 'add -A|add \\.$'".to_string()),
+            verify_command: Some("git log --format='%s' | grep -ciE 'add -A|add \\.$' || true".to_string()),
             numeric_value: Some(git_add_all_violations),
             unit: Some("violations".to_string()),
         },

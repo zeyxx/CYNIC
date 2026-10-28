@@ -2,6 +2,7 @@ pub mod adapters;
 pub mod domain;
 
 pub use adapters::{
+    git_proof_resolver, local_repo_name, shell_claim_runner,
     categorize_interaction, classify_repo_domain, classify_repo_era, extract_git_history, load_author_profile,
     find_canonical_registry_path, harvest_live_ledger, load_authority_overrides,
     load_corpus_cache, load_workspace_geometry, parse_document_tree, parse_git_log_output,
@@ -31,6 +32,7 @@ pub use domain::{
     DOCUMENT_TREE_SCHEMA_V1, EPISTEMIC_FACTS_SCHEMA_V1, GIT_COMMIT_SCHEMA_V1,
     INTERACTIONS_GRAPH_SCHEMA_V1, SYNTHESIS_PROMPT_SCHEMA_V1, UNCOVERED_REJECTION_TOKEN,
     WORKSPACE_GEOMETRY_SCHEMA_V1,
+    check_claims, check_freshness, epoch_seconds, parse_count, ClaimCheck, ClaimCheckOutcome, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
 };
 
 use std::path::Path;

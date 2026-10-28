@@ -7,6 +7,7 @@ pub mod commit;
 pub mod continuous_fusion;
 pub mod epistemic_facts;
 pub mod epistemic_grounding;
+pub mod surface_gates;
 pub mod geometry;
 pub mod graph;
 pub mod graph_expansion;
@@ -43,6 +44,9 @@ pub use epistemic_facts::{
     EpistemicFactLedger, HistoricalEvent, InteractionCategory, InteractionRecord, InteractionsGraph,
     RepoEra, RepoProvenance, SkillBasis, SkillDepth, TechnicalDomain, VerifiableClaim,
     EPISTEMIC_FACTS_SCHEMA_V1, INTERACTIONS_GRAPH_SCHEMA_V1,
+};
+pub use surface_gates::{
+    check_claims, check_freshness, epoch_seconds, parse_count, ClaimCheck, ClaimCheckOutcome, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
 };
 pub use epistemic_grounding::{
     assemble_epistemic_context, compute_term_coverage, reorder_lost_in_the_middle,
