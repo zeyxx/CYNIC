@@ -32,3 +32,4 @@ pub mod solana {
 pub use adapters::helius::HeliusEnricher;
 pub use cynic_protocol::Epoch;
 pub use ports::*;
+pub use soc::{evaluate_network_security, NetworkSecurityAuditReport, SecurityAuditStatus};

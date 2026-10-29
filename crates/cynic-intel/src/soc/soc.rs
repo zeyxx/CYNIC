@@ -5,6 +5,7 @@
 //! Every function takes observed counts and returns an Alert when threshold exceeded.
 
 use super::types::Alert;
+use super::types::{NetworkSecurityAuditReport, SecurityAuditStatus, NETWORK_SECURITY_REPORT_SCHEMA};
 /// Thresholds for SOC crash-pattern detection.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SocThresholds {
@@ -264,7 +265,31 @@ pub fn analyze_network_telemetry(
     alerts
 }
 
-/// Combined check: all detection functions applied to one forensics snapshot.
+/// Pure FCIS evaluation: analyze network telemetry and build the typed report.
+pub fn evaluate_network_security(
+    snapshot: &cynic_network::NetworkTelemetrySnapshot,
+    allowed_ports: &[u16],
+    max_handshake_age_ms: u64,
+) -> NetworkSecurityAuditReport {
+    let alerts = analyze_network_telemetry(snapshot, allowed_ports, max_handshake_age_ms);
+    let status = if alerts.is_empty() {
+        SecurityAuditStatus::Clean
+    } else {
+        SecurityAuditStatus::ThreatsDetected
+    };
+    NetworkSecurityAuditReport {
+        schema: NETWORK_SECURITY_REPORT_SCHEMA.to_string(),
+        status,
+        node_id: snapshot.node_id.clone(),
+        listening_ports_observed: snapshot.listening_ports.clone(),
+        allowed_ports_policy: allowed_ports.to_vec(),
+        wireguard_peers_count: snapshot.wireguard_peers.len(),
+        dropped_packets_count: snapshot.dropped_packets_count,
+        alerts_count: alerts.len(),
+        alerts,
+        observed_at_unix_ms: snapshot.observed_at_unix_ms,
+    }
+}
 pub fn check_all(thresholds: &SocThresholds, snapshot: &ForensicsSnapshot) -> Vec<Alert> {
     let mut alerts = Vec::new();
     // Freshness check: reject snapshots older than the longest window.
