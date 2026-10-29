@@ -1,7 +1,7 @@
 //! Reconcile storage topology — pure decision from desired vs observed
 
-use cynic_storage::client_policy::StorageClientPolicy;
-use cynic_storage::topology::{StorageTopologyDesired, StorageTopologyObserved};
+use cynic_persistence::client_policy::StorageClientPolicy;
+use cynic_proxmox::storage::topology::{StorageTopologyDesired, StorageTopologyObserved};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageTopologyPlan {

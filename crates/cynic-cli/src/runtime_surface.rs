@@ -813,7 +813,7 @@ pub(crate) fn execute_storage_credential_sync(
     use cynic_host::storage_credential_sync::{
         StorageCredentialSyncAdapter, StorageCredentialSyncPort,
     };
-    use cynic_storage::credential_sync::{StorageCredentialSpec, decide_credential_sync};
+    use cynic_persistence::credential_sync::{StorageCredentialSpec, decide_credential_sync};
 
     let resolved_endpoint = endpoint
         .map(|s| s.to_string())
@@ -837,7 +837,7 @@ pub(crate) fn execute_storage_credential_sync(
             serde_json::to_string_pretty(&verdict).map_err(|e| format!("serialize failed: {e}"))?;
         println!("{s}");
     } else {
-        use cynic_storage::credential_sync::CredentialSyncVerdict;
+        use cynic_persistence::credential_sync::CredentialSyncVerdict;
         match &verdict {
             CredentialSyncVerdict::Synchronized => {
                 println!("SYNCHRONIZED: storage credentials healthy");

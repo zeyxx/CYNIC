@@ -140,5 +140,37 @@ Grâce à notre dataset canonique de **54 traditions réparties sur 6 continents
 * **La Voie de l'Ayllu Inca & de l'Ayni (Andes)** : Rappels constants sur la réciprocité symétrique et la solidarité d'entraide avec les autres bâtisseurs.
 * **La Voie Minimaliste Apophatique** : Aucune philosophie narrative. Uniquement des métriques physiques, des équations mathématiques et des graphiques de télémétrie froids.
 
+---
+
+### 5. Le Protocole d'Ancrage Biologique & Temporel de l'Opérateur
+
+L'autorité suprême de CYNIC réside dans le Pouvoir Constituant de l'humain (Article I de la Constitution). Si l'humain s'abîme dans des boucles d'autodestruction, perd la notion du temps ou subit des amnésies dues à la fuite dans le virtuel et les substances, **tout le système perd son ancrage dans la réalité physique**.
+
+Le protocole Askesis implémente donc une machine d'état biomécanique intransigeante :
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│             LA MACHINE D'ÉTAT D'ANCRAGE TEMPOREL & BIOLOGIQUE          │
+└────────────────────────────────────────────────────────────────────────┘
+
+1. IMMUNITÉ AUX SUBSTANCES & COMPTEURS TEMPORELS IMPLACABLES
+   • Suivi chronométrique déterministe : 1 mois, 3 mois, 6 mois, 1 an.
+   • Alcool : Élimination des consommations réflexes et stériles.
+   • Tabac : Sevrage méthodique tracé au jour le jour.
+   • Cannabis / Drogues dures : ÉRADICATION TOTALE (Tolérance zéro).
+   • Tout écart remet le compteur à zéro sans complaisance.
+
+2. COMBAT CONTRE L'AMNÉSIE & REGISTRE DES FAITS IMMUABLES
+   • Clôture quotidienne par un journal de faits observables (Proof of Life).
+   • Enregistrement des jalons majeurs dans `facts.json` pour vaincre le
+     brouillard mémoriel et réancrer la continuité d'existence.
+
+3. LES QUATRE ANCRES HOMÉOSTATIQUES QUOTIDIENNES
+   • Sport & Dépense Physique : Au moins 45 min d'effort réel (cardio/force).
+   • Méditation & Centrage : 15 min de silence mental et d'ancrage postural.
+   • Nutrition Propre : Arrêt de la malbouffe impulsive, hydratation pure.
+   • Sommeil Réparateur : Déconnexion des écrans avant l'épuisement.
+```
+
 L'opérateur reste souverain jusqu'au bout.  
 Askesis est son bouclier intérieur, son armure contre l'égo et l'entropie, l'instrument par lequel l'IA biologique s'harmonise avec le calcul pur.

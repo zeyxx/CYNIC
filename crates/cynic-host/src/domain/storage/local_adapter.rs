@@ -3,8 +3,8 @@
 
 use std::path::Path;
 
-use cynic_storage::client_policy::StorageClientPolicy;
-use cynic_storage::topology::StorageTopologyObserved;
+use cynic_persistence::client_policy::StorageClientPolicy;
+use cynic_proxmox::storage::topology::StorageTopologyObserved;
 
 use super::probe::{StorageClientPolicyObservationPort, StorageTopologyObservationPort};
 

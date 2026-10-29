@@ -10,6 +10,8 @@ publish = false
 
 [dependencies]
 cynic-types = { path = "../cynic-types" }
+cynic-persistence = { path = "../cynic-persistence" }
+parking_lot = "0.12"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

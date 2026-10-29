@@ -214,6 +214,44 @@
         "test_result": "not run",
         "notes": "Scripts from package.json (start/dev/test/lint/format); run on builder pending before verified."
       }
+    },
+    {
+      "project_id": "veille-technologique",
+      "display_name": "Veille Technologique",
+      "repo_url": "https://github.com/Robinho100/veille-technologique.git",
+      "default_branch": "main",
+      "collaborator_ids": [
+        "robinho100"
+      ],
+      "language_stack": "python",
+      "observed_manifests": [
+        "pyproject.toml",
+        "requirements.txt"
+      ],
+      "build_commands": [
+        "pip install -r requirements-dev.txt"
+      ],
+      "test_commands": [
+        "python -m pytest -q"
+      ],
+      "build_commands_status": "inferred_from_manifest_presence",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "notes": "Radar de veille technologique : collecte, scoring, alertes, CRM. Clone: ~/.cynic/external/veille-technologique. Runtime state: /var/lib/cynic/projects/veille/.",
+      "observation": {
+        "observed_at": "2026-10-28",
+        "observed_on": "cortex (python 3.11)",
+        "build_result": "PASS (478 tests passed, 2 failed (oracle_systemd, env-dependent))",
+        "test_result": "PASS (478/480)",
+        "notes": "Projet de Robin. Main branch très complète (V1+V2.1+V2.2+V2.3+V2.4+V3). Profils adaptés pour CYNIC et GASdf."
+      },
+      "ports_candidate": [
+        "SourcePort",
+        "BuildPort",
+        "EvidencePort"
+      ],
+      "port_wiring_status": "not_wired"
     }
   ],
   "rules": [

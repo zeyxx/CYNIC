@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use cynic_storage::topology::{StorageTopologyObserved, StorageTopologyReport};
+use cynic_proxmox::storage::topology::{StorageTopologyObserved, StorageTopologyReport};
 
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
@@ -87,12 +87,12 @@ impl<R: ArgvRunner> FleetStorageTopologyObserver<R> {
                 .extend(node_observed.residual_unknowns);
         }
         observed.poll_cost_ms = Some(poll_start.elapsed().as_millis() as u64);
-        let desired: cynic_storage::topology::StorageTopologyDesired =
+        let desired: cynic_proxmox::storage::topology::StorageTopologyDesired =
             std::fs::read_to_string(&self.topology_path)
                 .ok()
                 .and_then(|c| serde_json::from_str(&c).ok())
                 .unwrap_or_default();
-        let client_policy: cynic_storage::client_policy::StorageClientPolicy =
+        let client_policy: cynic_persistence::client_policy::StorageClientPolicy =
             std::fs::read_to_string(&self.client_policy_path)
                 .ok()
                 .and_then(|c| serde_json::from_str(&c).ok())

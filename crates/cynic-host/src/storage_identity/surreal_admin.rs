@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::{cmp, io::Read};
 
-use cynic_storage::identity::{
+use cynic_persistence::identity::{
     StorageEvidenceState, StorageIdentityRole, StorageIdentitySpec, storage_identity_spec_blockers,
 };
 use reqwest::blocking::Client;

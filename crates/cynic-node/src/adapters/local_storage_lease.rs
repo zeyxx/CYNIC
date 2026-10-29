@@ -1,6 +1,6 @@
 use crate::ports::storage_lease_port::StorageLeasePort;
 use cynic_protocol::LeaseGuard;
-use cynic_storage::{STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
+use cynic_persistence::{STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
 use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone)]
