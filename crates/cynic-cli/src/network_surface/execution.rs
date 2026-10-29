@@ -454,7 +454,6 @@ pub enum NetworkCommands {
 
 use cynic_node::adapters::libvirt_harness_target_attestor::LibvirtHarnessTargetAttestor;
 use cynic_node::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
-use cynic_node::adapters::local_network_actuation_request_reader::read_network_actuation_request;
 use cynic_node::adapters::qemu_guest_agent_network_runner::QemuGuestAgentNetworkRunner;
 use cynic_node::dns_activation_status;
 use cynic_node::dns_bundle;
@@ -477,7 +476,7 @@ use cynic_node::ports::harness_target_attestation_reader_port::HarnessTargetAtte
 use cynic_node::provider_fallback_hosts;
 use cynic_node::provider_fallback_status;
 use cynic_node::usecases::network_actuation_target_uc::{
-    QemuNetworkActuationConfig, execute_qemu_network_actuation,
+    QemuNetworkActuationConfig, execute_target_actuation_orchestration,
 };
 use cynic_host::runtime_harness::runtime_harness_catalog;
 use cynic_process::LocalArgvRunner;
@@ -985,7 +984,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 }
             } else {
                 use cynic_node::ports::mesh_coordination_port::MeshCoordinationPort;
-                let health = adapter.check_health().ok();
+                let health = adapter.check_health().ok().map(|h| h.status);
                 let members = adapter.list_members().unwrap_or_default();
                 let plan = network_mesh_plan::build_network_mesh_plan(registry, Some("headscale"));
                 let desired_peers: Vec<cynic_node::domain::mesh_coordination::DesiredMeshPeer> = plan
@@ -1016,25 +1015,15 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                         .filter(|o| o.success)
                         .map(|o| o.stdout.trim().to_string());
 
-                let report = cynic_node::domain::mesh_coordination::reconcile_mesh_coordination(
+                let mut report = cynic_node::domain::mesh_coordination::reconcile_mesh_coordination(
                     "headscale",
                     &desired_peers,
                     &members,
                     self_node_id.as_deref(),
                 );
-                let payload = serde_json::json!({
-                    "schema": report.schema,
-                    "provider": report.provider,
-                    "endpoint": ep,
-                    "health": health,
-                    "self_node": report.self_node,
-                    "desired_peers": report.desired_peers,
-                    "observed_members": report.observed_members,
-                    "active_members": report.active_members,
-                    "missing_members": report.missing_members,
-                    "unmanaged_members": report.unmanaged_members,
-                });
-                emit_json("mesh coordination report", &payload, false)
+                report.endpoint = Some(ep.clone());
+                report.health = health;
+                emit_json("mesh coordination report", &report, false)
             }
         }
         NetworkCommands::ActuateTarget {
@@ -1052,29 +1041,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 tracing::error!("network actuation target requires --apply");
                 return ExitCode::FAILURE;
             }
-            let context = match selected_harness_context(harness_kind) {
-                Ok(context) => context,
-                Err(error) => {
-                    tracing::error!("runtime harness selection failed: {error}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            let attestation = match LocalHarnessTargetAttestationReader
-                .read_attestation(Path::new(target_attestation))
-            {
-                Ok(attestation) => attestation,
-                Err(error) => {
-                    tracing::error!("network actuation target attestation load failed: {error}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            let request = match read_network_actuation_request(Path::new(request)) {
-                Ok(request) => request,
-                Err(error) => {
-                    tracing::error!("network actuation request load failed: {error}");
-                    return ExitCode::FAILURE;
-                }
-            };
             let config = QemuNetworkActuationConfig {
                 virsh_bin: virsh_bin.clone(),
                 observation_argv: vec![
@@ -1088,11 +1054,10 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 max_status_polls: *qga_max_status_polls,
                 poll_interval: Duration::from_millis(50),
             };
-            match execute_qemu_network_actuation(
-                &request,
-                context,
-                attestation,
-                LocalArgvRunner,
+            match execute_target_actuation_orchestration(
+                Path::new(request),
+                Path::new(target_attestation),
+                harness_kind,
                 config,
             ) {
                 Ok(report) => {
