@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cynic.so/contracts/compass-telemetry.schema.json",
+  "title": "CompassTelemetryEvent",
+  "description": "Universal, cross-platform telemetry and event contract for Compass.",
+  "type": "object",
+  "required": [
+    "schema",
+    "event_id",
+    "timestamp_epoch_ms",
+    "device_source",
+    "metric_id",
+    "value"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "cynic.compass.telemetry.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "description": "Monotonically ordered UUIDv7 string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp_epoch_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix millisecond timestamp"
+    },
+    "device_source": {
+      "type": "string",
+      "enum": [
+        "linux_workstation",
+        "windows_workstation",
+        "android_node",
+        "ios_node",
+        "wearable_ble",
+        "manual_operator"
+      ]
+    },
+    "metric_id": {
+      "type": "string",
+      "description": "Hierarchical metric identifier: e.g. 'circadian.screen_time', 'input.keystroke_flight_time', 'tracker.sobriety.ethanol', 'habit.chess'",
+      "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
+    },
+    "dimension": {
+      "type": "string",
+      "enum": [
+        "duration_ms",
+        "count",
+        "continuous_entropy",
+        "zero_tolerance_counter",
+        "observable_fact_text",
+        "state_boolean"
+      ]
+    },
+    "value": {
+      "type": "object",
+      "properties": {
+        "numeric": { "type": "number" },
+        "string_fact": { "type": "string" },
+        "boolean_state": { "type": "boolean" },
+        "metadata": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "sealed_hash": {
+      "type": "string",
+      "description": "SHA-256 hash sealing prior epoch state"
+    }
+  },
+  "additionalProperties": false
+}

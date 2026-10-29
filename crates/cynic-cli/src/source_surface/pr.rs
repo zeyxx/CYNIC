@@ -131,8 +131,13 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
             // Builder gate: submit a build to the builder for this PR's head commit
             // and check the result. Replaces the structural audit with a real
             // compilation check.
-            let builder_url = cynic_build::resolve_builder_url_with_health()
-                .unwrap_or_else(|_| "http://10.10.10.119:9090".to_string());
+            let builder_url = match cynic_build::resolve_builder_url_with_health() {
+                Ok(url) => url,
+                Err(e) => {
+                    eprintln!("blocked: builder resolution failed: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
             let builder_ok = match cynic_build::submit_workload(
                 &pr.head_sha,
                 None,
@@ -141,7 +146,15 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 &builder_url,
                 true,
             ) {
-                Ok(proof) => proof.get("state").and_then(|s| s.as_str()) == Some("completed"),
+                Ok(proof) => {
+                    let status = proof
+                        .get("completion")
+                        .and_then(|c| c.get("status"))
+                        .and_then(|s| s.as_str())
+                        .or_else(|| proof.get("state").and_then(|s| s.as_str()))
+                        .unwrap_or("");
+                    status == "completed"
+                }
                 Err(e) => {
                     eprintln!("builder check failed: {e}");
                     false

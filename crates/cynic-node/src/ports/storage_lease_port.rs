@@ -1,5 +1,5 @@
 use cynic_protocol::LeaseGuard;
-use cynic_storage::StorageLeaseGrant;
+use cynic_persistence::StorageLeaseGrant;
 
 pub trait StorageLeasePort: Send + Sync {
     fn acquire(

@@ -19,7 +19,7 @@ default = []
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-storage = { path = "../cynic-storage" }
+cynic-persistence = { path = "../cynic-persistence" }
 # cynic-forensics removed: phantom dependency (no source imports)
 # cynic-inference removed: backend config extracted to cynic-inference
 # cynic-eval removed: pre-existing compile error (typo Eeserialize)

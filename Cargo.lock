@@ -732,7 +732,7 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-ssh",
- "cynic-storage",
+ "cynic-persistence",
  "cynic-supervisor",
  "cynic-traces",
  "cynic-tui",
@@ -864,7 +864,7 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-ssh",
- "cynic-storage",
+ "cynic-persistence",
  "cynic-types",
  "cynic-vcs",
  "ed25519-dalek",
@@ -955,7 +955,7 @@ dependencies = [
  "cynic-node-protocol",
  "cynic-protocol",
  "cynic-secrets",
- "cynic-storage",
+ "cynic-persistence",
  "cynic-types",
  "dirs",
  "dotenvy",
@@ -1110,7 +1110,7 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-ssh",
- "cynic-storage",
+ "cynic-persistence",
  "cynic-supervisor",
  "cynic-types",
  "cynic-vcs",
@@ -1296,7 +1296,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-storage"
+name = "cynic-persistence"
 version = "0.9.0"
 dependencies = [
  "bytes",

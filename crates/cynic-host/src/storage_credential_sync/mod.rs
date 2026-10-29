@@ -1,7 +1,7 @@
 //! Storage credential sync port — observes whether SurrealDB credentials
 //! are synchronized across service config, password file, and live auth.
 
-use cynic_storage::credential_sync::{StorageCredentialObservation, StorageCredentialSpec};
+use cynic_persistence::credential_sync::{StorageCredentialObservation, StorageCredentialSpec};
 use cynic_types::paths::CynicPaths;
 
 /// Port for observing storage credential state.

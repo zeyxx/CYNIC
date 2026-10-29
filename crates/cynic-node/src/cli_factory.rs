@@ -84,6 +84,7 @@ pub fn ssh_build_runner(
 /// Wraps the async adapter in a tokio runtime so the CLI surface never
 /// constructs a runtime itself. The adapter resolves the runner host
 /// from the fleet registry when needed.
+#[deprecated(note = "SSH build proof adapter retired; use native HTTP node pool via cynic_build::submit_workload")]
 pub fn prove_build_blocking(
     request: &BuildProofRequest,
     host: &str,

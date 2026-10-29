@@ -227,9 +227,12 @@ pub(crate) enum BuildCommand {
         /// emits one scope envelope with every receipt).
         #[arg(long, default_value = "full")]
         scope: String,
-        /// Runner host resolved from the fleet registry.
-        #[arg(long, default_value = cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET)]
-        host: String,
+        /// Runner host override (breakglass only). When absent, the runner SSH
+        /// targets are resolved dynamically from the ordered build-runner pool
+        /// in infra/registry.json (`build_runner_default` first, then the
+        /// remaining `build_runner` nodes) with automatic failover.
+        #[arg(long)]
+        host: Option<String>,
         /// Runner SSH user.
         #[arg(long, default_value = "cynic")]
         user: String,
@@ -761,7 +764,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             host,
             user,
             json,
-        } => prove_build(&commit, package, &phase, filter, &scope, &host, &user, json),
+        } => prove_build(&commit, package, &phase, filter, &scope, host.as_deref(), &user, json),
         BuildCommand::Store {
             state_root,
             older_than_ms,

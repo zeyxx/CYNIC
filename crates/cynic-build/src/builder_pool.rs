@@ -370,6 +370,89 @@ pub fn resolve_node_pool_with_capacity(registry: &serde_json::Value, role: &str)
     select_by_pressure(&pool, &readings)
 }
 
+/// An SSH build-runner endpoint ordered by the registry's pool policy.
+///
+/// `ssh_target` is the SSH host (or alias) declared in
+/// `infra/registry.json` under `transports.ssh.target`. The pool is ordered
+/// with `build_runner_default` first, then the remaining `build_runner`
+/// nodes, so callers can fail over in that order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SshRunnerEndpoint {
+    pub node_id: String,
+    pub ssh_target: String,
+}
+
+/// Resolve the ordered SSH build-runner pool from the registry.
+///
+/// Reads `lifecycle.kernel_release.build_runner_default` (falling back to
+/// `build_runner_default` at the document root) to pick the primary runner,
+/// then appends every other node whose role is `build_runner`. The primary
+/// is de-duplicated so it is not listed twice.
+pub fn resolve_ordered_ssh_runners(registry: &Value) -> Vec<SshRunnerEndpoint> {
+    let default_name = registry
+        .pointer("/lifecycle/kernel_release/build_runner_default")
+        .and_then(|v| v.as_str())
+        .or_else(|| registry.get("build_runner_default").and_then(|v| v.as_str()));
+
+    let mut all: Vec<SshRunnerEndpoint> = Vec::new();
+    if let Some(nodes) = registry.get("nodes").and_then(|n| n.as_array()) {
+        for node in nodes {
+            let has_role = node
+                .get("role")
+                .and_then(|r| r.as_str())
+                .map(|r| r == "build_runner")
+                .unwrap_or(false)
+                || node
+                    .get("roles")
+                    .and_then(|r| r.as_array())
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("build_runner")))
+                    .unwrap_or(false);
+            if !has_role {
+                continue;
+            }
+            let node_id = node
+                .get("id")
+                .and_then(|i| i.as_str())
+                .or_else(|| node.get("name").and_then(|n| n.as_str()))
+                .unwrap_or_default()
+                .to_string();
+            let ssh_target = node
+                .pointer("/transports/ssh/target")
+                .and_then(|t| t.as_str())
+                .or_else(|| {
+                    node.get("network")
+                        .and_then(|n| n.get("service"))
+                        .and_then(|s| s.as_str())
+                })
+                .unwrap_or_default()
+                .to_string();
+            if ssh_target.is_empty() {
+                continue;
+            }
+            all.push(SshRunnerEndpoint {
+                node_id,
+                ssh_target,
+            });
+        }
+    }
+
+    // Partition into primary (default) and the rest, preserving registry order.
+    let mut primary: Vec<SshRunnerEndpoint> = Vec::new();
+    let mut rest: Vec<SshRunnerEndpoint> = Vec::new();
+    for endpoint in all {
+        let is_default = default_name
+            .map(|name| endpoint.node_id == name)
+            .unwrap_or(false);
+        if is_default && primary.is_empty() {
+            primary.push(endpoint);
+        } else {
+            rest.push(endpoint);
+        }
+    }
+    primary.extend(rest);
+    primary
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

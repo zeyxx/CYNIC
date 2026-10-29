@@ -5,10 +5,10 @@ use cynic_host::domain::storage::{
     plan_storage_topology_apply, reconcile_storage_topology, storage_topology_report,
 };
 use cynic_process::{ArgvOutput, MapArgvRunner};
-use cynic_storage::client_policy::{
+use cynic_persistence::client_policy::{
     ClientPolicy, STORAGE_CLIENT_POLICY_SCHEMA, StorageClientPolicy,
 };
-use cynic_storage::topology::{
+use cynic_proxmox::storage::topology::{
     STORAGE_TOPOLOGY_REPORT_SCHEMA, STORAGE_TOPOLOGY_SCHEMA, StorageBudget, StorageEngine,
     StorageTopologyDesired, StorageTopologyObserved, TargetTopology,
 };

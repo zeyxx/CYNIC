@@ -685,7 +685,7 @@ pub(crate) fn prove_build(
     phase: &str,
     filter: Option<String>,
     scope: &str,
-    host: &str,
+    host: Option<&str>,
     user: &str,
     json: bool,
 ) -> Result<(), String> {
@@ -712,7 +712,7 @@ fn run_one_proof(
     package: Option<String>,
     phase: &str,
     filter: Option<String>,
-    host: &str,
+    host: Option<&str>,
     user: &str,
 ) -> Result<cynic_build::build_proof::BuildProofReport, String> {
     let proof_phase = match phase {
@@ -725,7 +725,63 @@ fn run_one_proof(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    cynic_node::cli_factory::prove_build_blocking(&request, host, user)
+    // Resolve the native HTTP builder endpoint from the pool with capacity
+    // (lowest pressure). SSH transport is no longer used on the build path.
+    let builder_url = match host.filter(|value| !value.trim().is_empty()) {
+        Some(explicit) if explicit.contains("://") => explicit.to_string(),
+        _ => cynic_build::resolve_builder_url_with_health()?,
+    };
+    let action = match phase {
+        "check" => "check",
+        "test" => "test",
+        other => other,
+    };
+    let wait = true;
+    let proof = cynic_build::submit_workload(
+        commit,
+        package.as_deref(),
+        action,
+        "cynic-cli-build-proof",
+        &builder_url,
+        wait,
+    )?;
+    // Map the HTTP response into a clean structured BuildProofReport.
+    let status_str = proof
+        .get("completion")
+        .and_then(|c| c.get("status"))
+        .and_then(|s| s.as_str())
+        .or_else(|| proof.get("state").and_then(|s| s.as_str()))
+        .unwrap_or("");
+    let node_id = proof
+        .get("node")
+        .and_then(|n| n.as_str())
+        .or_else(|| proof.get("node_id").and_then(|n| n.as_str()))
+        .unwrap_or("builder")
+        .to_string();
+    let status = if status_str == "completed" {
+        cynic_build::build_proof::BuildProofStatus::Converged
+    } else if status_str.is_empty() {
+        cynic_build::build_proof::BuildProofStatus::Unreachable {
+            detail: "empty builder response".to_string(),
+        }
+    } else {
+        cynic_build::build_proof::BuildProofStatus::Failed {
+            detail: format!("builder status: {status_str}"),
+        }
+    };
+    let report = cynic_build::build_proof::BuildProofReport {
+        schema: cynic_build::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
+        source_commit: commit.to_string(),
+        package: package.clone(),
+        phase: phase.to_string(),
+        status,
+        argv: Vec::new(),
+        node_id,
+        elapsed_secs: 0,
+        tests_passed: None,
+        tests_failed: None,
+    };
+    Ok(report)
 }
 
 /// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
@@ -771,7 +827,7 @@ fn prove_build_scoped(
     package: Option<String>,
     phase: &str,
     filter: Option<String>,
-    host: &str,
+    host: Option<&str>,
     user: &str,
     json: bool,
 ) -> Result<(), String> {
@@ -819,7 +875,7 @@ fn prove_build_scoped(
 fn execute_proof_plan(
     commit: &str,
     phase: &str,
-    host: &str,
+    host: Option<&str>,
     user: &str,
     json: bool,
     plan: cynic_build::gate_scope::ProofPlan,

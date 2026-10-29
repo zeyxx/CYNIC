@@ -930,7 +930,7 @@ fn check_published_surface_freshness(path: &std::path::Path, hours: u64) -> Exit
     }
 }
 
-/// Accelerated dense vector search using `cynic_storage::SimdVectorAdapter` with contiguous SIMD cosine buffer.
+/// Accelerated dense vector search using `cynic_persistence::SimdVectorAdapter` with contiguous SIMD cosine buffer.
 pub fn simd_top_k_dense<'a>(
     query: &[f32],
     chunks: &'a [cynic_knowledge::DocumentChunk],
@@ -941,7 +941,7 @@ pub fn simd_top_k_dense<'a>(
         return Vec::new();
     }
 
-    let simd_adapter = cynic_storage::SimdVectorAdapter::new(query.len());
+    let simd_adapter = cynic_knowledge::SimdVectorAdapter::new(query.len());
     let vector_tuples: Vec<(&str, &[f32])> = vectors
         .iter()
         .map(|v| (v.chunk_id.as_str(), v.vector.as_slice()))

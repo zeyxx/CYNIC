@@ -15,7 +15,8 @@
 //! a new dependency for the consumer, and a new dependency is a larger decision than this
 //! fact deserves. Being visible where the callers already are beats being ideally placed.
 
-/// The build runner. The only host CYNIC builds on.
+/// The build runner. Deprecated: resolve from `infra/registry.json` instead.
+#[deprecated(note = "resolve the build runner from infra/registry.json via cynic_build::builder_pool::resolve_ordered_ssh_runners")]
 pub const BUILD_RUNNER_SSH_TARGET: &str = "cynic-builder-ssh";
 
 #[cfg(test)]

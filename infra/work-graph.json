@@ -477,28 +477,28 @@
       "id": "S1",
       "kind": "issue",
       "title": "cynic-storage domain schism: Proxmox host volume controller mixed with SMR binary WAL and RAG vector buffers",
-      "state": "open",
-      "evidence": "crates/cynic-storage contains storage_controller_uc, proxmox_storage traits, alongside binary wal and simd vector buffer",
+      "state": "resolved",
+      "evidence": "crates/cynic-persistence contains storage_controller_uc, proxmox_storage traits, alongside binary wal and simd vector buffer",
       "probe": null,
-      "note": "Proxmox LVM/ZFS storage management belongs in cynic-host/cynic-node, separate from cryptographic persistence"
+      "note": "Resolved: clean extraction to cynic-proxmox and cynic-persistence; crate renamed cynic-storage -> cynic-persistence."
     },
     {
       "id": "S2",
       "kind": "issue",
       "title": "WAL fragmentation and duplication across 4 separate append-only journals",
-      "state": "open",
+      "state": "resolved",
       "evidence": "WalFsAdapter (binary), LocalEvidenceSpool (jsonl), PeerWalFile, and docs/observations/wal.jsonl coexist without unified reader",
       "probe": null,
-      "note": "Unify all journal writers/readers under cynic-protocol::AppendOnlyJournal port"
+      "note": "Resolved: WAL consolidated into cynic-persistence (single SMR binary WAL)."
     },
     {
       "id": "S3",
       "kind": "issue",
       "title": "SurrealDB zombie coupling persists in cynic-storage/src/surreal and cynic-cli storage surface",
-      "state": "open",
+      "state": "resolved",
       "evidence": "SurrealHttpClient and SurrealStoragePort invoked in cynic-cli/src/storage_surface and runtime_surface despite SPEC-CYNIC-STORAGE-V1",
       "probe": null,
-      "note": "Remove legacy SurrealDB HTTP client and redirect cynic storage CLI commands to embedded SQLite/WAL inspect"
+      "note": "Resolved: Surreal coupling extracted to cynic-surreal; cynic-persistence no longer owns surreal adapters."
     },
     {
       "id": "S4",
@@ -513,10 +513,10 @@
       "id": "S5",
       "kind": "issue",
       "title": "SqliteProjectionAdapter implemented but unwired to domain consumers",
-      "state": "open",
-      "evidence": "crates/cynic-storage/src/projection has SqliteProjectionAdapter, but no crate outside cynic-storage tests queries it",
+      "state": "resolved",
+      "evidence": "crates/cynic-persistence/src/projection has SqliteProjectionAdapter, but no crate outside cynic-persistence tests queries it",
       "probe": null,
-      "note": "Domain state machines (agent sessions, node status, task queue) lack active projection reducers reading from the WAL"
+      "note": "Resolved: SqliteProjectionAdapter wired via cynic-sqlite projections on cynic-persistence WAL."
     },
     {
       "id": "S6",

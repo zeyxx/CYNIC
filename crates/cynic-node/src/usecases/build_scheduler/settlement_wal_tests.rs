@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use cynic_protocol::AgentCompletionStatus;
-use cynic_storage::{CausalWitness, StorageError, WalAppendInput, WalFsAdapter, WalJournalPort};
+use cynic_persistence::{CausalWitness, StorageError, WalAppendInput, WalFsAdapter, WalJournalPort};
 use tokio_util::bytes::Bytes;
 
 use super::settlement_wal::SettlementWal;
@@ -36,8 +36,8 @@ fn append_settlement(
     workload_digest: &str,
     evidence_refs: &[String],
     settled_at_ms: u64,
-) -> Result<cynic_storage::WalReceipt, StorageError> {
-    // (WalReceipt is re-exported from cynic_storage::types)
+) -> Result<cynic_persistence::WalReceipt, StorageError> {
+    // (WalReceipt is re-exported from cynic_persistence::types)
     let payload = serde_json::json!({
         "node_id": node_id,
         "workload_id": workload_id,
@@ -91,7 +91,7 @@ fn settlement_wal_appends_chained_entry() {
 
     // Verify the chain: second entry's prev_hash must equal first entry's entry_hash
     let entries: Vec<_> = wal
-        .scan_stream(cynic_storage::SequenceNumber::GENESIS, None)
+        .scan_stream(cynic_persistence::SequenceNumber::GENESIS, None)
         .expect("scan")
         .collect::<Result<_, _>>()
         .expect("collect entries");
@@ -157,7 +157,7 @@ fn settlement_wal_recovers_tail_on_restart() {
         assert_eq!(receipt4.sequence.0, 4);
 
         let entries: Vec<_> = wal
-            .scan_stream(cynic_storage::SequenceNumber::GENESIS, None)
+            .scan_stream(cynic_persistence::SequenceNumber::GENESIS, None)
             .expect("scan")
             .collect::<Result<_, _>>()
             .expect("collect");

@@ -312,7 +312,7 @@ fn derive_rust_authority(rel_path: &str) -> AuthorityTier {
         AuthorityTier::L1Specification
     } else if rel_path.contains("cynic-knowledge")
         || rel_path.contains("cynic-discovery")
-        || rel_path.contains("cynic-storage")
+        || rel_path.contains("cynic-persistence")
     {
         AuthorityTier::L2Design
     } else {

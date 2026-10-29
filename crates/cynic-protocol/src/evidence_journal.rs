@@ -11,6 +11,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::hash_chain::ChainLink;
+
 pub const EVIDENCE_JOURNAL_SCHEMA: &str = "cynic.evidence.journal_entry.v1";
 /// Event type discriminator for a sealed cold-evidence entry.
 ///
@@ -57,6 +59,20 @@ impl EvidenceJournalEntry {
             self.sealed_at_unix_s,
         )
             .serialize_bytes()
+    }
+}
+
+impl ChainLink for EvidenceJournalEntry {
+    fn chain_input(&self) -> Vec<u8> {
+        self.chain_input()
+    }
+
+    fn entry_hash(&self) -> &str {
+        &self.entry_hash
+    }
+
+    fn prev_hash(&self) -> &str {
+        &self.prev_hash
     }
 }
 

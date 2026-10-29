@@ -10,7 +10,7 @@
 use std::path::Path;
 
 use cynic_protocol::AgentCompletionStatus;
-use cynic_storage::{CausalWitness, StorageError, WalAppendInput, WalFsAdapter, WalJournalPort};
+use cynic_persistence::{CausalWitness, StorageError, WalAppendInput, WalFsAdapter, WalJournalPort};
 use tokio_util::bytes::Bytes;
 
 /// Schema for scheduler settlement entries in the global WAL.
@@ -62,7 +62,7 @@ impl SettlementWal {
         workload_digest: &str,
         evidence_refs: &[String],
         settled_at_ms: u64,
-    ) -> Result<cynic_storage::WalReceipt, StorageError> {
+    ) -> Result<cynic_persistence::WalReceipt, StorageError> {
         let status_str = format!("{status:?}").to_lowercase();
         let payload = serde_json::json!({
             "node_id": node_id,
@@ -87,12 +87,12 @@ impl SettlementWal {
     ///
     /// Returns the integrity report. `is_valid` is true iff every entry
     /// hashes correctly and the chain is unbroken.
-    pub fn verify_integrity(&self) -> Result<cynic_storage::IntegrityReport, StorageError> {
+    pub fn verify_integrity(&self) -> Result<cynic_persistence::IntegrityReport, StorageError> {
         self.inner.verify_integrity()
     }
 
     /// Read the latest sequence number in the WAL.
-    pub fn latest_sequence(&self) -> Result<cynic_storage::SequenceNumber, StorageError> {
+    pub fn latest_sequence(&self) -> Result<cynic_persistence::SequenceNumber, StorageError> {
         self.inner.latest_sequence()
     }
 

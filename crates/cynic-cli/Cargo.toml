@@ -40,7 +40,7 @@ cynic-protocol = { path = "../cynic-protocol" }
 cynic-ssh = { path = "../cynic-ssh" }
 cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
-cynic-storage = { path = "../cynic-storage" }
+cynic-persistence = { path = "../cynic-persistence" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-build = { path = "../cynic-build" }
 cynic-process = { path = "../cynic-process" }

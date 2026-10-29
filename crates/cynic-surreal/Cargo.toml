@@ -1,0 +1,20 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-surreal"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "L1 SurrealDB domain: pure domain logic, ports, and HTTP adapter for SurrealDB"
+publish = false
+
+[dependencies]
+cynic-secrets = { path = "../cynic-secrets" }
+reqwest = { workspace = true, features = ["rustls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror.workspace = true
+
+[lints]
+workspace = true

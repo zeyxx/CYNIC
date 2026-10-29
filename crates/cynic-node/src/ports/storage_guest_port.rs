@@ -1,4 +1,4 @@
-use cynic_storage::StorageObservation;
+use cynic_persistence::StorageObservation;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageGuestTarget {

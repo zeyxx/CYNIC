@@ -1,4 +1,4 @@
-use cynic_storage::identity::{
+use cynic_persistence::identity::{
     STORAGE_IDENTITY_OBSERVATION_SCHEMA, StorageEvidenceState, StorageIdentityDecision,
     StorageIdentityObservation, StorageIdentitySpec, reconcile_storage_identity,
 };
@@ -198,7 +198,7 @@ pub(crate) fn enroll_storage_identity(
 fn observation(
     spec: &StorageIdentitySpec,
     database_identity: StorageEvidenceState,
-    observed_role: Option<cynic_storage::identity::StorageIdentityRole>,
+    observed_role: Option<cynic_persistence::identity::StorageIdentityRole>,
     local_credential: StorageEvidenceState,
     runtime_authentication: StorageEvidenceState,
     admin_authority_present: bool,
@@ -309,7 +309,7 @@ fn now_ms() -> u64 {
 mod tests {
     use std::cell::{Cell, RefCell};
 
-    use cynic_storage::identity::{STORAGE_IDENTITY_SPEC_SCHEMA, StorageIdentityRole};
+    use cynic_persistence::identity::{STORAGE_IDENTITY_SPEC_SCHEMA, StorageIdentityRole};
 
     use crate::runtime_secret_install::{RuntimeSecretInstallReport, RuntimeSecretObservation};
 

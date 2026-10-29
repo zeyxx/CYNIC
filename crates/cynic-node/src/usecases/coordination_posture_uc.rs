@@ -126,7 +126,7 @@ mod tests {
         COORDINATION_AUTHORITY_DESIRED_SCHEMA, COORDINATION_AUTHORITY_OBSERVATION_SCHEMA,
         CoordinationAuthorityMemberObservation,
     };
-    use cynic_storage::{STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
+    use cynic_persistence::{STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
 
     fn desired() -> CoordinationAuthorityDesiredState {
         CoordinationAuthorityDesiredState {

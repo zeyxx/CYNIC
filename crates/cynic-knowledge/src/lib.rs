@@ -1,5 +1,8 @@
 pub mod adapters;
 pub mod domain;
+pub mod vector;
+
+pub use vector::SimdVectorAdapter;
 
 pub use adapters::{
     git_proof_resolver, local_repo_name, shell_claim_runner,

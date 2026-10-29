@@ -14,6 +14,7 @@ use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
+#[deprecated(note = "SSH build proof adapter retired; use native HTTP node pool via cynic_build::submit_workload")]
 pub struct SshBuildProof {
     pub host: String,
     pub user: String,
