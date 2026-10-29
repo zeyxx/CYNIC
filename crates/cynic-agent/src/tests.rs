@@ -29,7 +29,7 @@ fn evidence(kind: &str) -> AgentEvidenceRef {
     }
 }
 
-pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
+pub(crate) fn test_envelope() -> AgentWorkloadEnvelope {
     let action = AgentBoundedAction {
         argv: vec!["cargo".to_string(), "check".to_string()],
         working_directory: Some("checkout".to_string()),

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use super::AGENT_WORKLOAD_ENVELOPE_SCHEMA;
+use crate::AGENT_WORKLOAD_ENVELOPE_SCHEMA;
 
 pub const AGENT_CONSTITUTION_STATUS_SCHEMA: &str = "cynic.agent_constitution_status.v1";
 pub const AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA: &str =

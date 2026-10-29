@@ -655,11 +655,15 @@ dependencies = [
 name = "cynic-agent"
 version = "0.9.0"
 dependencies = [
+ "cynic-consensus",
+ "cynic-finance",
  "cynic-process",
  "cynic-protocol",
  "cynic-types",
+ "hex",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -1384,15 +1388,7 @@ dependencies = [
 name = "cynic-workload"
 version = "0.9.0"
 dependencies = [
- "cynic-consensus",
- "cynic-finance",
- "cynic-protocol",
- "hex",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
+ "cynic-agent",
 ]
 
 [[package]]
