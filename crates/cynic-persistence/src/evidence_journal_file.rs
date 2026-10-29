@@ -21,7 +21,7 @@ use chrono::Utc;
 use cynic_protocol::evidence_journal::{
     EVIDENCE_JOURNAL_SCHEMA, EvidenceJournalEntry, validate_evidence_chain,
 };
-use cynic_protocol::hash_chain::{ChainLink, HashChain};
+use cynic_protocol::hash_chain::HashChain;
 
 #[derive(Debug, Clone)]
 pub struct EvidenceJournalStore {
