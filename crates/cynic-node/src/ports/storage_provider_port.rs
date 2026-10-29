@@ -1,4 +1,4 @@
-use cynic_persistence::StorageObservation;
+use cynic_proxmox::storage::lifecycle::StorageObservation;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageProviderTarget {

@@ -1,5 +1,5 @@
 use cynic_process::{ArgvOutput, ArgvRunner};
-use cynic_persistence::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
+use cynic_proxmox::storage::lifecycle::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
 
 use crate::ports::storage_guest_port::{StorageGuestObservationPort, StorageGuestTarget};
 
