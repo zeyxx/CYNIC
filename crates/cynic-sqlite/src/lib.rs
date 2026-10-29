@@ -5,7 +5,6 @@
 pub mod book;
 pub mod error;
 pub mod projection;
-pub mod tabular;
 
 pub use book::{BookEntry, CynicLedger, GenericBookProjector, LedgerBook, TypedBook};
 pub use error::SqliteError;
