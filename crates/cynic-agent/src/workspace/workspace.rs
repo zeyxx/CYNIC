@@ -3,8 +3,6 @@ use std::collections::BTreeMap;
 use cynic_protocol::validate_evidence_refs;
 
 use super::{
-    admit_agent_workload,
-    types::AgentWorkloadEnvelope,
     workspace_checks::{
         agent_workspace_target, normalized_zone_set, own_claim, validate_request, violation,
         zones_overlap,
@@ -15,6 +13,7 @@ use super::{
         AgentWorkspaceReconciliation, AgentWorkspaceRequest,
     },
 };
+use crate::workload::{admit_agent_workload, types::AgentWorkloadEnvelope};
 
 pub fn reconcile_agent_workspace(
     workload: &AgentWorkloadEnvelope,

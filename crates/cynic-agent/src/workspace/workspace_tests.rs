@@ -9,9 +9,9 @@ use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, LeaseGuard, digest_
 use super::{
     AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
     AGENT_WORKSPACE_REQUEST_SCHEMA, admit_agent_workspace_claim, agent_workspace_target,
-    reconcile_agent_workspace, tests::test_envelope, workspace_claim_admission_matches,
-    zones_overlap,
+    reconcile_agent_workspace, workspace_claim_admission_matches, zones_overlap,
 };
+use crate::tests::test_envelope;
 
 fn digest(marker: char) -> String {
     format!("sha256:{}", marker.to_string().repeat(64))

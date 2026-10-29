@@ -669,9 +669,7 @@
         "cynic-pool"
       ],
       "depends_on": [
-        "cynic-consensus",
-        "cynic-finance",
-        "cynic-protocol"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -697,6 +695,8 @@
         "cynic-host"
       ],
       "depends_on": [
+        "cynic-consensus",
+        "cynic-finance",
         "cynic-process",
         "cynic-protocol",
         "cynic-types"

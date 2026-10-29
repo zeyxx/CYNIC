@@ -1,6 +1,4 @@
 use super::{
-    admit_agent_workload,
-    types::AgentWorkloadEnvelope,
     workspace_checks::{validate_zone_set, violation},
     workspace_types::{
         AGENT_WORKSPACE_CAPABILITY_ID, AGENT_WORKSPACE_CLAIM_ADMISSION_SCHEMA,
@@ -8,6 +6,7 @@ use super::{
         AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent,
     },
 };
+use crate::workload::{admit_agent_workload, types::AgentWorkloadEnvelope};
 use cynic_protocol::digest_json;
 
 pub fn admit_agent_workspace_claim(

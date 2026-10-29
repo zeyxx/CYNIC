@@ -11,9 +11,13 @@ description = "L2 domain crate: unified autonomous agent traits and implementati
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-process = { path = "../cynic-process" }
 cynic-types = { path = "../cynic-types" }
+cynic-consensus = { path = "../cynic-consensus" }
+cynic-finance = { path = "../cynic-finance" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
