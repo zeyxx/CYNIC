@@ -50,7 +50,6 @@
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
-        "cynic-kernel",
         "cynic-knowledge",
         "cynic-network",
         "cynic-node",
@@ -255,24 +254,6 @@
       "layer": "L2",
       "loc": 12179
     },
-    "cynic-kernel": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-node-protocol",
-        "cynic-protocol",
-        "cynic-secrets",
-        "cynic-storage",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "binary",
-      "layer": "L3",
-      "loc": 4538
-    },
     "cynic-knowledge": {
       "consumers": [
         "cynic-cli",
@@ -366,7 +347,6 @@
         "cynic-finance",
         "cynic-host",
         "cynic-inference",
-        "cynic-kernel",
         "cynic-lxc",
         "cynic-market",
         "cynic-network",
@@ -394,7 +374,6 @@
         "cynic-build",
         "cynic-cli",
         "cynic-host",
-        "cynic-kernel",
         "cynic-node"
       ],
       "depends_on": [
@@ -452,7 +431,6 @@
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
-        "cynic-kernel",
         "cynic-lxc",
         "cynic-market",
         "cynic-mcp",
@@ -535,7 +513,6 @@
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
-        "cynic-kernel",
         "cynic-network",
         "cynic-node",
         "cynic-proxmox",
@@ -556,7 +533,6 @@
       "consumers": [
         "cynic-cli",
         "cynic-host",
-        "cynic-kernel",
         "cynic-node"
       ],
       "depends_on": [
@@ -618,7 +594,6 @@
         "cynic-eval",
         "cynic-host",
         "cynic-inference",
-        "cynic-kernel",
         "cynic-knowledge",
         "cynic-lxc",
         "cynic-network",
@@ -716,7 +691,6 @@
     "cynic-vcs",
     "cynic-build",
     "cynic-eval",
-    "cynic-kernel",
     "cynic-pool",
     "cynic-inference",
     "cynic-market",
@@ -901,7 +875,6 @@
       "cynic-vcs"
     ],
     "L3": [
-      "cynic-kernel",
       "cynic-node"
     ],
     "L4": [

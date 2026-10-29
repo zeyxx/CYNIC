@@ -20,12 +20,6 @@
       "crate": "cynic-node",
       "role": "the sovereign node daemon",
       "deploy": true
-    },
-    {
-      "name": "cynic-kernel",
-      "crate": "cynic-kernel",
-      "role": "the kernel binary the lifecycle registry names as the kernel_primary deploy target",
-      "deploy": true
     }
   ]
 }

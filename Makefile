@@ -22,7 +22,7 @@ CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNI
 # uncompiled mass, so `check.layers` silently skipped cynic-mcp and
 # cynic-inference while `make test` covered them. Two lists in one name space
 # is how a crate stops being tested without anyone deciding it should.
-CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli cynic-inference cynic-mcp
+CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-cli cynic-inference cynic-mcp
 
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
@@ -440,7 +440,6 @@ operator.loop: ## Fast operator iteration: install CLI and refresh authoritative
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
 	@if [ -f target-cynic-ci/cynic-ownership-audit.json ]; then echo "  - target-cynic-ci/cynic-ownership-audit.json"; fi
-	@if [ -f target-cynic-ci/cynic-kernel-audit.json ]; then echo "  - target-cynic-ci/cynic-kernel-audit.json"; fi
 
 .PHONY: operator.reports
 operator.reports: ## Emit operator-consumable report artifacts (surface matrix + proof bundle + metrics)
@@ -488,10 +487,6 @@ kani.layers: ## Run aggregated low-layer Kani proofs for cynic-node (requires `c
 		--harness network_root_policy::verification::proof_remediation_to_profile_maps_only_root_network_actions \
 		--harness network_root_policy::verification::proof_dns_remediation_never_becomes_root_profile \
 		--harness network_root_policy::verification::proof_allowed_profiles_only_contains_root_remediations
-
-.PHONY: run.kernel
-run.kernel: ## Run the kernel locally
-	@$(RUST_ENV) $(CARGO) run -p cynic-kernel
 
 .PHONY: run.node
 run.node: ## Run the node locally

@@ -35,30 +35,9 @@ pub enum DaemonCommand {
 
 pub async fn dispatch(cmd: DaemonCommand) -> ExitCode {
     match cmd {
-        DaemonCommand::Kernel { reset } => {
-            let mut entry_flags =
-                cynic_kernel::bootstrap::entry::KernelEntryFlags::from_env_args();
-            if reset {
-                entry_flags.force_reprobe = true;
-            }
-            cynic_kernel::bootstrap::entry::load_env_file();
-            cynic_kernel::bootstrap::entry::configure_stdio_mode(entry_flags);
-            cynic_kernel::bootstrap::entry::init_tracing(entry_flags);
-
-            if entry_flags.force_reprobe {
-                if let Err(e) = cynic_kernel::bootstrap::entry::main_verify().await {
-                    eprintln!("kernel bootstrap verify failed: {e}");
-                    return ExitCode::FAILURE;
-                }
-            }
-
-            match cynic_kernel::bootstrap::runtime_orchestrator::run_runtime(entry_flags).await {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(e) => {
-                    eprintln!("kernel runtime exited with error: {e}");
-                    ExitCode::FAILURE
-                }
-            }
+        DaemonCommand::Kernel { reset: _ } => {
+            eprintln!("cynic-kernel is retired; use 'cynic daemon node' for sovereign runtime supervision");
+            ExitCode::from(0)
         }
         DaemonCommand::Node {
             config,

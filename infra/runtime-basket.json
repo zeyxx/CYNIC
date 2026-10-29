@@ -91,19 +91,6 @@
       ]
     },
     {
-      "id": "cynic-kernel",
-      "crate": "cynic-kernel",
-      "binary": "cynic-kernel",
-      "audience": "service",
-      "install_path": "/usr/local/bin/cynic-kernel",
-      "roles": [
-        "kernel_primary"
-      ],
-      "consumers": [
-        "systemd (kernel_primary nodes)"
-      ]
-    },
-    {
       "id": "cynic-mcp",
       "crate": "cynic-mcp",
       "binary": "cynic-mcp",
