@@ -593,19 +593,17 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 }
             }
 
-            let result = serde_json::json!({
-                "schema": "cynic.network.registry_reconciliation_report.v1",
-                "status": if report.drift_detected { "drift_detected" } else { "ok" },
-                "observer_node_id": observer_node_id,
-                "registry_path": registry_path,
-                "nodes_evaluated": specs.len(),
-                "nodes_updated": updated_count,
-                "drift_detected": report.drift_detected,
-                "drift_summary": report.drift_summary,
-                "applied": *apply,
-                "observed_nodes": registry_val.pointer("/observed/nodes"),
-                "observed_at_unix_ms": now_unix_ms,
-            });
+            let result = cynic_network::registry_maintenance::build_reconciliation_report(
+                observer_node_id.clone(),
+                registry_path.clone(),
+                specs.len(),
+                updated_count,
+                report.drift_detected,
+                report.drift_summary.clone(),
+                *apply,
+                registry_val.pointer("/observed/nodes").cloned(),
+                now_unix_ms,
+            );
 
             emit_json("registry reconciliation", &result, false)
         }
@@ -675,22 +673,13 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 None
             };
 
-            let is_compliant = audit_findings
-                .as_ref()
-                .map(|f| f.is_empty())
-                .unwrap_or(true);
-            let result = serde_json::json!({
-                "schema": "cynic.network.firewall_policy_report.v1",
-                "status": if is_compliant { "compliant" } else { "drift_detected" },
-                "node_id": policy.node_id,
-                "registry_path": registry_path,
-                "bindings_count": policy.bindings.len(),
-                "bindings": policy.bindings,
-                "nftables_ruleset": rendered_ruleset,
-                "audit_enabled": *audit,
-                "audit_findings": audit_findings,
-                "generated_at_unix_ms": now_unix_ms,
-            });
+            let result = cynic_network::firewall_policy::evaluate_firewall_policy(
+                &policy,
+                registry_path.clone(),
+                Some(rendered_ruleset),
+                *audit,
+                audit_findings,
+            );
 
             emit_json("firewall policy", &result, false)
         }
