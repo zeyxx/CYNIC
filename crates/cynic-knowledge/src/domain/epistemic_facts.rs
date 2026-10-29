@@ -9,6 +9,7 @@
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use cynic_surreal::domain::memory::{EpistemicFactRecord, EpistemicStatus};
 
 pub const EPISTEMIC_FACTS_SCHEMA_V1: &str = "cynic.facts.live.v1";
 pub const INTERACTIONS_GRAPH_SCHEMA_V1: &str = "cynic.interactions_graph.v1";
@@ -143,6 +144,33 @@ pub struct VerifiableClaim {
     pub verify_command: Option<String>,
     pub numeric_value: Option<u64>,
     pub unit: Option<String>,
+}
+
+impl VerifiableClaim {
+    /// Bridges this claim to a SurrealDB epistemic fact record.
+    pub fn to_surreal_fact_record(&self) -> EpistemicFactRecord {
+        let status = match self.status {
+            ClaimStatus::Demonstrated => EpistemicStatus::Proven,
+            ClaimStatus::Implemented => EpistemicStatus::Observed,
+            ClaimStatus::Partial => EpistemicStatus::Hypothesized,
+            ClaimStatus::Aspirational => EpistemicStatus::Hypothesized,
+            ClaimStatus::Unknown => EpistemicStatus::Hypothesized,
+        };
+        let mut rec = EpistemicFactRecord::new(
+            self.id.clone(),
+            self.statement.clone(),
+            "claim_status",
+            self.status.as_str(),
+            status,
+            0,
+        );
+        if let Some(cmd) = &self.verify_command {
+            rec = rec.with_proof(cmd.clone());
+        } else if !self.evidence.is_empty() {
+            rec = rec.with_proof(self.evidence.clone());
+        }
+        rec
+    }
 }
 
 /// Chronological era of the author's work across GitHub repositories.

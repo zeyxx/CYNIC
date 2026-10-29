@@ -2,7 +2,7 @@ pub mod adapters;
 pub mod domain;
 pub mod vector;
 
-pub use vector::SimdVectorAdapter;
+pub use vector::{ContiguousVectorStore, SimdVectorAdapter};
 
 pub use adapters::{
     git_proof_resolver, local_repo_name, shell_claim_runner,
@@ -13,6 +13,7 @@ pub use adapters::{
     parse_json_contract_with_authority, parse_jsonl_wal, parse_markdown_tree, parse_rust_file,
     resolve_service_endpoint_from_registry, save_corpus_cache, sync_workspace_corpus,
     load_rerank_cache, save_rerank_cache, load_canonical_retrieval_policy, GitExtractError,
+    to_surreal_fact_record,
 };
 pub use domain::{
     apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
@@ -27,7 +28,7 @@ pub use domain::{
     CrateGeometryRecord, DenseHit, DocumentChunk, DocumentTree, EpistemicAssemblyConfig,
     EpistemicCoverageVerdict, EpistemicFactLedger, EpistemicSource, GitCommitRecord, HistoricalEvent,
     InteractionCategory, InteractionRecord, InteractionsGraph,
-    KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalIndex, MarkdownLink,
+    CorpusEdge, CorpusEdgeKind, CorpusGraph, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalHit, LexicalIndex, MarkdownLink,
     NormalizationStrategy, QueryRoute, RepoEra, RepoProvenance, RoutingTable, SearchHit,
     SectionNode, SkillBasis, SkillDepth, SynthesisPrompt, SynthesisPromptBuilder, TechnicalDomain,
     VectorCacheRecord, VerifiableClaim, WorkspaceGeometry, AUTHORITY_TIERS_REGISTRY_PATH,

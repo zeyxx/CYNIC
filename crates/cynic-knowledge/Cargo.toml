@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 cynic-types = { path = "../cynic-types" }
 cynic-persistence = { path = "../cynic-persistence" }
+cynic-surreal = { path = "../cynic-surreal" }
 parking_lot = "0.12"
 serde.workspace = true
 serde_json.workspace = true

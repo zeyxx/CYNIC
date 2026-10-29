@@ -1,5 +1,6 @@
 pub mod corpus_cache;
 pub mod epistemic_harvester;
+pub mod epistemic_surreal;
 pub mod git;
 pub mod json_contract;
 pub mod markdown;
@@ -10,6 +11,7 @@ pub mod rust_ast;
 pub mod topology;
 
 pub use corpus_cache::{load_corpus_cache, save_corpus_cache, sync_workspace_corpus};
+pub use epistemic_surreal::to_surreal_fact_record;
 pub use epistemic_harvester::{
     categorize_interaction, classify_repo_domain, classify_repo_era, harvest_live_ledger,
     git_proof_resolver, load_author_profile, local_repo_name, shell_claim_runner, parse_github_repos, parse_interactions_graph,

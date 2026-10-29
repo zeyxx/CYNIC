@@ -55,7 +55,7 @@ pub use epistemic_grounding::{
     EPISTEMIC_PROMPT_SCHEMA_V1, UNCOVERED_REJECTION_TOKEN,
 };
 pub use geometry::{CrateGeometryRecord, WorkspaceGeometry, WORKSPACE_GEOMETRY_SCHEMA_V1};
-pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
+pub use graph::{BrokenReference, CorpusEdge, CorpusEdgeKind, CorpusGraph, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use graph_expansion::{expand_hits_with_graph, expand_hits_with_graph_query};
 pub use hybrid_rrf::{fuse_reciprocal_ranks, DenseHit, DEFAULT_RRF_K};
 pub use public_surface::{render_public_surface_html, render_public_surface_markdown};
@@ -67,7 +67,7 @@ pub use rerank::{
 pub use retrieval_policy::{
     RetrievalPolicy, RetrievalProfile, RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1,
 };
-pub use scorer::{bm25_margin, dense_margin, tokenize, LexicalIndex, SearchHit};
+pub use scorer::{bm25_margin, dense_margin, tokenize, LexicalHit, LexicalIndex, SearchHit};
 pub use synthesis::{
     CitedSource, SynthesisPrompt, SynthesisPromptBuilder, SYNTHESIS_PROMPT_SCHEMA_V1,
 };
