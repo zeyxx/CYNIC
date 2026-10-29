@@ -1,18 +1,12 @@
-//! External evidence adapter for cynic-kernel.
-//!
-//! WHY: implements ExternalEvidencePort by wrapping the content-addressed
-//! evidence store. All I/O lives behind the store port (FCIS).
-//! HOW: delegates persistence to ContentAddressedEvidenceStorePort.
-//! NEGATIVE BOUNDARY: no domain logic, no admission — those live in
-//! cynic-kernel::ports::external_evidence.
+//! External evidence adapter for cynic-node.
 
-use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
-use crate::ports::external_evidence::{
-    ExternalEvidenceBatch, ExternalEvidenceIngestionResult, ExternalEvidencePort,
+use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
+use cynic_protocol::evidence::{
+    AuditIngestionProof, ExternalAuditEvidenceBatch, ExternalEvidencePort,
+    EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA, EXTERNAL_EVIDENCE_SCHEMA,
 };
 use cynic_protocol::EvidenceEnvelope;
 
-/// Adapter that wraps a content-addressed evidence store.
 pub struct LocalExternalEvidenceAdapter<S> {
     pub store: S,
 }
@@ -30,11 +24,10 @@ impl<S> ExternalEvidencePort for LocalExternalEvidenceAdapter<S>
 where
     S: ContentAddressedEvidenceStorePort,
 {
-    fn ingest(&self, batch: &ExternalEvidenceBatch) -> ExternalEvidenceIngestionResult {
-        // Build an EvidenceEnvelope from the batch
+    fn ingest(&self, batch: &ExternalAuditEvidenceBatch) -> AuditIngestionProof {
         let envelope = EvidenceEnvelope {
-            schema: "cynic.kernel.external_evidence.v1".to_string(),
-            digest: String::new(), // store will compute
+            schema: EXTERNAL_EVIDENCE_SCHEMA.to_string(),
+            digest: String::new(),
             payload_digest: String::new(),
             subject: batch.subject.clone(),
             producer: batch.producer.clone(),
@@ -45,19 +38,21 @@ where
         };
 
         match self.store.persist(&envelope) {
-            Ok(digest) => ExternalEvidenceIngestionResult {
+            Ok(digest) => AuditIngestionProof {
+                schema: EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA,
                 project_id: batch.project_id.clone(),
-                subject: batch.subject.clone(),
-                digest,
-                persisted: true,
-                error: None,
+                batches_ingested: 1,
+                batches_failed: 0,
+                digests: vec![digest],
+                overall_success: true,
             },
-            Err(e) => ExternalEvidenceIngestionResult {
+            Err(e) => AuditIngestionProof {
+                schema: EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA,
                 project_id: batch.project_id.clone(),
-                subject: batch.subject.clone(),
-                digest: String::new(),
-                persisted: false,
-                error: Some(e),
+                batches_ingested: 0,
+                batches_failed: 1,
+                digests: vec![],
+                overall_success: false,
             },
         }
     }
@@ -66,7 +61,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
+    use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 
     struct MockStore;
     impl ContentAddressedEvidenceStorePort for MockStore {
@@ -78,7 +73,7 @@ mod tests {
     #[test]
     fn ingest_persists() {
         let adapter = LocalExternalEvidenceAdapter::new(MockStore);
-        let batch = ExternalEvidenceBatch {
+        let batch = ExternalAuditEvidenceBatch {
             project_id: "aegisscan".to_string(),
             producer: "aegisscan-findings-v2".to_string(),
             subject: "pentest-run-1".to_string(),
@@ -87,7 +82,8 @@ mod tests {
             payload: serde_json::json!({"finding": "test"}),
         };
         let result = adapter.ingest(&batch);
-        assert!(result.persisted);
-        assert_eq!(result.digest, "mock-digest-123");
+        assert!(result.overall_success);
+        assert_eq!(result.batches_ingested, 1);
+        assert_eq!(result.digests, vec!["mock-digest-123".to_string()]);
     }
 }

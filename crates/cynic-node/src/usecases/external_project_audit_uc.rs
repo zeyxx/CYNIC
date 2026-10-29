@@ -20,7 +20,7 @@ use cynic_build::{
     ExternalBuildKind, ExternalBuildPort, ExternalBuildProof, ExternalBuildRequest,
     EXTERNAL_BUILD_PROOF_SCHEMA,
 };
-use cynic_kernel::ports::external_evidence::{
+use cynic_protocol::evidence::{
     ExternalEvidenceBatch, ExternalEvidenceIngestionProof, ExternalEvidencePort,
     EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA,
 };
@@ -164,7 +164,7 @@ pub fn audit_external_project(
 mod tests {
     use super::*;
     use cynic_build::ExternalCommandResult;
-    use cynic_kernel::ports::external_evidence::ExternalEvidenceIngestionResult;
+    use cynic_protocol::evidence::ExternalEvidenceIngestionResult;
     use cynic_vcs::{ExternalBranch, ExternalProvider};
     use serde_json::json;
     use std::sync::Mutex;
@@ -285,11 +285,12 @@ mod tests {
             _batch: &ExternalEvidenceBatch,
         ) -> ExternalEvidenceIngestionResult {
             ExternalEvidenceIngestionResult {
+                schema: EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA,
                 project_id: "test".to_string(),
-                subject: "test".to_string(),
-                digest: "mock-digest".to_string(),
-                persisted: true,
-                error: None,
+                batches_ingested: 1,
+                batches_failed: 0,
+                digests: vec!["mock-digest".to_string()],
+                overall_success: true,
             }
         }
         fn ingest_batch(

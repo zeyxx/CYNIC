@@ -64,4 +64,5 @@ pub mod collaborator_trust_uc;
 /// WHY: End-to-end audit orchestration for external projects.
 /// HOW: Composes ExternalSourcePort → ExternalBuildPort → ExternalEvidencePort
 /// in sequence: clone repo → run build → ingest evidence batch.
+pub mod external_evidence_uc;
 pub mod external_project_audit_uc;

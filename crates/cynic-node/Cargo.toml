@@ -46,7 +46,6 @@ cynic-finance = { path = "../cynic-finance" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-vcs = { path = "../cynic-vcs" }
-cynic-kernel = { path = "../cynic-kernel" }
 cynic-persistence = { path = "../cynic-persistence" }
 cynic-build = { path = "../cynic-build" }
 cynic-host = { path = "../cynic-host" }
