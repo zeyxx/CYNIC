@@ -64,7 +64,7 @@ pub async fn apply_pending_storage_operation<M: StorageMutationPort + ?Sized>(
     let operation = current
         .operation
         .as_ref()
-        .filter(|operation| operation.phase == cynic_persistence::StorageOperationPhase::Pending)
+        .filter(|operation| operation.phase == StorageOperationPhase::Pending)
         .ok_or_else(|| StorageControllerStoreError {
             code: "storage_operation_not_pending".to_string(),
         })?;
@@ -126,7 +126,7 @@ pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     read_back: &R,
     node: &str,
     resource_id: &str,
-    guest_observation: &cynic_persistence::StorageObservation,
+    guest_observation: &StorageObservation,
     now_ms: u64,
 ) -> Result<StorageControllerRecord, StorageControllerStoreError> {
     let current = store
@@ -137,7 +137,7 @@ pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     let operation = current
         .operation
         .as_ref()
-        .filter(|operation| operation.phase == cynic_persistence::StorageOperationPhase::Verifying)
+        .filter(|operation| operation.phase == StorageOperationPhase::Verifying)
         .ok_or_else(|| StorageControllerStoreError {
             code: "storage_operation_not_verifying".to_string(),
         })?;
