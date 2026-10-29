@@ -152,10 +152,19 @@
       "public_items": 7,
       "disposition": "fused into cynic-vcs (Plan 4 BURN)",
       "rationale": "Reintegrated into cynic-vcs under cynic-vcs::providers. Upward layer debt cynic-host -> cynic-vcs-providers paid."
+    },
+    {
+      "crate": "cynic-askesis",
+      "src_loc": 0,
+      "test_loc": 0,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "retired; fused into cynic-domain-ops (proof log module)",
+      "rationale": "Append-only hash-chained proof log merged into cynic-domain-ops::backup_log. Metaphor token eradicated."
     }
   ],
   "control": {
-    "crate": "cynic-askesis",
+    "crate": "cynic-domain-ops",
     "src_loc": 2373,
     "direct_dependents": 3,
     "public_items": 56,

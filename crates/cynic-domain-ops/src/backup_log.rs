@@ -1,0 +1,199 @@
+//! Domain proof log — append-only hash-chained proof log.
+//!
+//! Pure domain: no I/O. Types, hashes, verification.
+//! Pure SHA-256 hash chaining: `append(...)`, `verify_chain(...)`.
+
+use serde::{Deserialize, Serialize};
+
+use cynic_protocol::digest::digest_bytes;
+
+pub const DOMAIN_PROOF_ENTRY_SCHEMA: &str = "cynic.domain_proof_entry.v1";
+pub const GENESIS_HASH: &str = "genesis";
+
+/// Domain proof entry kind — what category of proof this entry records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DomainProofKind {
+    /// Constitutional court audit report
+    CourtAudit,
+    /// Forensics SOC observation
+    Forensics,
+    /// Release artifact proof
+    ReleaseProof,
+    /// Agent action evidence
+    AgentEvidence,
+    /// Custom (extension point)
+    Custom,
+}
+
+impl DomainProofKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::CourtAudit => "court_audit",
+            Self::Forensics => "forensics",
+            Self::ReleaseProof => "release_proof",
+            Self::AgentEvidence => "agent_evidence",
+            Self::Custom => "custom",
+        }
+    }
+}
+
+impl std::fmt::Display for DomainProofKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// One immutable, content-addressed, hash-chained entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DomainProofEntry {
+    /// Schema version
+    pub schema: String,
+    /// Entry kind
+    pub kind: DomainProofKind,
+    /// Logical timestamp (unix seconds, observed)
+    pub observed_at_unix_s: u64,
+    /// Entry sequence (1-indexed, monotonic)
+    pub sequence: u64,
+    /// Hash of the previous entry (all zeros for genesis)
+    pub prev_hash: String,
+    /// Content-addressed hash of this entry (SHA-256)
+    pub entry_hash: String,
+    /// Subject (what this evidence is about)
+    pub subject: String,
+    /// Evidence payload (kind-specific)
+    pub evidence: serde_json::Value,
+}
+
+impl DomainProofEntry {
+    pub fn new(
+        kind: DomainProofKind,
+        observed_at_unix_s: u64,
+        sequence: u64,
+        prev_hash: impl Into<String>,
+        subject: impl Into<String>,
+        evidence: serde_json::Value,
+    ) -> Self {
+        let mut entry = Self {
+            schema: DOMAIN_PROOF_ENTRY_SCHEMA.to_string(),
+            kind,
+            observed_at_unix_s,
+            sequence,
+            prev_hash: prev_hash.into(),
+            subject: subject.into(),
+            evidence,
+            entry_hash: String::new(),
+        };
+        entry.entry_hash = entry.compute_hash();
+        entry
+    }
+
+    /// Compute content-addressed hash (SHA-256 of canonical fields).
+    pub fn compute_hash(&self) -> String {
+        let canonical = serde_json::json!({
+            "schema": self.schema,
+            "kind": self.kind.as_str(),
+            "observed_at_unix_s": self.observed_at_unix_s,
+            "sequence": self.sequence,
+            "prev_hash": self.prev_hash,
+            "subject": self.subject,
+            "evidence": self.evidence,
+        });
+        let bytes = canonical.to_string();
+        digest_bytes(bytes.as_bytes())
+    }
+
+    /// Verify entry integrity: recompute and compare.
+    pub fn verify(&self) -> bool {
+        self.entry_hash == self.compute_hash()
+    }
+}
+
+pub const DOMAIN_PROOF_LOG_SCHEMA: &str = "cynic.domain_proof.v1";
+
+/// Domain proof log — append-only chain of content-addressed entries.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DomainProofLog {
+    /// Schema version
+    pub schema: String,
+    /// Log identity (which log is this)
+    pub log_id: String,
+    /// All entries in order
+    pub entries: Vec<DomainProofEntry>,
+}
+
+impl DomainProofLog {
+    pub fn new(log_id: impl Into<String>) -> Self {
+        Self {
+            schema: DOMAIN_PROOF_LOG_SCHEMA.to_string(),
+            log_id: log_id.into(),
+            entries: Vec::new(),
+        }
+    }
+
+    /// Append an entry with auto-chaining.
+    pub fn append(
+        &mut self,
+        kind: DomainProofKind,
+        observed_at_unix_s: u64,
+        subject: impl Into<String>,
+        evidence: serde_json::Value,
+    ) -> &DomainProofEntry {
+        let sequence = self.entries.len() as u64 + 1;
+        let prev_hash = self
+            .entries
+            .last()
+            .map(|e| e.entry_hash.clone())
+            .unwrap_or_else(|| GENESIS_HASH.to_string());
+
+        let entry = DomainProofEntry::new(
+            kind,
+            observed_at_unix_s,
+            sequence,
+            prev_hash,
+            subject,
+            evidence,
+        );
+        self.entries.push(entry);
+        self.entries.last().unwrap()
+    }
+
+    /// Verify entire chain integrity.
+    pub fn verify_chain(&self) -> bool {
+        for (i, entry) in self.entries.iter().enumerate() {
+            if !entry.verify() {
+                return false;
+            }
+            if i == 0 {
+                if entry.prev_hash != GENESIS_HASH {
+                    return false;
+                }
+            } else if entry.prev_hash != self.entries[i - 1].entry_hash {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn last_hash(&self) -> Option<&str> {
+        self.entries.last().map(|e| e.entry_hash.as_str())
+    }
+}
+
+/// Port for append-only writers (implemented by adapters in other crates).
+pub trait DomainProofWriter {
+    /// Append an entry. Returns the entry hash on success.
+    fn append(
+        &mut self,
+        kind: DomainProofKind,
+        observed_at_unix_s: u64,
+        subject: impl Into<String>,
+        evidence: serde_json::Value,
+    ) -> Result<String, String>;
+
+    /// Read the entire log.
+    fn read_log(&self) -> Result<DomainProofLog, String>;
+
+    /// Verify the log chain.
+    fn verify(&self) -> Result<bool, String>;
+}

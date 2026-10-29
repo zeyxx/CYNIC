@@ -4,21 +4,6 @@
     "cynic-zeroclaw-solana declares [[bin]] zeroclaw-solana-demo at src/bin/demo.rs, an autodiscovered target; it is a binary, not an unjustified library."
   ],
   "crates": {
-    "cynic-askesis": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-domain-ops",
-        "cynic-kernel"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 399
-    },
     "cynic-audit-engine": {
       "consumers": [
         "cynic-cli"
@@ -55,7 +40,6 @@
     "cynic-cli": {
       "consumers": [],
       "depends_on": [
-        "cynic-askesis",
         "cynic-audit-engine",
         "cynic-build",
         "cynic-consensus",
@@ -133,7 +117,6 @@
         "cynic-cli"
       ],
       "depends_on": [
-        "cynic-askesis",
         "cynic-protocol",
         "cynic-secrets"
       ],
@@ -280,7 +263,6 @@
         "cynic-node"
       ],
       "depends_on": [
-        "cynic-askesis",
         "cynic-node-protocol",
         "cynic-protocol",
         "cynic-secrets",
@@ -461,7 +443,6 @@
     },
     "cynic-protocol": {
       "consumers": [
-        "cynic-askesis",
         "cynic-audit-engine",
         "cynic-build",
         "cynic-cli",

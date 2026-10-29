@@ -652,15 +652,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-askesis"
-version = "0.9.0"
-dependencies = [
- "cynic-protocol",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "cynic-audit-engine"
 version = "0.9.0"
 dependencies = [
@@ -700,7 +691,6 @@ version = "0.9.0"
 dependencies = [
  "chrono",
  "clap",
- "cynic-askesis",
  "cynic-audit-engine",
  "cynic-build",
  "cynic-consensus",
@@ -776,7 +766,6 @@ dependencies = [
 name = "cynic-domain-ops"
 version = "0.9.0"
 dependencies = [
- "cynic-askesis",
  "cynic-protocol",
  "cynic-secrets",
  "hex",
@@ -946,7 +935,6 @@ dependencies = [
  "blake3",
  "bytes",
  "chrono",
- "cynic-askesis",
  "cynic-node-protocol",
  "cynic-protocol",
  "cynic-secrets",

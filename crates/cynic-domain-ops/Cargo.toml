@@ -18,7 +18,6 @@ thiserror = "2.0"
 hex.workspace = true
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "native-tls", "stream"] }
 tokio = { workspace = true }
-cynic-askesis = { path = "../cynic-askesis" }
 
 [dev-dependencies]
 tempfile = "3.17"
