@@ -1,4 +1,6 @@
 //! Fleet projection types. Plain data, no I/O.
+//!
+//! Migrated from the retired `cynic-fleet` crate into `cynic-network`.
 
 use serde::{Deserialize, Serialize};
 

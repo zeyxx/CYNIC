@@ -34,7 +34,12 @@
 //! registry nor any hosts file.
 
 pub mod admission;
+pub mod report;
+pub mod types;
+
 pub use admission::*;
+pub use report::{assemble, render_html, short_hash, FLEET_REPORT_SCHEMA};
+pub use types::*;
 
 use cynic_protocol::host_substrate::hypervisor::{
     HypervisorKind, VM_OBSERVATION_SCHEMA, VmObservation, VmState,
@@ -834,7 +839,7 @@ mod tests {
         };
         let registry: serde_json::Value = serde_json::from_str(&raw).expect("registry parses");
         let members = parse_declared_registry_members(&registry);
-        assert_eq!(members.len(), 8);
+        assert_eq!(members.len(), 14);
         assert!(
             members
                 .iter()

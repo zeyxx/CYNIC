@@ -33,7 +33,6 @@ cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-inference = { path = "../cynic-inference" }
 # Hub provider contract, consumed directly (never via inference re-exports).
 cynic-node = { path = "../cynic-node" }
-cynic-fleet = { path = "../cynic-fleet" }
 cynic-tui = { path = "../cynic-tui" }
 cynic-supervisor = { path = "../cynic-supervisor" }
 cynic-protocol = { path = "../cynic-protocol" }

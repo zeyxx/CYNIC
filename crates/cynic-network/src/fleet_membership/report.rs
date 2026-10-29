@@ -1,8 +1,10 @@
 //! Pure fleet projection: assemble rows from adapter-supplied entries and
 //! render the single-file HTML dashboard. No filesystem, no clock beyond
 //! `generated_unix_s` passed in by the caller.
+//!
+//! Migrated from the retired `cynic-fleet` crate into `cynic-network`.
 
-use crate::types::{FleetLogRow, FleetNodeRow, FleetReport, FleetServiceRow, LogEntry, NodeEntry};
+use super::types::{FleetLogRow, FleetNodeRow, FleetReport, FleetServiceRow, LogEntry, NodeEntry};
 
 pub const FLEET_REPORT_SCHEMA: &str = "cynic.fleet.report.v1";
 
@@ -166,7 +168,7 @@ pub fn render_html(report: &FleetReport) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{LogEntry, NodeEntry};
+    use super::super::types::{LogEntry, NodeEntry};
 
     fn sample() -> FleetReport {
         assemble(

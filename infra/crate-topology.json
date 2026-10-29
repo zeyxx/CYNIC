@@ -76,7 +76,6 @@
         "cynic-discovery",
         "cynic-domain-ops",
         "cynic-eval",
-        "cynic-fleet",
         "cynic-forensics",
         "cynic-host",
         "cynic-inference",
@@ -199,19 +198,6 @@
       "kind": "library",
       "layer": "L2",
       "loc": 1549
-    },
-    "cynic-fleet": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L4",
-      "loc": 367
     },
     "cynic-forensics": {
       "consumers": [
@@ -501,7 +487,6 @@
         "cynic-domain-ops",
         "cynic-eval",
         "cynic-finance",
-        "cynic-fleet",
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
@@ -753,7 +738,6 @@
     "cynic-askesis",
     "cynic-audit-engine",
     "cynic-finance",
-    "cynic-fleet",
     "cynic-lxc",
     "cynic-node-protocol",
     "cynic-release",
@@ -961,7 +945,6 @@
     ],
     "L4": [
       "cynic-cli",
-      "cynic-fleet",
       "cynic-mcp",
       "cynic-tui"
     ],
