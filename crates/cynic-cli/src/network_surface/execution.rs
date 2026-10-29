@@ -515,40 +515,10 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             max_handshake_age_secs,
             registry,
         } => {
-            let hostname = cynic_host::runtime_layout::observed_hostname();
-            let node_id =
-                cynic_host::registry::resolve_host_profile_resolution(&hostname, Some(registry))
-                    .ok()
-                    .and_then(|r| r.matched_node)
-                    .unwrap_or(hostname);
-            let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter::new();
-            let snapshot = adapter.observe_live_telemetry(&node_id, Some("wg0"));
-
-            let registry_json = std::fs::read_to_string(registry)
-                .ok()
-                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
-            let allowed_ports = registry_json
-                .as_ref()
-                .map(|reg| cynic_network::extract_allowed_ports_from_registry(reg, Some(&node_id)))
-                .unwrap_or_else(|| vec![22, 3030, 44196, 51820, 9090]);
-
-            let alerts = cynic_intel::soc::analyze_network_telemetry(
-                &snapshot,
-                &allowed_ports,
-                max_handshake_age_secs * 1000,
+            let report = cynic_node::usecases::network_security_audit_uc::execute_network_security_audit(
+                &registry,
+                *max_handshake_age_secs,
             );
-            let report = serde_json::json!({
-                "schema": "cynic.intel.soc_security_report.v1",
-                "status": if alerts.is_empty() { "clean" } else { "threats_detected" },
-                "node_id": snapshot.node_id,
-                "listening_ports_observed": snapshot.listening_ports,
-                "allowed_ports_policy": allowed_ports,
-                "wireguard_peers_count": snapshot.wireguard_peers.len(),
-                "dropped_packets_count": snapshot.dropped_packets_count,
-                "alerts_count": alerts.len(),
-                "alerts": alerts,
-                "observed_at_unix_ms": snapshot.observed_at_unix_ms,
-            });
             emit_json("network security audit", &report, false)
         }
         NetworkCommands::ReconcileObserved {

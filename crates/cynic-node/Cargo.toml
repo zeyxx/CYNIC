@@ -54,6 +54,7 @@ cynic-network = { path = "../cynic-network" }
 cynic-ssh = { path = "../cynic-ssh" }
 cynic-consensus = { path = "../cynic-consensus" }
 cynic-inference = { path = "../cynic-inference" }
+cynic-intel = { path = "../cynic-intel" }
 cynic-release = { path = "../cynic-release" }
 cynic-lxc = { path = "../cynic-lxc" }
 cynic-sandbox = { path = "../cynic-sandbox" }

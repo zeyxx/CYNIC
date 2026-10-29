@@ -1040,6 +1040,7 @@ dependencies = [
  "cynic-finance",
  "cynic-host",
  "cynic-inference",
+ "cynic-intel",
  "cynic-lxc",
  "cynic-market",
  "cynic-network",
