@@ -17,7 +17,7 @@ cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-eval = { path = "../cynic-eval" }
-cynic-storage = { path = "../cynic-storage" }
+cynic-persistence = { path = "../cynic-persistence" }
 cynic-build = { path = "../cynic-build" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-agent = { path = "../cynic-agent" }
