@@ -1,6 +1,0 @@
-{
-  "desired_service": "cynic-node",
-  "desired_state": "running",
-  "initial_state": "stopped",
-  "restart_succeeds": true
-}

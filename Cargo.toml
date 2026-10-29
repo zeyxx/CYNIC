@@ -29,7 +29,6 @@ members = [
     "crates/cynic-lxc",
     "crates/cynic-pkg",
     "crates/cynic-pool",
-    "crates/cynic-askesis",
     "crates/cynic-secrets",
     "crates/cynic-ssh",
     "crates/cynic-domain-ops",

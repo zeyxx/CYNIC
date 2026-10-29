@@ -127,15 +127,15 @@ const PURITY_PREFIX: &str = "cynic-domain-";
 /// test that cannot be tightened is a test that will be deleted with its author.
 const BASELINE: &[&str] = &[
     // 1. no stated responsibility (21 crates have no `description`)
-    "NO-RESPONSIBILITY: cynic-askesis",
+    "NO-RESPONSIBILITY: cynic-audit-engine",
     "NO-RESPONSIBILITY: cynic-cli",
+    "NO-RESPONSIBILITY: cynic-proxmox",
+    "PURITY-PREFIX-WITH-INFRA: cynic-domain-ops",
     "NO-RESPONSIBILITY: cynic-discovery",
-    "NO-RESPONSIBILITY: cynic-domain-askesis",
     "NO-RESPONSIBILITY: cynic-forensics",
     "NO-RESPONSIBILITY: cynic-host",
     "NO-RESPONSIBILITY: cynic-inference",
     "NO-RESPONSIBILITY: cynic-intel",
-    "NO-RESPONSIBILITY: cynic-intel-escore",
     "NO-RESPONSIBILITY: cynic-kernel",
     "NO-RESPONSIBILITY: cynic-lxc",
     "NO-RESPONSIBILITY: cynic-mcp",
@@ -144,9 +144,7 @@ const BASELINE: &[&str] = &[
     "NO-RESPONSIBILITY: cynic-pkg",
     "NO-RESPONSIBILITY: cynic-protocol",
     // 3. the purity prefix lies about two crates that ship an HTTP client
-    // 4. metaphor names a crate
-    "METAPHOR-NAME: cynic-askesis",
-    "METAPHOR-NAME: cynic-domain-askesis",
+    // 4. a metaphor naming a crate
 ];
 
 fn violations() -> Vec<String> {

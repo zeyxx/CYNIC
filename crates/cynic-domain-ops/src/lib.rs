@@ -17,12 +17,13 @@
 //! Authority: foundation.json §32 (provider_agnostic_domain), §37 (portable_host_contract).
 
 pub mod adapters;
+pub mod backup_archive;
+pub mod backup_log;
 pub mod domain;
 pub mod port;
 pub mod runner;
 
 pub mod contracts;
-pub mod askesis;
 
 pub use crate::domain::{
     classify_record, generate_idempotency_key, policy_for_record_type, reconcile_zone,
