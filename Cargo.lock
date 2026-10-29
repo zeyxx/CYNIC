@@ -112,15 +112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arc-swap"
-version = "1.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "380962b3d93b99642e50b9febf72c071e97e8b32d86eae9cf4ef582bb960ae6e"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
 name = "arrayvec"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -719,7 +710,6 @@ dependencies = [
  "cynic-host",
  "cynic-inference",
  "cynic-intel",
- "cynic-kernel",
  "cynic-knowledge",
  "cynic-network",
  "cynic-node",
@@ -861,6 +851,7 @@ dependencies = [
  "cynic-pkg",
  "cynic-process",
  "cynic-protocol",
+ "cynic-proxmox",
  "cynic-release",
  "cynic-sandbox",
  "cynic-secrets",
@@ -938,56 +929,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "cynic-kernel"
-version = "0.9.0"
-dependencies = [
- "arc-swap",
- "async-trait",
- "axum",
- "base64 0.22.1",
- "bitflags 2.13.2",
- "blake3",
- "bytes",
- "chrono",
- "cynic-node-protocol",
- "cynic-persistence",
- "cynic-protocol",
- "cynic-secrets",
- "cynic-types",
- "dirs",
- "dotenvy",
- "ed25519-dalek",
- "futures-util",
- "getrandom 0.2.17",
- "hex",
- "http-body-util",
- "hyper",
- "hyper-util",
- "rand 0.9.5",
- "regex",
- "reqwest 0.13.5",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "sha3",
- "sysinfo 0.37.2",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tokio-tungstenite 0.24.0",
- "tokio-util",
- "toml",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "walkdir",
- "which",
- "zeroize",
 ]
 
 [[package]]
@@ -1099,7 +1040,6 @@ dependencies = [
  "cynic-finance",
  "cynic-host",
  "cynic-inference",
- "cynic-kernel",
  "cynic-lxc",
  "cynic-market",
  "cynic-network",
@@ -1241,7 +1181,6 @@ dependencies = [
 name = "cynic-proxmox"
 version = "0.9.0"
 dependencies = [
- "cynic-host",
  "cynic-process",
  "cynic-protocol",
  "cynic-secrets",
@@ -1324,6 +1263,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -1527,12 +1467,6 @@ dependencies = [
  "quote",
  "syn 3.0.9",
 ]
-
-[[package]]
-name = "dotenvy"
-version = "0.15.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
 name = "dunce"
@@ -1955,12 +1889,6 @@ dependencies = [
  "http-body",
  "pin-project-lite",
 ]
-
-[[package]]
-name = "http-range-header"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9171a2ea8a68358193d15dd5d70c1c10a2afc3e7e4c5bc92bc9f025cebd7359c"
 
 [[package]]
 name = "httparse"
@@ -4082,7 +4010,6 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
- "futures-util",
  "libc",
  "pin-project-lite",
  "tokio",
@@ -4153,23 +4080,13 @@ checksum = "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
 dependencies = [
  "bitflags 2.13.2",
  "bytes",
- "futures-core",
  "futures-util",
  "http",
  "http-body",
- "http-body-util",
- "http-range-header",
- "httpdate",
- "mime",
- "mime_guess",
- "percent-encoding",
  "pin-project-lite",
- "tokio",
- "tokio-util",
  "tower",
  "tower-layer",
  "tower-service",
- "tracing",
  "url",
 ]
 

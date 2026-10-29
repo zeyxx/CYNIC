@@ -6,7 +6,6 @@ members = [
     "crates/cynic-types",
     "crates/cynic-discovery",
     "crates/cynic-inference",
-    "crates/cynic-kernel",
     "crates/cynic-node",
     "crates/cynic-node-protocol",
     "crates/cynic-host",

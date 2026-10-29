@@ -136,7 +136,6 @@ const BASELINE: &[&str] = &[
     "NO-RESPONSIBILITY: cynic-host",
     "NO-RESPONSIBILITY: cynic-inference",
     "NO-RESPONSIBILITY: cynic-intel",
-    "NO-RESPONSIBILITY: cynic-kernel",
     "NO-RESPONSIBILITY: cynic-lxc",
     "NO-RESPONSIBILITY: cynic-mcp",
     "NO-RESPONSIBILITY: cynic-node",

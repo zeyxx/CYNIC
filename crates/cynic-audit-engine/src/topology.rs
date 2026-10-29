@@ -480,8 +480,8 @@ cynic_protocol_note = \"cynic-protocol looks fine\"
     #[test]
     fn topological_order_places_every_dependency_first() {
         let edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::from([
-            ("cynic-cli".to_string(), set(&["cynic-kernel", "cynic-protocol"])),
-            ("cynic-kernel".to_string(), set(&["cynic-protocol"])),
+            ("cynic-cli".to_string(), set(&["cynic-node", "cynic-protocol"])),
+            ("cynic-node".to_string(), set(&["cynic-protocol"])),
             ("cynic-protocol".to_string(), set(&[])),
         ]);
         let order = topological_order(&edges).unwrap_or_else(|_| panic!("expected acyclic"));
@@ -491,8 +491,8 @@ cynic_protocol_note = \"cynic-protocol looks fine\"
                 .position(|n| n == name)
                 .unwrap_or_else(|| panic!("{name} missing from order"))
         };
-        assert!(position("cynic-protocol") < position("cynic-kernel"));
-        assert!(position("cynic-kernel") < position("cynic-cli"));
+        assert!(position("cynic-protocol") < position("cynic-node"));
+        assert!(position("cynic-node") < position("cynic-cli"));
         assert!(position("cynic-protocol") < position("cynic-cli"));
     }
 

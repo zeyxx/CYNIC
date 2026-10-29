@@ -349,15 +349,14 @@ mod tests {
             r#"{
               "binaries": [
                 {"name": "cynic", "deploy": true},
-                {"name": "cynic-node", "deploy": true},
-                {"name": "cynic-kernel", "deploy": true}
+                {"name": "cynic-node", "deploy": true}
               ]
             }"#,
         )
         .expect("write registry");
 
         let names = resolve_deployable_binaries(&root).expect("resolve binaries");
-        assert_eq!(names, vec!["cynic", "cynic-node", "cynic-kernel"]);
+        assert_eq!(names, vec!["cynic", "cynic-node"]);
         fs::remove_dir_all(&root).ok();
     }
 
@@ -419,10 +418,6 @@ mod tests {
     fn the_shipped_registry_matches_the_makefile_binary_set() {
         let root = crate::rust_source::workspace_root();
         let names = resolve_deployable_binaries(&root).expect("shipped registry resolves");
-        assert!(
-            names.contains(&"cynic-kernel".to_string()),
-            "cynic-kernel is built by the Makefile and must be deployed: {names:?}"
-        );
         assert!(names.contains(&"cynic".to_string()));
         assert!(names.contains(&"cynic-node".to_string()));
     }
