@@ -1039,7 +1039,19 @@ struct RegistryProviderControl {
 }
 
 fn load_registry_provider_control() -> Option<RegistryProviderControl> {
-    let registry = cynic_host::runtime_registry::load_runtime_registry(None)?;
+    let path = std::env::var("CYNIC_REGISTRY")
+        .or_else(|_| std::env::var("CYNIC_REGISTRY_PATH"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let candidate = PathBuf::from("infra/registry.json");
+            if candidate.is_file() {
+                candidate
+            } else {
+                CynicPaths::registry_path()
+            }
+        });
+    let content = std::fs::read_to_string(path).ok()?;
+    let registry: serde_json::Value = serde_json::from_str(&content).ok()?;
     let provider = registry.get("provider_control")?;
     if provider.get("provider").and_then(Value::as_str) != Some("proxmox") {
         return None;

@@ -18,6 +18,7 @@ cynic-inference = { path = "../cynic-inference" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-eval = { path = "../cynic-eval" }
 cynic-persistence = { path = "../cynic-persistence" }
+cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-build = { path = "../cynic-build" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-agent = { path = "../cynic-agent" }

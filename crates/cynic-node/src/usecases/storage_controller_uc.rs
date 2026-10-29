@@ -1,7 +1,9 @@
-use cynic_persistence::{
-    STORAGE_CONTROLLER_RECORD_SCHEMA, StorageControllerRecord, StorageMetadata, StorageObservation,
-    StoragePlan, reconcile_storage_status,
+use cynic_proxmox::storage::controller::{
+    STORAGE_CONTROLLER_RECORD_SCHEMA, StorageControllerRecord, StorageMetadata,
+    StorageOperationEvent, StorageOperationPhase, advance_storage_operation,
+    reconcile_storage_status,
 };
+use cynic_proxmox::storage::lifecycle::{StorageObservation, StoragePlan};
 
 use crate::adapters::local_storage_controller_store::seal_storage_controller_record;
 use crate::ports::storage_controller_store_port::{
@@ -10,7 +12,6 @@ use crate::ports::storage_controller_store_port::{
 use crate::ports::storage_mutation_port::{
     StorageMutationPort, StorageMutationRequest, StorageOperationReadBackPort,
 };
-use cynic_persistence::{StorageOperationEvent, advance_storage_operation};
 
 pub fn reconcile_storage_controller(
     store: &dyn StorageControllerStorePort,
@@ -63,7 +64,7 @@ pub async fn apply_pending_storage_operation<M: StorageMutationPort + ?Sized>(
     let operation = current
         .operation
         .as_ref()
-        .filter(|operation| operation.phase == cynic_persistence::StorageOperationPhase::Pending)
+        .filter(|operation| operation.phase == StorageOperationPhase::Pending)
         .ok_or_else(|| StorageControllerStoreError {
             code: "storage_operation_not_pending".to_string(),
         })?;
@@ -125,7 +126,7 @@ pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     read_back: &R,
     node: &str,
     resource_id: &str,
-    guest_observation: &cynic_persistence::StorageObservation,
+    guest_observation: &StorageObservation,
     now_ms: u64,
 ) -> Result<StorageControllerRecord, StorageControllerStoreError> {
     let current = store
@@ -136,7 +137,7 @@ pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     let operation = current
         .operation
         .as_ref()
-        .filter(|operation| operation.phase == cynic_persistence::StorageOperationPhase::Verifying)
+        .filter(|operation| operation.phase == StorageOperationPhase::Verifying)
         .ok_or_else(|| StorageControllerStoreError {
             code: "storage_operation_not_verifying".to_string(),
         })?;

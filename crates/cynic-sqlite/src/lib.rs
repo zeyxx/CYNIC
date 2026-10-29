@@ -5,10 +5,9 @@
 pub mod book;
 pub mod error;
 pub mod projection;
-pub mod tabular;
 
 pub use book::{BookEntry, CynicLedger, GenericBookProjector, LedgerBook, TypedBook};
 pub use error::SqliteError;
 pub use projection::{SqliteProjectionAdapter, SqliteStateTransaction};
-pub use tabular::{TabularMemoryProjection, TabularQueryResult};
+pub use projection::tabular::{TabularMemoryProjection, TabularQueryResult};
 pub use rusqlite;

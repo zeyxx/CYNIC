@@ -1,4 +1,4 @@
-use cynic_persistence::StorageControllerRecord;
+use cynic_proxmox::storage::controller::StorageControllerRecord;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageControllerStoreError {

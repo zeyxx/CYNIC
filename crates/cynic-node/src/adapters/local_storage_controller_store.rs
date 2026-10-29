@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use cynic_protocol::digest_json;
-use cynic_persistence::{
+use cynic_proxmox::storage::controller::{
     STORAGE_CONTROLLER_RECORD_SCHEMA, StorageControllerRecord, validate_storage_controller_record,
 };
 

@@ -724,6 +724,7 @@ dependencies = [
  "cynic-network",
  "cynic-node",
  "cynic-node-protocol",
+ "cynic-persistence",
  "cynic-pkg",
  "cynic-process",
  "cynic-protocol",
@@ -732,7 +733,6 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-ssh",
- "cynic-persistence",
  "cynic-supervisor",
  "cynic-traces",
  "cynic-tui",
@@ -857,6 +857,7 @@ dependencies = [
  "cynic-lxc",
  "cynic-network",
  "cynic-node-protocol",
+ "cynic-persistence",
  "cynic-pkg",
  "cynic-process",
  "cynic-protocol",
@@ -864,7 +865,6 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-ssh",
- "cynic-persistence",
  "cynic-types",
  "cynic-vcs",
  "ed25519-dalek",
@@ -953,9 +953,9 @@ dependencies = [
  "bytes",
  "chrono",
  "cynic-node-protocol",
+ "cynic-persistence",
  "cynic-protocol",
  "cynic-secrets",
- "cynic-persistence",
  "cynic-types",
  "dirs",
  "dotenvy",
@@ -995,7 +995,9 @@ name = "cynic-knowledge"
 version = "0.9.0"
 dependencies = [
  "blake3",
+ "cynic-persistence",
  "cynic-types",
+ "parking_lot",
  "regex",
  "serde",
  "serde_json",
@@ -1102,6 +1104,7 @@ dependencies = [
  "cynic-market",
  "cynic-network",
  "cynic-node-protocol",
+ "cynic-persistence",
  "cynic-pool",
  "cynic-process",
  "cynic-protocol",
@@ -1110,7 +1113,6 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-ssh",
- "cynic-persistence",
  "cynic-supervisor",
  "cynic-types",
  "cynic-vcs",
@@ -1156,6 +1158,28 @@ dependencies = [
  "sha3",
  "tempfile",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "cynic-persistence"
+version = "0.9.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "cynic-consensus",
+ "cynic-finance",
+ "cynic-protocol",
+ "cynic-secrets",
+ "cynic-surreal",
+ "hex",
+ "parking_lot",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -1285,6 +1309,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-sqlite"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "cynic-consensus",
+ "cynic-finance",
+ "cynic-persistence",
+ "cynic-protocol",
+ "hex",
+ "parking_lot",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cynic-ssh"
 version = "0.9.0"
 dependencies = [
@@ -1293,28 +1335,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
-]
-
-[[package]]
-name = "cynic-persistence"
-version = "0.9.0"
-dependencies = [
- "bytes",
- "chrono",
- "cynic-consensus",
- "cynic-finance",
- "cynic-protocol",
- "cynic-secrets",
- "hex",
- "parking_lot",
- "reqwest 0.13.5",
- "rusqlite",
- "serde",
- "serde_json",
- "smallvec",
- "tempfile",
- "thiserror 2.0.21",
- "tracing",
 ]
 
 [[package]]
@@ -1327,6 +1347,17 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "cynic-surreal"
+version = "0.9.0"
+dependencies = [
+ "cynic-secrets",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

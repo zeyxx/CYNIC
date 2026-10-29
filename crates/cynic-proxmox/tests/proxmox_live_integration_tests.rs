@@ -29,11 +29,38 @@ fn proxmox_live_api_ping_or_explicit_secret_missing() {
         .build()
         .expect("build HTTP client");
 
-    let pve_url = "https://192.168.0.37:8006/api2/json/version";
+    // Resolve the Proxmox hypervisor endpoint dynamically from infra/registry.json.
+    // Never hardcode IPs: read node `cynic-host-proxmox` network `service` (preferred)
+    // or `admin`, defaulting to port 8006.
+    let registry_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("infra")
+        .join("registry.json");
+    let registry_text = std::fs::read_to_string(&registry_path)
+        .expect("read infra/registry.json");
+    let registry: Value = serde_json::from_str(&registry_text).expect("parse registry");
+    let node = registry
+        .get("nodes")
+        .and_then(Value::as_array)
+        .and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|n| n.get("id").and_then(Value::as_str) == Some("cynic-host-proxmox"))
+        })
+        .expect("cynic-host-proxmox node in registry");
+    let network = node.get("network").expect("network");
+    let host = network
+        .get("service")
+        .or_else(|| network.get("admin"))
+        .and_then(Value::as_str)
+        .expect("service or admin address");
+    let port = 8006u16;
+    let pve_url = format!("https://{host}:{port}/api2/json/version");
     let token_id = "cynic@pve!runtime"; // Canonical SSOT from infra/registry.json
 
     let res = client
-        .get(pve_url)
+        .get(&pve_url)
         .header("Authorization", format!("PVEAPIToken={token_id}={secret}"))
         .send();
 
@@ -53,7 +80,7 @@ fn proxmox_live_api_ping_or_explicit_secret_missing() {
             }
         }
         Err(e) => {
-            eprintln!("Proxmox cluster 192.168.0.37 unreachable from this network plane: {e}");
+            eprintln!("Proxmox cluster {host} unreachable from this network plane: {e}");
         }
     }
 }

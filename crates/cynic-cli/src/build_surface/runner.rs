@@ -720,7 +720,7 @@ fn run_one_proof(
         "test" => BuildProofPhase::Test { filter },
         other => return Err(format!("invalid proof phase: {other}")),
     };
-    let request = BuildProofRequest::new(commit, package, proof_phase);
+    let request = BuildProofRequest::new(commit, package.clone(), proof_phase);
     let violations = cynic_build::build_proof::validate_build_proof_request(&request);
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));

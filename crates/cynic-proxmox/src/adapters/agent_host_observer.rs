@@ -359,6 +359,10 @@ impl AgentHostObservationPort for ProxmoxRestAgentHostObserver {
 ///
 /// Used as a breakglass fallback when REST is unavailable. Applies the same
 /// dynamic node resolution as the REST observer — no `/nodes/pve/` literal.
+#[deprecated(
+    since = "0.1.0",
+    note = "Phased out in favor of ProxmoxRestAgentHostObserver (native REST API)"
+)]
 pub struct ProxmoxSshAgentHostObserver<'a, R: ArgvRunner> {
     runner: &'a R,
     ssh_target: String,
