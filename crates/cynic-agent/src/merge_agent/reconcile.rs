@@ -3,7 +3,7 @@
 //! This module owns the merge policy. No I/O, no mutation — only the
 //! decision function. Consumed by `apply`.
 
-use crate::agent::merge_agent::types::*;
+use crate::merge_agent::types::*;
 
 /// Pure decision function from observation to merge strategy.
 ///

@@ -1,3 +1,2 @@
-pub mod cleanup;
-pub mod merge_agent;
-pub mod operator;
+pub use cynic_agent::*;
+pub use cynic_agent::merge_agent;

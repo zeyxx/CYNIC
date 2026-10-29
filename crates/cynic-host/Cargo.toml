@@ -21,6 +21,7 @@ cynic-eval = { path = "../cynic-eval" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-build = { path = "../cynic-build" }
 cynic-sandbox = { path = "../cynic-sandbox" }
+cynic-agent = { path = "../cynic-agent" }
 cynic-process = { path = "../cynic-process" }
 cynic-network = { path = "../cynic-network" }
 cynic-ssh = { path = "../cynic-ssh" }

@@ -9,9 +9,9 @@
 //! The LLM is a tool, never the authority. The agent decides what to ask,
 //! whether to use the response, and when to escalate.
 
+use crate::traits::AutonomousAgent;
 use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::llm_port::*;
-
 /// Operator agent that observes and acts on the organism.
 pub struct OperatorAgent<R: ArgvRunner> {
     /// Path to the cynic CLI binary.
@@ -124,6 +124,16 @@ impl<R: ArgvRunner> OperatorAgentPort for OperatorAgent<R> {
     }
 }
 
+impl<R: ArgvRunner> AutonomousAgent for OperatorAgent<R> {
+    type Observation = OperatorObservation;
+    type Decision = OperatorAction;
+    type Proof = OperatorProof;
+
+    fn agent_name(&self) -> &'static str {
+        "operator"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,7 +221,7 @@ mod tests {
     #[test]
     fn operator_agent_name() {
         let agent = OperatorAgent::with_default_bin();
-        assert_eq!(agent.agent_name(), "operator");
+        assert_eq!(crate::traits::AutonomousAgent::agent_name(&agent), "operator");
     }
 
     #[test]
