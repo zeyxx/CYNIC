@@ -836,7 +836,6 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
- "cynic-agent",
  "cynic-audit-engine",
  "cynic-build",
  "cynic-eval",
