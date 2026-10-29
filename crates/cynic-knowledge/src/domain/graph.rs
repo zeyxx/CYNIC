@@ -333,10 +333,13 @@ fn collect_workspace_paths(root: &Path) -> Result<Vec<PathBuf>, std::io::Error> 
 }
 
 fn path_known(known: &HashSet<PathBuf>, p: &Path) -> bool {
-    if known.contains(p) {
+    let norm = PathBuf::from(normalize_path(p));
+    if known.contains(p) || known.contains(&norm) {
         return true;
     }
-    known.iter().any(|k| k.ends_with(p) || p.ends_with(k))
+    known
+        .iter()
+        .any(|k| k.ends_with(p) || p.ends_with(k) || k.ends_with(&norm) || norm.ends_with(k))
 }
 
 #[cfg(test)]
