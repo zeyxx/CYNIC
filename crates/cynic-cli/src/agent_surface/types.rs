@@ -10,7 +10,6 @@ use std::collections::BTreeMap;
 
 pub(crate) const AGENT_CLAIM_REPORT_SCHEMA: &str = "cynic.cli.agent_claim_report.v1";
 pub(crate) const AGENT_RELEASE_REPORT_SCHEMA: &str = "cynic.cli.agent_release_report.v1";
-pub(crate) const AGENT_STATUS_REPORT_SCHEMA: &str = "cynic.cli.agent_status_report.v1";
 pub(crate) const AGENT_IDENTIFY_REPORT_SCHEMA: &str = "cynic.cli.agent_identify_report.v1";
 pub(crate) const AGENT_EVENTS_REPORT_SCHEMA: &str = "cynic.cli.agent_events_report.v1";
 
@@ -43,26 +42,9 @@ pub(crate) struct AgentReleaseReport {
     pub released_at_unix_ms: u64,
 }
 
-/// Report emitted by status query.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct AgentStatusReport {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub agent_id: String,
-    pub active_claims: Vec<AgentClaimSummary>,
-    pub total_claims: usize,
-}
-
-/// Summary of a single active claim.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct AgentClaimSummary {
-    pub claim_id: String,
-    pub target: String,
-    pub claim_type: String,
-    pub granted_at_unix_ms: u64,
-    pub expires_at_unix_ms: u64,
-    pub remaining_seconds: i64,
-}
+pub(crate) type AgentClaimSummary = cynic_agent::coordination::AgentClaimSummary;
+pub(crate) type AgentStatusReport = cynic_agent::coordination::AgentStatusReport;
+pub(crate) const AGENT_STATUS_REPORT_SCHEMA: &str = cynic_agent::coordination::AGENT_STATUS_REPORT_SCHEMA;
 
 /// Report emitted after identity declaration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
