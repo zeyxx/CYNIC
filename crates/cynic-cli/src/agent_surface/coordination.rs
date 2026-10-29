@@ -19,9 +19,8 @@ use crate::agent_surface::types::{
 use cynic_protocol::agent_coordination::{predicates as coord_predicates, ClaimScope};
 
 pub(crate) use cynic_agent::coordination::{
-    append_claim_event, civil_from_days, claim_event_log_dir, claims_file_path, event_matches,
-    execute_status_from_claims_file, load_claims_doc, local_claim_active, local_scope_of,
-    refresh_claim_entry, store_claims_doc,
+    append_claim_event, claim_event_log_dir, event_matches, execute_status_from_claims_file,
+    load_claims_doc, local_claim_active, local_scope_of, refresh_claim_entry, store_claims_doc,
 };
 
 /// Resolve the kernel REST base URL.
@@ -480,9 +479,6 @@ where
 // `*.jsonl` is already gitignored (`.gitignore:81`), so the log lives outside
 // Git by construction. Each line is a self-contained JSON object validated
 // against `contracts/agent-claim-event.json`.
-
-/// Schema identifier for the claim event log.
-pub(crate) const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";
 
 /// Resolve the event log directory from the workspace root.
 ///
@@ -1236,7 +1232,7 @@ mod tests {
     #[test]
     fn civil_date_math_matches_known_day() {
         // 1791936000 == 2026-10-14T00:00:00Z == 20740 days since epoch.
-        assert_eq!(civil_from_days(1791936000 / 86400), (2026, 10, 14));
+        assert_eq!(cynic_agent::coordination::civil_from_days(1791936000 / 86400), (2026, 10, 14));
     }
 }
 
