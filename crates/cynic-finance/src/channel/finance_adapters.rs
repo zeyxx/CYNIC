@@ -1,14 +1,14 @@
-//! Finance adapters for cynic-channel.
+//! Finance adapters for channel.
 //!
 //! Implements cynic-finance integration for AgentChannel settlements.
 //! Converts channel settlements into ResourceTransaction entries.
 
-use crate::types::ChannelSettlementProof;
-use cynic_finance::ports::MeterError;
-use cynic_finance::types::{
+use crate::channel::types::ChannelSettlementProof;
+use crate::ports::MeterError;
+use crate::types::{
     ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
 };
-use cynic_finance::{increment_unit, ResourceUnit};
+use crate::{increment_unit, ResourceUnit};
 
 /// Channel settlement ledger — records channel settlements as ResourceTransaction.
 ///
@@ -42,21 +42,8 @@ impl ChannelSettlementLedger {
     ) -> Result<(String, String), MeterError> {
         let total = proof.initiator_balance + proof.worker_balance;
 
-        // The transaction id must be UNIQUE per settlement.
-        //
-        // It used to be `{channel_id}/debit/{final_sequence}`, which
-        // repeats for two settlements of the same channel and the same
-        // final sequence: the second one produced the id of the first.
-        // `ResourceLedger` is documented as "idempotent", and an id that
-        // repeats is not an identity — the second settlement would be
-        // indistinguishable from the first.
-        //
-        // The timestamp is what distinguishes them: it is the moment the
-        // settlement happened, and it differs between two settlements of
-        // the same sequence.
         let settlement_id = format!("{}/settlement/{}", proof.channel_id, timestamp);
 
-        // Debit from initiator (remaining balance returned)
         let debit_tx = ResourceTransaction::new(
             format!("{settlement_id}/debit"),
             timestamp,
@@ -67,7 +54,6 @@ impl ChannelSettlementLedger {
             Default::default(),
         );
 
-        // Credit to worker (earned balance)
         let credit_tx = ResourceTransaction::new(
             format!("{settlement_id}/credit"),
             timestamp,
@@ -84,15 +70,6 @@ impl ChannelSettlementLedger {
         self.ledger.entries.push(debit_tx);
         self.ledger.entries.push(credit_tx);
 
-        // The balance accumulates the settlement total. It used to be
-        // *assigned* that total, which meant it reported the last
-        // settlement rather than the sum of every settlement — and the
-        // `ResourceLedger` doc says the balance is derived from the
-        // entries, never stored independently.
-        //
-        // The arithmetic lives in `cynic_finance::increment_unit`: the
-        // code that moves a balance belongs to one place, not to each
-        // adapter that touches a ledger.
         self.ledger.balance = increment_unit(&self.ledger.balance, total as f64);
 
         Ok((debit_id, credit_id))
@@ -122,7 +99,7 @@ impl ChannelSettlementLedger {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::SETTLEMENT_PROOF_SCHEMA;
+    use crate::channel::types::SETTLEMENT_PROOF_SCHEMA;
 
     fn sample_proof() -> ChannelSettlementProof {
         ChannelSettlementProof {

@@ -14,6 +14,7 @@ pub mod ports;
 pub mod ledger;
 pub mod exchange;
 pub mod rate_calculator;
+pub mod channel;
 
 pub use types::{
     ResourceUnit, ResourceTransaction, ResourceLedger, TransactionDirection,
@@ -29,4 +30,5 @@ pub use ports::{
 pub use ledger::{increment_unit, LedgerEngine};
 pub use exchange::{ExchangeRate, ExchangeRateTable, EXCHANGE_RATE_TABLE_SCHEMA};
 pub use rate_calculator::{compute_exchange_rates, RateSample};
+pub use channel::{AgentChannel, TaskHtlc, ChannelSettlementLedger};
 pub use types::EXCHANGE_RATE_SCHEMA;
