@@ -141,9 +141,6 @@ impl CorpusGraph {
         // 4. Lier les contrats normatifs aux tests de gouvernance connus
         wire_contract_enforcements(&mut edges, &mut nodes);
 
-        // 5. Dépendances topologiques de crates (infra/crate-topology.json)
-        wire_crate_topology(root, &mut edges, &mut nodes);
-
         Self {
             nodes,
             edges,
