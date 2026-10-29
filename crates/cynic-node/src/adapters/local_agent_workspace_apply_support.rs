@@ -4,7 +4,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKSPACE_APPLY_REPORT_SCHEMA, AgentWorkspaceApplyReport, AgentWorkspaceApplyStatus,
     AgentWorkspaceDecision, AgentWorkspaceMutationKind, AgentWorkspaceReadBack,
     AgentWorkspaceReconciliation, AgentWorkspaceRequest,

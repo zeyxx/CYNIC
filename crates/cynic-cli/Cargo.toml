@@ -19,6 +19,7 @@ default = []
 topology_write = []
 
 [dependencies]
+cynic-agent = { path = "../cynic-agent" }
 clap = { version = "4", features = ["derive", "env"] }
 uuid.workspace = true
 serde.workspace = true
@@ -39,7 +40,6 @@ cynic-protocol = { path = "../cynic-protocol" }
 cynic-ssh = { path = "../cynic-ssh" }
 cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
-cynic-workload = { path = "../cynic-workload" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-build = { path = "../cynic-build" }

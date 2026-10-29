@@ -29,7 +29,7 @@
         "cynic-node-protocol",
         "cynic-protocol",
         "cynic-types",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -67,7 +67,7 @@
         "cynic-tui",
         "cynic-types",
         "cynic-vcs",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [
         "cynic-types"
@@ -84,8 +84,7 @@
         "cynic-market",
         "cynic-node",
         "cynic-pool",
-        "cynic-storage",
-        "cynic-workload"
+        "cynic-storage"
       ],
       "depends_on": [
         "cynic-finance",
@@ -138,7 +137,7 @@
         "cynic-secrets",
         "cynic-traces",
         "cynic-types",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -155,8 +154,7 @@
         "cynic-network",
         "cynic-node",
         "cynic-pool",
-        "cynic-storage",
-        "cynic-workload"
+        "cynic-storage"
       ],
       "depends_on": [
         "cynic-protocol"
@@ -205,7 +203,7 @@
         "cynic-storage",
         "cynic-types",
         "cynic-vcs",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [
         "cynic-audit-engine"
@@ -232,7 +230,7 @@
         "cynic-secrets",
         "cynic-supervisor",
         "cynic-types",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -315,7 +313,7 @@
         "cynic-intel",
         "cynic-pool",
         "cynic-protocol",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -383,7 +381,7 @@
         "cynic-supervisor",
         "cynic-types",
         "cynic-vcs",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -433,7 +431,7 @@
       "depends_on": [
         "cynic-consensus",
         "cynic-finance",
-        "cynic-workload"
+        "cynic-agent"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -469,8 +467,7 @@
         "cynic-storage",
         "cynic-supervisor",
         "cynic-traces",
-        "cynic-vcs",
-        "cynic-workload"
+        "cynic-vcs"
       ],
       "depends_on": [
         "cynic-types"
@@ -657,26 +654,6 @@
       "layer": "L2",
       "loc": 13321
     },
-    "cynic-workload": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-eval",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-market",
-        "cynic-node",
-        "cynic-pool"
-      ],
-      "depends_on": [
-        "cynic-agent"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "cross_cutting",
-      "loc": 6383
-    },
     "cynic-process": {
       "consumers": [],
       "depends_on": [
@@ -692,7 +669,14 @@
     },
     "cynic-agent": {
       "consumers": [
-        "cynic-host"
+        "cynic-build",
+        "cynic-cli",
+        "cynic-eval",
+        "cynic-host",
+        "cynic-inference",
+        "cynic-market",
+        "cynic-node",
+        "cynic-pool"
       ],
       "depends_on": [
         "cynic-consensus",
@@ -730,7 +714,6 @@
     "cynic-pkg",
     "cynic-storage",
     "cynic-vcs",
-    "cynic-workload",
     "cynic-build",
     "cynic-eval",
     "cynic-kernel",
@@ -927,14 +910,13 @@
       "cynic-tui"
     ],
     "cross_cutting": [
-      "cynic-secrets",
-      "cynic-workload"
+      "cynic-secrets"
     ]
   },
   "measured": {
     "acyclic": true,
     "binaries": 5,
-    "crates": 38,
+    "crates": 37,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 410162,

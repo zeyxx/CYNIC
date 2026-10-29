@@ -1,5 +1,5 @@
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AgentWorkloadCompletionPublication,
 };
 

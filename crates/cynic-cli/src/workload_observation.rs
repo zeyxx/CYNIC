@@ -16,7 +16,7 @@ use cynic_host::build_runner_harness::registry::read_registry;
 use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_node::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use cynic_node::ports::agent_workload_store_port::AgentWorkloadStorePort;
-use cynic_workload::DurableAgentWorkloadRecord;
+use cynic_agent::DurableAgentWorkloadRecord;
 
 /// Observe one workload by id.
 pub(crate) fn execute_observe_workload(
@@ -313,7 +313,7 @@ mod tests {
         PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
         PolicySetRef, RequiredProof,
     };
-    use cynic_workload::{
+    use cynic_agent::{
         AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
         AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
     };

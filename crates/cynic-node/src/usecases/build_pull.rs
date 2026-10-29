@@ -6,7 +6,7 @@
 //! phases mutate and need their own admission slice. A missing or expired
 //! lease skips the workload with an explicit reason instead of running it.
 
-use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord};
+use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord};
 
 use crate::ports::agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort;
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -223,7 +223,7 @@ mod tests {
         PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
         PolicySetRef, RequiredProof, digest_json,
     };
-    use cynic_workload::{
+    use cynic_agent::{
         AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
         AgentWorkloadDeliveryLease, AgentWorkloadEnvelope, AgentWorkloadRecord,
         DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,

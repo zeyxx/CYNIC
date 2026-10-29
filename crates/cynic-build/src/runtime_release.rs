@@ -10,7 +10,7 @@ use crate::release_publication::{
 use cynic_node_protocol::{DeploymentEpoch, derive_deployment_epoch};
 use cynic_node_protocol::{NodeDesiredState, validate_node_desired_state};
 use cynic_protocol::{AgentCompletionStatus, digest_json};
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
 };
 
@@ -248,12 +248,12 @@ mod tests {
         RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
         RuntimeSeedRequest, build_evidence_envelope,
     };
-    use cynic_workload::{
+    use cynic_agent::{
         AGENT_WORKLOAD_DELIVERY_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadRecord,
         AgentWorkloadState, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
         complete_agent_workload_delivery,
     };
-    use cynic_workload::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
+    use cynic_agent::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
@@ -508,8 +508,8 @@ mod tests {
             },
         )
         .unwrap();
-        let publication = cynic_workload::AgentWorkloadCompletionPublication {
-            schema: cynic_workload::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
+        let publication = cynic_agent::AgentWorkloadCompletionPublication {
+            schema: cynic_agent::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
             node_id: "cynic-builder".to_string(),
             workload_id,
             published_at_ms: 4,

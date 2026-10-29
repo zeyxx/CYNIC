@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::AgentCompletionStatus;
-use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
+use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
 use tokio_util::sync::CancellationToken;
 
 use super::measure::{

@@ -1,4 +1,4 @@
-use cynic_workload::AgentWorkloadDelivery;
+use cynic_agent::AgentWorkloadDelivery;
 
 pub trait AgentWorkloadCompletionReceiptPort: Send + Sync {
     fn contains(&self, terminal_record_digest: &str) -> Result<bool, String>;

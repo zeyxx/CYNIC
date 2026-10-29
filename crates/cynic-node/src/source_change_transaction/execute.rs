@@ -1,6 +1,6 @@
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope, digest_json};
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA,
     AGENT_WORKSPACE_REQUEST_SCHEMA, AgentWorkspaceClaimIntent, AgentWorkspaceClaimOutcome,
     AgentWorkspaceDecision, AgentWorkspaceLifecycleRecord, AgentWorkspaceRequest,
@@ -352,8 +352,8 @@ where
 
 fn rolled_back(
     workload_id: String,
-    reconciliation: cynic_workload::AgentWorkspaceReconciliation,
-    apply_report: cynic_workload::AgentWorkspaceApplyReport,
+    reconciliation: cynic_agent::AgentWorkspaceReconciliation,
+    apply_report: cynic_agent::AgentWorkspaceApplyReport,
     blocker: String,
     rollback_unknown: Option<String>,
 ) -> AgentSourceChangeTransactionResult {

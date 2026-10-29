@@ -10,7 +10,7 @@
 //! AGENS.md §6: a decision must not be recalculated in multiple apply surfaces;
 //! the canonical admit decision lives here, projected by LocalWorkloadSigner.
 
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadEnvelope,
 };
 use cynic_protocol::{
@@ -62,11 +62,11 @@ impl WorkloadSignerPort for NullWorkloadSigner {
 mod tests {
     use super::*;
     use crate::ports::workload_signer_port::WorkloadSignerPort;
-    use cynic_workload::AgentWorkloadEnvelope;
+    use cynic_agent::AgentWorkloadEnvelope;
 
     /// Minimal envelope stub for port-level admit shape coverage.
     fn stub_envelope() -> AgentWorkloadEnvelope {
-        use cynic_workload::{
+        use cynic_agent::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA,
     AgentBoundedAction,
 };

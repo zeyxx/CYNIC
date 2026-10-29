@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadState, DurableAgentWorkloadRecord, validate_durable_agent_workload_record,
 };
 

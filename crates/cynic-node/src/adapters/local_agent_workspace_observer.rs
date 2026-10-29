@@ -5,7 +5,7 @@ use std::{
 
 use cynic_process::ArgvRunner;
 use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, digest_json};
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKSPACE_OBSERVATION_SCHEMA, AgentWorkspaceClaimObservation, AgentWorkspaceObservation,
     AgentWorkspacePathObservation, AgentWorkspaceRequest,
 };

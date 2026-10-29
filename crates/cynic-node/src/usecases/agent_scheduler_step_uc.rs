@@ -6,7 +6,7 @@ use std::{
 };
 
 use cynic_protocol::digest_json;
-use cynic_workload::{
+use cynic_agent::{
     AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerJournalRecord,
     AgentSchedulerJournalStatus, AgentSchedulerStepObservation, reconcile_agent_scheduler_step,
 };

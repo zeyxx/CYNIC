@@ -8,7 +8,7 @@ use std::{
 use cynic_build::build_source_reference_from_workload;
 use cynic_process::LocalArgvRunner;
 use cynic_protocol::{LeaseGuard, digest_json};
-use cynic_workload::{DurableAgentWorkloadRecord, consume_agent_workload_action};
+use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 
 use crate::{
     adapters::{

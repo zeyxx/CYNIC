@@ -124,7 +124,7 @@ mod tests {
         PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
         PolicySetRef, RequiredProof, digest_json,
     };
-    use cynic_workload::{
+    use cynic_agent::{
         AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
         AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
     };
@@ -245,8 +245,8 @@ mod tests {
         workload_id: &str,
         fencing_token: u64,
         expires_at_ms: u64,
-    ) -> cynic_workload::AgentWorkloadClaim {
-        cynic_workload::AgentWorkloadClaim {
+    ) -> cynic_agent::AgentWorkloadClaim {
+        cynic_agent::AgentWorkloadClaim {
             guard: cynic_protocol::LeaseGuard {
                 agent_id: "build-agent-1".into(),
                 target: workload_id.into(),
@@ -266,12 +266,12 @@ mod tests {
         state: AgentWorkloadState,
         committed_at_ms: u64,
         claim: Option<u64>,
-    ) -> cynic_workload::DurableAgentWorkloadRecord {
+    ) -> cynic_agent::DurableAgentWorkloadRecord {
         let mut rec = test_record(workload_id, idempotency_key);
         rec.state = state;
         rec.claim = claim.map(|exp| test_claim(workload_id, rec.last_fencing_token, exp));
-        cynic_workload::DurableAgentWorkloadRecord {
-            schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+        cynic_agent::DurableAgentWorkloadRecord {
+            schema: cynic_agent::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
             revision: 1,
             previous_record_digest: None,
             record_digest: format!("digest-{workload_id}"),

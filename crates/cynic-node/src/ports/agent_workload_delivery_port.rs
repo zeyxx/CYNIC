@@ -1,4 +1,4 @@
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
 };
 

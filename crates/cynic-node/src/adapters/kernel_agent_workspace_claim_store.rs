@@ -1,5 +1,5 @@
 use cynic_protocol::LeaseGuard;
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
     AgentWorkspaceClaimOutcome,
 };

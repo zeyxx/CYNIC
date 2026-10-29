@@ -15,7 +15,7 @@ use cynic_node_protocol::{
     NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
     SignedNodeEnrollmentGrant, validate_node_control_plan, validate_node_desired_state,
 };
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
     AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
 };

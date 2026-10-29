@@ -5,7 +5,7 @@ use std::{
 };
 
 use cynic_process::LocalArgvRunner;
-use cynic_workload::{AgentWorkspaceLifecycleDecision, reconcile_agent_workspace_lifecycle};
+use cynic_agent::{AgentWorkspaceLifecycleDecision, reconcile_agent_workspace_lifecycle};
 
 use crate::{
     adapters::{

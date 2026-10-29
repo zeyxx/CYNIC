@@ -7,7 +7,7 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use cynic_workload::{
+use cynic_agent::{
     AgentSchedulerJournalRecord, AgentSchedulerJournalStatus,
     validate_agent_scheduler_journal_record,
 };
@@ -192,7 +192,7 @@ fn error(code: &str) -> AgentWorkspacePortError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_workload::{AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerStepPlan};
+    use cynic_agent::{AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerStepPlan};
 
     fn planned(recorded_at_ms: u64) -> AgentSchedulerJournalRecord {
         AgentSchedulerJournalRecord {
@@ -202,21 +202,21 @@ mod tests {
             step_id: "step-1".into(),
             plan_digest: format!("sha256:{}", "a".repeat(64)),
             plan: Some(AgentSchedulerStepPlan {
-                schema: cynic_workload::AGENT_SCHEDULER_STEP_PLAN_SCHEMA.into(),
+                schema: cynic_agent::AGENT_SCHEDULER_STEP_PLAN_SCHEMA.into(),
                 node_id: "node-1".into(),
                 scheduler_epoch: 1,
                 step_id: "step-1".into(),
-                lifecycle: cynic_workload::AgentWorkspaceLifecyclePlan {
-                    schema: cynic_workload::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA.into(),
+                lifecycle: cynic_agent::AgentWorkspaceLifecyclePlan {
+                    schema: cynic_agent::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA.into(),
                     workload_id: "workload-1".into(),
                     repository_id: "cynic".into(),
                     workspace_id: "workspace-1".into(),
                     mutates: false,
-                    decision: cynic_workload::AgentWorkspaceLifecycleDecision::Keep {
+                    decision: cynic_agent::AgentWorkspaceLifecycleDecision::Keep {
                         reasons: vec!["test".into()],
                     },
                 },
-                decision: cynic_workload::AgentSchedulerStepDecision::Idle {
+                decision: cynic_agent::AgentSchedulerStepDecision::Idle {
                     reasons: vec!["test".into()],
                 },
             }),

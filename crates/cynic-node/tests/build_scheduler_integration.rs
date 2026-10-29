@@ -10,7 +10,7 @@ use cynic_protocol::{
     MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
     PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
     AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState, DurableAgentWorkloadRecord,
 };
@@ -164,7 +164,7 @@ fn signed_build_grant_derivation_and_verification() {
         schema: AGENT_WORKLOAD_RECORD_SCHEMA.into(),
         envelope,
         state: AgentWorkloadState::Claimed,
-        claim: Some(cynic_workload::AgentWorkloadClaim {
+        claim: Some(cynic_agent::AgentWorkloadClaim {
             guard: LeaseGuard {
                 lease_id: "lease-001".into(),
                 fencing_token: 1,
@@ -184,7 +184,7 @@ fn signed_build_grant_derivation_and_verification() {
 
     let record_digest = digest_json(&record).expect("record digest");
     let durable = DurableAgentWorkloadRecord {
-        schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.into(),
+        schema: cynic_agent::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.into(),
         committed_at_ms: 1_786_800_000_000,
         previous_record_digest: None,
         record_digest,
