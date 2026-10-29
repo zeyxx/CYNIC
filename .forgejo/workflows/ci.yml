@@ -31,3 +31,10 @@ jobs:
           else
             echo "No crate changes detected, skipping."
           fi
+
+  layer-debt-ratchet:
+    runs-on: "cynic/build"
+    steps:
+      - uses: "actions/checkout@v4"
+      - name: Run layer debt ratchet
+        run: cargo test -p cynic-audit-engine --test layer_debt_ratchet
