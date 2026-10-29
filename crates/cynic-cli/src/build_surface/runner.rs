@@ -725,40 +725,63 @@ fn run_one_proof(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    let hosts: Vec<String> = match host.filter(|value| !value.trim().is_empty()) {
-        Some(explicit) => vec![explicit.to_string()],
-        None => {
-            let registry_raw = std::fs::read_to_string("infra/registry.json")
-                .map_err(|e| format!("read registry: {e}"))?;
-            let registry: serde_json::Value = serde_json::from_str(&registry_raw)
-                .map_err(|e| format!("parse registry: {e}"))?;
-            let pool = cynic_build::builder_pool::resolve_ordered_ssh_runners(&registry);
-            if pool.is_empty() {
-                return Err("no build runners resolved from registry".to_string());
-            }
-            eprintln!(
-                "dynamic pool resolution: {}",
-                pool.iter().map(|e| e.node_id.as_str()).collect::<Vec<_>>().join(" -> ")
-            );
-            pool.into_iter().map(|e| e.ssh_target).collect()
+    // Resolve the native HTTP builder endpoint from the pool with capacity
+    // (lowest pressure). SSH transport is no longer used on the build path.
+    let builder_url = match host.filter(|value| !value.trim().is_empty()) {
+        Some(explicit) if explicit.contains("://") => explicit.to_string(),
+        _ => cynic_build::resolve_builder_url_with_health()?,
+    };
+    let action = match phase {
+        "check" => "check",
+        "test" => "test",
+        other => other,
+    };
+    let wait = true;
+    let proof = cynic_build::submit_workload(
+        commit,
+        package.as_deref(),
+        action,
+        "cynic-cli-build-proof",
+        &builder_url,
+        wait,
+    )?;
+    // Map the HTTP response into a clean structured BuildProofReport.
+    let status_str = proof
+        .get("completion")
+        .and_then(|c| c.get("status"))
+        .and_then(|s| s.as_str())
+        .or_else(|| proof.get("state").and_then(|s| s.as_str()))
+        .unwrap_or("");
+    let node_id = proof
+        .get("node")
+        .and_then(|n| n.as_str())
+        .or_else(|| proof.get("node_id").and_then(|n| n.as_str()))
+        .unwrap_or("builder")
+        .to_string();
+    let status = if status_str == "completed" {
+        cynic_build::build_proof::BuildProofStatus::Converged
+    } else if status_str.is_empty() {
+        cynic_build::build_proof::BuildProofStatus::Unreachable {
+            detail: "empty builder response".to_string(),
+        }
+    } else {
+        cynic_build::build_proof::BuildProofStatus::Failed {
+            detail: format!("builder status: {status_str}"),
         }
     };
-    let mut last_error = None;
-    for candidate in &hosts {
-        match cynic_node::cli_factory::prove_build_blocking(&request, candidate, user) {
-            Ok(report) => return Ok(report),
-            Err(error) => {
-                let lower = error.to_lowercase();
-                if lower.contains("unreachable") || lower.contains("permission") || lower.contains("refused") {
-                    eprintln!("runner {candidate} failed ({error}); trying next runner");
-                    last_error = Some(error);
-                    continue;
-                }
-                return Err(error);
-            }
-        }
-    }
-    Err(last_error.unwrap_or_else(|| "all build runners failed".to_string()))
+    let report = cynic_build::build_proof::BuildProofReport {
+        schema: cynic_build::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
+        source_commit: commit.to_string(),
+        package: package.clone(),
+        phase: phase.to_string(),
+        status,
+        argv: Vec::new(),
+        node_id,
+        elapsed_secs: 0,
+        tests_passed: None,
+        tests_failed: None,
+    };
+    Ok(report)
 }
 
 /// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
