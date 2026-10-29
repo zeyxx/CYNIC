@@ -685,7 +685,7 @@ pub(crate) fn prove_build(
     phase: &str,
     filter: Option<String>,
     scope: &str,
-    host: &str,
+    host: Option<&str>,
     user: &str,
     json: bool,
 ) -> Result<(), String> {
@@ -712,7 +712,7 @@ fn run_one_proof(
     package: Option<String>,
     phase: &str,
     filter: Option<String>,
-    host: &str,
+    host: Option<&str>,
     user: &str,
 ) -> Result<cynic_build::build_proof::BuildProofReport, String> {
     let proof_phase = match phase {
@@ -725,7 +725,40 @@ fn run_one_proof(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    cynic_node::cli_factory::prove_build_blocking(&request, host, user)
+    let hosts: Vec<String> = match host.filter(|value| !value.trim().is_empty()) {
+        Some(explicit) => vec![explicit.to_string()],
+        None => {
+            let registry_raw = std::fs::read_to_string("infra/registry.json")
+                .map_err(|e| format!("read registry: {e}"))?;
+            let registry: serde_json::Value = serde_json::from_str(&registry_raw)
+                .map_err(|e| format!("parse registry: {e}"))?;
+            let pool = cynic_build::builder_pool::resolve_ordered_ssh_runners(&registry);
+            if pool.is_empty() {
+                return Err("no build runners resolved from registry".to_string());
+            }
+            eprintln!(
+                "dynamic pool resolution: {}",
+                pool.iter().map(|e| e.node_id.as_str()).collect::<Vec<_>>().join(" -> ")
+            );
+            pool.into_iter().map(|e| e.ssh_target).collect()
+        }
+    };
+    let mut last_error = None;
+    for candidate in &hosts {
+        match cynic_node::cli_factory::prove_build_blocking(&request, candidate, user) {
+            Ok(report) => return Ok(report),
+            Err(error) => {
+                let lower = error.to_lowercase();
+                if lower.contains("unreachable") || lower.contains("permission") || lower.contains("refused") {
+                    eprintln!("runner {candidate} failed ({error}); trying next runner");
+                    last_error = Some(error);
+                    continue;
+                }
+                return Err(error);
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "all build runners failed".to_string()))
 }
 
 /// Commit diff behind `--scope auto`: `git diff <commit>^ <commit>`.
@@ -771,7 +804,7 @@ fn prove_build_scoped(
     package: Option<String>,
     phase: &str,
     filter: Option<String>,
-    host: &str,
+    host: Option<&str>,
     user: &str,
     json: bool,
 ) -> Result<(), String> {
@@ -819,7 +852,7 @@ fn prove_build_scoped(
 fn execute_proof_plan(
     commit: &str,
     phase: &str,
-    host: &str,
+    host: Option<&str>,
     user: &str,
     json: bool,
     plan: cynic_build::gate_scope::ProofPlan,
