@@ -1,4 +1,4 @@
-use cynic_persistence::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
+use cynic_proxmox::storage::lifecycle::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
 use serde_json::Value;
 
 use cynic_proxmox::adapters::ProxmoxControlAdapter;
