@@ -366,3 +366,96 @@ mod tests {
         assert_ne!(first.digest, second.digest);
     }
 }
+
+// ── External audit evidence (DDD unified under cynic-protocol) ────────────────
+
+pub const EXTERNAL_AUDIT_EVIDENCE_SCHEMA: &str = "cynic.evidence.external_audit.v1";
+pub const EXTERNAL_EVIDENCE_SCHEMA: &str = "cynic.evidence.external_audit.v1";
+pub const INGESTION_PROOF_SCHEMA: &str = "cynic.evidence.ingestion_proof.v1";
+pub const EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA: &str = "cynic.evidence.ingestion_proof.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalAuditEvidenceBatch {
+    pub project_id: String,
+    pub producer: String,
+    pub subject: String,
+    pub observed_at_unix_ms: u128,
+    pub provenance: Vec<String>,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuditIngestionProof {
+    pub schema: &'static str,
+    pub project_id: String,
+    pub batches_ingested: usize,
+    pub batches_failed: usize,
+    pub digests: Vec<String>,
+    pub overall_success: bool,
+}
+
+pub type ExternalEvidenceBatch = ExternalAuditEvidenceBatch;
+pub type ExternalEvidenceIngestionResult = AuditIngestionProof;
+pub type ExternalEvidenceIngestionProof = AuditIngestionProof;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalEvidenceAdmission {
+    pub admitted: bool,
+    pub blockers: Vec<String>,
+}
+
+pub fn admit_external_evidence(
+    project_id: &str,
+    subject: &str,
+    payload: &serde_json::Value,
+    _sensitivity: &str,
+) -> ExternalEvidenceAdmission {
+    let mut blockers = Vec::new();
+    if project_id.is_empty() {
+        blockers.push("project_id is empty".to_string());
+    }
+    if subject.trim().is_empty() {
+        blockers.push("subject is empty".to_string());
+    }
+    if payload.is_null() || (payload.is_object() && payload.as_object().unwrap().is_empty()) {
+        blockers.push("payload is empty".to_string());
+    }
+    ExternalEvidenceAdmission {
+        admitted: blockers.is_empty(),
+        blockers,
+    }
+}
+
+pub fn build_ingestion_proof(
+    project_id: &str,
+    results: Vec<AuditIngestionProof>,
+) -> AuditIngestionProof {
+    let batches_ingested = results.iter().map(|r| r.batches_ingested).sum();
+    let batches_failed = results.iter().map(|r| r.batches_failed).sum();
+    let mut digests = Vec::new();
+    for r in &results {
+        digests.extend(r.digests.clone());
+    }
+    let overall_success = batches_failed == 0 && !results.is_empty() && results.iter().all(|r| r.overall_success);
+    AuditIngestionProof {
+        schema: EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA,
+        project_id: project_id.to_string(),
+        batches_ingested,
+        batches_failed,
+        digests,
+        overall_success,
+    }
+}
+
+pub trait ExternalEvidencePort: Send + Sync {
+    fn ingest(&self, batch: &ExternalAuditEvidenceBatch) -> AuditIngestionProof;
+
+    fn ingest_batch(
+        &self,
+        project_id: &str,
+        batches: &[ExternalAuditEvidenceBatch],
+    ) -> AuditIngestionProof {
+        let results: Vec<AuditIngestionProof> = batches.iter().map(|b| self.ingest(b)).collect();
+        build_ingestion_proof(project_id, results)
+    }
+}
