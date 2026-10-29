@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::htlc::TaskHtlc;
-use crate::types::{
+use crate::channel::htlc::TaskHtlc;
+use crate::channel::types::{
     AGENT_CHANNEL_SCHEMA, ChannelPhase, ChannelSettlementProof, SETTLEMENT_PROOF_SCHEMA,
 };
 

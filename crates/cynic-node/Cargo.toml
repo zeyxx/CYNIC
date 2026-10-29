@@ -60,7 +60,6 @@ cynic-lxc = { path = "../cynic-lxc" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-market = { path = "../cynic-market" }
 cynic-pool = { path = "../cynic-pool" }
-cynic-channel = { path = "../cynic-channel" }
 async-trait.workspace = true
 thiserror = "2"
 axum.workspace = true

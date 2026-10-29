@@ -52,20 +52,6 @@
       "layer": "L2",
       "loc": 15473
     },
-    "cynic-channel": {
-      "consumers": [
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-finance",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 507
-    },
     "cynic-cli": {
       "consumers": [],
       "depends_on": [
@@ -179,7 +165,6 @@
     },
     "cynic-finance": {
       "consumers": [
-        "cynic-channel",
         "cynic-consensus",
         "cynic-host",
         "cynic-inference",
@@ -397,7 +382,6 @@
       ],
       "depends_on": [
         "cynic-build",
-        "cynic-channel",
         "cynic-consensus",
         "cynic-finance",
         "cynic-host",
@@ -480,7 +464,6 @@
         "cynic-askesis",
         "cynic-audit-engine",
         "cynic-build",
-        "cynic-channel",
         "cynic-cli",
         "cynic-consensus",
         "cynic-discovery",
@@ -744,7 +727,6 @@
     "cynic-secrets",
     "cynic-supervisor",
     "cynic-traces",
-    "cynic-channel",
     "cynic-consensus",
     "cynic-domain-ops",
     "cynic-network",
@@ -924,7 +906,6 @@
     "L2": [
       "cynic-askesis",
       "cynic-build",
-      "cynic-channel",
       "cynic-consensus",
       "cynic-discovery",
       "cynic-domain-ops",
@@ -966,10 +947,6 @@
     "upward_edges": 11
   },
   "pending_disposition": {
-    "cynic-channel": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, not a binary"
-    },
     "cynic-market": {
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
       "reason": "measured 0 runtime, 0 dev dependents, not a binary"

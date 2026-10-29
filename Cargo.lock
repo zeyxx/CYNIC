@@ -695,20 +695,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-channel"
-version = "0.9.0"
-dependencies = [
- "cynic-finance",
- "cynic-protocol",
- "hex",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "cynic-cli"
 version = "0.9.0"
 dependencies = [
@@ -1101,7 +1087,6 @@ dependencies = [
  "chrono",
  "clap",
  "cynic-build",
- "cynic-channel",
  "cynic-consensus",
  "cynic-finance",
  "cynic-host",
