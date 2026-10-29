@@ -5,6 +5,7 @@
 //! Target discovery remains outside this boundary: callers must inject the
 //! selected target attestation explicitly.
 
+use std::path::Path;
 use std::time::Duration;
 
 use cynic_host::execution::command_to_argv;
@@ -13,11 +14,16 @@ use cynic_host::network_actuation::{
     gate_network_actuation_harness, gate_network_actuation_request,
 };
 use cynic_host::runtime_harness::{RuntimeHarnessContext, RuntimeHarnessTargetAttestation};
+use cynic_host::runtime_harness::runtime_harness_catalog;
 use cynic_process::ArgvRunner;
+use cynic_process::LocalArgvRunner;
 
+use crate::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
+use crate::adapters::local_network_actuation_request_reader::read_network_actuation_request;
 use crate::adapters::qemu_guest_agent_network_runner::{
     QemuGuestAgentNetworkObserver, QemuGuestAgentNetworkRunner,
 };
+use crate::ports::harness_target_attestation_reader_port::HarnessTargetAttestationReaderPort;
 
 #[derive(Debug, Clone)]
 pub struct QemuNetworkActuationConfig {
@@ -68,6 +74,22 @@ pub fn execute_qemu_network_actuation<R: ArgvRunner + Send + Sync>(
         &transport,
         &observer,
     ))
+}
+
+pub fn execute_target_actuation_orchestration(
+    request_path: &Path,
+    target_attestation_path: &Path,
+    harness_kind: &str,
+    config: QemuNetworkActuationConfig,
+) -> Result<NetworkActuationProofReport, String> {
+    let context = runtime_harness_catalog(Some(harness_kind))?
+        .contexts
+        .pop()
+        .ok_or_else(|| "runtime harness catalog returned no selected context".to_string())?;
+    let attestation = LocalHarnessTargetAttestationReader
+        .read_attestation(target_attestation_path)?;
+    let request = read_network_actuation_request(request_path)?;
+    execute_qemu_network_actuation(&request, context, attestation, LocalArgvRunner, config)
 }
 
 #[cfg(test)]

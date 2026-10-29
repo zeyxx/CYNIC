@@ -58,6 +58,10 @@ pub struct MeshCoordinationReport {
     pub schema: &'static str,
     pub provider: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub self_node: Option<SelfMeshStatus>,
     pub desired_peers: usize,
     pub observed_members: usize,
@@ -68,6 +72,16 @@ pub struct MeshCoordinationReport {
 
 impl MeshCoordinationReport {
     pub const SCHEMA: &'static str = "cynic.mesh_coordination_report.v1";
+
+    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
+        self.endpoint = Some(endpoint.into());
+        self
+    }
+
+    pub fn with_health(mut self, health: impl Into<String>) -> Self {
+        self.health = Some(health.into());
+        self
+    }
 }
 
 /// Reconcile declared peers with alias matching and self-node detection.
@@ -135,6 +149,8 @@ pub fn reconcile_mesh_coordination(
     MeshCoordinationReport {
         schema: MeshCoordinationReport::SCHEMA,
         provider: provider.to_string(),
+        endpoint: None,
+        health: None,
         self_node,
         desired_peers: desired_peers.len(),
         observed_members: observed_members.len(),
