@@ -30,7 +30,7 @@ use cynic_protocol::{
 use cynic_protocol::supervision::{
     DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
 };
-use cynic_workload::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
+use cynic_agent::{AgentWorkloadRecord, AgentWorkloadState, admit_agent_workload};
 
 use crate::config::NodeControlConfig;
 use crate::config::{ReloadReceipt, decide_reload};
@@ -1044,7 +1044,7 @@ async fn get_proof(
         Ok(Some(record)) => {
             let parcel_receipt =
                 if record.record.state.terminal() && record.record.completion.is_some() {
-                    cynic_workload::SettledParcelReceipt::for_record(
+                    cynic_agent::SettledParcelReceipt::for_record(
                         &record.record,
                         record.committed_at_ms,
                     )

@@ -14,7 +14,6 @@ path = "src/bin/cynic-host-exec.rs"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
-cynic-workload = { path = "../cynic-workload" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-eval = { path = "../cynic-eval" }

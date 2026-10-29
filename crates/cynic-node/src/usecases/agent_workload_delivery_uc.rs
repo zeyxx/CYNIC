@@ -3,7 +3,7 @@ mod completion;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadDecision, AgentWorkloadDelivery,
     AgentWorkloadDeliveryAcceptance, AgentWorkloadRecord, AgentWorkloadState,
     admit_agent_workload_dispatch, admit_aggregate_sibling_budget,
@@ -223,7 +223,7 @@ pub async fn run_delivery_loop<D>(
 fn persist_delivery(
     store: &dyn AgentWorkloadStorePort,
     delivery: &AgentWorkloadDelivery,
-) -> Result<cynic_workload::DurableAgentWorkloadRecord, String> {
+) -> Result<cynic_agent::DurableAgentWorkloadRecord, String> {
     if let Some(existing) = store
         .read(&delivery.envelope.workload_id)
         .map_err(|failure| failure.code)?
@@ -281,7 +281,7 @@ mod tests {
     use cynic_build::{
         BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest, compose_build_agent_workload,
     };
-    use cynic_workload::{
+    use cynic_agent::{
         AGENT_WORKLOAD_DELIVERY_SCHEMA, AgentWorkloadDeliveryStatus, accept_agent_workload_delivery,
     };
     use std::sync::Mutex;
@@ -312,7 +312,7 @@ mod tests {
 
         async fn publish_completion(
             &self,
-            _publication: &cynic_workload::AgentWorkloadCompletionPublication,
+            _publication: &cynic_agent::AgentWorkloadCompletionPublication,
         ) -> Result<AgentWorkloadDelivery, String> {
             Err("not exercised".to_string())
         }

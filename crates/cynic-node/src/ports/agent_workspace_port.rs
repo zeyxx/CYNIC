@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use cynic_protocol::LeaseGuard;
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
     AgentWorkspaceClaimOutcome, AgentWorkspaceLifecycleObservation, AgentWorkspaceLifecyclePlan,
     AgentWorkspaceLifecycleRecord, AgentWorkspaceObservation, AgentWorkspaceRequest,

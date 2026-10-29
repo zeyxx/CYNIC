@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use cynic_process::ArgvRunner;
-use cynic_workload::AgentWorkspaceRequest;
+use cynic_agent::AgentWorkspaceRequest;
 
 use crate::ports::agent_workspace_port::{
     AgentWorkspaceLayout, AgentWorkspacePortError, AgentWorkspaceProvisionPort,

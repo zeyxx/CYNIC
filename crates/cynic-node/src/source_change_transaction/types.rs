@@ -1,4 +1,4 @@
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadEnvelope, AgentWorkspaceApplyReport, AgentWorkspaceChange,
     AgentWorkspaceReconciliation, AgentWorkspaceRetentionRoot, AgentWorkspaceZone,
 };

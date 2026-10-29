@@ -161,6 +161,15 @@
       "public_items": 0,
       "disposition": "retired; fused into cynic-domain-ops (proof log module)",
       "rationale": "Append-only hash-chained proof log merged into cynic-domain-ops::backup_log. Metaphor token eradicated."
+    },
+    {
+      "crate": "cynic-workload",
+      "src_loc": 0,
+      "test_loc": 0,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "retired (fused into cynic-agent)",
+      "rationale": "Transitional facade re-exporting cynic-agent removed; all consumers migrated to cynic-agent."
     }
   ],
   "control": {

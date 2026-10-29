@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_RECORD_SCHEMA, AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AgentWorkloadDecision,
     AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadTransition,
     AgentWorkloadTransitionRequest, acknowledge_agent_workload_cancellation,
@@ -114,7 +114,7 @@ pub fn execute_agent_workload_transition(
 fn reconcile_transition(
     store: &dyn AgentWorkloadStorePort,
     request: &AgentWorkloadTransitionRequest,
-    observed: Option<&cynic_workload::DurableAgentWorkloadRecord>,
+    observed: Option<&cynic_agent::DurableAgentWorkloadRecord>,
     observed_now_ms: u64,
 ) -> Result<AgentWorkloadRecord, (String, String)> {
     match &request.transition {

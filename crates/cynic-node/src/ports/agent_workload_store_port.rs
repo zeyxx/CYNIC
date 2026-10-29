@@ -1,4 +1,4 @@
-use cynic_workload::{AgentWorkloadRecord, DurableAgentWorkloadRecord};
+use cynic_agent::{AgentWorkloadRecord, DurableAgentWorkloadRecord};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentWorkloadStoreError {

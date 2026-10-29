@@ -12,7 +12,7 @@ use cynic_host::{
     ports::evidence_store::ContentAddressedEvidenceStorePort,
 };
 use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope};
-use cynic_workload::AgentWorkloadEnvelope;
+use cynic_agent::AgentWorkloadEnvelope;
 
 use crate::{
     adapters::{

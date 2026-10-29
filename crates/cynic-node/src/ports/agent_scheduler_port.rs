@@ -1,4 +1,4 @@
-use cynic_workload::AgentSchedulerJournalRecord;
+use cynic_agent::AgentSchedulerJournalRecord;
 
 use crate::ports::agent_workspace_port::AgentWorkspacePortError;
 

@@ -10,7 +10,7 @@
 //! AGENS.md §7: adapters disposable — this LocalWorkloadSigner is swappable
 //! for a kernel-backed signer once Phase 3.1 (node-owned scheduler) is live.
 
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadEnvelope,
 };
 use cynic_protocol::{
@@ -84,7 +84,7 @@ mod tests {
     use super::*;
 
     fn admitted_envelope() -> AgentWorkloadEnvelope {
-        use cynic_workload::{
+        use cynic_agent::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA,
     AgentBoundedAction,
 };

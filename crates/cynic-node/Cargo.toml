@@ -12,6 +12,7 @@ name = "cynic-node"
 path = "src/main.rs"
 
 [dependencies]
+cynic-agent = { path = "../cynic-agent" }
 tokio.workspace = true
 tokio-util = { version = "0.7", features = ["io"] }
 tokio-tungstenite = "0.24"
@@ -44,7 +45,6 @@ cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-finance = { path = "../cynic-finance" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-workload = { path = "../cynic-workload" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-kernel = { path = "../cynic-kernel" }
 cynic-storage = { path = "../cynic-storage" }

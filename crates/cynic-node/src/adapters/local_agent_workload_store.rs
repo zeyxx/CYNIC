@@ -8,7 +8,7 @@ use std::{
 use std::os::unix::fs::OpenOptionsExt;
 
 use cynic_protocol::digest_json;
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkloadRecord, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
     admit_aggregate_sibling_budget, validate_durable_agent_workload_record,
 };

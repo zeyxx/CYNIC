@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use cynic_workload::{
+use cynic_agent::{
     AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentExecutionRuntimeObservation,
 };
 use cynic_types::paths::CynicPaths;

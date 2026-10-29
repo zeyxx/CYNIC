@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkspaceApplyReport, AgentWorkspaceApplyStatus, AgentWorkspaceMutationKind,
     AgentWorkspaceReconciliation, AgentWorkspaceRequest,
 };

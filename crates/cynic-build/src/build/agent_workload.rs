@@ -4,7 +4,7 @@ use cynic_protocol::{
     MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
     PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA, AgentBoundedAction,
     AgentWorkloadEnvelope, AgentWorkloadInput,
 };
@@ -403,7 +403,7 @@ mod tests {
             ]
         );
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
-        assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
+        assert!(cynic_agent::admit_agent_workload(&envelope).admitted());
         assert_eq!(
             build_source_reference_from_workload(&envelope).unwrap(),
             request.source
@@ -547,7 +547,7 @@ mod tests {
         envelope.input.as_mut().unwrap().payload["action"] =
             serde_json::Value::String("cargo:build-release".to_string());
 
-        assert!(!cynic_workload::admit_agent_workload(&envelope).admitted());
+        assert!(!cynic_agent::admit_agent_workload(&envelope).admitted());
         assert!(build_agent_request_from_workload(&envelope).is_err());
     }
 
@@ -622,7 +622,7 @@ mod tests {
 
         assert_eq!(envelope.source_commit, Some(request.source_commit.clone()));
         assert_eq!(envelope.branch, None);
-        assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
+        assert!(cynic_agent::admit_agent_workload(&envelope).admitted());
     }
 
     #[test]

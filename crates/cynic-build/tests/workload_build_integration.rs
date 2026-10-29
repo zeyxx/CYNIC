@@ -18,7 +18,7 @@ use cynic_protocol::{
     PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
     build_evidence_envelope, digest_json,
 };
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,

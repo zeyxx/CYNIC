@@ -1,4 +1,4 @@
-use cynic_workload::{
+use cynic_agent::{
     AgentWorkspaceApplyReport, AgentWorkspaceReconciliation, AgentWorkspaceRequest,
 };
 

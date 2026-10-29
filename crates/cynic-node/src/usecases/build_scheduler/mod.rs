@@ -13,7 +13,7 @@ use cynic_protocol::capacity::{
     CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
 };
 use cynic_protocol::AgentCompletionStatus;
-use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
+use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -1061,7 +1061,7 @@ mod tests {
     #[test]
     fn expired_claim_reclaims_live_claim_skips() {
         use cynic_protocol::LeaseGuard;
-        use cynic_workload::AgentWorkloadClaim;
+        use cynic_agent::AgentWorkloadClaim;
 
         let store = queue_store();
         let admitted = admit_build_check(
@@ -1071,7 +1071,7 @@ mod tests {
         let (control, scheduler) = scheduler_configs();
 
         let mut expired = admitted.record.clone();
-        expired.state = cynic_workload::AgentWorkloadState::Claimed;
+        expired.state = cynic_agent::AgentWorkloadState::Claimed;
         expired.last_fencing_token = 1;
         expired.claim = Some(AgentWorkloadClaim {
             guard: LeaseGuard {
@@ -1099,7 +1099,7 @@ mod tests {
             .expect("expired claim must reclaim");
         assert_eq!(
             reclaimed.record.state,
-            cynic_workload::AgentWorkloadState::Claimed
+            cynic_agent::AgentWorkloadState::Claimed
         );
         assert_eq!(reclaimed.record.last_fencing_token, 2);
 

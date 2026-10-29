@@ -7,6 +7,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+cynic-agent = { path = "../cynic-agent" }
 async-trait.workspace = true
 axum.workspace = true
 rustix = { version = "1", features = ["process"] }
@@ -19,7 +20,6 @@ cynic-secrets = { path = "../cynic-secrets" }
 cynic-types = { path = "../cynic-types" }
 cynic-eval = { path = "../cynic-eval" }
 cynic-pool = { path = "../cynic-pool" }
-cynic-workload = { path = "../cynic-workload" }
 cynic-consensus = { path = "../cynic-consensus" }
 futures-util.workspace = true
 reqwest.workspace = true

@@ -17,7 +17,7 @@ use cynic_protocol::{
     POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
     PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
-use cynic_workload::{
+use cynic_agent::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
     AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState, DurableAgentWorkloadRecord,
     admit_agent_workload,
