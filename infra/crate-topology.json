@@ -691,6 +691,21 @@
       "loc": 0,
       "domain": "process",
       "description": "OS process spawning and in-memory test runner"
+    },
+    "cynic-agent": {
+      "consumers": [
+        "cynic-host"
+      ],
+      "depends_on": [
+        "cynic-process",
+        "cynic-protocol",
+        "cynic-types"
+      ],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L2",
+      "loc": 0
     }
   },
   "extraction_order": [
@@ -885,6 +900,7 @@
       "cynic-supervisor"
     ],
     "L2": [
+      "cynic-agent",
       "cynic-askesis",
       "cynic-build",
       "cynic-consensus",

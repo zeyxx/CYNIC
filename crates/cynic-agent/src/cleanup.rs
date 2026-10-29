@@ -5,6 +5,7 @@
 //!   reconcile_cleanup() -> CleanupDecision (pure)
 //!   apply() -> CleanupProof (via ArgvRunner SSH)
 
+use crate::traits::AutonomousAgent;
 use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::cleanup::*;
 use cynic_types::paths::CynicPaths;
@@ -154,6 +155,16 @@ fn infer_target_kind(path: &str) -> CleanupTargetKind {
         }
     } else {
         CleanupTargetKind::BuildArtifact
+    }
+}
+
+impl<R: ArgvRunner> AutonomousAgent for CleanupAgent<R> {
+    type Observation = CleanupObservation;
+    type Decision = CleanupDecision;
+    type Proof = CleanupProof;
+
+    fn agent_name(&self) -> &'static str {
+        "cleanup"
     }
 }
 
