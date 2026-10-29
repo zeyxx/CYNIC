@@ -117,11 +117,11 @@ impl FlatVectorState {
 
 /// In-memory contiguous SIMD vector store adapter.
 #[derive(Clone)]
-pub struct SimdVectorAdapter {
+pub struct ContiguousVectorStore {
     state: Arc<RwLock<FlatVectorState>>,
 }
 
-impl SimdVectorAdapter {
+impl ContiguousVectorStore {
     /// Create a new SIMD vector store for dynamic dimension `D`.
     pub fn new(dimension: usize) -> Self {
         Self {
@@ -175,7 +175,7 @@ impl SimdVectorAdapter {
     }
 }
 
-impl VectorStorePort for SimdVectorAdapter {
+impl VectorStorePort for ContiguousVectorStore {
     fn insert_vector(&self, id: &str, vector: &[f32]) -> Result<(), StorageError> {
         self.state.write().insert(id, vector)
     }
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn simd_vector_insert_search_nearest_top_k() {
-        let store = SimdVectorAdapter::new(4);
+        let store = ContiguousVectorStore::new(4);
 
         // Insert orthogonal vectors
         store.insert_vector("v1", &[1.0, 0.0, 0.0, 0.0]).unwrap();
@@ -230,14 +230,14 @@ mod tests {
 
     #[test]
     fn simd_vector_rejects_dimension_mismatch() {
-        let store = SimdVectorAdapter::new(384);
+        let store = ContiguousVectorStore::new(384);
         let err = store.insert_vector("invalid", &[0.1; 128]);
         assert!(err.is_err());
     }
 
     #[test]
     fn simd_vector_batch_insertion_and_loading() {
-        let store = SimdVectorAdapter::new(3);
+        let store = ContiguousVectorStore::new(3);
         assert_eq!(store.dimension(), 3);
 
         let v1 = [1.0, 0.0, 0.0];
@@ -258,3 +258,7 @@ mod tests {
         assert_eq!(hits[0].0, "doc3");
     }
 }
+
+/// Backward-compatible alias (deprecated).
+#[deprecated(note = "use ContiguousVectorStore")]
+pub type SimdVectorAdapter = ContiguousVectorStore;

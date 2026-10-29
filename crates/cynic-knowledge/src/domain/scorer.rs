@@ -17,7 +17,7 @@ pub struct LexicalIndex {
 
 /// A matched search result with score and proof breadcrumbs.
 #[derive(Debug, Clone, Copy)]
-pub struct SearchHit<'a> {
+pub struct LexicalHit<'a> {
     pub chunk: &'a DocumentChunk,
     pub score: f64,
 }
@@ -61,7 +61,7 @@ impl LexicalIndex {
     }
 
     /// Searches the index with a raw query using BM25 with authority tier weighting.
-    pub fn search<'a>(&'a self, query: &str, limit: usize) -> Vec<SearchHit<'a>> {
+    pub fn search<'a>(&'a self, query: &str, limit: usize) -> Vec<LexicalHit<'a>> {
         let raw_tokens = tokenize(query);
         if raw_tokens.is_empty() || self.chunks.is_empty() {
             return Vec::new();
@@ -121,7 +121,7 @@ impl LexicalIndex {
                 let final_score =
                     (raw_bm25 + contract_floor) * altitude * deprecation * modality_boost;
 
-                scored_chunks.push(SearchHit {
+                scored_chunks.push(LexicalHit {
                     chunk,
                     score: final_score,
                 });
@@ -148,7 +148,7 @@ impl LexicalIndex {
         vectors: &[ChunkVector],
         limit: usize,
         dense_k: usize,
-    ) -> Vec<SearchHit<'a>> {
+    ) -> Vec<LexicalHit<'a>> {
         self.search_hybrid_bilateral_guarded(
             query,
             query_vector,
@@ -172,7 +172,7 @@ impl LexicalIndex {
         limit: usize,
         dense_k: usize,
         guard_gap: Option<f64>,
-    ) -> Vec<SearchHit<'a>> {
+    ) -> Vec<LexicalHit<'a>> {
         self.search_hybrid_bilateral_guarded(
             query,
             query_vector,
@@ -200,7 +200,7 @@ impl LexicalIndex {
         dense_k: usize,
         bm25_guard_gap: Option<f64>,
         dense_guard_gap: Option<f64>,
-    ) -> Vec<SearchHit<'a>> {
+    ) -> Vec<LexicalHit<'a>> {
         let sparse = self.search(query, limit);
         let dense = top_k_dense(query_vector, &self.chunks, vectors, dense_k);
 
@@ -232,7 +232,7 @@ impl LexicalIndex {
         dense_k: usize,
         alpha: f64,
         strategy: crate::domain::continuous_fusion::NormalizationStrategy,
-    ) -> Vec<SearchHit<'a>> {
+    ) -> Vec<LexicalHit<'a>> {
         let sparse = self.search(query, limit);
         let dense = top_k_dense(query_vector, &self.chunks, vectors, dense_k);
 
@@ -256,7 +256,7 @@ impl LexicalIndex {
 
 /// Relative BM25 confidence margin: (top1 - top2) / top1. Zero when the top
 /// score is null or when fewer than 2 hits exist — no evidence, no claim.
-pub fn bm25_margin(hits: &[SearchHit<'_>]) -> f64 {
+pub fn bm25_margin(hits: &[LexicalHit<'_>]) -> f64 {
     match hits {
         [first, second, ..] if first.score > 0.0 => {
             ((first.score - second.score) / first.score).max(0.0)
@@ -370,11 +370,11 @@ mod tests {
         };
         let (a, b, c, d) = (chunk("a.md"), chunk("b.md"), chunk("c.md"), chunk("d.md"));
         let hits = vec![
-            SearchHit {
+            LexicalHit {
                 chunk: &a,
                 score: 10.0,
             },
-            SearchHit {
+            LexicalHit {
                 chunk: &b,
                 score: 6.0,
             },
@@ -383,11 +383,11 @@ mod tests {
         assert_eq!(bm25_margin(&hits[..1]), 0.0);
         assert_eq!(bm25_margin(&[]), 0.0);
         let zeros = vec![
-            SearchHit {
+            LexicalHit {
                 chunk: &c,
                 score: 0.0,
             },
-            SearchHit {
+            LexicalHit {
                 chunk: &d,
                 score: 0.0,
             },
@@ -576,3 +576,7 @@ mod tests {
         assert!((dense_margin(&[hit, hit2]) - 0.5).abs() < 1e-6);
     }
 }
+
+/// Backward-compatible alias (deprecated).
+#[deprecated(note = "use LexicalHit")]
+pub type SearchHit<'a> = LexicalHit<'a>;

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 /// Sémantique des arêtes du graphe de connaissances.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum KnowledgeEdgeKind {
+pub enum CorpusEdgeKind {
     /// Lien hypertexte explicite dans la prose Markdown `[label](target.md)`.
     CitesDocument,
     /// Lien contractuel formel (contrat normatif -> test de validation / port).
@@ -18,20 +18,20 @@ pub enum KnowledgeEdgeKind {
 
 /// Une arête orientée dans le graphe de connaissances CYNIC.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KnowledgeEdge {
+pub struct CorpusEdge {
     pub source: String,
     pub target: String,
-    pub kind: KnowledgeEdgeKind,
+    pub kind: CorpusEdgeKind,
     pub label: Option<String>,
 }
 
 /// Graphe de relations structurelles et causales de la base de connaissances.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct KnowledgeGraph {
+pub struct CorpusGraph {
     /// Nœuds déclarés (chemins relatifs canoniques).
     pub nodes: HashSet<String>,
     /// Arêtes orientées reliant les nœuds.
-    pub edges: Vec<KnowledgeEdge>,
+    pub edges: Vec<CorpusEdge>,
     /// Références cassées détectées lors de la résolution.
     pub broken_references: Vec<BrokenReference>,
 }
@@ -44,10 +44,33 @@ pub struct BrokenReference {
     pub resolved_attempt: String,
 }
 
-impl KnowledgeGraph {
+impl CorpusGraph {
     /// Construit le graphe à partir d'un CorpusManifest et de la racine du repository.
+    /// Adapter I/O: collecte les chemins connus du workspace puis délègue au cœur pur.
     pub fn build_from_manifest<P: AsRef<Path>>(repo_root: P, manifest: &CorpusManifest) -> Self {
         let root = repo_root.as_ref();
+        // Collecte I/O des chemins connus (adapter).
+        let mut known_paths: Vec<PathBuf> = Vec::new();
+        if let Ok(entries) = collect_workspace_paths(root) {
+            known_paths = entries;
+        }
+        let mut graph = Self::build_from_manifest_with_paths(known_paths, manifest);
+        // Câblage topologique des crates (I/O adapter).
+        wire_crate_topology(root, &mut graph.edges, &mut graph.nodes);
+        graph
+    }
+
+    /// Variante pure (Zero-I/O): construit le graphe à partir d'un ensemble en mémoire
+    /// de chemins connus du workspace.
+    pub fn build_from_manifest_with_paths<I, P>(
+        known_paths: I,
+        manifest: &CorpusManifest,
+    ) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        let known: HashSet<PathBuf> = known_paths.into_iter().map(Into::into).collect();
         let mut nodes = HashSet::new();
         let mut edges = Vec::new();
         let mut broken_references = Vec::new();
@@ -83,9 +106,9 @@ impl KnowledgeGraph {
                 let cand1 = doc_dir.join(&target_path_buf);
                 let cand2 = target_path_buf;
 
-                let resolved_rel = if root.join(&cand1).exists() {
+                let resolved_rel = if path_known(&known, &cand1) {
                     Some(normalize_path(&cand1))
-                } else if root.join(&cand2).exists() {
+                } else if path_known(&known, &cand2) {
                     Some(normalize_path(&cand2))
                 } else {
                     None
@@ -94,10 +117,10 @@ impl KnowledgeGraph {
                 match resolved_rel {
                     Some(target_clean) => {
                         nodes.insert(target_clean.clone());
-                        edges.push(KnowledgeEdge {
+                        edges.push(CorpusEdge {
                             source: doc.source_path.clone(),
                             target: target_clean,
-                            kind: KnowledgeEdgeKind::CitesDocument,
+                            kind: CorpusEdgeKind::CitesDocument,
                             label: Some(link.label.clone()),
                         });
                     }
@@ -113,7 +136,7 @@ impl KnowledgeGraph {
         }
 
         // 3. Extraire les références contractuelles implicites dans la prose Markdown
-        extract_prose_contract_references(root, &manifest.documents, &mut edges, &mut nodes);
+        extract_prose_contract_references(&known, &manifest.documents, &mut edges, &mut nodes);
 
         // 4. Lier les contrats normatifs aux tests de gouvernance connus
         wire_contract_enforcements(&mut edges, &mut nodes);
@@ -129,12 +152,12 @@ impl KnowledgeGraph {
     }
 
     /// Liste des arêtes sortantes d'un document.
-    pub fn outgoing_edges(&self, source: &str) -> Vec<&KnowledgeEdge> {
+    pub fn outgoing_edges(&self, source: &str) -> Vec<&CorpusEdge> {
         self.edges.iter().filter(|e| e.source == source).collect()
     }
 
     /// Liste des arêtes entrantes vers un document.
-    pub fn incoming_edges(&self, target: &str) -> Vec<&KnowledgeEdge> {
+    pub fn incoming_edges(&self, target: &str) -> Vec<&CorpusEdge> {
         self.edges.iter().filter(|e| e.target == target).collect()
     }
 
@@ -180,7 +203,7 @@ fn normalize_path(p: &Path) -> String {
     parts.join("/")
 }
 
-fn wire_contract_enforcements(edges: &mut Vec<KnowledgeEdge>, nodes: &mut HashSet<String>) {
+fn wire_contract_enforcements(edges: &mut Vec<CorpusEdge>, nodes: &mut HashSet<String>) {
     let wiring = [
         (
             "contracts/repository-governance.json",
@@ -199,10 +222,10 @@ fn wire_contract_enforcements(edges: &mut Vec<KnowledgeEdge>, nodes: &mut HashSe
     for (contract, test_file) in wiring {
         nodes.insert(contract.to_string());
         nodes.insert(test_file.to_string());
-        edges.push(KnowledgeEdge {
+        edges.push(CorpusEdge {
             source: contract.to_string(),
             target: test_file.to_string(),
-            kind: KnowledgeEdgeKind::EnforcesContract,
+            kind: CorpusEdgeKind::EnforcesContract,
             label: Some("verified_by".to_string()),
         });
     }
@@ -222,9 +245,9 @@ fn collect_text_recursive(
 }
 
 fn extract_prose_contract_references(
-    root: &Path,
+    known: &HashSet<PathBuf>,
     documents: &[crate::domain::ast::DocumentTree],
-    edges: &mut Vec<KnowledgeEdge>,
+    edges: &mut Vec<CorpusEdge>,
     nodes: &mut HashSet<String>,
 ) {
     for doc in documents {
@@ -233,13 +256,13 @@ fn extract_prose_contract_references(
         for word in text_buf.split(|c: char| c.is_whitespace() || c == '`' || c == '(' || c == ')' || c == '[' || c == ']' || c == '"' || c == '\'') {
             if word.starts_with("contracts/") && word.ends_with(".json") {
                 let clean = word.trim_matches(|c: char| c == ',' || c == '.' || c == ';' || c == ':');
-                if root.join(clean).is_file() && doc.source_path != clean {
+                if path_known(known, Path::new(clean)) && doc.source_path != clean {
                     nodes.insert(clean.to_string());
                     if !edges.iter().any(|e| e.source == doc.source_path && e.target == clean) {
-                        edges.push(KnowledgeEdge {
+                        edges.push(CorpusEdge {
                             source: doc.source_path.clone(),
                             target: clean.to_string(),
-                            kind: KnowledgeEdgeKind::EnforcesContract,
+                            kind: CorpusEdgeKind::EnforcesContract,
                             label: Some("governed_by".to_string()),
                         });
                     }
@@ -249,7 +272,7 @@ fn extract_prose_contract_references(
     }
 }
 
-fn wire_crate_topology(root: &Path, edges: &mut Vec<KnowledgeEdge>, nodes: &mut HashSet<String>) {
+fn wire_crate_topology(root: &Path, edges: &mut Vec<CorpusEdge>, nodes: &mut HashSet<String>) {
     let topo_path = root.join("infra/crate-topology.json");
     if let Ok(bytes) = std::fs::read(&topo_path) {
         if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&bytes) {
@@ -265,10 +288,10 @@ fn wire_crate_topology(root: &Path, edges: &mut Vec<KnowledgeEdge>, nodes: &mut 
                                     if root.join(&dep_path).exists() {
                                         nodes.insert(dep_path.clone());
                                         if !edges.iter().any(|e| e.source == crate_path && e.target == dep_path) {
-                                            edges.push(KnowledgeEdge {
+                                            edges.push(CorpusEdge {
                                                 source: crate_path.clone(),
                                                 target: dep_path,
-                                                kind: KnowledgeEdgeKind::CrateDependency,
+                                                kind: CorpusEdgeKind::CrateDependency,
                                                 label: Some("depends_on".to_string()),
                                             });
                                         }
@@ -281,6 +304,42 @@ fn wire_crate_topology(root: &Path, edges: &mut Vec<KnowledgeEdge>, nodes: &mut 
             }
         }
     }
+}
+
+
+/// Backward-compatible aliases (deprecated).
+#[deprecated(note = "use CorpusGraph")]
+pub type KnowledgeGraph = CorpusGraph;
+#[deprecated(note = "use CorpusEdge")]
+pub type KnowledgeEdge = CorpusEdge;
+#[deprecated(note = "use CorpusEdgeKind")]
+pub type KnowledgeEdgeKind = CorpusEdgeKind;
+
+
+fn collect_workspace_paths(root: &Path) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut out = Vec::new();
+    for entry in walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            !["target", ".git", ".cargo", "node_modules", "shared-target"].contains(&name.as_ref())
+        })
+        .flatten()
+    {
+        if entry.file_type().is_file() {
+            if let Ok(rel) = entry.path().strip_prefix(root) {
+                out.push(rel.to_path_buf());
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn path_known(known: &HashSet<PathBuf>, p: &Path) -> bool {
+    if known.contains(p) {
+        return true;
+    }
+    known.iter().any(|k| k.ends_with(p) || p.ends_with(k))
 }
 
 #[cfg(test)]
@@ -312,7 +371,7 @@ mod tests {
         assert_eq!(edges.len(), 1);
         assert_eq!(edges[0].source, "crates/crate-a");
         assert_eq!(edges[0].target, "crates/crate-b");
-        assert_eq!(edges[0].kind, KnowledgeEdgeKind::CrateDependency);
+        assert_eq!(edges[0].kind, CorpusEdgeKind::CrateDependency);
         assert!(nodes.contains("crates/crate-a"));
         assert!(nodes.contains("crates/crate-b"));
 
