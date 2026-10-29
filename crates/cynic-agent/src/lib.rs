@@ -6,6 +6,7 @@
 
 pub mod capability;
 pub mod cleanup;
+pub mod coordination;
 pub mod merge_agent;
 pub mod operator;
 pub mod scheduler;
@@ -16,6 +17,7 @@ pub mod workspace;
 
 pub use capability::*;
 pub use cleanup::CleanupAgent;
+pub use coordination::*;
 pub use operator::OperatorAgent;
 pub use scheduler::*;
 pub use skill::*;

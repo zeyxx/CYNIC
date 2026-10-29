@@ -18,6 +18,12 @@ use crate::agent_surface::types::{
 
 use cynic_protocol::agent_coordination::{predicates as coord_predicates, ClaimScope};
 
+pub(crate) use cynic_agent::coordination::{
+    append_claim_event, civil_from_days, claim_event_log_dir, claims_file_path, event_matches,
+    execute_status_from_claims_file, load_claims_doc, local_claim_active, local_scope_of,
+    refresh_claim_entry, store_claims_doc,
+};
+
 /// Resolve the kernel REST base URL.
 ///
 /// Precedence: explicit `--kernel-base` > `CYNIC_KERNEL_BASE` env > registry
@@ -483,29 +489,6 @@ pub(crate) const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";
 /// Walks up from the current directory to find the git root, then uses
 /// `data_system/vault/captures/`. Returns the captures directory path
 /// (the caller composes the dated filename).
-fn claim_event_log_dir() -> Option<std::path::PathBuf> {
-    // Try git root first; fall back to current directory.
-    let output = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
-    let root = if output.success() && !output.stdout.trim().is_empty() {
-        output.stdout.trim().to_string()
-    } else {
-        std::env::current_dir()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default()
-    };
-    if root.is_empty() {
-        return None;
-    }
-    let dir = std::path::PathBuf::from(root)
-        .join("data_system")
-        .join("vault")
-        .join("captures");
-    // Best-effort directory creation; the event log must never block a
-    // claim or release. If the directory cannot be created, the event
-    // is silently dropped (the local claims file still records state).
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
 
 /// Append one claim event to the daily JSONL log.
 ///
@@ -516,60 +499,9 @@ fn claim_event_log_dir() -> Option<std::path::PathBuf> {
 /// HOW: append a single JSON line to `agent-claims-<YYYY-MM-DD>.jsonl`.
 /// Never reads the file — append-only, O(1) per event, no lock needed
 /// for single-writer CLI invocations.
-pub(crate) fn append_claim_event(
-    event_type: &str,
-    agent_id: &str,
-    target: &str,
-    detail: serde_json::Value,
-) {
-    let Some(dir) = claim_event_log_dir() else {
-        return;
-    };
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    // Date in UTC from unix seconds (no chrono dependency).
-    let days_since_epoch = now / 86_400;
-    let (y, m, d) = civil_from_days(days_since_epoch as i64);
-    let filename = format!("agent-claims-{y:04}-{m:02}-{d:02}.jsonl");
-    let path = dir.join(filename);
-
-    let event = serde_json::json!({
-        "schema": CLAIM_EVENT_SCHEMA,
-        "event": event_type,
-        "agent_id": agent_id,
-        "target": target,
-        "timestamp_unix_s": now,
-        "detail": detail,
-    });
-    if let Ok(line) = serde_json::to_string(&event) {
-        // Best-effort append: never block the caller.
-        let _ = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .and_then(|mut f| {
-                use std::io::Write;
-                writeln!(f, "{line}")
-            });
-    }
-}
 
 /// Convert days-since-epoch to (year, month, day) using the civil calendar
 /// algorithm (Howard Hinnant). No chrono dependency needed for the CLI.
-fn civil_from_days(z: i64) -> (i64, u64, u64) {
-    let z = z + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64; // [0, 146096]
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-    let mp = (5 * doy + 2) / 153; // [0, 11]
-    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
-    let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
-    (if m <= 2 { y + 1 } else { y }, m, d)
-}
 
 /// The kernel guards PEER surfaces with credentials. Node-local arbitration —
 /// claim, release, status on this node — is not a peer surface, so an auth
@@ -591,78 +523,17 @@ fn now_unix_s() -> u64 {
     now_unix_ms() / 1000
 }
 
-fn claims_file_path() -> std::path::PathBuf {
-    // Anchor to the enclosing git worktree so a claim from a subdirectory
-    // lands in the same projection as every other agent. Fall back to the
-    // cwd when outside git (explicit unknown, same file name).
-    let output = cynic_process::LocalArgvRunner.run(&["git", "rev-parse", "--show-toplevel"]);
-    if output.success() && !output.stdout.trim().is_empty() {
-        return std::path::PathBuf::from(output.stdout.trim()).join(".agent-claims.json");
-    }
-    std::path::PathBuf::from(".agent-claims.json")
-}
 
-fn load_claims_doc() -> Result<serde_json::Value, String> {
-    let path = claims_file_path();
-    if !path.exists() {
-        return Ok(serde_json::json!({
-            "schema": "cynic.agent_claims.v2",
-            "revision": 0,
-            "claims": [],
-            "merge_queue": [],
-        }));
-    }
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("failed to read .agent-claims.json: {e}"))?;
-    serde_json::from_str(&content).map_err(|e| format!("failed to parse .agent-claims.json: {e}"))
-}
 
 /// Atomic monotone write: revision + 1, tmp file + rename.
-fn store_claims_doc(doc: &mut serde_json::Value) -> Result<u64, String> {
-    let revision = doc.get("revision").and_then(|v| v.as_u64()).unwrap_or(0) + 1;
-    doc["revision"] = serde_json::json!(revision);
-    let content = serde_json::to_string_pretty(doc)
-        .map_err(|e| format!("failed to serialize .agent-claims.json: {e}"))?;
-    let path = claims_file_path();
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, content).map_err(|e| format!("failed to write claims tmp file: {e}"))?;
-    std::fs::rename(&tmp, &path).map_err(|e| format!("failed to commit claims file: {e}"))?;
-    Ok(revision)
-}
 
 /// Map a CLI (kind, path) pair onto the canonical protocol scope so overlap is
 /// decided by `cynic_protocol` predicates, never by a local copy of the rule.
-fn local_scope_of(kind: &str, target: &str) -> ClaimScope {
-    match kind {
-        "crate" => ClaimScope::Crate {
-            crate_name: target.strip_prefix("crates/").unwrap_or(target).to_string(),
-        },
-        _ => ClaimScope::File {
-            path: target.to_string(),
-        },
-    }
-}
 
 /// Liveness: a claim is active only if its status says so AND its lease has
 /// not expired. Single definition, reused by every reader (status display,
 /// conflict detection, and the worktree cross-check in `branch_audit`): a
 /// second copy of this rule is how the active set started lying.
-pub(crate) fn local_claim_active(claim: &serde_json::Value, now_s: u64) -> bool {
-    if claim.get("status").and_then(|v| v.as_str()).unwrap_or("") != "active" {
-        return false;
-    }
-    let started = claim
-        .get("temporal")
-        .and_then(|t| t.get("started_at_unix_s"))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    let ttl = claim
-        .get("temporal")
-        .and_then(|t| t.get("ttl_seconds"))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(1800);
-    now_s < started.saturating_add(ttl)
-}
 
 /// Local CAS claim: first-wins on overlapping active scopes, idempotent
 /// re-claim by the same agent on the same scope.
@@ -1097,77 +968,6 @@ pub(crate) fn execute_heartbeat(
 
 /// Pure refresh step: find the live entry and bump `started_at_unix_s`.
 /// Returns (lease_id, kind, ttl, actions, wall). No I/O — unit-testable.
-fn refresh_claim_entry(
-    doc: &mut serde_json::Value,
-    agent_id: &str,
-    target: &str,
-    lease_id: &str,
-    now_s: u64,
-) -> Result<(String, String, u64, u64, u64), String> {
-    let list = doc
-        .get_mut("claims")
-        .and_then(|v| v.as_array_mut())
-        .ok_or_else(|| "heartbeat failed: claims store has no claim list".to_string())?;
-    for claim in list.iter_mut() {
-        let cid = claim
-            .get("claim_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let holder = claim
-            .get("agent_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let path = claim
-            .get("scope")
-            .and_then(|s| s.get("path"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let kind = claim
-            .get("scope")
-            .and_then(|s| s.get("kind"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("file")
-            .to_string();
-        if !lease_id.is_empty() {
-            if cid != lease_id {
-                continue;
-            }
-        } else if holder != agent_id || path != target {
-            continue;
-        }
-        if holder != agent_id && agent_id != "*" {
-            return Err(format!("heartbeat failed: claim {cid} is held by {holder}"));
-        }
-        if !local_claim_active(&*claim, now_s) {
-            return Err(format!(
-                "heartbeat failed: claim {cid} is expired or released (re-claim instead)"
-            ));
-        }
-        claim["temporal"]["started_at_unix_s"] = serde_json::json!(now_s);
-        let ttl = claim
-            .get("temporal")
-            .and_then(|t| t.get("ttl_seconds"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(1800);
-        let actions = claim
-            .get("budget")
-            .and_then(|b| b.get("actions"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(50);
-        let wall = claim
-            .get("budget")
-            .and_then(|b| b.get("wall_seconds"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(3600);
-        return Ok((cid, kind, ttl, actions, wall));
-    }
-    Err(format!(
-        "heartbeat failed: no active local claim for target {target}"
-    ))
-}
 
 /// Read back the append-only claim event log.
 ///
@@ -1230,122 +1030,7 @@ pub(crate) fn execute_events(
 
 /// Pure event predicate: schema must match and both filters must pass.
 /// Empty or "*" filters match everything. No I/O — unit-testable.
-fn event_matches(event: &Value, agent_filter: &str, target_filter: &str) -> bool {
-    if event.get("schema").and_then(|v| v.as_str()) != Some(CLAIM_EVENT_SCHEMA) {
-        return false;
-    }
-    if !agent_filter.is_empty() && agent_filter != "*" {
-        if event.get("agent_id").and_then(|v| v.as_str()) != Some(agent_filter) {
-            return false;
-        }
-    }
-    if !target_filter.is_empty() && target_filter != "*" {
-        if event.get("target").and_then(|v| v.as_str()) != Some(target_filter) {
-            return false;
-        }
-    }
-    true
-}
 
-fn execute_status_from_claims_file(agent_id: &str) -> Result<AgentStatusReport, String> {
-    let path = std::path::Path::new(".agent-claims.json");
-    if !path.exists() {
-        return Ok(AgentStatusReport {
-            schema: AGENT_STATUS_REPORT_SCHEMA,
-            status: "idle",
-            agent_id: agent_id.to_string(),
-            active_claims: Vec::new(),
-            total_claims: 0,
-        });
-    }
-
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("failed to read .agent-claims.json: {e}"))?;
-    let json: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("failed to parse .agent-claims.json: {e}"))?;
-
-    let claims = json
-        .get("claims")
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-
-    let now_ms = now_unix_ms();
-    let active_claims: Vec<AgentClaimSummary> = claims
-        .iter()
-        .filter_map(|c| {
-            let cid = c.get("claim_id")?.as_str()?.to_string();
-            let aid = c.get("agent_id")?.as_str()?;
-            // Display honesty (2026-09-28): same liveness rule as the
-            // conflict path (local_claim_active) — status string alone is
-            // not liveness. Expired entries are data for the audit trail,
-            // not members of the active set.
-            if !local_claim_active(c, now_ms / 1000) {
-                return None;
-            }
-            if !agent_id.is_empty() && aid != agent_id && agent_id != "*" {
-                return None;
-            }
-
-            let scope = c.get("scope");
-            let target = scope
-                .and_then(|s| s.get("path"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let claim_type = scope
-                .and_then(|s| s.get("kind"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("file")
-                .to_string();
-
-            let temporal = c.get("temporal");
-            let started_s = temporal
-                .and_then(|t| t.get("started_at_unix_s"))
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-            let ttl_s = temporal
-                .and_then(|t| t.get("ttl_seconds"))
-                .and_then(|v| v.as_u64())
-                .unwrap_or(1800);
-
-            let granted_ms = started_s * 1000;
-            let expires_ms = (started_s + ttl_s) * 1000;
-            let remaining = if expires_ms > now_ms {
-                ((expires_ms - now_ms) / 1000) as i64
-            } else {
-                0
-            };
-
-            Some(AgentClaimSummary {
-                claim_id: cid,
-                target,
-                claim_type,
-                granted_at_unix_ms: granted_ms,
-                expires_at_unix_ms: expires_ms,
-                remaining_seconds: remaining,
-            })
-        })
-        .collect();
-
-    let total = active_claims.len();
-    append_claim_event(
-        "status_query",
-        agent_id,
-        "*",
-        serde_json::json!({
-            "total_claims": total,
-            "source": "local_file",
-        }),
-    );
-    Ok(AgentStatusReport {
-        schema: AGENT_STATUS_REPORT_SCHEMA,
-        status: if total > 0 { "active" } else { "idle" },
-        agent_id: agent_id.to_string(),
-        active_claims,
-        total_claims: total,
-    })
-}
 
 #[cfg(test)]
 mod tests {
