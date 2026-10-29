@@ -6,6 +6,28 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 pub const DYNAMIC_FIREWALL_POLICY_SCHEMA: &str = "cynic.network.firewall_policy.v1";
+pub const FIREWALL_POLICY_REPORT_SCHEMA: &str = "cynic.network.firewall_policy_report.v1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FirewallPolicyStatus {
+    Compliant,
+    DriftDetected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FirewallPolicyReport {
+    pub schema: String,
+    pub status: FirewallPolicyStatus,
+    pub node_id: String,
+    pub registry_path: String,
+    pub bindings_count: usize,
+    pub bindings: Vec<DynamicPortBinding>,
+    pub nftables_ruleset: Option<String>,
+    pub audit_enabled: bool,
+    pub audit_findings: Option<Vec<String>>,
+    pub generated_at_unix_ms: u64,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NetworkPlaneScope {
@@ -19,7 +41,7 @@ pub enum NetworkPlaneScope {
     PublicWan,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DynamicPortBinding {
     pub service_name: String,
     pub port: u16,
@@ -330,6 +352,36 @@ pub fn audit_firewall_ruleset(
     }
 
     findings
+}
+
+/// Pure evaluation of a derived firewall policy into a canonical report.
+pub fn evaluate_firewall_policy(
+    policy: &DynamicFirewallPolicy,
+    registry_path: impl Into<String>,
+    nftables_ruleset: Option<String>,
+    audit_enabled: bool,
+    audit_findings: Option<Vec<String>>,
+) -> FirewallPolicyReport {
+    let is_compliant = audit_findings
+        .as_ref()
+        .map(|findings| findings.is_empty())
+        .unwrap_or(true);
+    FirewallPolicyReport {
+        schema: FIREWALL_POLICY_REPORT_SCHEMA.to_string(),
+        status: if is_compliant {
+            FirewallPolicyStatus::Compliant
+        } else {
+            FirewallPolicyStatus::DriftDetected
+        },
+        node_id: policy.node_id.clone(),
+        registry_path: registry_path.into(),
+        bindings_count: policy.bindings.len(),
+        bindings: policy.bindings.clone(),
+        nftables_ruleset,
+        audit_enabled,
+        audit_findings,
+        generated_at_unix_ms: policy.generated_at_unix_ms,
+    }
 }
 
 /// Extract all declared service ports from a registry JSON Value.

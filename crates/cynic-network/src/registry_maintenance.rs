@@ -3,10 +3,65 @@
 //! and triggers bounded auto-reconciliation actions without manual human intervention.
 
 use crate::discovery::{NetworkDiscoveryReport, NodeReachability};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub const REGISTRY_UPDATE_REPORT_SCHEMA: &str = "cynic.network.registry_update_report.v1";
 pub const REGISTRY_SYNC_REPORT_SCHEMA: &str = "cynic.network.registry_sync_report.v1";
+pub const REGISTRY_RECONCILIATION_REPORT_SCHEMA: &str =
+    "cynic.network.registry_reconciliation_report.v1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RegistryReconciliationStatus {
+    Ok,
+    DriftDetected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegistryReconciliationReport {
+    pub schema: String,
+    pub status: RegistryReconciliationStatus,
+    pub observer_node_id: String,
+    pub registry_path: String,
+    pub nodes_evaluated: usize,
+    pub nodes_updated: usize,
+    pub drift_detected: bool,
+    pub drift_summary: Vec<String>,
+    pub applied: bool,
+    pub observed_nodes: Option<serde_json::Value>,
+    pub observed_at_unix_ms: u64,
+}
+
+pub fn build_reconciliation_report(
+    observer_node_id: impl Into<String>,
+    registry_path: impl Into<String>,
+    nodes_evaluated: usize,
+    nodes_updated: usize,
+    drift_detected: bool,
+    drift_summary: Vec<String>,
+    applied: bool,
+    observed_nodes: Option<serde_json::Value>,
+    observed_at_unix_ms: u64,
+) -> RegistryReconciliationReport {
+    RegistryReconciliationReport {
+        schema: REGISTRY_RECONCILIATION_REPORT_SCHEMA.to_string(),
+        status: if drift_detected {
+            RegistryReconciliationStatus::DriftDetected
+        } else {
+            RegistryReconciliationStatus::Ok
+        },
+        observer_node_id: observer_node_id.into(),
+        registry_path: registry_path.into(),
+        nodes_evaluated,
+        nodes_updated,
+        drift_detected,
+        drift_summary,
+        applied,
+        observed_nodes,
+        observed_at_unix_ms,
+    }
+}
 /// Backups retained beside the runtime registry copy after a sync.
 pub const MAX_REGISTRY_SYNC_BACKUPS: usize = 5;
 
