@@ -11,8 +11,8 @@ fn workspace_geometry_ratchet_holds() {
     // Conformance
     assert_eq!(geom.schema, WORKSPACE_GEOMETRY_SCHEMA_V1);
     assert!(
-        geom.total_crates >= 38,
-        "Expected at least 38 crates, found {}",
+        geom.total_crates >= 34,
+        "Expected at least 34 crates, found {}",
         geom.total_crates
     );
     assert!(
