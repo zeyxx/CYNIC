@@ -2,6 +2,7 @@
 
 use crate::domain::memory::EpistemicFactRecord;
 use crate::domain::session::AgentSessionRecord;
+use crate::domain::topology::TopologicalContext;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SurrealHealthReport {
@@ -41,4 +42,8 @@ pub trait SurrealStoragePort: Send + Sync {
     fn execute_sql(&self, query: &str) -> Result<Vec<serde_json::Value>, String>;
     fn save_session(&self, session: &AgentSessionRecord) -> Result<(), String>;
     fn save_fact(&self, fact: &EpistemicFactRecord) -> Result<(), String>;
+    fn fetch_topological_context(
+        &self,
+        chunk_ids: &[String],
+    ) -> Result<std::collections::HashMap<String, TopologicalContext>, String>;
 }

@@ -5,6 +5,7 @@ use reqwest::blocking::Client;
 use std::time::Duration;
 
 use crate::domain::memory::EpistemicFactRecord;
+use crate::domain::topology::TopologicalContext;
 use crate::domain::query::SurrealQuery;
 use crate::domain::response::{SurrealQueryResult, parse_and_validate_results};
 use crate::domain::session::AgentSessionRecord;
@@ -170,5 +171,15 @@ impl SurrealStoragePort for SurrealHttpClient {
         )?;
         self.execute_sql(query.as_str())?;
         Ok(())
+    }
+
+    fn fetch_topological_context(
+        &self,
+        chunk_ids: &[String],
+    ) -> Result<std::collections::HashMap<String, TopologicalContext>, String> {
+        use crate::domain::topology::TopologicalContext;
+        let query = TopologicalContext::fetch_query(chunk_ids);
+        let rows = self.execute_sql(&query)?;
+        Ok(TopologicalContext::from_rows(&rows))
     }
 }

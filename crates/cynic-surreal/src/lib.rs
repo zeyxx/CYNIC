@@ -7,6 +7,6 @@ pub mod ports;
 pub use adapters::{SurrealConfig, SurrealHttpClient};
 pub use domain::{
     AgentSessionRecord, AgentSessionStatus, EpistemicFactRecord, EpistemicStatus, SurrealQuery,
-    SurrealQueryResult, parse_and_validate_results,
+    SurrealQueryResult, TopologicalContext, parse_and_validate_results,
 };
 pub use ports::{SurrealHealthReport, SurrealStoragePort};
