@@ -62,7 +62,7 @@ pub struct RetrievalProfile {
     #[serde(default)]
     pub dense_guard_gap: Option<f64>,
     /// Minimum query term coverage ratio required by epistemic anti-hallucination guard.
-    pub min_term_coverage: f64,"
+    pub min_term_coverage: f64,
     /// Score threshold where high-confidence neural rerank clears the epistemic guard regardless of vocabulary disparity.
     pub neural_confidence_floor: f64,
     /// Maximum number of cited sources included in the assembled prompt context.
