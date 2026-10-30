@@ -398,24 +398,38 @@ mod tests {
     fn test_topological_contexts() {
         use cynic_surreal::domain::topology::TopologicalContext;
         let mut chunks = make_chunks();
-        // ensure B chunk exists
-        let chunks_ref = &chunks;
-        let a_chunk = chunks_ref.get("A").unwrap().first().unwrap();
-        let hits = vec![LexicalHit { chunk: a_chunk, score: 1.0 }];
+        chunks.insert(
+            "P".into(),
+            vec![DocumentChunk::new(
+                "P".into(),
+                1,
+                1,
+                vec![],
+                "P".into(),
+                AuthorityTier::L0Constitution,
+            )],
+        );
+
+        let a_chunk = chunks.get("A").unwrap().first().unwrap();
+        let chunk_id = a_chunk.chunk_id.clone();
+        let hits = vec![LexicalHit {
+            chunk: a_chunk,
+            score: 1.0,
+        }];
 
         let mut ctx_map = HashMap::new();
-        ctx_map.insert(a_chunk.chunk_id.clone(), TopologicalContext {
-            parent_path: "P".into(),
-            parent_authority: "L0".into(),
-            enforces: vec![],
-            depends_on: vec![],
-            cites: vec!["B".into()],
-            enforced_by: vec![],
-            depended_on_by: vec![],
-        });
-
-        // Add P chunk
-        chunks.insert("P".into(), vec![DocumentChunk::new("P".into(),1,1,vec![],"P".into(),AuthorityTier::L0Constitution)]);
+        ctx_map.insert(
+            chunk_id,
+            TopologicalContext {
+                parent_path: "P".into(),
+                parent_authority: "L0".into(),
+                enforces: vec![],
+                depends_on: vec![],
+                cites: vec!["B".into()],
+                enforced_by: vec![],
+                depended_on_by: vec![],
+            },
+        );
 
         let expanded = expand_hits_with_topological_contexts(&hits, &ctx_map, &chunks, "", 10);
         let paths: Vec<&str> = expanded.iter().map(|h| h.chunk.source_path.as_str()).collect();
