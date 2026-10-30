@@ -171,4 +171,14 @@ impl SurrealStoragePort for SurrealHttpClient {
         self.execute_sql(query.as_str())?;
         Ok(())
     }
+
+    fn fetch_topological_context(
+        &self,
+        chunk_ids: &[String],
+    ) -> Result<std::collections::HashMap<String, TopologicalContext>, String> {
+        use crate::domain::topology::TopologicalContext;
+        let query = TopologicalContext::fetch_query(chunk_ids);
+        let rows = self.execute_sql(&query)?;
+        Ok(TopologicalContext::from_rows(&rows))
+    }
 }
