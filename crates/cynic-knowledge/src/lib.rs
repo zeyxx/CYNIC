@@ -17,8 +17,7 @@ pub use adapters::{
 };
 pub use domain::{
     apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
-    expand_hits_with_graph, expand_hits_with_graph_query, expand_hits_with_graph_query_hops,
-    expand_hits_with_topological_contexts, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
+    expand_hits_with_graph, expand_hits_with_graph_multi_hop, expand_hits_with_graph_query, expand_hits_with_graph_query_hops, expand_hits_with_profile, expand_hits_with_topological_contexts, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
     normalize_engine, render_public_surface_html, render_public_surface_markdown,
     RerankCacheRecord, RerankItem, RerankRequest, RerankResponse, RERANK_CACHE_SCHEMA_V1,
     RetrievalPolicy, RetrievalProfile, RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1,

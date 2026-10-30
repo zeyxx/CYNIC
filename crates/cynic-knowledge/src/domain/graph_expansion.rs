@@ -323,6 +323,38 @@ pub fn expand_hits_with_topological_contexts<'a>(
     expanded
 }
 
+/// Expands hits using a `RetrievalProfile`, delegating to multi-hop graph expansion.
+pub fn expand_hits_with_profile<'a>(
+    hits: &[LexicalHit<'a>],
+    graph: &crate::domain::graph::CorpusGraph,
+    all_chunks_by_path: &'a std::collections::HashMap<String, Vec<crate::domain::chunk::DocumentChunk>>,
+    query: &str,
+    profile: &crate::domain::retrieval_policy::RetrievalProfile,
+) -> Vec<LexicalHit<'a>> {
+    expand_hits_with_graph_multi_hop(
+        hits,
+        graph,
+        all_chunks_by_path,
+        query,
+        profile.graph_max_expansion,
+        profile.graph_max_hops,
+        profile.graph_decay_factor,
+    )
+}
+
+/// Multi-hop graph expansion with explicit hop count and decay factor.
+pub fn expand_hits_with_graph_multi_hop<'a>(
+    hits: &[LexicalHit<'a>],
+    graph: &crate::domain::graph::CorpusGraph,
+    all_chunks_by_path: &'a std::collections::HashMap<String, Vec<crate::domain::chunk::DocumentChunk>>,
+    query: &str,
+    max_expansion: usize,
+    max_hops: usize,
+    decay: f64,
+) -> Vec<LexicalHit<'a>> {
+    // Delegate to the existing query-hops implementation (LexicalHit/SearchHit alias).
+    expand_hits_with_graph_query_hops(hits, graph, all_chunks_by_path, query, max_expansion, max_hops, decay)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

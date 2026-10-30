@@ -16,6 +16,18 @@ use crate::domain::epistemic_grounding::EpistemicAssemblyConfig;
 pub const RETRIEVAL_POLICY_SCHEMA_V1: &str = "cynic.retrieval_policy.v1";
 pub const RETRIEVAL_POLICY_CONTRACT_PATH: &str = "contracts/retrieval-policy.json";
 
+fn default_rrf_k() -> f64 {
+    60.0
+}
+
+fn default_graph_max_hops() -> usize {
+    2
+}
+
+fn default_graph_decay_factor() -> f64 {
+    0.70
+}
+
 /// Specific parameter profile governing a retrieval run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RetrievalProfile {
@@ -34,6 +46,21 @@ pub struct RetrievalProfile {
     pub rerank_timeout_ms: u64,
     /// Maximum hops / expansion count for causal knowledge graph traversal (0 = disabled).
     pub graph_max_expansion: usize,
+    /// RRF fusion constant k (Reciprocal Rank Fusion). Higher k flattens rank contributions.
+    #[serde(default = "default_rrf_k")]
+    pub rrf_k: f64,
+    /// Maximum number of graph hops performed during expansion.
+    #[serde(default = "default_graph_max_hops")]
+    pub graph_max_hops: usize,
+    /// Per-hop score decay factor applied during graph expansion.
+    #[serde(default = "default_graph_decay_factor")]
+    pub graph_decay_factor: f64,
+    /// Optional BM25 confidence guard gap: when the relative top1-top2 margin is at or above this value, dense noise cannot demote the lexical winner (None disables).
+    #[serde(default)]
+    pub bm25_guard_gap: Option<f64>,
+    /// Optional dense confidence guard gap: when dense margin is at or above this value, fusion proceeds even under a confident BM25 guard (None disables).
+    #[serde(default)]
+    pub dense_guard_gap: Option<f64>,
     /// Minimum query term coverage ratio required by epistemic anti-hallucination guard.
     pub min_term_coverage: f64,
     /// Score threshold where high-confidence neural rerank clears the epistemic guard regardless of vocabulary disparity.
@@ -130,6 +157,11 @@ impl RetrievalPolicy {
                 rerank_pool_cap: 24,
                 rerank_timeout_ms: 15000,
                 graph_max_expansion: 2,
+                rrf_k: 60.0,
+                graph_max_hops: 2,
+                graph_decay_factor: 0.70,
+                bm25_guard_gap: Some(0.25),
+                dense_guard_gap: Some(0.15),
                 min_term_coverage: 0.30,
                 neural_confidence_floor: 0.70,
                 max_sources: 5,

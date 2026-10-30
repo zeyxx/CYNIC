@@ -243,6 +243,38 @@ impl LexicalIndex {
         fused
     }
 
+    /// Hybrid search driven by a `RetrievalProfile`: uses bilateral guarded RRF
+    /// unless `fusion_alpha > 0.0`, in which case continuous convex fusion is used.
+    pub fn search_with_profile<'a>(
+        &'a self,
+        query: &str,
+        query_vector: &[f32],
+        vectors: &[ChunkVector],
+        limit: usize,
+        profile: &crate::domain::retrieval_policy::RetrievalProfile,
+    ) -> Vec<LexicalHit<'a>> {
+        if profile.fusion_alpha > 0.0 {
+            self.search_hybrid_convex(
+                query,
+                query_vector,
+                vectors,
+                limit,
+                profile.candidate_k,
+                profile.fusion_alpha,
+                profile.normalization_strategy(),
+            )
+        } else {
+            self.search_hybrid_bilateral_guarded(
+                query,
+                query_vector,
+                vectors,
+                limit,
+                profile.candidate_k,
+                profile.bm25_guard_gap,
+                profile.dense_guard_gap,
+            )
+        }
+    }
     /// Returns the total number of indexed chunks.
     pub fn chunk_count(&self) -> usize {
         self.chunks.len()
