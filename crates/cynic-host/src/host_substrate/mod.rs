@@ -14,11 +14,7 @@ pub mod capabilities;
 pub mod cpu;
 pub mod disk;
 pub mod fleet_disk;
-pub mod hypervisor;
 pub mod memory;
-pub mod proxmox;
-pub mod provisioning;
 pub mod remote_execution;
-pub mod vm_disk;
 
 pub use capabilities::*;
