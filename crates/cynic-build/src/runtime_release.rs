@@ -209,21 +209,41 @@ fn valid_release_proof_payload(payload: &serde_json::Value, source_commit: &str)
     if payload["schema"].as_str() != Some(RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA)
         || payload["source_commit"].as_str() != Some(source_commit)
     {
+        eprintln!(
+            "valid_release_proof_payload mismatch: schema={:?} expected={:?}, commit={:?} expected={:?}",
+            payload["schema"].as_str(),
+            RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
+            payload["source_commit"].as_str(),
+            source_commit
+        );
         return false;
     }
     let Some(artifacts) = payload["artifacts"].as_object() else {
+        eprintln!("valid_release_proof_payload: artifacts not an object");
         return false;
     };
     let Ok(required) = cynic_protocol::runtime_release_artifact_names() else {
+        eprintln!("valid_release_proof_payload: runtime_release_artifact_names returned Err");
         return false;
     };
-    artifacts.len() == required.len()
-        && required.iter().all(|name| {
-            artifacts
-                .get(name)
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(valid_sha256)
-        })
+    if artifacts.len() != required.len() {
+        eprintln!(
+            "valid_release_proof_payload: len mismatch artifacts={:?} required={:?}",
+            artifacts.keys().collect::<Vec<_>>(),
+            required
+        );
+        return false;
+    }
+    required.iter().all(|name| {
+        let ok = artifacts
+            .get(name)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(valid_sha256);
+        if !ok {
+            eprintln!("valid_release_proof_payload: artifact {} invalid: {:?}", name, artifacts.get(name));
+        }
+        ok
+    })
 }
 
 fn valid_sha256(value: &str) -> bool {
