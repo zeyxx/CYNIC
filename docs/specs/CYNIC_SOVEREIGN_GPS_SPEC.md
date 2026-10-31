@@ -40,14 +40,14 @@ CYNIC operates as part of an integrated, vertically coherent four-layer architec
 │ - Trench Forensics: aligned with @gcrtrd ethos (TrenchScanner model)   │
 │ - Grassroots onchain intelligence exposing insider wallet syndicates   │
 ├────────────────────────────────────────────────────────────────────────┤
-│ LAYER 1 : DETERMINISTIC MULTI-AGENT RUNTIME (CYNIC KERNEL)             │
-│ - Low-layer sovereign Rust runtime for autonomous agent systems        │
-│ - Zero-I/O Functional Core, Imperative Shell (FCIS) architecture       │
+│ LAYER 1 : DETERMINISTIC MULTI-AGENT RUNTIME (CYNIC RUNTIME)            │
+│ - Sovereign low-layer Rust runtime for autonomous multi-agent systems  │
+│ - Functional Core, Imperative Shell (FCIS): pure domain logic + ports  │
 │ - Fundamental Invariant: "No mutation without read-back proof"         │
-│ - Deterministic elimination of agentic drift and LLM hallucinations   │
+│ - Dynamic supervisor & capability-bounded agent isolation              │
 ├────────────────────────────────────────────────────────────────────────┤
 │ LAYER 0 : PHYSICAL SUBSTRATE & VERIFIABLE TIME (SOLANA)                │
-│ - Sub-second finality (400ms slots) via Proof of History (PoH)         │
+│ - Next-gen consensus: Alpenglow sub-second slot progression & pipelining│
 │ - Parallelized Sealevel transaction execution engine                   │
 │ - Physical throughput ceiling: speed of light in fiber optics          │
 │ - Multi-client resilience: Agave, Firedancer, Sig, Mithril             │
@@ -56,69 +56,36 @@ CYNIC operates as part of an integrated, vertically coherent four-layer architec
 
 ---
 
-## 3. Crate Topology Allocation (The 47 Workspace Crates)
+## 3. Crate Topology & Dynamic Quadrants
 
-Every crate within the CYNIC Cargo workspace is formally mapped to an operational quadrant. No crate may exist without an explicit functional assignment:
+The authoritative list of crates and their dependencies is tracked dynamically in `infra/crate-topology.json` and validated by `cynic audit crate`. Quadrant assignments map functional responsibilities across the architecture without hardcoding transient crate counts into normative prose:
 
-### Quadrant A: Kernel, Types & Foundational Discipline
-- `crates/cynic-types`: Primitive types, invariants, and canonical identities.
-- `crates/cynic-protocol`: Wire serialization, message framing, and typed schemas.
-- `crates/cynic-kernel`: Pure logic execution core (Zero-I/O).
-- `crates/cynic-askesis`: Rigorous self-discipline, boundary checks, and behavioral constraints.
+### Quadrant A: Foundation, Types & Pure Protocol (L0)
+- Core primitives, canonical types, and typed boundary invariants (`cynic-types`, `cynic-protocol`).
+- Zero-I/O Functional Core: purely deterministic domain logic, zero network/disk side effects.
 
-### Quadrant B: Forensic Intelligence, Auditing & Evaluation
-- `crates/cynic-audit-engine`: Deterministic gatekeeper validating rule conformance.
-- `crates/cynic-forensics`: Graph analysis, transaction tracing, and anomaly extraction.
-- `crates/cynic-intel`: Structured threat intelligence gathering and pattern scoring.
-- `crates/cynic-intel-soc`: Security operations center telemetry and incident response.
-- `crates/cynic-traces`: Trace emission, span journaling, and machine receipts.
-- `crates/cynic-eval`: Epistemic validation and regression testing against ground truth.
+### Quadrant B: Kernel State Machine & Supervision (L1)
+- Deterministic state transitions, execution bounds, and proof verification (`cynic-kernel`, `cynic-agent`).
+- Process supervision, circuit-breaking, and fail-closed isolation boundaries.
 
-### Quadrant C: Solana Settlement, Gas & Market Operations
-- `crates/cynic-zeroclaw-solana`: Bare-metal Solana client, RPC multiplexing, and signature verification.
-- `crates/cynic-solana-pay`: Native payment stream parsing and verification.
-- `crates/cynic-market`: Order book reading, liquidity evaluation, and market mechanics.
-- `crates/cynic-finance`: Financial accounting, burn tracking, and balance reconciliation.
+### Quadrant C: Intelligence, Forensics & Audit (L2)
+- Forensic telemetry, graph tracing, and onchain intelligence extraction (`cynic-forensics`, `cynic-intel`, `cynic-intel-soc`).
+- Machine receipts, structured span journaling, and epistemic evaluation (`cynic-traces`, `cynic-eval`, `cynic-audit-engine`).
 
-### Quadrant D: Node Lifecycle, Fleet Supervision & Infrastructure
-- `crates/cynic-node`: Autonomous node agent daemon and runtime hosting.
-- `crates/cynic-node-protocol`: Inter-node consensus, heartbeat, and synchronization.
-- `crates/cynic-host`: Bare-metal host interface and hardware telemetry.
-- `crates/cynic-supervisor`: Process supervision, auto-recovery, and fail-closed circuits.
-- `crates/cynic-fleet`: Multi-agent fleet orchestration and work allocation.
-- `crates/cynic-lifecycle`: Startup, healthcheck, migration, and shutdown state machines.
-- `crates/cynic-proxmox`: Virtualization and hypervisor orchestrator integration.
-- `crates/cynic-lxc`: Hardened OS-level container isolation for agent execution.
-- `crates/cynic-sandbox`: Restricted evaluation boundaries for untrusted code execution.
+### Quadrant D: Solana Substrate & Market Settlement (L1/L2)
+- Direct bare-metal Solana RPC client, payment streams, and gasless relay adapters (`cynic-zeroclaw-solana`, `cynic-solana-pay`, `cynic-market`, `cynic-finance`).
 
-### Quadrant E: Storage, Knowledge & Evidence Journaling
-- `crates/cynic-storage`: Tiered evidence storage (K1-K8) and immutable disk journals.
-- `crates/cynic-knowledge`: Vector storage, RAG retrieval, and factual knowledge graphs.
-- `crates/cynic-pool`: Resource pooling, connection caching, and memory reuse.
-- `crates/cynic-secrets`: Secure key management, vault integration, and zero-leak memory.
+### Quadrant E: Storage & Vector Knowledge (L1)
+- Persistent state, SMR WAL, vector embeddings, and topological knowledge graphs (`cynic-persistence`, `cynic-surreal`, `cynic-sqlite`, `cynic-knowledge`).
 
-### Quadrant F: Network, Channel & P2P Discovery
-- `crates/cynic-network`: Transport abstractions (QUIC, TCP, WebSocket) with mutual TLS.
-- `crates/cynic-channel`: Bounded async message channels with backpressure control.
-- `crates/cynic-discovery`: Local and remote peer discovery mechanisms.
-- `crates/cynic-discovery-host`: Host-level network discovery agent.
-- `crates/cynic-consensus`: Local consensus arbitration and voting logic.
-- `crates/cynic-workload`: Task queue dispatch and priority scheduling.
+### Quadrant F: Networking & Federation (L1/L2)
+- Transport primitives, discovery, and inter-node federation (`cynic-network`, `cynic-discovery`, `cynic-ssh`).
 
-### Quadrant G: Inference, Model Metrology & AI Tools
-- `crates/cynic-inference`: Local and remote LLM provider bindings with fallback cascades.
-- `crates/cynic-huggingface`: Tokenizer loading, weight management, and local inference execution.
-- `crates/cynic-mcp`: Model Context Protocol server exposing verified tools to agents.
+### Quadrant G: Inference & Agent Tools (L2)
+- Model catalog, inference bindings, fallback cascades, and tool server surfaces (`cynic-inference`, `cynic-mcp`).
 
-### Quadrant H: Developer Interface, Packaging & Version Control
-- `crates/cynic-cli`: Unified command-line interface with typed argument validation.
-- `crates/cynic-tui`: Terminal user interface for live observability and operator telemetry.
-- `crates/cynic-build`: Hermetic build orchestration, sccache tracking, and compiler safety.
-- `crates/cynic-pkg`: Packaging and dependency bundle verification.
-- `crates/cynic-release`: Release gating, changelog verification, and cryptographic signing.
-- `crates/cynic-vcs`: Version control primitives and branch policy enforcement.
-- `crates/cynic-vcs-providers`: Forgejo, GitHub, and remote git provider integrations.
-- `crates/cynic-domain-ops`: Domain-level operational automation.
+### Quadrant H: Developer Interface, Packaging & VCS (L3)
+- Unified CLI, TUI telemetry, build trigger orchestration, and multi-forge synchronization (`cynic-cli`, `cynic-tui`, `cynic-build`, `cynic-vcs`).
 
 ---
 

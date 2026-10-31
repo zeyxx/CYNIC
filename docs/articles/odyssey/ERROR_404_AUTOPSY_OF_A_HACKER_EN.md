@@ -29,11 +29,11 @@ I grew up in an average French suburb. Average income, average house, average sc
 
 In the middle of that structure sat me: the middle child (an older sister, a younger sister). Being number two in a sibling hierarchy builds a very specific survival engine: you are neither the firstborn carrying the weight of early expectations, nor the youngest being sheltered. You operate in the blind spot. You learn to observe in total silence, dissect micro-tensions, and map the emotional vulnerabilities of your surroundings to preempt chaos.
 
-Very early on, I realized my brain was not wired like everyone else's in the room. Unmedicated, undiagnosed hardcore ASD/AuDHD. Not a neat psychiatric label to make people comfortable, but the raw, abrasive reality of it: unfiltered sensory input, inverted social parsing, and a complete inability to participate in the hypocritical theater of neurotypical standards.
+Very early on, I realized my brain was not wired like everyone else's in the room. No medical paperwork confirms an official diagnosis today — a clinical evaluation only begins this month, in November 2026. But the observable mechanics are undeniable: compulsive hyperfocus, raw sensory overload, inverted social parsing, and a visceral inability to participate in the hypocritical theater of neurotypical standards.
 
 The world was architected by and for neurotypicals. If you refuse their linear tracks, you are marked as a defect. At 13, the idea of mowing lawns or doing conventional side jobs for pocket money made zero sense to my dopamine circuitry. 
 
-What stimulated my mind was the machine. Pushing Minecraft to its absolute FPS threshold, tearing down hardware, and then sinking into the competitive vortex of **Fortnite** (from Season 4 to Season 9). For an AuDHD brain, this was not just a game: it was high-speed cognitive conditioning. Endless nights shaving off milliseconds of input delay, editing walls at the speed of light, and hardwiring the ruthless logic of the Battle Royale: 100 players drop in, only one walks out. It was the primal blueprint of zero-sum PvP.
+What stimulated my mind was the machine. Pushing Minecraft to its absolute FPS threshold, tearing down hardware, and then sinking into the competitive vortex of **Fortnite** (from Season 4 to Season 9). For an atypical cognitive engine, this was not just a game: it was high-speed conditioning. Endless nights shaving off milliseconds of input delay, editing walls at the speed of light, and hardwiring the ruthless logic of the Battle Royale: 100 players drop in, only one walks out. It was the primal blueprint of zero-sum PvP.
 
 The machine did not lie. It carried no fake smiles and no implicit social double binds. It answered with pure logic.
 
@@ -69,7 +69,7 @@ The technical reality was far from the Hollywood myth. I was never a movie hacke
 
 It all started even earlier, cheating on Minecraft to feed an inferior ego (autoclickers, lightweight injected clients for reach and knockback). Then the underground exploration slid toward petty predation. On one hand: stolen databases, run through a Minecraft credential checker, to mass-loot the Hypixel Skyblock profiles of strangers and flip their items for scraps, barely eighty euros total. On the other, the rawest betrayal: using a password pattern a friend had once trusted me with to force my way into his account and strip his entire inventory with an accomplice. When he figured it out, I denied it. We laughed. That laugh was not joy: it was the moral anesthesia of a kid incapable of owning the betrayal of a friend. Thousands of hours of grind, destroyed for nothing, out of sheer vanity. But the boomerang always returns: what you sow in contempt, you eventually pay for in full.
 
-Above all, it was an unregulated casino. Watching data logs scroll past in real time. Hitting technical dead ends one night, then striking an unexpected vein of vulnerable configurations the next. And at the end of the wire: small crypto tips or digital trades for technically trivial work. My AuDHD brain had tasted the most potent variable reward loop on the internet: frictionless dopamine on tap, which instantly warped my relationship to the value of labor and the necessity of boundaries.
+Above all, it was an unregulated casino. Watching data logs scroll past in real time. Hitting technical dead ends one night, then striking an unexpected vein of vulnerable configurations the next. And at the end of the wire: small crypto tips or digital trades for technically trivial work. My dopamine circuitry had tasted the most potent variable reward loop on the internet: frictionless stimulation on tap, which instantly warped my relationship to the value of labor and the necessity of boundaries.
 
 Inevitably, the technical obsession skirted the underground: gray-market forums, Discord backchannels, easy digital cash, teenage rivalries behind disposable handles. But every crossed boundary carved a quiet rot into my conscience. The constant anxiety of hearing a knock at the door at dawn, the gnawing dissonance of knowing my comfort came at the expense of everyday people, the paranoia eating away at my sleep... I had integrated myself into the very machinery of predation I despised.
 
@@ -85,7 +85,7 @@ Whenever someone attempted to step past the comedy and connect with who I actual
 
 And to avoid confronting the shame of that recurring cowardice, my mind retreated into virtual consumption and digital anesthesia: existing by proxy behind glowing feeds to evade the friction of the real.
 
-In 2020, the COVID-19 lockdowns demolished my remaining physical guardrails. Confined eighteen hours a day to my bedroom in front of glowing screens, stripped of friction with the tactile world, my mind began spinning in a closed loop. It was within this total isolation that my first magical thinking and delusional narratives took root: deprived of physical embodiment, an overclocked AuDHD brain compensates for powerlessness by fabricating scenarios of imaginary omnipotence. The virtual had permanently superseded physical reality.
+In 2020, the COVID-19 lockdowns demolished my remaining physical guardrails. Confined eighteen hours a day to my bedroom in front of glowing screens, stripped of friction with the tactile world, my mind began spinning in a closed loop. It was within this total isolation that my first magical thinking and delusional narratives took root: deprived of physical embodiment, an overclocked mind in isolation compensates for powerlessness by fabricating scenarios of imaginary omnipotence. The virtual had permanently superseded physical reality.
 
 It was also fertile ground for conspiratorial rabbit holes across the web. When you suffer from a world you cannot decipher, the easiest escape is adopting lazy narratives: finding a convenient scapegoat, blaming a religious or ethnic group for pulling the strings just to give chaos an identifiable face. It took time and intellectual maturity to see through that dead end: predation and the impulse to dominate are not the hallmark of any specific group, but structural invariants of human nature whenever a centralized system grants power without verifiable checks.
 
@@ -355,7 +355,7 @@ All my life, I chased the **FLAG**. In cybersecurity, the “flag” is proof yo
 
 Yet on the other side of that wreckage lies the grace of radical acceptance: loving reality exactly as it presents itself. Refusing to curse the fire, pulling up a chair amidst the embers, wiping away the tears, and understanding that the inferno was never the end of the world: it was the experience required to forge the spine of a sovereign man.
 
-I finally set aside the defensive personas. I no longer try to erase my AuDHD wiring or how I dissect systems. But I have learned where that perspective belongs, and where it must stop.
+I finally set aside the defensive personas. I no longer try to erase my atypical wiring or how I dissect systems. But I have learned where that perspective belongs, and where it must stop.
 
 In my personal life (family, friends, loved ones, my own body), the hacking is over: no calculated evasions, no quiet lies to duck connection, just honesty and the willingness to take responsibility.
 
@@ -380,7 +380,7 @@ We held the line through the most volatile, predatory trenches on the internet. 
 
 Now, the mandate changes: **it is time to scale horizontally.**
 
-To the divergent minds, the AuDHD builders, the outliers suffocating inside the corporate and academic glass cages:
+To the divergent minds, the atypical builders, the outliers suffocating inside the corporate and academic glass cages:
 
 **Quit Game Mode 3.**
 For the cynics lounging on their couches repeating that *“nothing ever happens,”* reality will always remain an immobile fiction. But for those with their hands on the keyboard, history is written in real time. Stop spectating your own lives. Drop the social masking. Throw your raw intensity directly into the compiler.
