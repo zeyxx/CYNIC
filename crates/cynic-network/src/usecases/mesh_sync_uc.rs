@@ -30,7 +30,7 @@ impl<A: MeshAdapter, S: MeshStateProvider> MeshSyncUseCase<A, S> {
         self.adapter
             .initialize_interface(&self.local_ip, &self.private_key)?;
 
-        // 2. Fetch the true state of the organism from SSoT
+        // 2. Fetch the true state of the network from SSoT
         let peers = self.state_provider.fetch_known_peers().await?;
 
         // 3. Build the Domain Entity

@@ -3,7 +3,7 @@
 //! 1. Citizen & Node identities (`citizens`, `nodes`)
 //! 2. Mandates & Offices (`mandates`)
 //! 3. Coordination & Claims (`claims`)
-//! 4. Metabolism & Invoices (`invoices`)
+//! 4. Throughput & Invoices (`invoices`)
 //! 5. Evidence & Runtime Proofs (`proofs`)
 //! 6. Unformalized Matter (`envelopes`)
 
@@ -279,7 +279,7 @@ impl BookEntry for cynic_protocol::agent_coordination::Claim {
     }
 }
 
-// 4. Metabolism & Invoices
+// 4. Throughput & Invoices
 impl BookEntry for cynic_protocol::throughput_invoice::ThroughputInvoice {
     fn schema_uri() -> &'static str {
         cynic_protocol::throughput_invoice::THROUGHPUT_INVOICE_SCHEMA

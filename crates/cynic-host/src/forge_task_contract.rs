@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 const FORGE_CONTRACT_FIELDS: [&str; 5] = [
-    "orchestrator_organ",
+    "orchestrator_system",
     "build_runner_role",
     "deploy_target_role",
     "build_target",
@@ -14,7 +14,7 @@ pub fn validate_repo_affecting_hermes_task(
     content: &str,
     registry: Option<&Value>,
 ) -> Result<(), String> {
-    if kind != "hermes" || !matches!(domain, "organ-forge" | "repo-lifecycle") {
+    if kind != "hermes" || !matches!(domain, "system-forge" | "repo-lifecycle") {
         return Ok(());
     }
 
@@ -58,7 +58,7 @@ pub fn validate_forge_lifecycle_contract(
         return Ok(());
     };
 
-    require_registry_match(parsed, lifecycle, "orchestrator_organ")?;
+    require_registry_match(parsed, lifecycle, "orchestrator_system")?;
     require_registry_match(parsed, lifecycle, "build_runner_role")?;
     require_registry_match(parsed, lifecycle, "deploy_target_role")?;
     require_registry_json_match(parsed, lifecycle, "runtime_paths")?;

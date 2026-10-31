@@ -13,7 +13,7 @@ pub struct PeerIdentity {
     pub endpoint: Option<String>,
 }
 
-/// The organism's mesh topology.
+/// The system's mesh topology.
 #[derive(Debug, Clone)]
 pub struct MeshTopology {
     pub network_cidr: String,

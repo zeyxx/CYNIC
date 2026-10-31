@@ -263,7 +263,7 @@ pub trait BuildRunnerPort {
     fn observe_runner(&self) -> RunnerHealth;
 }
 
-/// Aggregate pipeline proofs for one commit into a metabolic invoice.
+/// Aggregate pipeline proofs for one commit into a throughput invoice.
 pub fn invoice_from_proofs(
     source_commit: &str,
     proofs: &[BuildProofBundle],
