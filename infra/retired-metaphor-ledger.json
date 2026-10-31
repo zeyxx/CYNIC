@@ -403,82 +403,10 @@
       "terms": "organ"
     },
     {
-      "count": 5,
-      "evidence": "crates/cynic-kernel/src/infra/config/mod.rs:13",
-      "path": "crates/cynic-kernel/src/infra/config/mod.rs",
-      "terms": "organ, Dog, Organ"
-    },
-    {
-      "count": 4,
-      "evidence": "crates/cynic-kernel/src/infra/config/model.rs:3",
-      "path": "crates/cynic-kernel/src/infra/config/model.rs",
-      "terms": "Dog, Organ"
-    },
-    {
-      "count": 9,
-      "evidence": "crates/cynic-kernel/src/infra/config_loader/backend.rs:5",
-      "path": "crates/cynic-kernel/src/infra/config_loader/backend.rs",
-      "terms": "Organs, Organ, organ, organs"
-    },
-    {
-      "count": 11,
-      "evidence": "crates/cynic-kernel/src/infra/config_schema.rs:10",
-      "path": "crates/cynic-kernel/src/infra/config_schema.rs",
-      "terms": "organic, dog, dogs, Dog, Organs, organs, Organ"
-    },
-    {
-      "count": 22,
-      "evidence": "crates/cynic-kernel/src/infra/config_types.rs:8",
-      "path": "crates/cynic-kernel/src/infra/config_types.rs",
-      "terms": "Dog, Dogs, dog, organic, dogs, organ, organs, Organ"
-    },
-    {
-      "count": 16,
-      "evidence": "crates/cynic-kernel/src/storage/schema_manifest.json:33",
-      "path": "crates/cynic-kernel/src/storage/schema_manifest.json",
-      "terms": "dog, organism, Dog, organ, Organism, dogs, organs"
-    },
-    {
       "count": 3,
       "evidence": "crates/cynic-knowledge/src/domain/chunk_quality.rs:48",
       "path": "crates/cynic-knowledge/src/domain/chunk_quality.rs",
       "terms": "organic"
-    },
-    {
-      "count": 2,
-      "evidence": "crates/cynic-lifecycle/src/activation_requests/summary.rs:114",
-      "path": "crates/cynic-lifecycle/src/activation_requests/summary.rs",
-      "terms": "organ"
-    },
-    {
-      "count": 2,
-      "evidence": "crates/cynic-lifecycle/src/activation_requests/validation.rs:71",
-      "path": "crates/cynic-lifecycle/src/activation_requests/validation.rs",
-      "terms": "organ"
-    },
-    {
-      "count": 5,
-      "evidence": "crates/cynic-lifecycle/src/diagnostics.rs:283",
-      "path": "crates/cynic-lifecycle/src/diagnostics.rs",
-      "terms": "organ"
-    },
-    {
-      "count": 4,
-      "evidence": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs:11",
-      "path": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs",
-      "terms": "organ"
-    },
-    {
-      "count": 1,
-      "evidence": "crates/cynic-lifecycle/src/repair.rs:82",
-      "path": "crates/cynic-lifecycle/src/repair.rs",
-      "terms": "organism"
-    },
-    {
-      "count": 5,
-      "evidence": "crates/cynic-lifecycle/src/workflow_state.rs:3",
-      "path": "crates/cynic-lifecycle/src/workflow_state.rs",
-      "terms": "organ"
     },
     {
       "count": 2,
