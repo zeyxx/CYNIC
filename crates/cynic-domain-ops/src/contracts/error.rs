@@ -4,7 +4,7 @@
 //! proof construction, and validation. Uses `thiserror` for ergonomic
 //! error chains.
 
-use cynic_protocol::domain_ops::{DOMAIN_OPS_DESIRED_STATE_SCHEMA, DOMAIN_OPS_PROOF_SCHEMA};
+use crate::domain::{DOMAIN_OPS_DESIRED_STATE_SCHEMA, DOMAIN_OPS_PROOF_SCHEMA};
 
 /// Error type for domain operations contract parsing and validation.
 #[derive(Debug, thiserror::Error)]
@@ -37,7 +37,7 @@ pub enum DomainOpsError {
     #[error("missing idempotency key for operation '{operation:?}' on domain '{domain}'")]
     MissingIdempotencyKey {
         domain: String,
-        operation: cynic_protocol::domain_ops::DomainOperation,
+        operation: crate::domain::DomainOperation,
     },
 }
 

@@ -9,7 +9,7 @@ use crate::{DnsAuthorityPort, EdgeProbePort, SecretProvider as SecretProviderPor
 pub mod error;
 
 pub use error::CloudflareError;
-use cynic_protocol::domain_ops::*;
+use crate::domain::*;
 use cynic_protocol::secret_reference::SecretReference;
 use reqwest::blocking::Client;
 use serde::Deserialize;

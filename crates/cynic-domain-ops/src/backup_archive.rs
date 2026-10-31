@@ -4,7 +4,7 @@
 //! Cloudflare record write) to capture pre-state for rollback/reconciliation.
 
 use crate::backup_log::{DomainProofKind, DomainProofLog};
-use cynic_protocol::domain_ops::DOMAIN_OPS_PROOF_SCHEMA;
+use crate::domain::DOMAIN_OPS_PROOF_SCHEMA;
 
 /// Archive a zone backup to the proof log.
 ///

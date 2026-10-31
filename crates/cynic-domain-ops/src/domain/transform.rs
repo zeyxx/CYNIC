@@ -11,7 +11,7 @@
 //! the registrar adapter, not here — the domain layer only sees normalized
 //! `DnsRecordShape` entries.
 
-use cynic_protocol::domain_ops::{
+use crate::domain::{
     DnsRecordShape, DnsRecordType, ProxyMode, ProxyPolicy, resolve_proxy_flag,
 };
 
@@ -118,7 +118,7 @@ pub fn transform_record_for_cloudflare(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::domain_ops::DnsRecordType;
+    use crate::domain::DnsRecordType;
 
     fn sample_record(name: &str, r#type: DnsRecordType) -> DnsRecordShape {
         DnsRecordShape {

@@ -8,7 +8,7 @@
 //! Canonical hashing is SHA-256 per foundation.json (T13 flip), with the
 //! `sha256:` prefix.
 
-use cynic_protocol::domain_ops::DomainOperation;
+use crate::domain::DomainOperation;
 
 /// Generate a deterministic idempotency key for a domain operation.
 ///
@@ -42,7 +42,7 @@ fn operation_as_str(op: DomainOperation) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::domain_ops::DomainOperation;
+    use crate::domain::DomainOperation;
 
     #[test]
     fn idempotency_key_is_deterministic() {

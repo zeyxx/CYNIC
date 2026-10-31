@@ -8,7 +8,7 @@
 //! stdin, registry) and the pure domain layer. All external input
 //! must pass through `parse_desired_state` before reaching the runner.
 
-use cynic_protocol::domain_ops::{
+use crate::domain::{
     DOMAIN_OPS_DESIRED_STATE_SCHEMA, DomainOpsDesiredState, EdgeProbeSpec, ProviderConfig,
     ProxyPolicy,
 };
@@ -36,7 +36,7 @@ pub fn parse_desired_state(json: &str) -> Result<DomainOpsDesiredState, DomainOp
     }
 
     // Domain name validation
-    if let Err(reason) = cynic_protocol::domain_ops::validate_domain_name(&state.domain) {
+    if let Err(reason) = crate::domain::validate_domain_name(&state.domain) {
         return Err(DomainOpsError::InvalidDomain {
             domain: state.domain,
             reason,
@@ -87,7 +87,7 @@ fn validate_edge_probe(probe: &EdgeProbeSpec) -> Result<(), DomainOpsError> {
 
     // FQDN must be a valid domain or subdomain (strip trailing dot if present)
     let fqdn = probe.fqdn.trim_end_matches('.');
-    if let Err(reason) = cynic_protocol::domain_ops::validate_domain_name(fqdn) {
+    if let Err(reason) = crate::domain::validate_domain_name(fqdn) {
         // Allow bare hostnames by checking if it's at least non-empty and
         // contains valid characters — but for DNS, we require a dot.
         return Err(DomainOpsError::EdgeProbe(format!(
@@ -108,7 +108,7 @@ fn validate_proxy_policy(policy: &ProxyPolicy) -> Result<(), DomainOpsError> {
     // the resolver will silently downgrade them.
     if matches!(
         policy.mail_records,
-        cynic_protocol::domain_ops::ProxyMode::Proxied
+        crate::domain::ProxyMode::Proxied
     ) {
         return Err(DomainOpsError::ProxyPolicy(
             "mail_records cannot be Proxied (Cloudflare does not proxy MX)".to_string(),
@@ -117,7 +117,7 @@ fn validate_proxy_policy(policy: &ProxyPolicy) -> Result<(), DomainOpsError> {
 
     if matches!(
         policy.verification_records,
-        cynic_protocol::domain_ops::ProxyMode::Proxied
+        crate::domain::ProxyMode::Proxied
     ) {
         return Err(DomainOpsError::ProxyPolicy(
             "verification_records cannot be Proxied (TXT/SPF/DKIM)".to_string(),
@@ -126,7 +126,7 @@ fn validate_proxy_policy(policy: &ProxyPolicy) -> Result<(), DomainOpsError> {
 
     if matches!(
         policy.dnssec_records,
-        cynic_protocol::domain_ops::ProxyMode::Proxied
+        crate::domain::ProxyMode::Proxied
     ) {
         return Err(DomainOpsError::ProxyPolicy(
             "dnssec_records cannot be Proxied (DS/CAA are DNS-only)".to_string(),
@@ -145,7 +145,7 @@ pub fn desired_state_to_json(state: &DomainOpsDesiredState) -> Result<String, Do
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::domain_ops::ProxyMode;
+    use crate::domain::ProxyMode;
 
     fn valid_desired_state_json() -> String {
         r#"{

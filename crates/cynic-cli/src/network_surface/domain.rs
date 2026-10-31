@@ -21,7 +21,7 @@ use cynic_domain_ops::{
     env_secret, parse_desired_state, run_domain_ops, CloudflareClient, DnsAuthorityPort,
     EdgeProbePort, PorkbunRegistrar,
 };
-use cynic_protocol::domain_ops::ProofStatus;
+use cynic_domain_ops::ProofStatus;
 use cynic_secrets::CompositeSecretProvider;
 
 use crate::network_surface::NetworkCommand;

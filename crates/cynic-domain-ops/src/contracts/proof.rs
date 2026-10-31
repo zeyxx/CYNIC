@@ -4,7 +4,7 @@
 //! with deterministic idempotency keys and machine-readable JSON output
 //! suitable for archiving in `cynic-askesis`.
 
-use cynic_protocol::domain_ops::{
+use crate::domain::{
     DOMAIN_OPS_PROOF_SCHEMA, DomainOperation, DomainOperationProof, ProofStatus,
 };
 
@@ -131,7 +131,7 @@ pub fn violation_proof(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::domain_ops::{DomainOperation, ProofStatus};
+    use crate::domain::{DomainOperation, ProofStatus};
 
     #[test]
     fn build_success_proof_roundtrips() {

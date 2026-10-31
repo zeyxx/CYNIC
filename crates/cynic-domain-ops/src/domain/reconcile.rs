@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use cynic_protocol::domain_ops::{DnsRecordShape, DnsRecordType, ProxyPolicy, ZoneRecordDiff};
+use crate::domain::{DnsRecordShape, DnsRecordType, ProxyPolicy, ZoneRecordDiff};
 
 use crate::domain::transform::{TransformResult, transform_record_for_cloudflare};
 
@@ -161,7 +161,7 @@ pub fn detect_conflict_between(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::domain_ops::DnsRecordShape;
+    use crate::domain::DnsRecordShape;
 
     fn record(name: &str, r#type: DnsRecordType, content: &str, proxied: bool) -> DnsRecordShape {
         DnsRecordShape {

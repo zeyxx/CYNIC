@@ -25,7 +25,7 @@ use crate::domain::{
 };
 use crate::port::{DnsAuthorityPort, EdgeProbePort, RegistrarPort, SecretProvider};
 
-use cynic_protocol::domain_ops::*;
+use crate::domain::*;
 
 /// Current Unix timestamp in seconds.
 /// Returns 0 if the system clock is before the epoch (defensive fallback).
@@ -450,7 +450,7 @@ mod tests {
     use crate::adapters::memory::{
         MemoryCloudflare, MemoryEdgeProbe, MemoryRegistrar, MemorySecretProvider,
     };
-    use cynic_protocol::domain_ops::DnsRecordType;
+    use crate::domain::DnsRecordType;
 
     fn desired_state(
         domain: &str,
