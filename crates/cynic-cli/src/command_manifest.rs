@@ -286,6 +286,10 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic source divergence [--root <path>] [--json]",
                     "cynic source mirrors [--json]",
                     "cynic source receipt verify [--path <path>] [--json]",
+                    "cynic source git branch graph [--json]",
+                    "cynic source git branch status [--root <path>] [--json]",
+                    "cynic source git reconcile [--root <path>] [--json]",
+                    "cynic source git hygiene [--root <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -296,15 +300,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic storage query --sql <surrealql> [--endpoint <url>] [--json]",
                     "cynic storage capabilities [--url <url>] [--json]",
                     "cynic storage credential [--endpoint <url>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "git",
-                commands: vec![
-                    "cynic git branch graph [--json]",
-                    "cynic git branch status [--root <path>] [--json]",
-                    "cynic git reconcile [--root <path>] [--json]",
-                    "cynic git hygiene [--root <path>] [--json]",
                 ],
             },
             CommandDomain {
