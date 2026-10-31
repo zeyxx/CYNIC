@@ -536,7 +536,8 @@ mod tests {
             desired_state: desired,
         };
 
-        assert!(admit_runtime_release(&declaration, &delivery).admitted);
+        let adm = admit_runtime_release(&declaration, &delivery);
+        assert!(adm.admitted, "violations: {:?}", adm.violations);
 
         let mut forged = declaration;
         forged.desired_state.release.build_proof_digest = format!("sha256:{}", "f".repeat(64));

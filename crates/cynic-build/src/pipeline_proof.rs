@@ -399,7 +399,7 @@ mod tests {
         assert_eq!(invoice.proofs_invoiced, 2);
         assert_eq!(invoice.total.wall_time_ms, 3500);
         assert_eq!(invoice.total.cpu_ms, None);
-        assert_eq!(invoice.residual_unknowns.len(), 1);
+        assert_eq!(invoice.residual_unknowns.len(), 2);
     }
 
     #[test]
