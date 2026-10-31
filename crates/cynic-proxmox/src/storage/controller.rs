@@ -337,7 +337,7 @@ pub fn validate_storage_controller_record(record: &StorageControllerRecord) -> V
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::lifecycle::{
+    use crate::storage::lifecycle::{
         STORAGE_OBSERVATION_SCHEMA, STORAGE_PLAN_SCHEMA, StorageDecision,
     };
     #[test]

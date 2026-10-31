@@ -237,12 +237,13 @@ mod tests {
 
     struct FakeBuildRunner;
     impl cynic_build::BuildRunner for FakeBuildRunner {
-        fn run(&self, _argv: &[String]) -> Result<cynic_build::BuildCommandOutput, String> {
-            Ok(cynic_build::BuildCommandOutput {
-                exit_code: 0,
+        fn run_command(&self, _argv: &[&str]) -> cynic_build::BuildCommandOutput {
+            cynic_build::BuildCommandOutput {
+                exit_code: Some(0),
                 stdout: String::new(),
                 stderr: String::new(),
-            })
+                spawn_error: None,
+            }
         }
     }
 
