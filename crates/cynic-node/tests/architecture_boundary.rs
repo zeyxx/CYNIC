@@ -540,43 +540,55 @@ fn network_mesh_plan_reads_registry_through_a_port() {
 #[test]
 fn network_mesh_bundle_writes_through_a_port() {
     let root = crate_root();
-    let bundle = fs::read_to_string(root.join("src/network_mesh_bundle.rs"))
-        .expect("read network_mesh_bundle.rs");
-    let port = fs::read_to_string(root.join("src/ports/network_mesh_bundle_writer_port.rs"))
-        .expect("read ports/network_mesh_bundle_writer_port.rs");
-    let adapter =
-        fs::read_to_string(root.join("src/adapters/local_network_mesh_bundle_writer/mod.rs"))
-            .expect("read adapters/local_network_mesh_bundle_writer/mod.rs");
+    // Mesh bundle generation is delegated directly to cynic-network (L1).
+    // cynic-node must NOT own a mesh bundle facade, writer port, or writer adapter.
+    assert!(
+        !root.join("src/network_mesh_bundle.rs").exists(),
+        "cynic-node must not own a network_mesh_bundle facade; delegate to cynic-network"
+    );
+    assert!(
+        !root.join("src/ports/network_mesh_bundle_writer_port.rs").exists(),
+        "cynic-node must not own a mesh bundle writer port; cynic-network owns it"
+    );
+    assert!(
+        !root.join("src/adapters/local_network_mesh_bundle_writer/mod.rs").exists(),
+        "cynic-node must not own a local mesh bundle writer adapter; cynic-network owns it"
+    );
 
+    let lib_rs = fs::read_to_string(root.join("src/lib.rs")).expect("read lib.rs");
     assert!(
-        bundle.lines().count() <= 240
-            && bundle.contains("build_network_mesh_bundle_with_writer")
-            && bundle.contains("LocalNetworkMeshBundleWriter")
-            && bundle.contains("NetworkMeshBundleWriterPort"),
-        "network_mesh_bundle.rs must stay a thin bundle projection surface"
+        !lib_rs.contains("pub mod network_mesh_bundle;"),
+        "lib.rs must not declare network_mesh_bundle module"
     );
-    for forbidden in ["use std::fs;", "fs::create_dir_all", "fs::write("] {
-        assert!(
-            !bundle.contains(forbidden),
-            "network_mesh_bundle.rs must not own direct filesystem writes: {forbidden}"
-        );
-    }
+
+    let adapters_mod = fs::read_to_string(root.join("src/adapters/mod.rs")).expect("read adapters/mod.rs");
     assert!(
-        port.contains("pub(crate) trait NetworkMeshBundleWriterPort")
-            && port.contains("fn create_dir_all")
-            && port.contains("fn write_string"),
-        "mesh bundle writing must expose a dedicated writer port"
+        !adapters_mod.contains("local_network_mesh_bundle_writer"),
+        "adapters/mod.rs must not declare local_network_mesh_bundle_writer"
     );
+
+    let ports_mod = fs::read_to_string(root.join("src/ports/mod.rs")).expect("read ports/mod.rs");
     assert!(
-        adapter.contains("impl NetworkMeshBundleWriterPort for LocalNetworkMeshBundleWriter")
-            && adapter.contains("fs::create_dir_all")
-            && adapter.contains("fs::write"),
-        "local mesh bundle filesystem writes must live in the local adapter"
+        !ports_mod.contains("network_mesh_bundle_writer_port"),
+        "ports/mod.rs must not declare network_mesh_bundle_writer_port"
     );
-    let tests = bundle.split("#[cfg(test)]").nth(1).unwrap_or_default();
+
+    // Consumers delegate to cynic-network directly.
+    let cli_exec = fs::read_to_string(
+        root.join("../cynic-cli/src/network_surface/execution.rs"),
+    )
+    .expect("read cynic-cli execution.rs");
     assert!(
-        tests.contains("RecordingBundleWriter") && tests.contains("/virtual/bundle"),
-        "network mesh bundle tests must prove substituted writer usage"
+        cli_exec.contains("cynic_network::build_network_mesh_bundle")
+            && !cli_exec.contains("cynic_node::network_mesh_bundle"),
+        "cynic-cli must call cynic_network::build_network_mesh_bundle directly"
+    );
+
+    let apply_plan = fs::read_to_string(root.join("src/network_mesh_apply_plan.rs"))
+        .expect("read network_mesh_apply_plan.rs");
+    assert!(
+        apply_plan.contains("cynic_network::build_network_mesh_bundle"),
+        "network_mesh_apply_plan must delegate to cynic_network::build_network_mesh_bundle"
     );
 }
 

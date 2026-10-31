@@ -464,7 +464,6 @@ use cynic_node::network_actuator;
 use cynic_node::network_actuator_status;
 use cynic_node::network_evidence;
 use cynic_node::network_mesh_apply_plan;
-use cynic_node::network_mesh_bundle;
 use cynic_node::network_mesh_plan;
 use cynic_node::network_runtime_status;
 use cynic_node::network_shadow_proof;
@@ -805,7 +804,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             registry,
             provider,
             output_dir,
-        } => match network_mesh_bundle::build_network_mesh_bundle(
+        } => match cynic_network::build_network_mesh_bundle(
             registry,
             provider.as_deref(),
             output_dir,
