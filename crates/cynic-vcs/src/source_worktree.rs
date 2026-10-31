@@ -5,6 +5,7 @@
 
 use crate::runner::ArgvRunner;
 use std::path::{Path, PathBuf};
+use std::fs;
 
 use serde::{Deserialize, Serialize};
 
@@ -855,7 +856,7 @@ fn report(
 }
 
 #[cfg(test)]
-mod tests {
+mod materialization_tests {
     use super::*;
     use cynic_process::{ArgvOutput, MapArgvRunner};
 
@@ -871,7 +872,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let source = temp.path().join("source");
         let target = temp.path().join("worktree");
-        std::fs::create_dir_all(source.join(".git")).unwrap();
+        fs::create_dir_all(source.join(".git")).unwrap();
         let request = SourceWorktreeMaterializationRequest {
             repository_id: "cynic".into(),
             worktree_id: "agent-a".into(),
