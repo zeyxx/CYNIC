@@ -46,7 +46,7 @@ use cynic_node_protocol::PreOsPlatformObservation;
 // Re-exported from cynic-protocol (canonical home of the pure ports).
 pub use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 // Re-exported from cynic-protocol (canonical home of the pure port).
-pub use cynic_protocol::host_substrate::remote_execution::RemoteExecutionPort;
+pub use crate::host_substrate::remote_execution::RemoteExecutionPort;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

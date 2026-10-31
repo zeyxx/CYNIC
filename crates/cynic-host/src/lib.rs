@@ -41,6 +41,7 @@ pub mod harness_progression;
 pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;
+pub mod host_substrate;
 mod identity_database;
 pub mod inference_observation;
 pub mod install_contract;

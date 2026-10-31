@@ -383,3 +383,66 @@ impl AuditRule for OwnershipRule {
         violations
     }
 }
+
+pub struct HostProbeLeakRule;
+
+impl AuditRule for HostProbeLeakRule {
+    fn spec(&self) -> AuditRuleSpec {
+        AuditRuleSpec {
+            id: "HOST-001".to_string(),
+            name: "host_probe_leak".to_string(),
+            description: "System probe literals must not leak outside cynic-host.".to_string(),
+            category: AuditCategory::Boundary,
+            severity: AuditSeverity::Warning,
+            automated_remediation_available: false,
+        }
+    }
+
+    fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
+        let mut violations = Vec::new();
+        let probes = ["/proc/meminfo", "/proc/cpuinfo", "/proc/pressure/memory", "/proc/pressure/cpu"];
+
+        for file in &index.rust_files {
+            if file.relative_path.starts_with("crates/cynic-host/") {
+                continue;
+            }
+            if file.relative_path.contains("test")
+                || file.relative_path.contains("adapters")
+                || file.relative_path.contains("audit_engine")
+            {
+                continue;
+            }
+
+            for (idx, line) in file.content.lines().enumerate() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+                for probe in probes {
+                    if line.contains(probe) {
+                        violations.push(AuditViolation {
+                            code: "HOST-001-PROBE-LEAK".to_string(),
+                            message: format!(
+                                "File {} contains direct system probe leak: {}",
+                                file.relative_path, probe
+                            ),
+                            severity: AuditSeverity::Warning,
+                            category: AuditCategory::Boundary,
+                            span: Some(AuditSpan {
+                                file_path: file.relative_path.clone(),
+                                line_start: idx + 1,
+                                line_end: idx + 1,
+                                snippet: Some(trimmed.to_string()),
+                            }),
+                            remediation: Some(
+                                "Move system probe to crates/cynic-host/.".to_string(),
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+
+        violations
+    }
+}
