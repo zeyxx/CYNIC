@@ -11,9 +11,9 @@ use cynic_vcs::source_worktree_lease_target;
 use serde::Serialize;
 
 use crate::source_control::{SourceWorktreeObservation, observe_source_worktree};
-use crate::source_lease::SourceLeaseVerifier;
+use cynic_vcs::source_lease::SourceLeaseVerifier;
 #[cfg(test)]
-use crate::source_lease::UnavailableSourceLeaseVerifier;
+use cynic_vcs::source_lease::UnavailableSourceLeaseVerifier;
 use cynic_process::ArgvRunner;
 
 pub const SOURCE_WORKTREE_REPORT_SCHEMA: &str = "cynic.host.source_worktree_report.v1";

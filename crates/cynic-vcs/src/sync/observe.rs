@@ -172,17 +172,11 @@ struct RemoteIdentity {
     repository: String,
 }
 
-/// Sovereign identity from the registry authority via
-/// `repo_access::load_forgejo_desired_state` (host parsed from the desired
-/// SSH URL, user portion is redacted and ignored).
-fn sovereign_identity(root: &Path) -> Option<RemoteIdentity> {
-    let desired = crate::repo_access::load_forgejo_desired_state(root).ok()?;
-    let host = url_host(&desired.git_ssh_url)?;
-    Some(RemoteIdentity {
-        host,
-        owner: desired.owner,
-        repository: desired.repository,
-    })
+/// Sovereign identity is resolved by the host substrate (registry authority).
+/// `cynic-vcs` (L2) does not perform host I/O; the heuristic fallback in
+/// `resolve_layer_remote` classifies sovereign remotes by host name instead.
+fn sovereign_identity(_root: &Path) -> Option<RemoteIdentity> {
+    None
 }
 
 /// Relay identity from `infra/repo-remotes.json` (`role == "public_relay"`).

@@ -21,7 +21,7 @@ fn observe_build_proof(sha: &str) -> cynic_release::build_proof::BuildProofObser
 }
 
 pub(crate) fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> ExitCode {
-    let observation = cynic_host::source_sync::observe_all_layers(root);
+    let observation = cynic_vcs::sync::observe_all_layers(root);
     let mut proofs = cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs(root);
 
     let head_sha = cynic_vcs::observe_head_sha(root);
