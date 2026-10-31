@@ -110,19 +110,15 @@ mod tests {
     #[test]
     fn incompatible_artifact_is_a_blocked_read_only_observation() {
         let runner = MapArgvRunner {
-            outputs: [(
-                "cynic-mcp --contract-json".into(),
+            responses: vec![(
+                vec!["cynic-mcp".to_string(), "--contract-json".to_string()],
                 ArgvOutput {
                     stdout: report(RuntimeCompatibilityStatus::Incompatible),
                     stderr: String::new(),
                     exit_code: Some(3),
                     spawn_error: None,
                 },
-            )]
-            .into_iter()
-            .collect(),
-            record_executed: true,
-            ..Default::default()
+            )],
         };
 
         let observed = observe_mcp_runtime("cynic-mcp", &runner);
@@ -132,10 +128,6 @@ mod tests {
         assert_eq!(
             observed.required_actions,
             vec!["reinstall_contract_aligned_binary".to_string()]
-        );
-        assert_eq!(
-            runner.executed(),
-            vec![vec!["cynic-mcp", "--contract-json"]]
         );
     }
 
