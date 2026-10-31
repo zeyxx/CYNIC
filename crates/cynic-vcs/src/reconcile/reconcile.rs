@@ -13,6 +13,7 @@ use crate::{SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservatio
 /// Reconciles observed worktrees against desired main head.
 pub fn reconcile_source_worktrees(
     repository_root: &Path,
+    workspace_store: &Path,
     inventory: &SourceWorktreeInventoryObservation,
     main_head_sha: &str,
     _active_claims_count: usize,
@@ -37,13 +38,7 @@ pub fn reconcile_source_worktrees(
             entry
                 .relative_path
                 .as_deref()
-                .map(|r| {
-                    let ws_dir = std::env::var_os("HOME")
-                        .map(|h| PathBuf::from(h).join(".workspace"))
-                        .filter(|p| p.exists())
-                        .unwrap_or_else(|| PathBuf::from("/tmp/cynic-workspaces"));
-                    ws_dir.join(r)
-                })
+                .map(|r| workspace_store.join(r))
                 .unwrap_or_else(|| PathBuf::from(&entry.candidate_id))
         };
 
@@ -120,7 +115,13 @@ mod tests {
             observation_unknowns: vec![],
         };
 
-        let plan = reconcile_source_worktrees(repo_root, &inventory, "main-sha-000", 1);
+        let plan = reconcile_source_worktrees(
+            repo_root,
+            Path::new("/tmp/cynic-workspaces"),
+            &inventory,
+            "main-sha-000",
+            1,
+        );
         assert_eq!(plan.summary.safe_prune_ready_count, 1);
         assert_eq!(plan.actions.len(), 1);
         match &plan.actions[0] {

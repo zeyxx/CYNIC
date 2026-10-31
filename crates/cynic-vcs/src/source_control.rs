@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::fs;
 
 use crate::ports::RepoAccessPort;
 use crate::source_lease::SourceLeaseVerifier;
@@ -550,12 +551,12 @@ pub fn observe_source_worktree(
         .map(str::to_string)
         .or_else(|| std::env::var("CYNIC_RUNTIME_PRINCIPAL").ok())
         .unwrap_or_else(|| "cynic".to_string());
-    let root_metadata = std::fs::metadata(root).ok();
+    let root_metadata = fs::metadata(root).ok();
     let git_marker = root.join(".git");
     let git_dir = if git_marker.is_dir() {
         Some(git_marker.clone())
     } else {
-        std::fs::read_to_string(&git_marker)
+        fs::read_to_string(&git_marker)
             .ok()
             .and_then(|value| {
                 value
@@ -615,7 +616,7 @@ pub fn observe_source_worktree(
 }
 
 #[cfg(unix)]
-fn owner_group_mode(metadata: &std::fs::Metadata) -> (Option<String>, Option<String>, Option<u32>) {
+fn owner_group_mode(metadata: &fs::Metadata) -> (Option<String>, Option<String>, Option<u32>) {
     use std::os::unix::fs::MetadataExt;
     let uid = metadata.uid();
     let gid = metadata.gid();
@@ -628,14 +629,14 @@ fn owner_group_mode(metadata: &std::fs::Metadata) -> (Option<String>, Option<Str
 
 #[cfg(not(unix))]
 fn owner_group_mode(
-    _metadata: &std::fs::Metadata,
+    _metadata: &fs::Metadata,
 ) -> (Option<String>, Option<String>, Option<u32>) {
     (None, None, None)
 }
 
 #[cfg(unix)]
 fn passwd_name(id: u32) -> Option<String> {
-    std::fs::read_to_string("/etc/passwd")
+    fs::read_to_string("/etc/passwd")
         .ok()?
         .lines()
         .find_map(|line| {
@@ -647,7 +648,7 @@ fn passwd_name(id: u32) -> Option<String> {
 
 #[cfg(unix)]
 fn group_name(id: u32) -> Option<String> {
-    std::fs::read_to_string("/etc/group")
+    fs::read_to_string("/etc/group")
         .ok()?
         .lines()
         .find_map(|line| {
@@ -998,7 +999,7 @@ struct SourceLock {
 
 impl SourceLock {
     fn acquire(path: &Path) -> Result<Self, String> {
-        use std::fs::OpenOptions;
+        use fs::OpenOptions;
         OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -1012,7 +1013,7 @@ impl SourceLock {
 
 impl Drop for SourceLock {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
+        let _ = fs::remove_file(&self.path);
     }
 }
 
