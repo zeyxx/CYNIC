@@ -10,9 +10,7 @@ use crate::ports::build_runner::{
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
-use cynic_build::build_disk_capacity::{
-    DiskCapacityDecision, decide_disk_capacity, parse_df_available_bytes,
-};
+use cynic_build::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
 /// Minimal argv command runner (no shell composition).
@@ -329,7 +327,7 @@ impl BuildRunnerPort for SshBuildRunner {
                 return Err(BuildError::RunnerUnreachable(e.clone()));
             }
             let available = if df.success() {
-                parse_df_available_bytes(&df.stdout, &checkout_base)
+                cynic_host::domain::disk::parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
             } else {
                 None
             };
@@ -639,7 +637,7 @@ impl SshBuildRunner {
         if !out.success() {
             return None;
         }
-        cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
+        cynic_host::domain::memory::parse_free_available_bytes(&out.stdout)
     }
 
     /// State root reported by the runner itself (`cynic runtime paths
@@ -687,7 +685,7 @@ impl SshBuildRunner {
         if !df.success() {
             return None;
         }
-        parse_df_available_bytes(&df.stdout, &checkout_base)
+        cynic_host::domain::disk::parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
     }
 
     /// Total RAM bytes from the same `free -b` probe. `None` on any
@@ -698,7 +696,7 @@ impl SshBuildRunner {
         if !out.success() {
             return None;
         }
-        cynic_protocol::capacity::parse_mem_total_bytes(&out.stdout)
+        cynic_host::domain::memory::parse_free_total_bytes(&out.stdout)
     }
 
     /// Bounded remediation `gc-disk`: empty the runner-declared sccache dir.

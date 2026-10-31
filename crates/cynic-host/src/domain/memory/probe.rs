@@ -119,6 +119,16 @@ pub fn parse_free_output(text: &str) -> Result<(MemoryUsage, MemoryUsage), Strin
     Ok((mem, swp))
 }
 
+/// Parse `free` output into available bytes, delegating to [`parse_free_output`].
+pub fn parse_free_available_bytes(text: &str) -> Option<u64> {
+    parse_free_output(text).ok().map(|(mem, _)| mem.available_bytes)
+}
+
+/// Parse `free` output into total bytes, delegating to [`parse_free_output`].
+pub fn parse_free_total_bytes(text: &str) -> Option<u64> {
+    parse_free_output(text).ok().map(|(mem, _)| mem.total_bytes)
+}
+
 /// Parse `/proc/pressure/memory` into MemoryPressure. Lines:
 /// ```text
 /// some avg10=0.00 avg60=0.07 avg300=0.06 total=1246798

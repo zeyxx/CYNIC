@@ -9,7 +9,7 @@ pub mod probe;
 pub mod types;
 
 pub use port::MemoryObservationPort;
-pub use probe::{parse_free_output, parse_meminfo, parse_pressure_memory};
+pub use probe::{parse_free_available_bytes, parse_free_output, parse_free_total_bytes, parse_meminfo, parse_pressure_memory};
 pub use types::{
     FleetMemoryNode, FleetMemoryReport, MemoryPressure, MemoryReport, MemoryUsage, MemoryVolume,
     bytes_to_human,
