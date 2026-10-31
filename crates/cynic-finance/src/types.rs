@@ -295,6 +295,94 @@ impl ResourceLedger {
     }
 }
 
+impl cynic_protocol::journal_port::AppendOnlyJournal<ResourceTransaction> for ResourceLedger {
+    fn append(&mut self, entry: ResourceTransaction) -> Result<u64, String> {
+        // Validate proof.
+        if !entry.verify_proof() {
+            return Err(format!(
+                "invalid proof: transaction {}",
+                entry.transaction_id
+            ));
+        }
+
+        // Ensure transaction_id is unique.
+        if self
+            .entries
+            .iter()
+            .any(|e| e.transaction_id == entry.transaction_id)
+        {
+            return Err(format!(
+                "duplicate transaction_id: {}",
+                entry.transaction_id
+            ));
+        }
+
+        // Resource type must match the ledger.
+        if entry.resource.resource_type() != self.resource_type {
+            return Err(format!(
+                "resource type mismatch: expected {:?}, actual {:?}",
+                self.resource_type,
+                entry.resource.resource_type()
+            ));
+        }
+
+        // Update derived balance according to direction.
+        let value = entry.resource.as_f64();
+        match entry.direction {
+            TransactionDirection::Debit => {
+                let current = self.balance.as_f64();
+                if current < value {
+                    return Err(format!(
+                        "insufficient balance: available {}, requested {}",
+                        current, value
+                    ));
+                }
+                self.balance = crate::ledger::decrement_unit(&self.balance, value);
+            }
+            TransactionDirection::Credit => {
+                self.balance = crate::ledger::increment_unit(&self.balance, value);
+            }
+        }
+
+        self.entries.push(entry);
+        Ok(self.entries.len() as u64)
+    }
+
+    fn read_all(&self) -> Result<Vec<ResourceTransaction>, String> {
+        Ok(self.entries.clone())
+    }
+
+    fn verify(&self) -> Result<(), String> {
+        // Every entry must satisfy verify_proof().
+        for entry in &self.entries {
+            if !entry.verify_proof() {
+                return Err(format!(
+                    "invalid proof for transaction {}",
+                    entry.transaction_id
+                ));
+            }
+        }
+        // Timestamps must be monotonic.
+        let mut prev: Option<u64> = None;
+        for entry in &self.entries {
+            if let Some(p) = prev {
+                if entry.timestamp < p {
+                    return Err(format!(
+                        "non-monotonic timestamp at transaction {}",
+                        entry.transaction_id
+                    ));
+                }
+            }
+            prev = Some(entry.timestamp);
+        }
+        Ok(())
+    }
+
+    fn len(&self) -> usize {
+        self.entries.len()
+    }
+}
+
 /// Origin of a resource value — authority ordering: Observed > Derived > Projected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -741,5 +829,122 @@ mod tests {
     #[test]
     fn resource_origin_ordering_variants() {
         assert_ne!(ResourceOrigin::Observed, ResourceOrigin::Projected);
+    }
+
+    // --- AppendOnlyJournal<ResourceTransaction> on ResourceLedger ---
+
+    fn sample_tx(id: &str, ts: u64, direction: TransactionDirection) -> ResourceTransaction {
+        ResourceTransaction::new(
+            id,
+            ts,
+            "agent-1",
+            ResourceUnit::TokenCyd(10),
+            direction,
+            "treasury",
+            ResourceMetadata::default(),
+        )
+    }
+
+    #[test]
+    fn journal_append_returns_sequence() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        let tx = sample_tx("tx-1", 1000, TransactionDirection::Credit);
+        let seq = ledger.append(tx).unwrap();
+        assert_eq!(seq, 1);
+        assert_eq!(ledger.len(), 1);
+    }
+
+    #[test]
+    fn journal_read_all_returns_entries() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        ledger
+            .append(sample_tx("tx-1", 1000, TransactionDirection::Credit))
+            .unwrap();
+        let all = ledger.read_all().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].transaction_id, "tx-1");
+    }
+
+    #[test]
+    fn journal_verify_ok_for_valid_chain() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        ledger
+            .append(sample_tx("tx-1", 1000, TransactionDirection::Credit))
+            .unwrap();
+        ledger
+            .append(sample_tx("tx-2", 2000, TransactionDirection::Credit))
+            .unwrap();
+        assert!(ledger.verify().is_ok());
+    }
+
+    #[test]
+    fn journal_verify_fails_on_bad_proof() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        let mut tx = sample_tx("tx-1", 1000, TransactionDirection::Credit);
+        tx.resource = ResourceUnit::TokenCyd(999); // tamper
+        // proof no longer matches; append should reject
+        assert!(ledger.append(tx).is_err());
+    }
+
+    #[test]
+    fn journal_append_rejects_duplicate_id() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        ledger
+            .append(sample_tx("tx-1", 1000, TransactionDirection::Credit))
+            .unwrap();
+        let dup = sample_tx("tx-1", 2000, TransactionDirection::Credit);
+        assert!(ledger.append(dup).is_err());
+    }
+
+    #[test]
+    fn journal_append_updates_balance_credit() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        ledger
+            .append(sample_tx("tx-1", 1000, TransactionDirection::Credit))
+            .unwrap();
+        assert_eq!(ledger.balance(), &ResourceUnit::TokenCyd(10));
+    }
+
+    #[test]
+    fn journal_append_updates_balance_debit() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        ledger
+            .append(sample_tx("tx-1", 1000, TransactionDirection::Credit))
+            .unwrap();
+        ledger
+            .append(sample_tx("tx-2", 2000, TransactionDirection::Debit))
+            .unwrap();
+        assert_eq!(ledger.balance(), &ResourceUnit::TokenCyd(0));
+    }
+
+    #[test]
+    fn journal_verify_fails_on_nonmonotonic_timestamps() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        // bypass append validation by constructing ledger manually
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        let tx1 = sample_tx("tx-1", 2000, TransactionDirection::Credit);
+        let tx2 = sample_tx("tx-2", 1000, TransactionDirection::Credit);
+        ledger.entries.push(tx1);
+        ledger.entries.push(tx2);
+        // recompute balance not needed for verify
+        assert!(ledger.verify().is_err());
+    }
+
+    #[test]
+    fn journal_len_matches_entries() {
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        let mut ledger = ResourceLedger::new("led-1", ResourceType::Token);
+        assert_eq!(ledger.len(), 0);
+        ledger
+            .append(sample_tx("tx-1", 1000, TransactionDirection::Credit))
+            .unwrap();
+        assert_eq!(ledger.len(), 1);
     }
 }
