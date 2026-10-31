@@ -8,7 +8,7 @@ pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
 pub mod bridge;
 pub mod build_evidence;
-pub mod build_runner_harness;
+pub use cynic_build::build_runner_harness;
 pub mod build_workflow;
 pub mod clock;
 pub mod command_surface;

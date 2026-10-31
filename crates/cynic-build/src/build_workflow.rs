@@ -468,3 +468,160 @@ mod tests {
         }
     }
 }
+
+/// Port: observe a build runner node.
+pub trait BuildRunnerObservationPort {
+    fn observe(&self) -> Result<crate::BuildRunnerObservation, String>;
+}
+
+/// Port: verify a build lease guard.
+pub trait BuildLeaseVerificationPort {
+    fn verify(&self, guard: &cynic_protocol::LeaseGuard) -> cynic_protocol::LeaseVerification;
+}
+
+/// Runtime configuration for the build workflow.
+pub struct BuildWorkflowConfig<'a> {
+    pub observation_adapter: &'a dyn BuildRunnerObservationPort,
+    pub lease_adapter: &'a dyn BuildLeaseVerificationPort,
+    pub lease_guard: Option<cynic_protocol::LeaseGuard>,
+    pub argv_runner: &'a dyn crate::BuildRunner,
+    pub source_snapshot: cynic_protocol::vcs::SourceSnapshot,
+    pub recipe: crate::build::BuildRecipe,
+    pub argv: Vec<String>,
+    pub artifact_path: String,
+    pub install_path: Option<String>,
+    pub apply: bool,
+    pub now_unix_ms: u64,
+}
+
+/// Outcome of running the build workflow.
+#[derive(Debug)]
+pub enum BuildWorkflowResult {
+    Blocked {
+        input_blockers: Vec<String>,
+        runner_blockers: Vec<String>,
+        recipe_blockers: Vec<String>,
+        grant_blockers: Vec<String>,
+    },
+    Planned {
+        proof: crate::BuildProof,
+    },
+    Executed {
+        proof: crate::BuildProof,
+    },
+}
+
+fn validate_build_lease_guard(guard: &cynic_protocol::LeaseGuard, node_id: &str) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if guard.agent_id.trim().is_empty() {
+        blockers.push("build_lease_guard_agent_missing".to_string());
+    }
+    if guard.lease_id.trim().is_empty() {
+        blockers.push("build_lease_guard_id_missing".to_string());
+    }
+    if guard.fencing_token == 0 {
+        blockers.push("build_lease_guard_fence_missing".to_string());
+    }
+    let expected_target = format!("build-runner:{node_id}");
+    if guard.target != expected_target {
+        blockers.push("build_lease_guard_target_mismatch".to_string());
+    }
+    blockers
+}
+
+pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowResult, String> {
+    let observation = config
+        .observation_adapter
+        .observe()
+        .map_err(|e| format!("observation failed: {e}"))?;
+
+    let Some(guard) = config.lease_guard.as_ref() else {
+        return Ok(BuildWorkflowResult::Blocked {
+            input_blockers: Vec::new(),
+            runner_blockers: Vec::new(),
+            recipe_blockers: Vec::new(),
+            grant_blockers: vec!["build_lease_guard_missing".to_string()],
+        });
+    };
+    let guard_blockers = validate_build_lease_guard(guard, &observation.node_id);
+    if !guard_blockers.is_empty() {
+        return Ok(BuildWorkflowResult::Blocked {
+            input_blockers: Vec::new(),
+            runner_blockers: guard_blockers,
+            recipe_blockers: Vec::new(),
+            grant_blockers: Vec::new(),
+        });
+    }
+    let lease_verification = config.lease_adapter.verify(guard);
+
+    let workflow = BuildWorkflow::new(
+        &observation,
+        &lease_verification,
+        &config.source_snapshot,
+        &config.recipe,
+        config.argv.clone(),
+        config.artifact_path.clone(),
+        config.now_unix_ms,
+    )
+    .with_apply(config.apply);
+
+    let outcome = workflow.decide();
+
+    match outcome {
+        BuildWorkflowOutcome::Blocked {
+            input_blockers,
+            runner_blockers,
+            recipe_blockers,
+            grant_blockers,
+        } => Ok(BuildWorkflowResult::Blocked {
+            input_blockers,
+            runner_blockers,
+            recipe_blockers,
+            grant_blockers,
+        }),
+        BuildWorkflowOutcome::Planned {
+            envelope,
+            input_admission,
+            runner_admission,
+        } => {
+            let request = crate::BuildRequest {
+                input: input_admission,
+                runner_envelope: envelope,
+                runner_admission,
+                source_commit: config
+                    .source_snapshot
+                    .head_commit
+                    .clone()
+                    .unwrap_or_default(),
+                argv: config.argv.clone(),
+                artifact_path: config.artifact_path.clone(),
+                install_path: config.install_path.clone(),
+                apply: false,
+            };
+            let proof = crate::run_build(&request, config.argv_runner, &crate::StdFilesystem, &crate::OsIdentity);
+            Ok(BuildWorkflowResult::Planned { proof })
+        }
+        BuildWorkflowOutcome::Execute {
+            envelope,
+            input_admission,
+            runner_admission,
+        } => {
+            let request = crate::BuildRequest {
+                input: input_admission,
+                runner_envelope: envelope,
+                runner_admission,
+                source_commit: config
+                    .source_snapshot
+                    .head_commit
+                    .clone()
+                    .unwrap_or_default(),
+                argv: config.argv.clone(),
+                artifact_path: config.artifact_path.clone(),
+                install_path: config.install_path.clone(),
+                apply: true,
+            };
+            let proof = crate::run_build(&request, config.argv_runner, &crate::StdFilesystem, &crate::OsIdentity);
+            Ok(BuildWorkflowResult::Executed { proof })
+        }
+    }
+}

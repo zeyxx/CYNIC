@@ -1,4 +1,4 @@
-use cynic_build::harness::{HarnessObservation, HarnessScenario, HarnessScenarioId};
+use crate::harness::{HarnessObservation, HarnessScenario, HarnessScenarioId};
 
 pub fn observe_harness_scenarios(
     scenarios: &[HarnessScenario],
@@ -15,7 +15,6 @@ pub fn observe_harness_scenarios(
                 return custom.clone();
             }
 
-            // Default host baseline observation (non-mutating, reports explicit unknowns if substrate unavailable)
             match scenario.id {
                 HarnessScenarioId::ClosedLabVm => HarnessObservation {
                     scenario_id: Some(HarnessScenarioId::ClosedLabVm),
