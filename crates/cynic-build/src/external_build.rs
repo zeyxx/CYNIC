@@ -204,7 +204,7 @@ pub fn run_external_command(
             exit_code: None,
             stdout: String::new(),
             stderr: "no_command_in_request".to_string(),
-            duration_ms: 0,
+            spawn_error: Some("no_command_in_request".to_string()),
             success: false,
         },
     }
