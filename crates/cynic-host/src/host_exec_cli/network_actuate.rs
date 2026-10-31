@@ -17,7 +17,7 @@ use crate::registry::{
     resolve_observed_direct_management_link,
 };
 use crate::runtime_layout::current_runtime_layout;
-use cynic_process::{ArgvRunner, LocalArgvRunner};
+use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
 pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
     let layout = current_runtime_layout();
@@ -241,16 +241,10 @@ struct RootInvoker<'a> {
 }
 
 impl<'a> NetworkActuationExecutor for RootInvoker<'a> {
-    fn run_argv(&self, role: &str, argv: &[String]) -> HostCommandExecution {
+    fn run_argv(&self, role: &str, argv: &[String]) -> ArgvOutput {
         let command_argv = argv.iter().map(String::as_str).collect::<Vec<_>>();
         let output = self.runner.run(&command_argv);
-        HostCommandExecution {
-            role: role.to_string(),
-            argv: argv.to_vec(),
-            exit_code: output.exit_code,
-            stdout: output.stdout,
-            stderr: stderr_with_spawn_error(output.stderr, output.spawn_error),
-        }
+        output
     }
 }
 

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::time::Duration;
 
 use base64::Engine;
-use cynic_host::network_actuation::{
+use cynic_network::actuator::{
     NetworkActuationExecutor, NetworkActuationObservation, NetworkActuationObserver,
 };
 use cynic_host::runtime_harness::{
@@ -241,8 +241,14 @@ impl<R: ArgvRunner> NetworkCommandRunnerPort for QemuGuestAgentNetworkRunner<R> 
 }
 
 impl<R: ArgvRunner + Send + Sync> NetworkActuationExecutor for QemuGuestAgentNetworkRunner<R> {
-    fn run_argv(&self, role: &str, argv: &[String]) -> CommandExecution {
-        self.execute_guest_argv(role.to_string(), argv.to_vec())
+    fn run_argv(&self, role: &str, argv: &[String]) -> ArgvOutput {
+        let execution = self.execute_guest_argv(role.to_string(), argv.to_vec());
+        ArgvOutput {
+            exit_code: execution.exit_code,
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+            spawn_error: None,
+        }
     }
 }
 
