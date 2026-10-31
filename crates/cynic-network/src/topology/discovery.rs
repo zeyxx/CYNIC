@@ -14,7 +14,7 @@ pub enum NodeReachability {
     Unreachable { last_seen_unix_ms: Option<u64> },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiscoveredService {
     pub name: String,
     pub endpoint: String,
@@ -109,6 +109,8 @@ pub struct DesiredNodeNetworkSpec {
     pub wireguard_ip: Option<String>,
     pub wireguard_public_key: Option<String>,
     pub probe_ports: Vec<u16>,
+    /// Declared services for this node (name, endpoint/bench_endpoint, port).
+    pub services: Vec<DiscoveredService>,
 }
 
 /// Pure cluster node discovery over the injected probe port.
@@ -124,6 +126,14 @@ pub fn discover_cluster_nodes(
 
     for spec in specs {
         let is_self = spec.node_id == observer_node_id;
+        let target_ips: Vec<String> = [
+            spec.synapse_ip.clone(),
+            spec.wireguard_ip.clone(),
+            spec.direct_ip.clone(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         let reachability = if is_self {
             NodeReachability::Reachable {
                 latency_ms: 0,
@@ -141,7 +151,7 @@ pub fn discover_cluster_nodes(
             }
 
             let mut tested_ok = None;
-            let target_ips: Vec<&str> = [
+            let target_ip_refs: Vec<&str> = [
                 spec.synapse_ip.as_deref(),
                 spec.wireguard_ip.as_deref(),
                 spec.direct_ip.as_deref(),
@@ -156,7 +166,7 @@ pub fn discover_cluster_nodes(
                 spec.probe_ports.clone()
             };
 
-            'probe_loop: for ip in target_ips {
+            'probe_loop: for ip in target_ip_refs {
                 for &port in &ports_to_try {
                     if let Ok(lat) = probe.probe_tcp(ip, port, timeout_ms) {
                         tested_ok = Some((lat, format!("tcp:{}", port)));
@@ -180,6 +190,60 @@ pub fn discover_cluster_nodes(
             }
         };
 
+        // Probe declared services for observed health.
+        let mut discovered_services: Vec<DiscoveredService> = Vec::new();
+        for svc in &spec.services {
+            let mut svc = svc.clone();
+            let endpoint = svc.endpoint.clone();
+            if !endpoint.trim().is_empty() {
+                let status = match probe.probe_http_health(&endpoint, timeout_ms) {
+                    Ok(()) => "healthy".to_string(),
+                    Err(e) => format!("unhealthy: {}", e),
+                };
+                // TCP fallback when HTTP probe not applicable / fails but port present.
+                if status.starts_with("unhealthy") && svc.port > 0 {
+                    let mut tcp_ok = false;
+                    for ip in &target_ips {
+                        if probe.probe_tcp(ip, svc.port, timeout_ms).is_ok() {
+                            tcp_ok = true;
+                            break;
+                        }
+                    }
+                    if tcp_ok {
+                        svc.status = "healthy".to_string();
+                    } else {
+                        svc.status = status;
+                    }
+                } else {
+                    svc.status = status;
+                }
+            } else if svc.port > 0 {
+                // No endpoint: TCP probe against node IPs.
+                let mut tcp_ok = false;
+                for ip in &target_ips {
+                    if probe.probe_tcp(ip, svc.port, timeout_ms).is_ok() {
+                        tcp_ok = true;
+                        break;
+                    }
+                }
+                svc.status = if tcp_ok {
+                    "healthy".to_string()
+                } else {
+                    "unhealthy".to_string()
+                };
+            } else {
+                svc.status = if svc.status.is_empty() {
+                    "declared".to_string()
+                } else {
+                    svc.status
+                };
+            }
+            if svc.endpoint.is_empty() && !endpoint.is_empty() {
+                svc.endpoint = endpoint;
+            }
+            discovered_services.push(svc);
+        }
+
         nodes.insert(
             spec.node_id.clone(),
             DiscoveredNode {
@@ -188,7 +252,7 @@ pub fn discover_cluster_nodes(
                 synapse_ip: spec.synapse_ip.clone(),
                 wireguard_ip: spec.wireguard_ip.clone(),
                 reachability,
-                services: vec![],
+                services: discovered_services,
                 observed_at_unix_ms: now_unix_ms,
             },
         );
@@ -331,11 +395,41 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
             };
 
             let mut probe_ports = Vec::new();
+            let mut declared_services = Vec::new();
             if let Some(services) = n.get("services").and_then(|v| v.as_array()) {
                 for s in services {
                     if let Some(port) = s.get("port").and_then(|v| v.as_u64()) {
                         probe_ports.push(port as u16);
                     }
+                    let name = s
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    let endpoint_raw = s
+                        .get("bench_endpoint")
+                        .and_then(|v| v.as_str())
+                        .filter(|x| !x.is_empty())
+                        .or_else(|| {
+                            s.get("endpoint")
+                                .and_then(|v| v.as_str())
+                                .filter(|x| !x.is_empty())
+                        });
+                    let endpoint = endpoint_raw.map(str::to_string).unwrap_or_default();
+                    let port = s
+                        .get("port")
+                        .and_then(|v| v.as_u64())
+                        .map(|p| p as u16)
+                        .unwrap_or_else(|| port_from_url(&endpoint));
+                    declared_services.push(DiscoveredService {
+                        name,
+                        endpoint,
+                        port,
+                        status: "declared".to_string(),
+                    });
                 }
             }
 
@@ -346,6 +440,7 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
                 wireguard_ip,
                 wireguard_public_key,
                 probe_ports,
+                services: declared_services,
             });
         }
     }
@@ -562,6 +657,7 @@ mod tests {
                 wireguard_ip: Some("10.20.0.3".to_string()),
                 wireguard_public_key: Some("pk_cortex".to_string()),
                 probe_ports: vec![22],
+                services: vec![],
             },
             DesiredNodeNetworkSpec {
                 node_id: "cynic-builder".to_string(),
@@ -570,6 +666,7 @@ mod tests {
                 wireguard_ip: Some("10.20.0.5".to_string()),
                 wireguard_public_key: Some("pk_builder".to_string()),
                 probe_ports: vec![9090, 22],
+                services: vec![],
             },
         ];
 
