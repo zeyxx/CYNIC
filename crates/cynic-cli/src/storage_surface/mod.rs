@@ -66,7 +66,7 @@ fn get_client(endpoint: Option<String>) -> (String, cynic_persistence::SurrealHt
 }
 
 pub fn execute_storage(command: StorageCommand) -> ExitCode {
-    std::thread::spawn(move || match command {
+    match command {
         StorageCommand::Ping { json: _, endpoint } => {
             let (_ep, client) = get_client(endpoint);
             match cynic_persistence::SurrealStoragePort::check_health(&client) {
@@ -114,10 +114,5 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
                 Err(e) => fail(e),
             }
         }
-    })
-    .join()
-    .unwrap_or_else(|_| {
-        eprintln!("storage thread panicked");
-        ExitCode::FAILURE
-    })
+    }
 }
