@@ -172,6 +172,44 @@ pub fn build_external_proof(
     }
 }
 
+// ── Canonical usecase entry points ──────────────────────────────────────────
+
+/// Run a full external build/test proof via the given port.
+///
+/// Pure orchestration: delegates all I/O to the port, returns the proof.
+/// The builder node ID is taken from the request.
+pub fn run_external_build(
+    port: &dyn ExternalBuildPort,
+    req: ExternalBuildRequest,
+) -> ExternalBuildProof {
+    port.run_build_proof(&req, &req.builder_node_id)
+}
+
+/// Run the first command in the request via the given port.
+///
+/// Pure orchestration: delegates I/O to the port, wraps the output as
+/// [`ExternalCommandResult`]. If the request has no commands, returns a
+/// synthetic failure result (no port call).
+pub fn run_external_command(
+    port: &dyn ExternalBuildPort,
+    req: &ExternalBuildRequest,
+) -> ExternalCommandResult {
+    match req.commands.first() {
+        Some(cmd) => {
+            let output = port.run_command(cmd, &req.work_dir);
+            ExternalCommandResult::from_output(cmd.clone(), &output)
+        }
+        None => ExternalCommandResult {
+            command: String::new(),
+            exit_code: None,
+            stdout: String::new(),
+            stderr: "no_command_in_request".to_string(),
+            duration_ms: 0,
+            success: false,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

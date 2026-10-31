@@ -31,6 +31,8 @@ pub mod capability_responsibility;
 pub mod remote_cache_roots;
 pub mod runner_capacity;
 pub mod cleanup;
+pub mod build_discovery;
+pub mod build_discovery_recipe;
 pub mod build_latency;
 pub mod compute;
 pub mod constitutional_court;

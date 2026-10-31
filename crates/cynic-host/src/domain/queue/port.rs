@@ -1,4 +1,4 @@
-use cynic_build::build_discovery::BuildDiscoveryReport;
+use cynic_protocol::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::branch_graph::BranchGraph;
 use cynic_protocol::queue::QueuePlan;
 use cynic_protocol::retention::RetentionPlan;
