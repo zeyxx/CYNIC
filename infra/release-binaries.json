@@ -19,7 +19,7 @@
       "name": "cynic-node",
       "crate": "cynic-node",
       "role": "the sovereign node daemon",
-      "deploy": true
+      "deploy": false
     }
   ]
 }
