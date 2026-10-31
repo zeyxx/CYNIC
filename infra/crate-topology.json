@@ -299,7 +299,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 11519
+      "loc": 11189
     },
     "cynic-lxc": {
       "consumers": [
@@ -988,7 +988,7 @@
     "crates": 37,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 403545,
+    "loc_total": 403215,
     "pending_disposition": 3,
     "runtime_edges": 166,
     "unjustified": 1,
