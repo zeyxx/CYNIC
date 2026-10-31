@@ -73,7 +73,7 @@ pub fn store_candidate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::DiscoveryState;
+    use cynic_protocol::discovery::DiscoveryState;
 
     struct RejectingStore;
 

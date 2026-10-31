@@ -164,6 +164,7 @@ pub fn app(
         .route("/admin/restart", post(admin_restart))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
+        .route("/workloads/{id}/artifacts/{name}", get(get_artifact))
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
@@ -283,7 +284,7 @@ pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, S
         "audit" => Ok("audit:crate"),
         "audit-all" => Ok("audit:all"),
         "build" => Ok("cargo:build"),
-        "build-release" => Ok("cargo:build-release"),
+        "build-release" | "build:release" | "release" => Ok("cargo:build-release"),
         "test" => Ok("cargo:test"),
         other => Err(format!(
             "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
@@ -1034,6 +1035,85 @@ fn persist_restart_receipt(state: &AppState, receipt: &serde_json::Value) {
     if let Ok(envelope) = envelope {
         let _ = state.evidence.persist(&envelope);
     }
+}
+
+async fn get_artifact(
+    State(state): State<AppState>,
+    Path((id, name)): Path<(String, String)>,
+) -> Result<axum::response::Response, StatusCode> {
+    use axum::response::IntoResponse;
+
+    // Security: refuse traversal / non-allowed chars.
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains("..")
+        || !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let record = state
+        .store
+        .read(&id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    if !record.record.state.terminal() {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    let work_dir = record
+        .record
+        .envelope
+        .action
+        .working_directory
+        .clone()
+        .unwrap_or_default();
+
+    let mut path = std::path::PathBuf::from(&work_dir)
+        .join("target")
+        .join("release")
+        .join(&name);
+
+    if !path.exists() {
+        // Fallback to state_root artifacts dir.
+        let fallback = std::path::PathBuf::from(&state.config.state_root)
+            .join("artifacts")
+            .join(&id)
+            .join(&name);
+        if fallback.exists() {
+            path = fallback;
+        }
+    }
+
+    let meta = std::fs::symlink_metadata(&path).map_err(|_| StatusCode::NOT_FOUND)?;
+    if meta.file_type().is_symlink() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    if !meta.is_file() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    if meta.len() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let bytes = std::fs::read(&path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let digest = hex::encode(sha2::Sha256::digest(&bytes));
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        axum::http::header::CONTENT_TYPE,
+        "application/octet-stream".parse().unwrap(),
+    );
+    headers.insert(
+        axum::http::header::CONTENT_DISPOSITION,
+        format!("attachment; filename=\"{name}\"").parse().unwrap(),
+    );
+    headers.insert("x-cynic-sha256", digest.parse().unwrap());
+
+    Ok((StatusCode::OK, headers, bytes).into_response())
 }
 
 async fn get_proof(
@@ -1858,6 +1938,14 @@ mod tests {
         assert_eq!(submit_action_to_canonical("build"), Ok("cargo:build"));
         assert_eq!(
             submit_action_to_canonical("build-release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(
+            submit_action_to_canonical("build:release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(
+            submit_action_to_canonical("release"),
             Ok("cargo:build-release")
         );
         assert_eq!(submit_action_to_canonical("test"), Ok("cargo:test"));

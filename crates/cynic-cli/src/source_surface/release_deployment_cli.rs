@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_pkg::{
+use cynic_release::{
     DeployBinarySpec, LocalReleaseDeployExecutor, ReleaseDeploySpec, RestartUnitSpec,
     apply_release_deployment, plan_release_deployment,
 };
@@ -348,15 +348,14 @@ mod tests {
             root.join("infra/release-binaries.json"),
             r#"{
               "binaries": [
-                {"name": "cynic", "deploy": true},
-                {"name": "cynic-node", "deploy": true}
+                {"name": "cynic", "deploy": true}
               ]
             }"#,
         )
         .expect("write registry");
 
         let names = resolve_deployable_binaries(&root).expect("resolve binaries");
-        assert_eq!(names, vec!["cynic", "cynic-node"]);
+        assert_eq!(names, vec!["cynic"]);
         fs::remove_dir_all(&root).ok();
     }
 
@@ -418,7 +417,6 @@ mod tests {
     fn the_shipped_registry_matches_the_makefile_binary_set() {
         let root = crate::rust_source::workspace_root();
         let names = resolve_deployable_binaries(&root).expect("shipped registry resolves");
-        assert!(names.contains(&"cynic".to_string()));
-        assert!(names.contains(&"cynic-node".to_string()));
+        assert_eq!(names, vec!["cynic".to_string()]);
     }
 }

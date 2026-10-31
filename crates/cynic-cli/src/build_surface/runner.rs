@@ -4,7 +4,6 @@ use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_b
 use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_process::ArgvRunner;
 use cynic_vcs::SourceSnapshot;
 
@@ -125,6 +124,7 @@ pub(crate) fn validate_json_files(files: &[String]) -> Result<(), String> {
 /// in a proof-log text, with the sample count. Malformed lines are
 /// skipped (a corrupt log line must not poison placement). No history
 /// is (None, 0): unexplored, never instant.
+#[cfg(test)]
 pub(crate) fn proof_median_ms(log_text: &str, node: &str, action: &str) -> (Option<u64>, usize) {
     let mut durations: Vec<u64> = log_text
         .lines()

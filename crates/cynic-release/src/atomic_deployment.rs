@@ -761,7 +761,7 @@ mod tests {
     fn refuses_to_restart_non_service_unit_names() {
         // Pure validation: refused before any systemctl invocation.
         assert!(is_plain_service_unit("cynic-kernel.service"));
-        assert!(is_plain_service_unit(cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME));
+        assert!(is_plain_service_unit("coredns-service.service"));
         for bad in ["reboot.target", "../evil.service", "/bin/sh", "a;rm -rf", ""] {
             assert!(!is_plain_service_unit(bad), "must refuse unit name: {bad:?}");
         }
