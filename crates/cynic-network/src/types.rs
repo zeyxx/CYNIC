@@ -437,8 +437,7 @@ pub fn evaluate_network_watchdog(
                 "DNS resolution failed for {} record(s) in zone '{}'",
                 dns.failed_records, dns.zone
             ),
-            recovery_hint: "Inspect CoreDNS/dnsmasq on pve (10.10.10.1) or fallback hosts file"
-                .to_string(),
+            recovery_hint: "Inspect CoreDNS/dnsmasq on pve or fallback hosts file".to_string(),
         });
         max_level = NetworkAlertLevel::Critical;
     }
