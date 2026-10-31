@@ -40,17 +40,24 @@ fn network_functional_core_is_strictly_zero_io() {
         "src/types.rs",
         "src/probe.rs",
         "src/discovery.rs",
+        "src/topology/discovery.rs",
+        "src/topology/plane_vocabulary.rs",
+        "src/topology/registry_maintenance.rs",
+        "src/topology/fleet_membership/mod.rs",
         "src/firewall_policy.rs",
         "src/mesh_plan.rs",
-        "src/dns.rs",
-        "src/actuator.rs",
+        "src/dns/mod.rs",
+        "src/actuator/mod.rs",
         "src/freebox.rs",
         "src/port.rs",
+        "src/ports/mod.rs",
+        "src/ports/port.rs",
         "src/registry_maintenance.rs",
         "src/telemetry.rs",
         "src/transport_readback.rs",
         "src/transport_security.rs",
         "src/watchdog_alerter.rs",
+        "src/usecases/network_watchdog_uc.rs",
     ];
 
     for rel_path in &core_files {
@@ -71,6 +78,16 @@ fn network_functional_core_is_strictly_zero_io() {
         assert!(
             !content.contains("tokio::spawn"),
             "FCIS Core Violation: {} spawns async runtimes inside core!",
+            rel_path
+        );
+        assert!(
+            !content.contains("TcpStream"),
+            "FCIS Core Violation: {} contains direct TcpStream I/O!",
+            rel_path
+        );
+        assert!(
+            !content.contains("std::fs::"),
+            "FCIS Core Violation: {} contains direct std::fs I/O!",
             rel_path
         );
     }

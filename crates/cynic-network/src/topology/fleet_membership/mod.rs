@@ -831,12 +831,7 @@ mod tests {
     /// nodes, of which the ones carrying a canonical address parse.
     #[test]
     fn the_repository_registry_parses_to_every_named_node() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../infra/registry.json");
-        let Ok(raw) = std::fs::read_to_string(path) else {
-            // The fixture is not reachable from every crate root; the parsing
-            // itself is covered by the cases above.
-            return;
-        };
+        let raw = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../infra/registry.json"));
         let registry: serde_json::Value = serde_json::from_str(&raw).expect("registry parses");
         let members = parse_declared_registry_members(&registry);
         assert_eq!(members.len(), 14);

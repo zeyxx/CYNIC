@@ -1018,7 +1018,6 @@ dependencies = [
  "sysinfo 0.37.2",
  "tempfile",
  "thiserror 2.0.21",
- "tokio",
  "toml",
  "tracing",
  "walkdir",
@@ -1243,6 +1242,23 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "zeroize",
+]
+
+[[package]]
+name = "cynic-sqlite"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "cynic-persistence",
+ "cynic-protocol",
+ "hex",
+ "parking_lot",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]

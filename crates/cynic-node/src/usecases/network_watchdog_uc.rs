@@ -49,7 +49,7 @@ mod tests {
         let wg = MockWgObserver { stale: 0, dead: 0 };
         let store = InMemoryNotificationOutboxStore::default();
         let report =
-            execute_network_watchdog("wg0", &wg, &[], None, None, vec![], &store, 1788267750000)
+            execute_network_watchdog("wg0", &wg, &[], None, None, None, vec![], &store, 1788267750000)
                 .unwrap();
 
         assert_eq!(report.status, "ok");
@@ -62,7 +62,7 @@ mod tests {
         let wg = MockWgObserver { stale: 0, dead: 1 };
         let store = InMemoryNotificationOutboxStore::default();
         let report =
-            execute_network_watchdog("wg0", &wg, &[], None, None, vec![], &store, 1788267750000)
+            execute_network_watchdog("wg0", &wg, &[], None, None, None, vec![], &store, 1788267750000)
                 .unwrap();
 
         assert_eq!(report.status, "critical");

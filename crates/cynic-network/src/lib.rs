@@ -7,6 +7,8 @@
 
 pub mod actuator;
 pub mod adapters;
+pub mod ports;
+pub mod topology;
 pub mod command_surface;
 pub mod discovery;
 pub mod dns;
@@ -38,6 +40,7 @@ pub mod watchdog_alerter;
 pub use adapters::finance::NetworkFinanceMeter;
 pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
+pub use adapters::workspace_registry::endpoints_from_workspace_registry;
 
 
 
@@ -48,6 +51,7 @@ pub use adapters::headscale as headscale_client;
 pub use actuator::*;
 pub use command_surface::*;
 pub use discovery::*;
+pub use topology::*;
 pub use dns::*;
 pub use dns_resolver::{DnsEndpoint, DnsResolutionPort};
 pub use firewall_policy::*;
@@ -65,7 +69,7 @@ pub use transport_readback::*;
 pub use transport_security::*;
 pub use types::*;
 
-pub use port::NetworkObservationPort;
+pub use ports::*;
 pub use probe::{
     parse_addr_from_json, parse_dropped_packets_from_dev, parse_ifname_from_dev,
     parse_listening_ports_from_proc_tcp, parse_pressure_from_dev, parse_route_from_json,
