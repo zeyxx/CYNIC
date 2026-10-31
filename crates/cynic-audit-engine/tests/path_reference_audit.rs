@@ -59,7 +59,6 @@ const KNOWN: &[&str] = &[
     "crates/cynic-protocol/src/candidate_opportunity.rs",
     "crates/cynic-host/src/profiles/build_runner.rs",
     "crates/cynic-node-protocol/src/node_service_unit.rs",
-    "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",
     "crates/cynic-inference/src/domain/chat.rs",
     "crates/cynic-vcs-providers/src/forgejo_webhook.rs",
     "crates/cynic-release/src/adapters/secret_lint/mod.rs",
