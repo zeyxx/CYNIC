@@ -802,6 +802,14 @@
       "ARCH-004-UPWARD-EDGE cynic-network (L1) depends on cynic-finance (L2)": {
         "reason": "cynic-network (L1) depends on cynic-finance (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
         "since": "2026-09-28"
+      },
+      "ARCH-004-UPWARD-EDGE cynic-persistence (L1) depends on cynic-consensus (L2)": {
+        "reason": "cynic-persistence (L1) depends on cynic-consensus/cynic-finance (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
+        "since": "2026-09-28"
+      },
+      "ARCH-004-UPWARD-EDGE cynic-persistence (L1) depends on cynic-finance (L2)": {
+        "reason": "cynic-persistence (L1) depends on cynic-consensus/cynic-finance (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
+        "since": "2026-09-28"
       }
     },
     "rule": "Ascending edges the workspace currently tolerates, as reported by ARCH-004. Recorded as data so the debt is measurable instead of prose: `layer_rule` counted these in words, and a number written in a sentence cannot fail, so it cannot be paid. The debt grew from 12 to 15 while the sentence still said 12, the two extra being a domain landing in two substrate crates. This field and the observed report must agree exactly, and the set may only shrink. Paying an edge means removing it from BOTH this list and the baseline in crates/cynic-host/tests/layer_debt_ratchet.rs, which is what makes the reduction visible in a diff. Adding one without a written reason fails the gate.",
