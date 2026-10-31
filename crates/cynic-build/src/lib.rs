@@ -48,7 +48,7 @@ pub mod runner;
 pub mod runtime_release;
 pub mod types;
 
-pub use adapters::{HttpDeployAdapter, HttpExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
+pub use adapters::{CurlBuildLeaseVerificationAdapter, HttpDeployAdapter, HttpExternalBuildAdapter, JsonBuildRunnerObservationAdapter, MemFilesystem, NodeBuildLeaseVerificationAdapter, OsIdentity, SshBuildRunnerObservationAdapter, StdFilesystem};
 pub use build::*;
 pub use cache::*;
 pub use build_artefact::*;

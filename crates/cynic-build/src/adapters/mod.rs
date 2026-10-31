@@ -3,6 +3,7 @@
 //! Only this directory (and tests) may touch `std::fs`, `libc`, or the
 //! process table. Everything else in the crate programs against ports.rs.
 
+pub mod build_evidence;
 pub mod http;
 pub mod local;
 pub mod local_build_cache;
@@ -10,6 +11,10 @@ pub mod mem_fs;
 pub mod os_identity;
 pub mod std_fs;
 
+pub use build_evidence::{
+    CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
+    NodeBuildLeaseVerificationAdapter, SshBuildRunnerObservationAdapter,
+};
 pub use http::{HttpDeployAdapter, HttpExternalBuildAdapter};
 pub use local::{LocalExternalBuildAdapter};
 pub use local_build_cache::LocalBuildCacheAdapter;
