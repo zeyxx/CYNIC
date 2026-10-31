@@ -617,7 +617,6 @@
     "cynic-sqlite": {
       "consumers": [],
       "depends_on": [
-        "cynic-consensus",
         "cynic-persistence",
         "cynic-protocol"
       ],
@@ -804,15 +803,14 @@
   },
   "justification_rule": "Every member must be a binary, have at least one dependent, or appear in pending_disposition with a written reason. A crate that is none of these is a node with in-degree zero: it cannot take part in a runtime loop, and every layer that names it is describing a boundary nothing crosses. pending_disposition may only shrink.",
   "layer_debt": {
-    "count": 7,
+    "count": 6,
     "edges": [
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-inference (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-intel (L2)",
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
-      "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)",
-      "ARCH-004-UPWARD-EDGE cynic-sqlite (L1) depends on cynic-consensus (L2)"
+      "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)"
     ],
     "reasons": {
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)": {
@@ -837,10 +835,6 @@
       },
       "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)": {
         "reason": "cynic-host (L1) depends on cynic-vcs (L2): ascending edge, tolerated as recorded layer debt. Remediation is to extract the shared contract into a layer at or below L1, or to move the dependent code down.",
-        "since": "2026-09-28"
-      },
-      "ARCH-004-UPWARD-EDGE cynic-sqlite (L1) depends on cynic-consensus (L2)": {
-        "reason": "cynic-sqlite (L1) depends on L2: ascending edge, tolerated as recorded layer debt pending disposition.",
         "since": "2026-09-28"
       }
     },
