@@ -3,7 +3,7 @@ use std::io::Write;
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 
-use cynic_eval::convergence::{
+use cynic_protocol::convergence::{
     CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry,
 };
 use cynic_protocol::digest_json;
@@ -146,7 +146,7 @@ impl CausalEpochIndexStorePort for LocalCausalEpochIndexStore {
 mod tests {
     use super::*;
     use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;
-    use cynic_eval::convergence::CausalEpochKey;
+    use cynic_protocol::convergence::CausalEpochKey;
 
     fn entry(epoch_id: &str, marker: char, observed_at_unix_ms: u128) -> CausalEpochIndexEntry {
         CausalEpochIndexEntry {

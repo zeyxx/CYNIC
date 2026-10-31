@@ -7,11 +7,11 @@
 //! - `wisdom`: domain signal contracts and falsifiable curated knowledge.
 
 pub mod dog;
-pub mod dog_health;
+pub use cynic_protocol::dog_health;
 pub mod hygiene;
 pub mod wisdom;
 
 pub use dog::*;
-pub use dog_health::*;
+pub use cynic_protocol::dog_health::*;
 pub use hygiene::*;
 pub use wisdom::*;

@@ -1,4 +1,4 @@
-use cynic_eval::convergence::ConvergenceStatus;
+use cynic_protocol::convergence::ConvergenceStatus;
 use cynic_protocol::{
     ServiceSupervisorObservation, ServiceSupervisorUnitObservation,
     supervision::{SupervisorState, unit_status_state},
