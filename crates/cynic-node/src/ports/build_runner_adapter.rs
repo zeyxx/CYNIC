@@ -389,6 +389,16 @@ impl BuildRunnerPort for SshBuildRunner {
         }
 
         // Step 2: pin the checkout to the exact SHA and read it back.
+        // First fetch origin so any newly pushed commit is guaranteed present locally:
+        let _ = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "git",
+            "-C",
+            dir.as_str(),
+            "fetch",
+            "origin",
+        ]);
         let checkout = self.runner.run(&[
             "ssh",
             target.as_str(),
