@@ -209,41 +209,21 @@ fn valid_release_proof_payload(payload: &serde_json::Value, source_commit: &str)
     if payload["schema"].as_str() != Some(RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA)
         || payload["source_commit"].as_str() != Some(source_commit)
     {
-        eprintln!(
-            "valid_release_proof_payload mismatch: schema={:?} expected={:?}, commit={:?} expected={:?}",
-            payload["schema"].as_str(),
-            RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
-            payload["source_commit"].as_str(),
-            source_commit
-        );
         return false;
     }
     let Some(artifacts) = payload["artifacts"].as_object() else {
-        eprintln!("valid_release_proof_payload: artifacts not an object");
         return false;
     };
     let Ok(required) = cynic_protocol::runtime_release_artifact_names() else {
-        eprintln!("valid_release_proof_payload: runtime_release_artifact_names returned Err");
         return false;
     };
-    if artifacts.len() != required.len() {
-        eprintln!(
-            "valid_release_proof_payload: len mismatch artifacts={:?} required={:?}",
-            artifacts.keys().collect::<Vec<_>>(),
-            required
-        );
-        return false;
-    }
-    required.iter().all(|name| {
-        let ok = artifacts
-            .get(name)
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(valid_sha256);
-        if !ok {
-            eprintln!("valid_release_proof_payload: artifact {} invalid: {:?}", name, artifacts.get(name));
-        }
-        ok
-    })
+    artifacts.len() == required.len()
+        && required.iter().all(|name| {
+            artifacts
+                .get(name)
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(valid_sha256)
+        })
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -389,9 +369,6 @@ mod tests {
                     "cynic-node": format!("sha256:{}", "2".repeat(64)),
                     "cynic-mcp": format!("sha256:{}", "4".repeat(64)),
                     "cynic-lxc-exec-bridge": format!("sha256:{}", "5".repeat(64)),
-                    "cynic-node-enroll": format!("sha256:{}", "6".repeat(64)),
-                    "cynic-network-actuator": format!("sha256:{}", "7".repeat(64)),
-                    "cynic-pool": format!("sha256:{}", "8".repeat(64)),
                 }
             }),
         )
@@ -556,8 +533,7 @@ mod tests {
             desired_state: desired,
         };
 
-        let adm = admit_runtime_release(&declaration, &delivery);
-        assert!(adm.admitted, "violations: {:?}", adm.violations);
+        assert!(admit_runtime_release(&declaration, &delivery).admitted);
 
         let mut forged = declaration;
         forged.desired_state.release.build_proof_digest = format!("sha256:{}", "f".repeat(64));
