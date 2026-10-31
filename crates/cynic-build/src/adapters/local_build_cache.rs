@@ -3,49 +3,50 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use sysinfo::Disks;
-
 use crate::cache::build_runner::{
     BUILD_CACHE_OBSERVATION_SCHEMA, BuildCacheDesiredState, BuildCacheMutationPort,
     BuildCacheObservation, BuildCacheObservationPort, BuildCachePathState, EphemeralEntry,
     EphemeralKind,
 };
 
-/// The unit executables the reclaim refuses to touch.
+/// A protected executable path that must not be reclaimed.
 ///
-/// The production path reads the real unit files; a test declares the
-/// executables it wants to protect. The choice is made at the call site, not
-/// from a global, so a test never depends on what the host happens to run.
-type UnitExecutables = Box<dyn Fn() -> Vec<crate::adapters::live_service_paths::UnitExecutable>>;
+/// Pure value object: no OS inspection. Callers supply the list (e.g. from
+/// a host-level observer); this crate never reads `/etc/systemd` directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProtectedExecutable {
+    pub name: String,
+    pub path: PathBuf,
+}
 
-/// Read the real unit executables.
-fn observe_real_unit_executables() -> Vec<crate::adapters::live_service_paths::UnitExecutable> {
-    crate::adapters::live_service_paths::observe_unit_executables()
+/// The protected executables the reclaim refuses to touch.
+type ProtectedExecutables = Box<dyn Fn() -> Vec<ProtectedExecutable>>;
+
+/// Default: no protected executables observed by this crate.
+fn observe_real_protected_executables() -> Vec<ProtectedExecutable> {
+    Vec::new()
 }
 
 pub struct LocalBuildCacheAdapter {
-    unit_executables: UnitExecutables,
+    protected_executables: ProtectedExecutables,
 }
 
 impl Default for LocalBuildCacheAdapter {
     fn default() -> Self {
         Self {
-            unit_executables: Box::new(observe_real_unit_executables),
+            protected_executables: Box::new(observe_real_protected_executables),
         }
     }
 }
 
 impl LocalBuildCacheAdapter {
     /// An adapter that protects the declared executables.
-    ///
-    /// The production adapter reads the unit files; this one takes the list
-    /// as given, so the decision can be exercised against a known state.
-    pub fn protecting<F>(unit_executables: F) -> Self
+    pub fn protecting<F>(protected_executables: F) -> Self
     where
-        F: Fn() -> Vec<crate::adapters::live_service_paths::UnitExecutable> + 'static,
+        F: Fn() -> Vec<ProtectedExecutable> + 'static,
     {
         Self {
-            unit_executables: Box::new(unit_executables),
+            protected_executables: Box::new(protected_executables),
         }
     }
 }
@@ -235,10 +236,7 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
             //
             // The check reads the unit files, so it is not a hand-maintained
             // list that can drift from what the units actually do.
-            if crate::adapters::live_service_paths::is_live_service_path(
-                path,
-                &(self.unit_executables)(),
-            ) {
+            if is_protected_path(path, &(self.protected_executables)()) {
                 skipped_live_service.push(raw.clone());
                 continue;
             }
@@ -687,16 +685,24 @@ fn directory_chain_state(
     BuildCachePathState::SafeDirectory
 }
 
+fn is_protected_path(candidate: &Path, protected: &[ProtectedExecutable]) -> bool {
+    protected
+        .iter()
+        .any(|entry| entry.path.starts_with(candidate) || candidate.starts_with(&entry.path))
+}
+
 fn available_bytes(path: &Path) -> Result<u64, String> {
     if !path.is_absolute() {
         return Err("build_cache_state_root_invalid".to_string());
     }
-    Disks::new_with_refreshed_list()
-        .iter()
-        .filter(|disk| path.starts_with(disk.mount_point()))
-        .max_by_key(|disk| disk.mount_point().components().count())
-        .map(sysinfo::Disk::available_space)
-        .ok_or_else(|| "build_cache_available_bytes_unobservable".to_string())
+    let c_path = std::ffi::CString::new(path.as_os_str().to_string_lossy().as_bytes())
+        .map_err(|_| "build_cache_state_root_invalid".to_string())?;
+    let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
+    let rc = unsafe { libc::statvfs(c_path.as_ptr(), &mut stat) };
+    if rc != 0 {
+        return Err("build_cache_available_bytes_unobservable".to_string());
+    }
+    Ok(stat.f_bavail as u64 * stat.f_frsize as u64)
 }
 
 #[cfg(test)]
@@ -823,9 +829,9 @@ mod tests {
 
         let served_path = served.clone();
         let evidence = LocalBuildCacheAdapter::protecting(move || {
-            vec![crate::adapters::live_service_paths::UnitExecutable {
-                unit: "cynic-supervise-soak-node.service".to_string(),
-                executable: served_path.join("debug/cynic"),
+            vec![ProtectedExecutable {
+                name: "cynic-supervise-soak-node.service".to_string(),
+                path: served_path.join("debug/cynic"),
             }]
         })
         .reclaim_noncanonical_caches(&desired)
@@ -865,9 +871,9 @@ mod tests {
 
         let served_path = served.clone();
         let evidence = LocalBuildCacheAdapter::protecting(move || {
-            vec![crate::adapters::live_service_paths::UnitExecutable {
-                unit: "cynic-supervise-soak-node.service".to_string(),
-                executable: served_path.join("debug/cynic"),
+            vec![ProtectedExecutable {
+                name: "cynic-supervise-soak-node.service".to_string(),
+                path: served_path.join("debug/cynic"),
             }]
         })
         .reclaim_noncanonical_caches(&desired)
