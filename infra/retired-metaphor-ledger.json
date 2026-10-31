@@ -714,9 +714,9 @@
       "organism": 31,
       "organs": 18
     },
-    "files": 137,
+    "files": 113,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 889
+    "occurrences": 759
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {
