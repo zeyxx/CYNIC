@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::build_discovery::port::BuildDiscoveryObservationPort;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
-use cynic_build::build_discovery::BuildDiscoveryReport;
+use cynic_protocol::build_discovery::BuildDiscoveryReport;
 use cynic_process::ArgvRunner;
 
 pub struct RemoteBuildDiscoveryAdapter<R: ArgvRunner> {

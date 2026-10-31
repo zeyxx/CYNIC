@@ -1,9 +1,9 @@
 //! Pure parsers for build discovery (no I/O).
 
-use cynic_build::build_discovery::{
+use cynic_protocol::build_discovery::{
     BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
 };
-use cynic_build::build_discovery_recipe::{BUILD_DISCOVERY_RECIPE_SCHEMA, BuildDiscoveryRecipe};
+use cynic_protocol::build_discovery_recipe::{BUILD_DISCOVERY_RECIPE_SCHEMA, BuildDiscoveryRecipe};
 use serde::Deserialize;
 
 /// Minimal cargo metadata shape (only fields we need).

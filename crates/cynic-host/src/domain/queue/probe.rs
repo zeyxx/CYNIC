@@ -1,7 +1,7 @@
 //! Pure queue planning — reconcile branch graph + discovery + GC plan into a QueuePlan.
 //! No I/O, no hard-coded argv: BoundedAction is derived from gc_plan items or branch name.
 
-use cynic_build::build_discovery::BuildDiscoveryReport;
+use cynic_protocol::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::branch_graph::{BranchGraph, is_root, is_stale};
 use cynic_protocol::queue::{
     BoundedAction, CanonicalQueuePolicy, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueuePolicy,
@@ -113,7 +113,7 @@ mod tests {
     use cynic_protocol::retention::{
         RetentionItem, RetentionPlan, RETENTION_PLAN_SCHEMA,
     };
-    use cynic_build::build_discovery::{
+    use cynic_protocol::build_discovery::{
         BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
     };
     use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph, BranchNode};

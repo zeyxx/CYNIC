@@ -3,8 +3,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_build::build_discovery::{
-    BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, HostTriple, Toolchain,
+use cynic_protocol::build_discovery::{
+    BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
 };
 use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::queue::QueuePlan;

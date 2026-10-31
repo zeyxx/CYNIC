@@ -33,6 +33,7 @@ pub mod builder_pool;
 pub mod collision_counter;
 pub mod compressor;
 pub mod external_build;
+#[deprecated(note = "use cynic_build::external_build directly")]
 pub mod external_build_uc;
 pub mod gate_scope;
 pub mod gc;
@@ -46,7 +47,7 @@ pub mod runner;
 pub mod runtime_release;
 pub mod types;
 
-pub use adapters::{HttpDeployAdapter, HttpDeploy, HttpDeploymentAdapter, HttpDeployPortAdapter, HttpDeployer, HttpExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
+pub use adapters::{HttpDeployAdapter, HttpExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
 pub use build::*;
 pub use cache::*;
 pub use build_artefact::*;

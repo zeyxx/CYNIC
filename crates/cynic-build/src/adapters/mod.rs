@@ -10,7 +10,7 @@ pub mod mem_fs;
 pub mod os_identity;
 pub mod std_fs;
 
-pub use http::{HttpDeployAdapter, HttpDeploy, HttpDeploymentAdapter, HttpDeployPortAdapter, HttpDeployer, HttpExternalBuildAdapter};
+pub use http::{HttpDeployAdapter, HttpExternalBuildAdapter};
 pub use local::{LocalExternalBuildAdapter};
 pub use local_build_cache::LocalBuildCacheAdapter;
 pub use mem_fs::MemFilesystem;

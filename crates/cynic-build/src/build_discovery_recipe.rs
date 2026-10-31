@@ -1,14 +1,6 @@
-use serde::{Deserialize, Serialize};
+//! Build discovery recipe types.
+//!
+//! Canonical types migrated to `cynic_protocol::build_discovery_recipe` (L0).
+//! Re-exported here for backward compatibility.
 
-pub const BUILD_DISCOVERY_RECIPE_SCHEMA: &str = "cynic.build_discovery_recipe.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildDiscoveryRecipe {
-    pub schema: String,
-    pub id: String,
-    pub action: String,
-    pub crate_name: String,
-    pub target_kind: String,
-    pub target_name: String,
-    pub argv: Vec<String>,
-}
+pub use cynic_protocol::build_discovery_recipe::*;

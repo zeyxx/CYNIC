@@ -341,10 +341,8 @@ impl DeployPort for HttpExternalBuildAdapter {
     }
 }
 
-pub type HttpDeploy = HttpDeployAdapter;
-pub type HttpDeploymentAdapter = HttpDeployAdapter;
-pub type HttpDeployPortAdapter = HttpDeployAdapter;
-pub type HttpDeployer = HttpDeployAdapter;
+// ── Backward-compatible canonical alias (only the adapter struct is canonical)
+// Deprecated aliases removed per anti-pattern cleanup.
 
 #[cfg(test)]
 mod deploy_tests {
