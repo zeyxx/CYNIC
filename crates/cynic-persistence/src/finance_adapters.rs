@@ -2,7 +2,7 @@
 //!
 //! Implements cynic-finance StorageMeter port using WAL and disk observation.
 
-use cynic_finance::ports::{MeterError, StorageMeter};
+use cynic_protocol::resource_meter_port::{MeterError, StorageMeter};
 use std::fs;
 use std::path::Path;
 

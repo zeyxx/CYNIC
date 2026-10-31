@@ -123,5 +123,6 @@ pub mod workload_signature;
 pub mod exports;
 pub mod retention;
 pub mod resource_budget;
+pub mod resource_meter_port;
 pub mod tabular;
 pub use exports::*;
