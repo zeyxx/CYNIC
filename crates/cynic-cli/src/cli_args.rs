@@ -7,7 +7,6 @@ use crate::coordination_surface::CoordinationCommand;
 use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::host_surface::HostCommand;
-use crate::idea_surface::IdeaCommand;
 use crate::mask::{JudgeCommand, MaskCommand};
 use crate::network_surface::NetworkCommand;
 use crate::node_surface::NodeCommand;
@@ -181,11 +180,6 @@ pub(crate) enum Command {
         #[arg(long = "no-tui")]
         no_tui: bool,
     },
-    /// Idea ledger: track ideas, status, consumption, and compounding.
-    Idea {
-        #[command(subcommand)]
-        command: IdeaCommand,
-    },
     /// Asynchronous domain-partitioned task queue (Inference, Infra, CodeAudit, Cortex, Governance, Nightshift).
     Task {
         #[command(subcommand)]
@@ -210,11 +204,6 @@ pub(crate) enum Command {
     Know {
         #[command(subcommand)]
         command: crate::knowledge_surface::KnowCommand,
-    },
-    /// CYNICpedia — registry of knowledge articles (docs, contracts, traces, designs).
-    Wiki {
-        #[command(subcommand)]
-        command: crate::wiki_surface::WikiCommand,
     },
     /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
     Queue {

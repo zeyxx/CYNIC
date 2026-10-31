@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{emit_json, fail, rust_source};
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum WikiCommand {
     /// List registered CYNICpedia articles.
     List {

@@ -234,15 +234,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "idea",
-                commands: vec![
-                    "cynic idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
-                    "cynic idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
-                    "cynic idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
-                ],
-            },
-            CommandDomain {
                 name: "node",
                 commands: vec![
                     "cynic node status --node-id <id> [--json]",
@@ -380,14 +371,13 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "know",
                 commands: vec![
                     "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "wiki",
-                commands: vec![
-                    "cynic wiki list [--kind <kind>] [--status <status>] [--registry <path>] [--json]",
-                    "cynic wiki search <query> [--limit <n>] [--json]",
-                    "cynic wiki show <article-id> [--registry <path>] [--json]",
+                    "cynic know wiki list [--kind <kind>] [--status <status>] [--registry <path>] [--json]",
+                    "cynic know wiki search <query> [--limit <n>] [--json]",
+                    "cynic know wiki show <article-id> [--registry <path>] [--json]",
+                    "cynic know idea list [--domain <d>] [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic know idea add --title <t> [--description <d>] [--domain <d>] [--status <s>] [--freshness <f>] [--idea-id <id>] [--ledger <path>] [--json]",
+                    "cynic know idea status --idea-id <id> [--status <s>] [--freshness <f>] [--ledger <path>] [--json]",
+                    "cynic know idea consume --idea-id <id> --consumer <c> [--ledger <path>] [--json]",
                 ],
             },
             CommandDomain {

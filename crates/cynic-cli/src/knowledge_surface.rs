@@ -108,6 +108,16 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// CYNICpedia — registry of knowledge articles (docs, contracts, traces, designs).
+    Wiki {
+        #[command(subcommand)]
+        command: crate::wiki_surface::WikiCommand,
+    },
+    /// Idea ledger: track ideas, status, consumption, and compounding.
+    Idea {
+        #[command(subcommand)]
+        command: crate::idea_surface::IdeaCommand,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -889,6 +899,8 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+    KnowCommand::Wiki { command } => crate::wiki_surface::execute_wiki_command(command),
+    KnowCommand::Idea { command } => crate::idea_surface::execute_idea(command),
     }
 }
 
