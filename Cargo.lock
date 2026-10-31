@@ -840,7 +840,6 @@ dependencies = [
  "chrono",
  "cynic-audit-engine",
  "cynic-build",
- "cynic-eval",
  "cynic-forensics",
  "cynic-lxc",
  "cynic-network",

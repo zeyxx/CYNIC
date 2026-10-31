@@ -43,7 +43,6 @@ pub mod host_substrate;
 mod identity_database;
 pub mod inference_observation;
 pub mod install_contract;
-pub mod judge_patch_observer;
 pub mod kernel_proof_persistence;
 pub mod kernel_tunnel;
 pub mod lab;

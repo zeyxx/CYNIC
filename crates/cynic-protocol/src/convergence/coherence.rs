@@ -13,8 +13,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::evidence::EvidenceRef;
-use cynic_protocol::integrity::digest_json;
+use crate::evidence::EvidenceRef;
+use crate::integrity::digest_json;
 
 use super::{
     CausalConvergenceEpoch, CausalConvergenceEpochInput, CausalEvidenceRefs, ConvergenceStatus,
@@ -193,7 +193,7 @@ pub fn valid_sha256(value: &str) -> bool {
 mod tests {
     use super::*;
     use crate::convergence::TrustDimensionStatus;
-    use cynic_protocol::evidence::EvidenceRelation;
+    use crate::evidence::EvidenceRelation;
 
     fn compass() -> Compass {
         Compass {

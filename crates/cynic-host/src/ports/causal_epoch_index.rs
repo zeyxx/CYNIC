@@ -1,4 +1,4 @@
-use cynic_eval::convergence::{CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry};
+use cynic_protocol::convergence::{CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry};
 
 pub trait CausalEpochIndexStorePort: Send + Sync {
     fn append(&self, entry: &CausalEpochIndexEntry) -> Result<CausalEpochIndexAppend, String>;

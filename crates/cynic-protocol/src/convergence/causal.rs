@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::evidence::{EvidenceRef, EvidenceRelation, valid_sha256_digest};
+use crate::evidence::{EvidenceRef, EvidenceRelation, valid_sha256_digest};
 
 use super::{ConvergenceCell, ConvergenceStatus};
 
