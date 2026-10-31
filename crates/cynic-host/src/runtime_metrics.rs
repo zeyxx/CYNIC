@@ -2,7 +2,6 @@ use serde::Serialize;
 
 use crate::conformance::HostConformanceReport;
 use crate::domain::shared::SurfaceStatus;
-use crate::forgejo_control::current_forgejo_plan;
 use cynic_protocol::{
     RUNTIME_PROOF_BUNDLE_SCHEMA, ResidualUnknownBudget, RuntimeProofBundle,
     evaluate_residual_unknowns,
@@ -380,31 +379,14 @@ fn architecture_boundary_metric(external_proof: Option<&RuntimeProofBundle>) -> 
 }
 
 fn sovereign_git_metric() -> RuntimeMetric {
-    match current_forgejo_plan() {
-        Ok(plan) => measured_metric(MeasuredMetricSpec {
-            id: "sovereign_git_percent",
-            label: "Sovereign git",
-            numerator: usize::from(plan.status == "ready" && plan.actions.is_empty()),
-            denominator: 1,
-            source: "cynic.forgejo.plan.v1",
-            target_percent: 95,
-            critical: true,
-            detail: format!(
-                "forgejo status={} pending_actions={} blockers={}",
-                plan.status,
-                plan.actions.len(),
-                plan.blockers.join(",")
-            ),
-        }),
-        Err(error) => unknown_metric(
-            "sovereign_git_percent",
-            "Sovereign git",
-            "cynic.forgejo.plan.v1",
-            95,
-            true,
-            error,
-        ),
-    }
+    unknown_metric(
+        "sovereign_git_percent",
+        "Sovereign git",
+        "cynic.forgejo.plan.v1",
+        95,
+        true,
+        "decoupled from cynic-host".to_string(),
+    )
 }
 
 fn candidate_compass_metric(external_proof: Option<&RuntimeProofBundle>) -> RuntimeMetric {

@@ -11,12 +11,14 @@ pub mod entry;
 pub mod external_source;
 pub mod external_source_uc;
 pub mod forgejo;
+pub mod forgejo_control;
 pub mod forgejo_port;
 pub mod forgejo_token;
 pub mod git_hygiene;
 pub mod git_topology;
 pub mod git_topology_observer;
 pub mod isolated_worktree;
+pub mod opportunity_port;
 pub mod parse;
 pub mod ports;
 pub mod providers;
@@ -34,6 +36,7 @@ pub mod source_policy;
 pub mod source_release;
 pub mod source_repository_bootstrap;
 pub mod source_worktree;
+pub mod worktree_observer;
 pub mod source_worktree_cli;
 pub mod source_worktree_inventory;
 pub mod stack;
@@ -53,6 +56,7 @@ pub use external_source::{
     ExternalPushProof, ExternalRepoRef, ExternalSourcePort,
 };
 pub use forgejo::*;
+pub use forgejo_control::*;
 pub use forgejo_port::{ForgejoObservationPort, build_forgejo_plan, forgejo_token_spec};
 pub use git_hygiene::*;
 pub use git_topology::*;
@@ -70,6 +74,7 @@ pub use source_policy::*;
 pub use source_release::*;
 pub use source_repository_bootstrap::*;
 pub use source_worktree::*;
+pub use worktree_observer::*;
 pub use source_worktree_inventory::*;
 pub use stack::*;
 

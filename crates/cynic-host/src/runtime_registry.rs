@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use cynic_types::paths::CynicPaths;
 
-use crate::repo_access::current_project_root;
+use crate::project_root::current_project_root;
 use crate::runtime_authority::RuntimeProjectionClass;
 
 const ALLOW_LOCAL_DEV_BUILD_ENV: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";

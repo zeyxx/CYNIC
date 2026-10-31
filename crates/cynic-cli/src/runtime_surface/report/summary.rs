@@ -39,7 +39,7 @@ pub(crate) fn inference_summary() -> InferenceReportSummary {
 }
 
 pub(crate) fn sovereign_git_summary() -> SovereignGitSummary {
-    let report = cynic_host::repo_access::current_repo_access_status();
+    let report = cynic_vcs::repo_access::current_repo_access_status();
     let forgejo = report
         .sovereign_remotes
         .iter()

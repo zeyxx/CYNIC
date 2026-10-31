@@ -13,7 +13,7 @@ use crate::domain::ecosystem_package::{
     IntegrationSpec, IntegrationsPlanReport, IntegrationsStatusReport, RawIntegrationObservation,
     connect_integration, observe_integrations, plan_integrations,
 };
-use crate::repo_access::{current_project_root, load_forgejo_desired_state};
+use crate::project_root::current_project_root;
 use crate::runtime_authority::default_runtime_principal_layout;
 use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
@@ -269,8 +269,7 @@ impl<'a> LocalIntegrationObservationAdapter<'a> {
             .filter(|value| !value.trim().is_empty())
             .and_then(|value| base_url(&value))
             .or_else(|| {
-                let desired = load_forgejo_desired_state(self.project_root.as_ref()?).ok()?;
-                base_url(&desired.api_url)
+                None
             })
     }
 }

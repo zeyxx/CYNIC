@@ -62,11 +62,11 @@ pub(crate) fn execute_repo_access(json: bool, profile: Option<String>) -> ExitCo
         return ExitCode::FAILURE;
     }
     let report = match profile {
-        Some(path) => cynic_host::repo_access::repo_access_status(
+        Some(path) => cynic_vcs::repo_access::repo_access_status(
             std::path::Path::new(&path),
-            cynic_host::repo_access::current_project_root().as_deref(),
+            cynic_vcs::repo_access::current_project_root().as_deref(),
         ),
-        None => cynic_host::repo_access::current_repo_access_status(),
+        None => cynic_vcs::repo_access::current_repo_access_status(),
     };
     emit_json(&report, false)
 }

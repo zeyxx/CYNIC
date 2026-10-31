@@ -9,14 +9,14 @@ use cynic_protocol::candidate_opportunity::{
     EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
     OpportunitySourceKind, CandidateOpportunity, SmallestNextStep,
 };
-use cynic_vcs::{
+use crate::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryPathBasis,
 };
 
-use super::port::{CandidateOpportunityObserver, SourceObservationStatus};
-use crate::adapters::vcs_runner::LocalVcsRunner;
-use cynic_vcs::{VcsRunner, parse_porcelain};
+use crate::opportunity_port::{CandidateOpportunityObserver, SourceObservationStatus};
+use crate::LocalVcsRunner;
+use crate::{VcsRunner, parse_porcelain};
 
 /// Configuration for source worktree observation.
 #[derive(Debug, Clone)]

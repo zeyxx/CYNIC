@@ -9,7 +9,6 @@ pub mod decision_store;
 pub mod rate_classify_observer;
 pub mod port;
 pub mod session_observer;
-pub mod worktree_observer;
 
 pub use audit_observer::{AuditObserverConfig, AuditValidationObserver, DebtFindingEntry};
 pub use autoresearch_observer::{AutoresearchObserver, AutoresearchObserverConfig};
@@ -21,7 +20,6 @@ pub use decision_store::OpportunityDecisionStore;
 pub use rate_classify_observer::{RateTrendObserver, RateTrendObserverConfig};
 pub use port::{CandidateOpportunityObserver, SourceObservationStatus};
 pub use session_observer::{SessionObserverConfig, SessionPatternObserver};
-pub use worktree_observer::{SourceWorktreeObserver, WorktreeObserverConfig};
 
 /// Aggregator coordinating multiple opportunity observers into a unified ranked report.
 pub struct OrganicCompassCollector {
@@ -101,11 +99,6 @@ pub fn collect_default_organic_opportunities(
         min_recurring_sessions: 2,
     });
 
-    let worktree_obs = SourceWorktreeObserver::new(WorktreeObserverConfig {
-        repository_root: workspace_root.to_path_buf(),
-        workspace_store: workspace_root.join(".workspace"),
-    });
-
     let audit_obs = AuditValidationObserver::new(AuditObserverConfig {
         debt_file_path: workspace_root.join("contracts").join("debt-taxonomy.json"),
     });
@@ -123,7 +116,6 @@ pub fn collect_default_organic_opportunities(
 
     let mut report = OrganicCompassCollector::new()
         .with_observer(Box::new(session_obs))
-        .with_observer(Box::new(worktree_obs))
         .with_observer(Box::new(audit_obs))
         .with_observer(Box::new(pattern_obs))
         .with_observer(Box::new(autoresearch_obs))
