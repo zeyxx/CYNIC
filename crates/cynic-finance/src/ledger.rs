@@ -96,40 +96,28 @@ impl LedgerEngine {
             });
         }
 
-        // Check idempotency
-        if ledger.entries.iter().any(|e| e.transaction_id == transaction.transaction_id) {
-            return Err(LedgerError::DuplicateTransaction(
-                transaction.transaction_id.clone(),
-            ));
-        }
-
-        // Verify proof
-        if !transaction.verify_proof() {
-            return Err(LedgerError::InvalidProof(
-                transaction.transaction_id.clone(),
-            ));
-        }
-
-        // Update balance
+        // Delegate to ResourceLedger's AppendOnlyJournal invariants.
         let value = transaction.resource.as_f64();
-        match transaction.direction {
-            TransactionDirection::Debit => {
-                let current = ledger.balance.as_f64();
-                if current < value {
-                    return Err(LedgerError::InsufficientBalance {
-                        available: current,
+        let current_balance = ledger.balance.as_f64();
+        use cynic_protocol::journal_port::AppendOnlyJournal;
+        match ledger.append(transaction) {
+            Ok(_) => Ok(()),
+            Err(msg) => {
+                if msg.starts_with("invalid proof") {
+                    Err(LedgerError::InvalidProof(String::new()))
+                } else if msg.starts_with("duplicate transaction_id") {
+                    let id = msg.split(": ").nth(1).unwrap_or("").to_string();
+                    Err(LedgerError::DuplicateTransaction(id))
+                } else if msg.starts_with("insufficient balance") {
+                    Err(LedgerError::InsufficientBalance {
+                        available: current_balance,
                         requested: value,
-                    });
+                    })
+                } else {
+                    Err(LedgerError::InvalidProof(msg))
                 }
-                ledger.balance = decrement_unit(&ledger.balance, value);
-            }
-            TransactionDirection::Credit => {
-                ledger.balance = increment_unit(&ledger.balance, value);
             }
         }
-
-        ledger.entries.push(transaction);
-        Ok(())
     }
 
     /// Returns the balance of a ledger.
@@ -150,7 +138,7 @@ impl Default for LedgerEngine {
 }
 
 /// Decrements a resource unit by a given amount.
-fn decrement_unit(unit: &crate::types::ResourceUnit, amount: f64) -> crate::types::ResourceUnit {
+pub fn decrement_unit(unit: &crate::types::ResourceUnit, amount: f64) -> crate::types::ResourceUnit {
     use crate::types::ResourceUnit::*;
     match unit {
         ComputeCpuMs(v) => ComputeCpuMs((*v as f64 - amount).max(0.0) as u64),
