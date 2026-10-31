@@ -3,7 +3,7 @@
 //! This module provides the core ledger logic. It is pure — no I/O.
 
 use crate::types::{
-    ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
+    ResourceLedger, ResourceTransaction, ResourceType,
 };
 
 /// Errors that can occur in ledger operations.

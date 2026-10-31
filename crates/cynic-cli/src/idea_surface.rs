@@ -1,4 +1,4 @@
-//! Idea ledger projection surface: `cynic idea list/add/status/consume`.
+//! Idea ledger projection surface: `cynic know idea list/add/status/consume`.
 //!
 //! Projects `infra/idea-ledger.json`. Pure logic lives in [`crate::idea_ledger`];
 //! this module owns I/O and clap.
@@ -16,7 +16,7 @@ use crate::idea_ledger::{
     update_freshness, update_status,
 };
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 pub(crate) enum IdeaCommand {
     /// List ideas in the ledger (with optional filters).
     List {
