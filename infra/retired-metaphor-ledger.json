@@ -463,12 +463,6 @@
       "terms": "organ"
     },
     {
-      "count": 2,
-      "evidence": "crates/cynic-lifecycle/src/forge_task_contract.rs:4",
-      "path": "crates/cynic-lifecycle/src/forge_task_contract.rs",
-      "terms": "organ"
-    },
-    {
       "count": 4,
       "evidence": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs:11",
       "path": "crates/cynic-lifecycle/src/ports/lifecycle_port.rs",
@@ -596,12 +590,6 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-node/src/domain/mesh.rs:11",
-      "path": "crates/cynic-node/src/domain/mesh.rs",
-      "terms": "Organism"
-    },
-    {
-      "count": 1,
       "evidence": "crates/cynic-node/src/domain/node_observation/rules.rs:113",
       "path": "crates/cynic-node/src/domain/node_observation/rules.rs",
       "terms": "organism"
@@ -641,12 +629,6 @@
       "evidence": "crates/cynic-node/src/network_shadow_proof.rs:175",
       "path": "crates/cynic-node/src/network_shadow_proof.rs",
       "terms": "organ"
-    },
-    {
-      "count": 1,
-      "evidence": "crates/cynic-node/src/ports/build_runner.rs:353",
-      "path": "crates/cynic-node/src/ports/build_runner.rs",
-      "terms": "metabolic"
     },
     {
       "count": 1,
@@ -692,12 +674,6 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/mesh_sync_uc.rs:34",
-      "path": "crates/cynic-node/src/usecases/mesh_sync_uc.rs",
-      "terms": "organism"
-    },
-    {
-      "count": 1,
       "evidence": "crates/cynic-node/src/watchdog.rs:2",
       "path": "crates/cynic-node/src/watchdog.rs",
       "terms": "Dog"
@@ -718,18 +694,6 @@
       "count": 1,
       "evidence": "crates/cynic-protocol/src/throughput_invoice.rs:19",
       "path": "crates/cynic-protocol/src/throughput_invoice.rs",
-      "terms": "metabolic"
-    },
-    {
-      "count": 2,
-      "evidence": "crates/cynic-storage/src/book/mod.rs:6",
-      "path": "crates/cynic-storage/src/book/mod.rs",
-      "terms": "Metabolism"
-    },
-    {
-      "count": 2,
-      "evidence": "crates/cynic-storage/src/lib.rs:91",
-      "path": "crates/cynic-storage/src/lib.rs",
       "terms": "metabolic"
     },
     {
