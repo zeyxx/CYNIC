@@ -936,6 +936,7 @@ version = "0.9.0"
 dependencies = [
  "blake3",
  "cynic-persistence",
+ "cynic-surreal",
  "cynic-types",
  "parking_lot",
  "regex",
