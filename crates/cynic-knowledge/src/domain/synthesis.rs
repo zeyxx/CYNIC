@@ -1,6 +1,8 @@
 use crate::domain::chunk::AuthorityTier;
 use crate::domain::scorer::SearchHit;
+use cynic_surreal::domain::topology::TopologicalContext;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub const SYNTHESIS_PROMPT_SCHEMA_V1: &str = "cynic.knowledge.synthesis_prompt.v1";
 
@@ -28,6 +30,15 @@ pub struct SynthesisPromptBuilder;
 impl SynthesisPromptBuilder {
     /// Construit le prompt borné à partir d'une requête et des chunks récupérés.
     pub fn build(query: &str, hits: &[SearchHit]) -> SynthesisPrompt {
+        Self::build_with_topological_contexts(query, hits, None)
+    }
+
+    /// Construit le prompt borné avec enrichissement topologique optionnel.
+    pub fn build_with_topological_contexts(
+        query: &str,
+        hits: &[SearchHit],
+        topological_contexts: Option<&HashMap<String, TopologicalContext>>,
+    ) -> SynthesisPrompt {
         let mut context_buffer = String::new();
         let mut sources = Vec::new();
 
@@ -42,6 +53,43 @@ impl SynthesisPromptBuilder {
                 hit.chunk.authority,
                 hit.chunk.content.trim()
             ));
+
+            // Enrichissement topologique : relations SurrealDB si disponibles.
+            if let Some(ctxs) = topological_contexts {
+                let ctx = ctxs
+                    .get(&hit.chunk.chunk_id)
+                    .or_else(|| {
+                        ctxs.values()
+                            .find(|c| !c.parent_path.is_empty() && c.parent_path == hit.chunk.source_path)
+                    });
+                if let Some(ctx) = ctx {
+                    let mut topo_lines = Vec::new();
+                    if !ctx.parent_path.is_empty() {
+                        topo_lines.push(format!("  parent: {}", ctx.parent_path));
+                    }
+                    if !ctx.enforces.is_empty() {
+                        topo_lines.push(format!("  enforces: {}", ctx.enforces.join(", ")));
+                    }
+                    if !ctx.enforced_by.is_empty() {
+                        topo_lines.push(format!("  enforced_by: {}", ctx.enforced_by.join(", ")));
+                    }
+                    if !ctx.depends_on.is_empty() {
+                        topo_lines.push(format!("  depends_on: {}", ctx.depends_on.join(", ")));
+                    }
+                    if !ctx.depended_on_by.is_empty() {
+                        topo_lines.push(format!("  depended_on_by: {}", ctx.depended_on_by.join(", ")));
+                    }
+                    if !ctx.cites.is_empty() {
+                        topo_lines.push(format!("  cites: {}", ctx.cites.join(", ")));
+                    }
+                    if !topo_lines.is_empty() {
+                        context_buffer.push_str(&format!(
+                            "  [TOPOLOGIE] {}\n\n",
+                            topo_lines.join(" | ")
+                        ));
+                    }
+                }
+            }
 
             sources.push(CitedSource {
                 source_path: hit.chunk.source_path.clone(),

@@ -176,7 +176,6 @@ mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use cynic_build::BuildRunnerObservation;
-    use cynic_process::MapArgvRunner;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
     use cynic_vcs::SourceSnapshot;
 
@@ -236,6 +235,18 @@ mod tests {
         verification: LeaseVerification,
     }
 
+    struct FakeBuildRunner;
+    impl cynic_build::BuildRunner for FakeBuildRunner {
+        fn run_command(&self, _argv: &[&str]) -> cynic_build::BuildCommandOutput {
+            cynic_build::BuildCommandOutput {
+                exit_code: Some(0),
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: None,
+            }
+        }
+    }
+
     impl BuildLeaseVerificationPort for FakeLeaseAdapter {
         fn verify(&self, _guard: &LeaseGuard) -> LeaseVerification {
             self.verification.clone()
@@ -258,7 +269,7 @@ mod tests {
                 None,
             ),
         };
-        let argv_runner = MapArgvRunner { responses: vec![] };
+        let argv_runner = FakeBuildRunner;
         let mut dirty_snapshot = valid_source_snapshot();
         dirty_snapshot.unstaged_paths = vec!["src/lib.rs".to_string()];
 
@@ -320,7 +331,7 @@ mod tests {
                 None,
             ),
         };
-        let argv_runner = MapArgvRunner { responses: vec![] };
+        let argv_runner = FakeBuildRunner;
 
         let config = BuildWorkflowConfig {
             observation_adapter: &observation_adapter,

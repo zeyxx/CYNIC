@@ -432,7 +432,20 @@ pub fn diff_paths(committed: &str, rendered: &str) -> Result<Vec<String>, Genera
     Ok(out)
 }
 
+/// Volatile measurement paths that must never gate freshness: lines of code move
+/// whenever any source file changes, and the committed document is not expected
+/// to track them byte-for-byte.
+fn is_volatile_loc_path(path: &str) -> bool {
+    if path == "measured.loc_total" || path == "measured.loc_basis" {
+        return true;
+    }
+    path.ends_with(".loc")
+}
+
 fn diff_into(path: String, committed: &Value, rendered: &Value, out: &mut Vec<String>) {
+    if is_volatile_loc_path(&path) {
+        return;
+    }
     if out.len() >= DIFF_LIMIT {
         if out.len() == DIFF_LIMIT {
             out.push(format!("... more than {DIFF_LIMIT} differences"));
@@ -440,6 +453,7 @@ fn diff_into(path: String, committed: &Value, rendered: &Value, out: &mut Vec<St
         return;
     }
     let (Value::Object(left), Value::Object(right)) = (committed, rendered) else {
+
         if committed != rendered {
             out.push(format!("{path}: {committed} -> {rendered}"));
         }

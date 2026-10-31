@@ -9,7 +9,6 @@ authors = ["TALARIA Architecture Group"]
 cynic-persistence = { path = "../cynic-persistence" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-consensus = { path = "../cynic-consensus" }
-cynic-finance = { path = "../cynic-finance" }
 rusqlite = { version = "0.34", features = ["bundled"] }
 bytes.workspace = true
 serde = { workspace = true }

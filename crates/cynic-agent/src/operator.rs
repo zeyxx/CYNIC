@@ -1,7 +1,7 @@
 //! Operator agent — an LLM agent that operates CYNIC via CLI binaries.
 //!
-//! This is the first "pilot agent" of the organism. It:
-//! 1. Observes organism state (git status, branches, claims)
+//! This is the first "pilot agent" of the system. It:
+//! 1. Observes system state (git status, branches, claims)
 //! 2. Proposes actions via LLM
 //! 3. Executes proposed commands
 //! 4. Produces proofs
@@ -12,7 +12,7 @@
 use crate::traits::AutonomousAgent;
 use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::llm_port::*;
-/// Operator agent that observes and acts on the organism.
+/// Operator agent that observes and acts on the system.
 pub struct OperatorAgent<R: ArgvRunner> {
     /// Path to the cynic CLI binary.
     cynic_bin: String,
@@ -34,7 +34,7 @@ impl<R: ArgvRunner> OperatorAgent<R> {
         Self { cynic_bin, runner }
     }
 
-    /// Observe organism state via CLI.
+    /// Observe system state via CLI.
     fn observe_state(&self) -> OperatorObservation {
         let branch = self.runner.run(&["git", "branch", "--show-current"]);
         let status = self.runner.run(&["git", "status", "--short"]);

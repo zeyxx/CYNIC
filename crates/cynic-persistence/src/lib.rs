@@ -75,7 +75,7 @@ mod tests {
         let mut tensor = MetadataTensor::new("cynic.test.v1", Hash256::GENESIS);
         tensor
             .continuous_axes
-            .insert("metabolic.joules".to_string(), 42.5);
+            .insert("energy.joules".to_string(), 42.5);
         tensor
             .discrete_axes
             .insert("agent.role".to_string(), "architect".to_string());
@@ -83,7 +83,7 @@ mod tests {
             .residual_unknowns
             .push("thermal_dissipation".to_string());
 
-        assert_eq!(tensor.continuous_axes.get("metabolic.joules"), Some(&42.5));
+        assert_eq!(tensor.continuous_axes.get("energy.joules"), Some(&42.5));
         assert_eq!(
             tensor.discrete_axes.get("agent.role").map(String::as_str),
             Some("architect")

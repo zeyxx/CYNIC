@@ -401,261 +401,40 @@ pub(crate) fn trigger_build(
         },
         other => return Err(format!("invalid gate scope: {other} (full|auto)")),
     }
-    let auto_route = host.as_ref().is_none_or(|v| v.trim().is_empty())
-        && runner.as_ref().is_none_or(|v| v.trim().is_empty());
-    let host = match host.filter(|value| !value.trim().is_empty()) {
-        Some(explicit) => explicit.to_string(),
-        None => match runner.filter(|value| !value.trim().is_empty()) {
-            Some(named) => cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
-                .into_iter()
-                .find(|candidate| candidate.node_id == named)
-                .map(|candidate| candidate.ssh_target)
-                .ok_or_else(|| {
-                    format!("named runner {named} unresolvable in registry {registry}")
-                })?,
-            None => cynic_node::cli_factory::resolve_runner_host(None, registry)?,
-        },
+    let target_runner = host.or(runner);
+    let builder_url = match target_runner {
+        Some(name_or_ip) => {
+            if name_or_ip.starts_with("http://") || name_or_ip.starts_with("https://") {
+                name_or_ip.to_string()
+            } else {
+                let nodes = cynic_host::registry::resolve::list_runner_nodes(Some(registry)).unwrap_or_default();
+                if let Some(candidate) = nodes.into_iter().find(|c| c.node_id == name_or_ip || c.ssh_target == name_or_ip) {
+                    format!("http://{}:9090", candidate.ssh_target)
+                } else {
+                    format!("http://{name_or_ip}:9090")
+                }
+            }
+        }
+        None => resolve_default_builder_url()?,
     };
-    let phase = match phase {
-        "check" => BuildPhase::Check,
-        "build" => BuildPhase::Build,
-        "activate" => BuildPhase::Activate,
-        "test" => BuildPhase::Test,
+
+    let action_str = match phase {
+        "check" => "check",
+        "build" => "build",
+        "activate" => "activate",
+        "test" => "test",
         other => return Err(format!("invalid build phase: {other}")),
     };
-    let network_mode = match network_mode {
-        "offline" => NetworkMode::Offline,
-        "online" => NetworkMode::Online,
-        other => return Err(format!("invalid network mode: {other}")),
-    };
-    // The pre-trigger disk gate reads its threshold from the registry, so
-    // the policy lives in one place and the code never hardcodes a floor.
-    // Resolved before `host` is moved into the runner.
-    let minimum_available_bytes =
-        cynic_host::registry::resolve::minimum_available_bytes_for_runner(Some(registry), &host)?;
-    let mut runner = cynic_node::cli_factory::ssh_build_runner(
-        host,
-        user.to_string(),
-        // Registry-driven source: an explicit --ssot-url wins, otherwise the
-        // clone URI comes from source_workspace_layout.repositories. Never the
-        // hardcoded default — the runner cannot resolve it.
-        cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
-        package.clone(),
-        sccache_dir.to_string(),
-        // An explicit --checkout-base overrides the runner's own layout; the
-        // default is the runner's state root, read back from the runner.
-        Some(checkout_base.to_string()).filter(|value| !value.trim().is_empty()),
-        minimum_available_bytes,
-    );
-    let health = runner.observe_runner();
-    if !health.reachable {
-        return Err(format!("build runner unreachable: {}", health.node_id));
-    }
-    // Compute-awareness pre-flight (infra/compute-policy.json): refuse a
-    // dispatch the runner cannot hold instead of discovering it mid-build.
-    // Unmeasurable capacity is an explicit unknown, never a number.
-    let task_class = match phase {
-        BuildPhase::Check => "rust_check_light",
-        BuildPhase::Build => "rust_build",
-        BuildPhase::Activate => "rust_build",
-        // The test phase compiles the test harness and runs it: heavier than
-        // a check, lighter than a release build.
-        BuildPhase::Test => "rust_test",
-    };
-    let action_name = match phase {
-        BuildPhase::Check => "cargo:check",
-        BuildPhase::Build => "cargo:build",
-        BuildPhase::Activate => "cargo:build",
-        BuildPhase::Test => "cargo:test",
-    };
-    let policy_raw = std::path::Path::new(registry)
-        .parent()
-        .map(|parent| parent.join("compute-policy.json"))
-        .and_then(|path| std::fs::read_to_string(path).ok())
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
-    let floor_gb = policy_raw
-        .as_ref()
-        .and_then(|policy| policy.get("task_classes"))
-        .and_then(|classes| classes.get(task_class))
-        .and_then(|class| class.get("floor"))
-        .and_then(|floor| floor.get("free_gb"))
-        .and_then(|value| value.as_f64())
-        .unwrap_or(0.0);
-    let floor_bytes = (floor_gb * 1024.0 * 1024.0 * 1024.0) as u64;
-    let (lambda, mu_ms) = policy_raw
-        .as_ref()
-        .and_then(|policy| policy.get("placement"))
-        .map(|placement| {
-            (
-                placement
-                    .get("lambda")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0),
-                placement.get("mu_ms").and_then(|v| v.as_u64()).unwrap_or(60_000),
-            )
-        })
-        .unwrap_or((0.0, 60_000));
-    match runner.probe_free_ram_bytes() {
-        Some(available) => {
-            if available < floor_bytes {
-                return Err(format!(
-                    "runner {} below {} floor: {:.2} GB free < {:.2} GB required",
-                    health.node_id,
-                    task_class,
-                    available as f64 / 1_073_741_824.0,
-                    floor_gb
-                ));
-            }
-        }
-        None => {
-            eprintln!(
-                "warning: runner {} capacity unmeasurable (unknown, not zero)",
-                health.node_id
-            );
-        }
-    }
-    // Least-cost placement across every registry runner (cynic-build
-    // place_build). Explicit --host/--runner wins: placement only reroutes
-    // the registry default. Probes are live; durations are medians from
-    // the local proof log; queue depth is unobserved here (0).
-    if auto_route {
-        let log_text = match proof_log {
-            Some(explicit) => std::fs::read_to_string(explicit).unwrap_or_default(),
-            None => crate::build_proof_log::default_proof_log_path()
-                .and_then(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
-                .unwrap_or_default(),
-        };
-        let candidates =
-            cynic_host::registry::resolve::list_runner_nodes(Some(registry)).unwrap_or_default();
-        if !candidates.is_empty() {
-            let capacity_path = std::path::Path::new(registry)
-                .parent()
-                .unwrap_or(std::path::Path::new("."))
-                .join("fleet-capacity.json");
-            let capacity: Vec<cynic_protocol::runner_capacity::RunnerCapacitySnapshot> =
-                std::fs::read_to_string(&capacity_path)
-                    .ok()
-                    .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-                    .and_then(|v| v.get("snapshots").cloned())
-                    .and_then(|v| serde_json::from_value(v).ok())
-                    .unwrap_or_default();
-            let now_unix_s = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let mut snapshots = Vec::new();
-            for entry in &candidates {
-                let (median_ms, samples) =
-                    proof_median_ms(&log_text, &entry.node_id, action_name);
-                let observed = capacity.iter().find(|s| s.runner_id == entry.node_id);
-                snapshots.push(cynic_build::RunnerSnapshot {
-                    node_id: entry.node_id.clone(),
-                    free_ram_bytes: observed.and_then(|s| s.free_ram_bytes),
-                    total_ram_bytes: observed.and_then(|s| s.total_ram_bytes),
-                    queued_ms: 0,
-                    median_ms,
-                    samples,
-                    agent_in_flight: 0,
-                });
-            }
-            let decision = cynic_build::place_build(
-                task_class,
-                floor_bytes,
-                lambda,
-                mu_ms,
-                snapshots,
-                &capacity,
-                now_unix_s,
-            );
-            for rank in &decision.ranked {
-                eprintln!(
-                    "placement: {} capable={} score_ms={:?} {}",
-                    rank.node_id,
-                    rank.capable,
-                    rank.score_ms,
-                    rank.reasons.join(",")
-                );
-            }
-            if let Some(chosen) = decision.chosen.as_deref() {
-                if chosen != health.node_id {
-                    let target = candidates
-                        .iter()
-                        .find(|entry| entry.node_id == chosen)
-                        .map(|entry| entry.ssh_target.clone())
-                        .unwrap_or_default();
-                    let (user, new_host) = match target.split_once('@') {
-                        Some((u, h)) => (u.to_string(), h.to_string()),
-                        None => (user.to_string(), target),
-                    };
-                    if !new_host.is_empty() {
-                        eprintln!("placement: rerouting {} -> {chosen}", health.node_id);
-                        runner = cynic_node::cli_factory::ssh_build_runner(
-                            new_host.to_string(),
-                            user.to_string(),
-                            cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)
-                                .unwrap_or_default(),
-                            package.clone(),
-                            sccache_dir.to_string(),
-                            Some(checkout_base.to_string())
-                                .filter(|value| !value.trim().is_empty()),
-                            minimum_available_bytes,
-                        );
-                    }
-                }
-            } else {
-                return Err(format!(
-                    "placement: no capable runner for {task_class} at floor {floor_bytes} bytes"
-                ));
-            }
-        }
-    }
-    let log_path = match proof_log {
-        Some(explicit) => explicit.to_string(),
-        None => crate::build_proof_log::default_proof_log_path()?,
-    };
-    let proof = runner
-        .trigger(&BuildTrigger {
-            source_commit: commit.to_string(),
-            phase,
-            network_mode,
-        })
-        .map_err(|error| error.to_string())?;
 
-    let rendered = proof.to_json();
-    if let Err(error) = crate::build_proof_log::append_proof(&log_path, &rendered) {
-        eprintln!("warning: proof retained in stdout only: {error}");
-    }
-
-    if json {
-        println!("{rendered}");
-    } else {
-        println!(
-            "build runner {}: {}",
-            proof.node,
-            match proof.status {
-                cynic_node::ports::build_runner::PipelineStatus::Converged => "converged",
-                cynic_node::ports::build_runner::PipelineStatus::Blocked => "blocked",
-            }
-        );
-        if let Some(reason) = proof.verdict_reason.as_deref() {
-            println!(
-                "  broken_layer: {}",
-                proof.broken_layer.as_deref().unwrap_or("pipeline")
-            );
-            println!("  reason: {reason}");
-        }
-    }
-
-    if proof.status != cynic_node::ports::build_runner::PipelineStatus::Converged {
-        return Err(format!(
-            "build blocked for {commit}: {}",
-            proof
-                .verdict_reason
-                .as_deref()
-                .unwrap_or("no reason recorded")
-        ));
-    }
-    Ok(())
+    submit_build(
+        commit,
+        package.as_deref(),
+        action_str,
+        user,
+        &builder_url,
+        true,
+        json,
+    )
 }
 
 pub(crate) fn list_runners(registry: &str, json: bool) -> Result<(), String> {

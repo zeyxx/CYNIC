@@ -1107,7 +1107,6 @@ version = "0.9.0"
 dependencies = [
  "bytes",
  "chrono",
- "cynic-consensus",
  "cynic-finance",
  "cynic-protocol",
  "cynic-secrets",
@@ -1246,25 +1245,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "zeroize",
-]
-
-[[package]]
-name = "cynic-sqlite"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "cynic-consensus",
- "cynic-finance",
- "cynic-persistence",
- "cynic-protocol",
- "hex",
- "parking_lot",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "tracing",
 ]
 
 [[package]]

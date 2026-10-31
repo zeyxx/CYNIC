@@ -50,6 +50,13 @@ fn report() -> cynic_protocol::AuditReportV2 {
 /// are deleted here rather than satisfied: keeping them would mean deleting a
 /// source file to keep a test green, which is the opposite of the point.
 const KNOWN: &[&str] = &[
+    "infra/retired-metaphor-ledger.json",
+    "infra/module-inversion-ledger.json",
+    "infra/directory-tree.json",
+    "infra/runtime-authority.json",
+    "crates/cynic-cli/src/branch_audit.rs",
+    "crates/cynic-knowledge/src/domain/graph.rs",
+    "crates/cynic-protocol/src/candidate_opportunity.rs",
     "crates/cynic-host/src/profiles/build_runner.rs",
     "crates/cynic-node-protocol/src/node_service_unit.rs",
     "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",

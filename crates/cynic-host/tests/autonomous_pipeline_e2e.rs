@@ -52,30 +52,29 @@ impl BuildLeaseVerificationPort for FakeLeaseAdapter {
     }
 }
 
-/// Build a MapArgvRunner that simulates a successful native audit on the remote.
-fn build_fake_runner(commit: &str) -> MapArgvRunner {
-    let proof_json = format!(
-        r#"{{"schema":"cynic.build_pipeline_proof.v1","status":"executed","source_commit":"{commit}"}}"#
-    );
-    MapArgvRunner {
-        responses: vec![(
-            vec![
-                "cargo".to_string(),
-                "run".to_string(),
-                "-q".to_string(),
-                "-p".to_string(),
-                "cynic-cli".to_string(),
-                "--".to_string(),
-                "audit".to_string(),
-                "crate".to_string(),
-            ],
-            ArgvOutput {
-                exit_code: Some(0),
-                stdout: proof_json,
-                stderr: String::new(),
-                spawn_error: None,
-            },
-        )],
+/// Build a runner that simulates a successful native audit on the remote.
+struct FakeAuditBuildRunner {
+    commit: String,
+}
+
+impl cynic_build::BuildRunner for FakeAuditBuildRunner {
+    fn run_command(&self, _argv: &[&str]) -> cynic_build::ports::BuildCommandOutput {
+        let proof_json = format!(
+            r#"{{"schema":"cynic.build_pipeline_proof.v1","status":"executed","source_commit":"{}"}}"#,
+            self.commit
+        );
+        cynic_build::ports::BuildCommandOutput {
+            exit_code: Some(0),
+            stdout: proof_json,
+            stderr: String::new(),
+            spawn_error: None,
+        }
+    }
+}
+
+fn build_fake_runner(commit: &str) -> FakeAuditBuildRunner {
+    FakeAuditBuildRunner {
+        commit: commit.to_string(),
     }
 }
 

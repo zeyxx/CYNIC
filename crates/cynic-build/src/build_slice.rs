@@ -133,6 +133,67 @@ impl BuildSliceAction {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuildSliceCommandError {
+    InvalidAction(Vec<String>),
+    UnsupportedTarget(String),
+}
+
+impl std::fmt::Display for BuildSliceCommandError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidAction(violations) => {
+                write!(
+                    formatter,
+                    "invalid build slice action: {}",
+                    violations.join(",")
+                )
+            }
+            Self::UnsupportedTarget(target) => {
+                write!(formatter, "build slice target not supported yet: {target}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for BuildSliceCommandError {}
+
+/// Translates a validated `BuildSliceAction` into a bounded Cargo argv.
+pub fn build_slice_cargo_argv(
+    action: &BuildSliceAction,
+) -> Result<Vec<String>, BuildSliceCommandError> {
+    let violations = action.validate();
+    if !violations.is_empty() {
+        return Err(BuildSliceCommandError::InvalidAction(violations));
+    }
+    if action.target != BuildSliceTarget::Lib {
+        return Err(BuildSliceCommandError::UnsupportedTarget(format!(
+            "{:?}",
+            action.target
+        )));
+    }
+
+    let mut argv = vec!["cargo".to_string()];
+    match action.phase {
+        BuildSlicePhase::Check => argv.push("check".to_string()),
+        BuildSlicePhase::Test => argv.push("test".to_string()),
+        BuildSlicePhase::Build => argv.push("build".to_string()),
+    }
+    argv.extend([
+        "--package".to_string(),
+        action.package.clone(),
+        "--lib".to_string(),
+    ]);
+    if matches!(action.network_mode, BuildSliceNetworkMode::Offline) {
+        argv.push("--offline".to_string());
+    }
+    argv.extend(["--jobs".to_string(), action.max_jobs.to_string()]);
+    if let Some(filter) = &action.test_filter {
+        argv.push(filter.clone());
+    }
+    Ok(argv)
+}
+
 impl BuildSliceReceipt {
     pub fn validate(&self) -> Vec<String> {
         let mut violations = Vec::new();
