@@ -173,13 +173,13 @@ impl SshBuildRunner {
         format!("{}@{}", self.user, self.host)
     }
 
-    fn run_ssh<T: AsRef<str>>(&self, target: &str, remote_argv: &[T]) -> cynic_protocol::argv::ArgvOutput {
+    fn run_ssh<T: AsRef<str>>(&self, target: &str, remote_argv: &[T]) -> CommandOutput {
         match cynic_ssh::argv::ssh_argv(target, remote_argv) {
             Ok(argv) => {
                 let borrowed: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
                 self.runner.run(&borrowed)
             }
-            Err(err) => cynic_protocol::argv::ArgvOutput {
+            Err(err) => CommandOutput {
                 exit_code: Some(255),
                 stdout: String::new(),
                 stderr: err,
