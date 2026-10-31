@@ -342,6 +342,7 @@
         "cynic-cli"
       ],
       "depends_on": [
+        "cynic-agent",
         "cynic-build",
         "cynic-consensus",
         "cynic-finance",
@@ -357,11 +358,11 @@
         "cynic-release",
         "cynic-sandbox",
         "cynic-secrets",
+        "cynic-ssh",
         "cynic-storage",
         "cynic-supervisor",
         "cynic-types",
-        "cynic-vcs",
-        "cynic-agent"
+        "cynic-vcs"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -442,6 +443,7 @@
         "cynic-release",
         "cynic-sandbox",
         "cynic-secrets",
+        "cynic-ssh",
         "cynic-storage",
         "cynic-supervisor",
         "cynic-traces",
@@ -529,6 +531,20 @@
       "layer": "cross_cutting",
       "loc": 1701
     },
+    "cynic-ssh": {
+      "consumers": [
+        "cynic-node"
+      ],
+      "depends_on": [
+        "cynic-protocol",
+        "cynic-types"
+      ],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L1",
+      "loc": 1000
+    },
     "cynic-storage": {
       "consumers": [
         "cynic-cli",
@@ -602,6 +618,7 @@
         "cynic-protocol",
         "cynic-proxmox",
         "cynic-secrets",
+        "cynic-ssh",
         "cynic-vcs"
       ],
       "depends_on": [],
@@ -687,6 +704,7 @@
     "cynic-network",
     "cynic-intel",
     "cynic-pkg",
+    "cynic-ssh",
     "cynic-storage",
     "cynic-vcs",
     "cynic-build",
@@ -849,6 +867,7 @@
       "cynic-proxmox",
       "cynic-release",
       "cynic-sandbox",
+      "cynic-ssh",
       "cynic-supervisor"
     ],
     "L2": [
