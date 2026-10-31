@@ -347,7 +347,7 @@ pub type HttpDeployPortAdapter = HttpDeployAdapter;
 pub type HttpDeployer = HttpDeployAdapter;
 
 #[cfg(test)]
-mod tests {
+mod deploy_tests {
     use super::*;
     use cynic_release::{DeployMutationPolicy, DeployRequest};
 
