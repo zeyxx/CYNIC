@@ -114,7 +114,7 @@ pub mod resolve {
                     == Some(wanted);
             if matches {
                 return Ok(
-                    crate::domain::disk::build_runner::resolve_minimum_available_bytes(
+                    cynic_build::cache::resolve_minimum_available_bytes(
                         &path, &node_id,
                     )?,
                 );
@@ -385,7 +385,7 @@ pub mod resolve {
         registry_path: Option<&str>,
     ) -> Result<String, String> {
         let path = resolve_registry_path(registry_path)?;
-        crate::domain::disk::build_runner::canonical_target_relative_path(&path)
+        cynic_build::cache::canonical_target_relative_path(&path)
     }
 
     /// Resolve a runner by node id, name, or alias (e.g. a compat builder
