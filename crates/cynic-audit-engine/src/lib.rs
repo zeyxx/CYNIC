@@ -24,7 +24,7 @@ use self::prose_citation_rule::CodeCitesProseRule;
 use self::retired_metaphor_rule::RetiredMetaphorRule;
 use self::topology::CrateTopologyRule;
 use self::rules::{
-    AuditRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
+    AuditRule, HotspotThresholdRule, HostProbeLeakRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
     PathSanitationRule,
 };
 use self::runtime_divergence::RuntimeDivergenceRule;
@@ -82,6 +82,7 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(CodeCitesProseRule),
         Box::new(RuntimePathLiteralRule),
         Box::new(RetiredMetaphorRule),
+        Box::new(HostProbeLeakRule),
     ]
 }
 

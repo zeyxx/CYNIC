@@ -14,7 +14,7 @@ use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
 
-pub use cynic_protocol::host_substrate::capabilities::{
+pub use crate::host_substrate::capabilities::{
     DnsProviderCapability, HostCapabilities, IdentityCapability, NameServiceCapability,
     NetworkManagerCapability, PackageManagerCapability, RouteToolCapability,
     ServiceManagerCapability, WireguardToolCapability,
