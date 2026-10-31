@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
-use cynic_protocol::capacity::{
+use cynic_host::capacity::{
     CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
 };
 use cynic_protocol::AgentCompletionStatus;
@@ -748,7 +748,7 @@ mod tests {
 
     /// T3 (T4): a Saturated load tier must refuse admission. The gate is the
     /// pure `admit_claim_under_capacity` decision over the assessment
-    /// produced by `cynic_protocol::capacity::assess_load_tier`.
+    /// produced by `cynic_host::capacity::assess_load_tier`.
     #[test]
     fn saturated_tier_skips_claim() {
         let policy = LoadPolicy::with_legacy_defaults("test-node");
@@ -937,25 +937,25 @@ mod tests {
     }
 
     /// Fabricated CPU report with a known utilisation, mirroring the
-    /// constructor pattern used by `cynic_protocol::capacity` tests.
-    fn fabricated_cpu_report(util_pct: f64) -> cynic_protocol::cpu::CpuReport {
-        cynic_protocol::cpu::CpuReport {
+    /// constructor pattern used by `cynic_host::capacity` tests.
+    fn fabricated_cpu_report(util_pct: f64) -> cynic_host::host_substrate::cpu::CpuReport {
+        cynic_host::host_substrate::cpu::CpuReport {
             schema: "cynic.host_cpu_report.v1".to_string(),
             timestamp: "test".to_string(),
-            physical: cynic_protocol::cpu::CpuPhysical {
+            physical: cynic_host::host_substrate::cpu::CpuPhysical {
                 model_name: "test".to_string(),
                 logical_cpus: 16,
                 cores: Some(8),
                 sockets: Some(1),
                 max_bogomips_or_hz: None,
             },
-            volume: cynic_protocol::cpu::CpuVolume {
+            volume: cynic_host::host_substrate::cpu::CpuVolume {
                 governor: None,
                 isolated_mask: None,
                 online_cpus: 16,
                 possible_cpus: 16,
             },
-            usage: cynic_protocol::cpu::CpuUsage {
+            usage: cynic_host::host_substrate::cpu::CpuUsage {
                 user: 0,
                 system: 0,
                 idle: 0,
@@ -970,25 +970,25 @@ mod tests {
     }
 
     /// Fabricated memory report from total/used GiB, mirroring the
-    /// constructor pattern used by `cynic_protocol::capacity` tests.
-    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_protocol::memory::MemoryReport {
-        cynic_protocol::memory::MemoryReport {
+    /// constructor pattern used by `cynic_host::capacity` tests.
+    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_host::host_substrate::memory::MemoryReport {
+        cynic_host::host_substrate::memory::MemoryReport {
             schema: "cynic.host_memory_report.v1".to_string(),
             timestamp: "test".to_string(),
-            physical: cynic_protocol::memory::MemoryUsage {
+            physical: cynic_host::host_substrate::memory::MemoryUsage {
                 total_bytes: total_gb * 1024 * 1024 * 1024,
                 free_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
                 available_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
                 used_bytes: used_gb * 1024 * 1024 * 1024,
                 reclaimable_bytes: 0,
             },
-            volume: cynic_protocol::memory::MemoryVolume {
+            volume: cynic_host::host_substrate::memory::MemoryVolume {
                 page_size_bytes: 4096,
                 swappiness: None,
                 hugepages_reserved: None,
                 hugepage_size_bytes: None,
             },
-            swap: cynic_protocol::memory::MemoryUsage {
+            swap: cynic_host::host_substrate::memory::MemoryUsage {
                 total_bytes: 0,
                 free_bytes: 0,
                 available_bytes: 0,

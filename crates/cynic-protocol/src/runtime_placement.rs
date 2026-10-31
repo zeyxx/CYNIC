@@ -489,9 +489,9 @@ pub fn plan_runtime_placement_promotion(
 /// to an active runtime role (such as `kernel_primary` or `build_runner`).
 pub fn validate_candidate_admissibility(
     candidate_node_id: &str,
-    load_tier: crate::capacity::LoadTier,
+    load_tier: crate::load_tier::LoadTier,
 ) -> Result<(), String> {
-    if load_tier == crate::capacity::LoadTier::Saturated {
+    if load_tier == crate::load_tier::LoadTier::Saturated {
         Err(format!(
             "candidate_{}_host_saturated",
             candidate_node_id
@@ -507,7 +507,7 @@ pub fn plan_runtime_placement_promotion_with_capacity(
     registry: &Value,
     report: &crate::FleetKernelDiscoveryReport,
     now_unix_ms: u64,
-    candidate_load_tiers: &[(&str, crate::capacity::LoadTier)],
+    candidate_load_tiers: &[(&str, crate::load_tier::LoadTier)],
 ) -> RuntimePlacementPromotionPlan {
     let mut plan = plan_runtime_placement_promotion(registry, report, now_unix_ms);
     if let Some(candidate_id) = &plan.candidate_node_id {
@@ -851,7 +851,7 @@ mod tests {
             &registry,
             &report,
             100,
-            &[("qemu/120", crate::capacity::LoadTier::Headroom)],
+            &[("qemu/120", crate::load_tier::LoadTier::Headroom)],
         );
         assert_eq!(plan.status, "ready");
 
@@ -860,7 +860,7 @@ mod tests {
             &registry,
             &report,
             100,
-            &[("qemu/120", crate::capacity::LoadTier::Saturated)],
+            &[("qemu/120", crate::load_tier::LoadTier::Saturated)],
         );
         assert_eq!(blocked_plan.status, "blocked");
         assert!(

@@ -39,13 +39,10 @@ pub use crate::coord::{
 };
 pub use crate::coordination_lease::*;
 pub use crate::coordination_runtime::*;
-pub use crate::cpu::*;
 pub use crate::credential_lease::*;
 pub use crate::cycle_transition::*;
 pub use crate::detection::*;
 pub use crate::development::*;
-pub use crate::discovery::*;
-pub use crate::disk::*;
 pub use crate::domain_tasks::*;
 pub use crate::endpoint::*;
 pub use crate::error_catalog::*;
@@ -60,9 +57,7 @@ pub use crate::health_signal::reconcile_health_signal;
 pub use crate::health_signal::types::*;
 pub use crate::inference_matrix::*;
 pub use crate::integrity::*;
-pub use crate::machine_identity::*;
 pub use crate::mcp_projection::*;
-pub use crate::memory::*;
 pub use crate::observation_record::*;
 pub use crate::observe::*;
 pub use crate::one_shot_capability::{

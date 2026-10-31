@@ -1,4 +1,5 @@
 pub mod adapters;
+pub mod capacity;
 pub mod domain;
 pub mod agent_access;
 pub mod agent_matrix;

@@ -1,5 +1,5 @@
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
-use cynic_protocol::{EvidenceEnvelope, TargetCandidate, build_evidence_envelope};
+use cynic_protocol::{EvidenceEnvelope, build_evidence_envelope}; use cynic_protocol::discovery::TargetCandidate;
 use serde::Serialize;
 
 pub const DISCOVERY_CANDIDATE_STORE_REPORT_SCHEMA: &str =

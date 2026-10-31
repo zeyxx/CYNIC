@@ -5,7 +5,7 @@
 //! retention trio's `RetentionObservation`.
 
 use cynic_build::build_artefact::{CheckoutEntry, DiskPressure};
-use cynic_protocol::disk::bytes_to_human;
+use crate::host_substrate::disk::bytes_to_human;
 
 /// Parse `ls -1 <checkouts>` + `du -sb` + `stat` lines into CheckoutEntry.
 /// Each line: "<path>|<sha>|<size_bytes>|<uid>:<gid>|<mtime_secs>|<remote_exists 0/1>|<foreign 0/1>"

@@ -85,6 +85,6 @@ fn print_memory_report_human(report: &MemoryReport) {
 }
 
 fn bytes_to_human(bytes: u64) -> String {
-    use cynic_protocol::disk::bytes_to_human;
+    use cynic_host::host_substrate::disk::bytes_to_human;
     bytes_to_human(bytes)
 }

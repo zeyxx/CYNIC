@@ -1,7 +1,7 @@
 //! CLI adapter for host capacity observation (load tier + headroom).
 //!
 //! Thin projection surface — delegates to `LocalCapacityAdapter` in `cynic-host`
-//! and the pure `cynic_protocol::capacity` decision. Read-only.
+//! and the pure `cynic_host::capacity` decision. Read-only.
 //!
 //! Policy provenance: the load policy is node-declared data (HITL Q3).
 //! Default resolution order:
@@ -12,7 +12,7 @@
 use std::process::ExitCode;
 
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
-use cynic_protocol::capacity::LoadPolicy;
+use cynic_host::capacity::LoadPolicy;
 
 use crate::emit_json;
 
@@ -54,7 +54,7 @@ fn load_policy() -> Result<LoadPolicy, String> {
     }
 }
 
-fn print_capacity_human(a: &cynic_protocol::capacity::CapacityAssessmentV1) {
+fn print_capacity_human(a: &cynic_host::capacity::CapacityAssessmentV1) {
     println!("════════════════════════════════════════════════════════════");
     println!(
         "  CYNIC CAPACITY / METABOLIC STATE — policy {}",

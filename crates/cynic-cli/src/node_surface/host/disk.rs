@@ -9,7 +9,7 @@ use cynic_host::domain::disk::build_runner::{
 };
 use cynic_host::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
-use cynic_protocol::disk::bytes_to_human;
+use cynic_host::host_substrate::disk::bytes_to_human;
 
 use crate::emit_json;
 pub(crate) use crate::runtime_surface::RuntimeDiskCommand;
