@@ -1,6 +1,6 @@
 //! Reproducible build cache reclaim execution.
 
-use cynic_node::ports::build_runner_adapter::{CommandRunner, LocalCommandRunner};
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 pub(crate) fn reclaim_build_cache_local(
     node: &str,
@@ -119,11 +119,11 @@ pub(crate) fn reclaim_build_cache_remote(
         argv.push("--json".to_string());
     }
 
-    let mut full: Vec<String> = vec!["ssh".to_string(), transport.ssh_target.clone()];
-    full.extend(argv);
+    let full = cynic_ssh::argv::ssh_argv(&transport.ssh_target, &argv)
+        .map_err(|e| format!("ssh argv build failed: {e}"))?;
 
     let borrowed: Vec<&str> = full.iter().map(String::as_str).collect();
-    let runner = LocalCommandRunner;
+    let runner = LocalArgvRunner;
     let output = runner.run(&borrowed);
 
     if let Some(error) = &output.spawn_error {

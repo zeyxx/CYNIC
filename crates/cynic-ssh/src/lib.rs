@@ -6,20 +6,19 @@
 
 pub mod argv;
 pub mod command;
-pub mod executor;
 pub mod config;
+pub mod executor;
 pub mod inspection;
 pub mod options;
 pub mod trust;
 
 pub use argv::{
-    scp_argv, ssh_argv, ssh_script_argv, validate_remote_script, validate_remote_segment,
-    validate_target,
+    scp_argv, ssh_argv, ssh_argv_with_options, ssh_script_argv, ssh_script_argv_with_options,
+    validate_remote_script, validate_remote_segment, validate_target,
 };
 pub use command::{RemoteCommand, RemoteExecutorPort, RemoteOutcome, TransportForm};
 pub use executor::SshRemoteExecutor;
-pub use options::{SshOptions, SSH_BATCH_OPTIONS};
-
+pub use options::{SSH_BATCH_OPTIONS, SshOptions};
 
 pub use config::{
     SshConfigEntry, SshConfigParse, find_entry, parse_ssh_config, parse_ssh_config_file,

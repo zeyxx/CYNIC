@@ -2,7 +2,12 @@
 
 /// SSH options every remote command carries.
 pub const SSH_BATCH_OPTIONS: [&str; 6] = [
-    "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=10",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=yes",
+    "-o",
+    "ConnectTimeout=10",
 ];
 
 /// Tunable SSH options. Defaults match [`SSH_BATCH_OPTIONS`].

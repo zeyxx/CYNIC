@@ -89,22 +89,31 @@ fn observe_workload_federated(
         candidate_records.push(local_rec);
     }
 
-    // 2. Remote reads via SSH in parallel / sequential loop
+    // 2. Remote reads via HTTP fast-path, SSH fallback
     for node in &nodes {
+        // HTTP fast-path: query builder port 9090
+        let builder_url = format!("http://{}:9090", node);
+        if let Ok(val) = cynic_build::fetch_workload_record(&builder_url, workload_id) {
+            if let Ok(record) = serde_json::from_value::<DurableAgentWorkloadRecord>(val) {
+                candidate_records.push(record);
+                continue;
+            }
+        }
+        // SSH fallback
         let cmd = format!(
             "cynic build workload observe --workload-id {} --local --json",
             workload_id
         );
-        let ssh_args = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=3",
+        let ssh_args = cynic_ssh::ssh_script_argv_with_options(
             &format!("{}@{}", user, node),
             &cmd,
-        ];
-        let out = runner.run(&ssh_args);
+            &cynic_ssh::options::SshOptions {
+                connect_timeout_secs: 3,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_default();
+        let out = runner.run(&ssh_args.iter().map(String::as_str).collect::<Vec<_>>());
         if out.exit_code == Some(0) {
             if let Some(record) = parse_workload_status(&out.stdout) {
                 candidate_records.push(record);
@@ -149,16 +158,16 @@ fn list_workloads_federated(
     // 2. Remote lists
     for node in &nodes {
         let cmd = "cynic build workload list --local --json";
-        let ssh_args = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=3",
+        let ssh_args = cynic_ssh::ssh_script_argv_with_options(
             &format!("{}@{}", user, node),
             cmd,
-        ];
-        let out = runner.run(&ssh_args);
+            &cynic_ssh::options::SshOptions {
+                connect_timeout_secs: 3,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_default();
+        let out = runner.run(&ssh_args.iter().map(String::as_str).collect::<Vec<_>>());
         if out.exit_code == Some(0) {
             if let Ok(records) = parse_workload_list(&out.stdout) {
                 for rec in records {
