@@ -156,7 +156,7 @@ mod tests {
     use crate::network_mesh_apply_plan::target_transaction::{
         apply_network_mesh_target_transaction_with_runner, target_transaction_argv,
     };
-    use crate::network_mesh_bundle::build_network_mesh_bundle;
+    use cynic_network::build_network_mesh_bundle;
     use crate::ports::network_command_runner_port::NetworkCommandRunnerPort;
     use cynic_host::runtime_harness::{
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,

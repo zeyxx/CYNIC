@@ -25,7 +25,6 @@ pub mod mesh_port;
 pub(crate) mod network_command_runner_port;
 pub mod network_interfaces_port;
 pub(crate) mod network_mesh_bundle_port;
-pub(crate) mod network_mesh_bundle_writer_port;
 pub mod network_mesh_registry_port;
 pub mod node_control_plane_port;
 pub mod node_control_store_port;
