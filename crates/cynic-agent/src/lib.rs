@@ -7,6 +7,7 @@
 pub mod capability;
 pub mod cleanup;
 pub mod coordination;
+pub mod matrix;
 pub mod merge_agent;
 pub mod operator;
 pub mod scheduler;

@@ -7,6 +7,6 @@ pub(crate) fn execute_agent_matrix(json: bool) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let report = cynic_host::agent_matrix::build_agent_matrix_report();
+    let report = cynic_agent::matrix::build_agent_matrix_report();
     emit_json(&report, false)
 }
