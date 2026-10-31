@@ -22,6 +22,8 @@ pub mod mesh;
 pub mod mesh_bundle;
 pub mod notification_outbox;
 pub use notification_outbox::*;
+pub mod observability;
+pub use observability::*;
 pub mod mesh_plan;
 pub mod fleet_membership;
 pub mod plane_vocabulary;
