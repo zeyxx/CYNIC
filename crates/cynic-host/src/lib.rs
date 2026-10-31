@@ -33,7 +33,6 @@ pub mod fleet_heartbeat;
 pub mod forgejo_control;
 pub mod framework_bootstrap;
 pub mod gc_surfaces;
-pub mod git_topology_observer;
 pub mod hardware_baseline;
 pub mod hardware_baseline_apply;
 pub mod hardware_baseline_reconcile;
@@ -95,9 +94,7 @@ pub mod secret_presence;
 pub mod service_catalog;
 pub mod service_supervisor_observation;
 pub mod source_control;
-pub mod source_lease;
 pub mod vcs_ports;
-pub mod source_sync;
 pub mod source_worktree;
 pub mod space_gc;
 

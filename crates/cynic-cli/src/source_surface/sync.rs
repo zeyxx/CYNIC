@@ -7,8 +7,8 @@ use crate::cli_json::emit_pretty_json;
 use crate::source_surface::sync_coherence;
 
 pub(crate) fn execute_status(root: &Path, json: bool) -> ExitCode {
-    let observation = cynic_host::source_sync::observe_all_layers(root);
-    let decision = cynic_host::source_sync::reconcile(&observation);
+    let observation = cynic_vcs::sync::observe_all_layers(root);
+    let decision = cynic_vcs::sync::reconcile(&observation);
     if json {
         emit_pretty_json(&decision)
     } else {
@@ -22,9 +22,9 @@ pub(crate) fn execute_status(root: &Path, json: bool) -> ExitCode {
 }
 
 pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
-    let observation = cynic_host::source_sync::observe_all_layers(root);
-    let decision = cynic_host::source_sync::reconcile(&observation);
-    let plan = cynic_host::source_sync::plan(&decision);
+    let observation = cynic_vcs::sync::observe_all_layers(root);
+    let decision = cynic_vcs::sync::reconcile(&observation);
+    let plan = cynic_vcs::sync::plan(&decision);
     if apply {
         let admission = cynic_host::adapters::source_admission_adapter::admit_source_sync(
             root, &decision,
@@ -54,7 +54,7 @@ pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
                 ExitCode::FAILURE
             }
         } else {
-            let proof = cynic_host::source_sync::execute_plan(root, &plan);
+            let proof = cynic_vcs::sync::execute_plan(root, &plan);
             let read_back = if proof.success {
                 observation.cortex.head_sha.as_deref()
             } else {

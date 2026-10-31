@@ -21,7 +21,7 @@ use cynic_vcs::{
 
 use crate::execution::stderr_with_spawn_error;
 use crate::repo_access::current_repo_access_status;
-use crate::source_lease::SourceLeaseVerifier;
+use cynic_vcs::source_lease::SourceLeaseVerifier;
 use cynic_process::{ArgvOutput, ArgvRunner};
 
 // Re-export the pure types so existing `crate::source_control::` paths keep resolving.
