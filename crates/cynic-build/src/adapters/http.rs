@@ -349,7 +349,7 @@ pub type HttpDeployer = HttpDeployAdapter;
 #[cfg(test)]
 mod deploy_tests {
     use super::*;
-    use crate::deploy::{DeployMutationPolicy, DeployRequest};
+    use cynic_release::{DeployMutationPolicy, DeployRequest};
 
     fn sample_request() -> DeployRequest {
         DeployRequest {
