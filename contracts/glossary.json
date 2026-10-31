@@ -51,8 +51,8 @@
         "expiry"
       ]
     },
-    "Organ": {
-      "definition": "A bounded sovereign system service or LXC compute unit.",
+    "Service": {
+      "definition": "A bounded sovereign system daemon, process, or LXC compute unit with health signals.",
       "banned_usages": [
         "Vague synonym for pure Rust domain modules"
       ]
