@@ -2,8 +2,10 @@
 
 use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
 use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
-use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
-use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
+use cynic_build::{
+    BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter, NodeBuildLeaseVerificationAdapter,
+};
+use cynic_build::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_process::ArgvRunner;
 use cynic_vcs::SourceSnapshot;
 
@@ -765,7 +767,7 @@ impl cynic_build::BuildRunner for LocalBuildRunner {
     let runner = LocalBuildRunner;
     // Build lease is verified by the build runner node itself (cynic-node),
     // not by an external coordination service (kernel). The kernel is retired.
-    let lease_adapter = cynic_host::build_evidence::NodeBuildLeaseVerificationAdapter;
+    let lease_adapter = NodeBuildLeaseVerificationAdapter;
 
     let target_crates = crates
         .map(|c| c.split(',').map(String::from).collect())
