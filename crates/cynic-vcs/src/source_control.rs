@@ -1,6 +1,10 @@
-use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
+use crate::ports::RepoAccessPort;
+use crate::source_lease::SourceLeaseVerifier;
+use cynic_process::{ArgvOutput, ArgvRunner};
 use cynic_protocol::{LeaseGuard, SecurityEvidenceState};
+use serde::{Deserialize, Serialize};
 
 pub const SOURCE_ADMISSION_REPORT_SCHEMA: &str = "cynic.source.admission.v1";
 pub const SOURCE_CHANGE_PROPOSAL_SCHEMA: &str = "cynic.source.change_proposal.v1";
@@ -536,32 +540,6 @@ mod tests {
         assert!(report.blockers.is_empty());
     }
 }
-//! Governed source-material operations.
-//!
-//! Git is an adapter here, not an authority. The protocol crate owns the
-//! classification and admission rule; this module owns worktree locking,
-//! argv execution, and read-back evidence.
-
-//! Re-export pure source control types from `cynic-vcs` per Foundation §481 (SoC).
-//!
-//! The I/O functions (`observe_source_worktree`, `observe_source_push_target`,
-//! `GitSourceControlAdapter`, `SourceLock`, etc.) remain here in `cynic-host`
-//! because they depend on `crate::execution`, `crate::repo_access`, and
-//! `cynic_process::ArgvRunner` (L1 host substrate).
-
-use std::path::{Path, PathBuf};
-
-use cynic_protocol::SecurityEvidenceState;
-use crate::{
-    SourceChangeAdmission, SourceChangeProposal, SourceMatterClass,
-    SourceSnapshot, admit_source_change,
-};
-
-use crate::ports::RepoAccessPort;
-
-use crate::source_lease::SourceLeaseVerifier;
-use cynic_process::{ArgvOutput, ArgvRunner};
-
 
 pub fn observe_source_worktree(
     root: &Path,
@@ -1037,7 +1015,6 @@ impl Drop for SourceLock {
         let _ = std::fs::remove_file(&self.path);
     }
 }
-
 
 pub fn stderr_with_spawn_error(mut stderr: String, spawn_error: Option<String>) -> String {
     if let Some(error) = spawn_error {

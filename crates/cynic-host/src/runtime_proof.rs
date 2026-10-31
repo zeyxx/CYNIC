@@ -8,7 +8,7 @@ use cynic_protocol::{
 use cynic_build::BuildConformanceEvidence;
 use crate::domain::shared::SurfaceStatus;
 use crate::usecases::HostObservationReports;
-use crate::vertical_conformance::VerticalConformanceReport;
+use crate::conformance::VerticalConformanceReport;
 
 pub fn host_identity_runtime_proof(observed: &HostObservationReports) -> RuntimeProof {
     let evidence = vec![
