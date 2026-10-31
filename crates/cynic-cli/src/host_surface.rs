@@ -217,6 +217,64 @@ pub(crate) enum RequestCommand {
 }
 
 #[derive(Debug, Subcommand)]
+pub(crate) enum ToolingCommand {
+    /// Current declared vs resolved dependency state.
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// What an upgrade would change, without changing it.
+    Plan {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Advisory and drift audit over the dependency graph.
+    Audit {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Resolve and upgrade stale components.
+    Upgrade {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        yes: bool,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        confirm: Option<String>,
+        #[arg(long)]
+        only: Vec<String>,
+        /// Explicit source binary path for first-contact bootstrap.
+        #[arg(long)]
+        source: Option<String>,
+    },
+}
+
+pub(crate) fn execute_tooling(command: ToolingCommand) -> ExitCode {
+    match command {
+        ToolingCommand::Status { json } => crate::deps_surface::execute_deps(json),
+        ToolingCommand::Plan { json } => crate::deps_surface::execute_deps_plan(json),
+        ToolingCommand::Audit { json } => crate::deps_surface::execute_deps_audit(json),
+        ToolingCommand::Upgrade {
+            json,
+            yes,
+            apply,
+            confirm,
+            only,
+            source,
+        } => crate::deps_surface::execute_deps_upgrade(
+            json,
+            apply,
+            yes,
+            confirm.as_deref(),
+            &only,
+            source.as_deref(),
+        ),
+    }
+}
+
+#[derive(Debug, Subcommand)]
 pub(crate) enum HostCommand {
     /// Privilege bridge staging and install
     Bridge {
@@ -288,6 +346,11 @@ pub(crate) enum HostCommand {
         #[command(subcommand)]
         command: RequestCommand,
     },
+    /// Host tooling (dependency state, plan, audit, upgrade)
+    Tooling {
+        #[command(subcommand)]
+        command: ToolingCommand,
+    },
 }
 
 /// Resolve a two-level command to the flat host-exec profile it forwards to.
@@ -349,6 +412,7 @@ fn profile_of(command: &HostCommand) -> &'static str {
         HostCommand::Request { command } => match command {
             RequestCommand::Validate { .. } => "host-exec-validate-request",
         },
+        HostCommand::Tooling { .. } => "host-tooling",
     }
 }
 
@@ -402,9 +466,13 @@ fn args_of(command: &HostCommand) -> &[String] {
         HostCommand::Request { command } => match command {
             RequestCommand::Validate { args } => args,
         },
+        HostCommand::Tooling { .. } => &[],
     }
 }
 
 pub(crate) fn execute_host(command: HostCommand) -> ExitCode {
+    if let HostCommand::Tooling { command } = command {
+        return execute_tooling(command);
+    }
     run(profile_of(&command), args_of(&command))
 }

@@ -113,26 +113,6 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: JudgeCommand,
     },
-    /// The workspace's own dependencies: state, plan, audit, upgrade.
-    Dependency {
-        #[command(subcommand)]
-        command: crate::dependency_surface::DependencyCommand,
-    },
-    /// One-word frictionless update for ecosystem components (hermes-agent, llama.cpp, cynic, etc.).
-    Update {
-        /// Optional target component id (e.g. hermes-agent). Omit to upgrade all stale components.
-        target: Option<String>,
-        /// Machine-readable JSON report.
-        #[arg(long)]
-        json: bool,
-        /// Explicit source binary path for first-contact bootstrap.
-        /// On a virgin machine, `current_exe()` does not exist; the operator
-        /// supplies the signed release artifact explicitly. This breaks the
-        /// circular dependency: `cynic update cynic` installs `cynic` by running
-        /// `cynic`, which requires the binary to already exist.
-        #[arg(long)]
-        source: Option<String>,
-    },
     /// Read-only status of declared inference state and observed local LLM supervision.
     Status {
         #[command(subcommand)]
