@@ -10,8 +10,8 @@ pub(crate) fn reclaim_build_cache_local(
     apply: bool,
     json: bool,
 ) -> Result<(), String> {
-    use cynic_host::adapters::local_build_cache::LocalBuildCacheAdapter;
-    use cynic_host::domain::disk::build_runner::{
+    use cynic_host::adapters::local_build_cache::host_build_cache_adapter;
+    use cynic_build::cache::{
         load_build_cache_desired_state, reconcile_build_cache_resources,
     };
 
@@ -25,8 +25,8 @@ pub(crate) fn reclaim_build_cache_local(
     let report = reconcile_build_cache_resources(
         &desired,
         apply,
-        &LocalBuildCacheAdapter::default(),
-        &LocalBuildCacheAdapter::default(),
+        &host_build_cache_adapter(),
+        &host_build_cache_adapter(),
     );
 
     if json {

@@ -11,9 +11,7 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::clock::now_unix_ms;
-use crate::{
-    adapters::local_build_cache::LocalBuildCacheAdapter,
-};
+
 use cynic_build::cache::{
     BuildCacheObservationPort, BuildCachePlan, load_build_cache_desired_state, reconcile_build_cache,
 };
@@ -362,7 +360,7 @@ pub fn observe_build_runner_bootstrap(
     let resource_plan =
         match load_build_cache_desired_state(registry, node_id, state_root, temporary_root) {
             Ok(desired) => {
-                let observed = LocalBuildCacheAdapter::default().observe(&desired);
+                let observed = crate::adapters::local_build_cache::host_build_cache_adapter().observe(&desired);
                 let plan = reconcile_build_cache(&desired, &observed);
                 if plan.status != "satisfied" {
                     blockers.extend(plan.blockers.iter().cloned());
