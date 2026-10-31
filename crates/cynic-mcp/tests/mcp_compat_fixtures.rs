@@ -1,7 +1,7 @@
 //! M1 compatibility matrix for the installed MCP artifact.
 //!
 //! Four artifact states plus the exit-status contract, proven through the
-//! existing owners only (`cynic_host::mcp_runtime::observe_mcp_runtime` over
+//! existing owners only (`cynic_mcp::runtime::observe_mcp_runtime` over
 //! an injected `MapArgvRunner`). No binary is built, no server is started,
 //! nothing mutates: every observation must report `mutates == false`.
 //!
@@ -11,7 +11,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use cynic_host::mcp_runtime::observe_mcp_runtime;
+use cynic_mcp::runtime::observe_mcp_runtime;
 use cynic_process::{ArgvOutput, MapArgvRunner};
 
 fn fixture(name: &str) -> String {

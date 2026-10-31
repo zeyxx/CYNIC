@@ -19,6 +19,8 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 ## Invariants
 
+- **Canonical Vocabulary & Glossary**: Every concept, domain enum, and lifecycle stage must adhere strictly to `contracts/glossary.json`. Any observed jargon drift, homonym confusion, or misnamed domain concept must be seized as an opportunity to enrich `contracts/glossary.json` and canonicalize the code. Never invent unnormed terminology.
+
 - **Bottom-Up over Top-Down**: Always observe, measure, and validate physical substrate reality (hardware, raw bytes, exit codes, machine receipts, AST) before introducing speculative, probabilistic, or higher-layer abstractions across all domains. No model or policy without an empirically verified baseline.
 - **Strict DAG downward**: Higher layers depend on lower layers, never the reverse.
 - **FCIS / Zero-I/O Core**: Pure logic in domain modules; side effects behind ports in `adapters/`.

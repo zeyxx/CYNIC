@@ -49,7 +49,6 @@ pub mod lab;
 pub mod lease_manager;
 pub mod forge_task_contract;
 pub use forge_task_contract::{validate_forge_lifecycle_contract, validate_repo_affecting_hermes_task};
-pub mod mcp_runtime;
 pub mod mcp_tool;
 pub mod network_actuation;
 pub mod node_activation;

@@ -45,6 +45,7 @@ pub mod coordination_runtime;
 pub mod coordination_score;
 pub mod credential_lease;
 pub mod cycle_transition;
+pub mod deployment_tier;
 pub mod detection;
 pub mod development;
 pub mod digest;
