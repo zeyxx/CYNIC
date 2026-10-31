@@ -30,11 +30,11 @@ J’ai grandi dans une ville moyenne, banlieue standard, revenus moyens, décor 
 
 Au milieu de tout ça : un enfant du milieu (une grande sœur, une petite sœur). Cette place de numéro 2 dans une fratrie forge une mécanique particulière : tu n'es ni l’aîné qui essuie les plâtres, ni la dernière qu’on surprotège. Tu es dans l’angle mort. Tu apprends à observer en silence, à décoder les micro-tensions, à cartographier les humeurs et les failles de ton environnement pour anticiper le chaos.
 
-Très tôt, j'ai su que mon cerveau n'était pas câblé comme celui du reste de la pièce. Un profil AuDHD sans filtre et sans diagnostic officiel : hypersensibilité brute, lecture sociale inversée, et une incapacité à comprendre les conventions imposées par la neurotypie dominante.
+Très tôt, j'ai su que mon cerveau n'était pas câblé comme celui du reste de la pièce. Aucun papier médical n'atteste aujourd'hui d'un diagnostic formel — une démarche clinique débute seulement ce mois de novembre 2026. Mais le fonctionnement observable est sans appel : hyper-focalisation compulsive, hypersensibilité brute, lecture sociale inversée et une incapacité viscérale à comprendre le théâtre des conventions neurotypiques.
 
 Le monde a été conçu par et pour des profils neurotypiques. Si tu ne rentres pas dans leurs cases linéaires, tu es une anomalie. À 13 ans, l’idée d'aller tondre des pelouses ou de faire des petits boulots conventionnels pour gagner trois pièces d'argent de poche ne rentrait dans aucune case logique de mon système de récompense. 
 
-Ce qui me stimulait, c’était la machine. C'était l'optimisation extrême des FPS sur Minecraft, les entrailles du hardware, puis le gouffre compétitif de **Fortnite** (de la saison 4 à la saison 9). Pour un cerveau AuDHD, ce n'était pas un simple jeu : c'était un conditionnement de réflexes bruts. Des nuits entières à chasser la moindre milliseconde de ping, à éditer des structures à la vitesse de la lumière, et à assimiler la loi d'airain du Battle Royale : 100 joueurs entrent dans l'arène, un seul survit. C'était le câblage originel du PvP à somme nulle.
+Ce qui me stimulait, c’était la machine. C'était l'optimisation extrême des FPS sur Minecraft, les entrailles du hardware, puis le gouffre compétitif de **Fortnite** (de la saison 4 à la saison 9). Pour un esprit câblé de cette façon, ce n'était pas un simple jeu : c'était un conditionnement de réflexes bruts. Des nuits entières à chasser la moindre milliseconde de ping, à éditer des structures à la vitesse de la lumière, et à assimiler la loi d'airain du Battle Royale : 100 joueurs entrent dans l'arène, un seul survit. C'était le câblage originel du PvP à somme nulle.
 
 La machine ne mentait pas. Elle n’avait pas d'états d’âme, pas de conventions hypocrites. Elle répondait par la logique pure.
 
@@ -70,7 +70,7 @@ La vérité technique est loin du mythe hollywoodien. Je n'étais pas un hacker 
 
 Tout avait commencé plus tôt par la triche sur Minecraft pour compenser un complexe d'infériorité et nourrir un ego blessé (autoclick, clients injectés légers pour le reach et le recul). Puis l'exploration underground a glissé vers la prédation puérile. D'un côté : des bases de données volées, vérifiées sur un checker Minecraft, pour piller en masse les profils Hypixel Skyblock d'inconnus et revendre leurs ressources pour une misère (à peine 80 €). De l'autre, la trahison la plus crue : utiliser le pattern d'un mot de passe qu'un ami m'avait un jour confié par confiance pour forcer l'accès à son compte, et piller avec un complice l'intégralité de son inventaire. Quand il s'en est rendu compte, j'ai nié. On a ri. Ce rire n'était pas de la joie : c'était l'anesthésie morale d'un gamin incapable d'assumer la trahison d'un proche. J'avais gâché des milliers d'heures de jeu cumulées pour rien, par pure vanité. Mais le retour de bâton revient toujours d'une façon ou d'une autre : ce que l'on sème dans le mépris, on finit tôt ou tard par le payer durement.
 
-C'était surtout un casino à ciel ouvert. Regarder des flux de données défiler sur l'écran. Tomber une nuit sur des impasses techniques, puis la nuit suivante sur un filon inattendu de configurations vulnérables. Et au bout du fil, des pourboires en crypto ou des trocs numériques pour un travail dérisoire. Mon cerveau TDAH venait de goûter au loot aléatoire le plus puissant du web : un flux infini de dopamine sans effort physique, qui a instantanément faussé mon rapport à la valeur du travail et au respect des règles.
+C'était surtout un casino à ciel ouvert. Regarder des flux de données défiler sur l'écran. Tomber une nuit sur des impasses techniques, puis la nuit suivante sur un filon inattendu de configurations vulnérables. Et au bout du fil, des pourboires en crypto ou des trocs numériques pour un travail dérisoire. Mon circuit de dopamine venait de goûter au loot aléatoire le plus puissant du web : un flux infini de stimulation sans effort physique, qui a instantanément faussé mon rapport à la valeur du travail et au respect des règles.
 
 Très vite, l'obsession technique a frôlé les sous-sols du web : les forums underground, les marchés gris de Discord, le fric facile, les règlements de comptes d'adolescents derrière des pseudonymes jetables. Mais chaque zone grise franchie laissait une cicatrice invisible sur ma conscience. L'angoisse constante de voir débarquer la police au petit matin, la dissonance permanente de savoir que mon confort d'ado se payait sur le dos de mes semblables, la paranoïa qui rongeait mon sommeil... J'étais devenu un rouage de la prédation que je détestais.
 
@@ -86,7 +86,7 @@ Chaque fois que quelqu'un au collège ou au lycée a voulu dépasser la comédie
 
 Et pour ne pas regarder en face le vide de cette lâcheté quotidienne, mon esprit fuyait dans la consommation virtuelle et l'anesthésie numérique : exister par procuration derrière des flux d'écrans pour ne jamais risquer le frottement du réel.
 
-En 2020, les confinements liés au COVID ont fait sauter mes derniers garde-fous physiques. Enfermé dix-huit heures par jour dans ma chambre devant les écrans, coupé de toute friction avec la matière, mon esprit s'est mis à tourner en boucle fermée. C'est dans ce huis clos absolu que sont nées mes premières pensées magiques et mes dérives délusionnelles : privé d'ancrage corporel, un cerveau AuDHD en surchauffe compense son impuissance par des scénarios de toute-puissance imaginaire. Le virtuel avait définitivement supplanté la matière.
+En 2020, les confinements liés au COVID ont fait sauter mes derniers garde-fous physiques. Enfermé dix-huit heures par jour dans ma chambre devant les écrans, coupé de toute friction avec la matière, mon esprit s'est mis à tourner en boucle fermée. C'est dans ce huis clos absolu que sont nées mes premières pensées magiques et mes dérives délusionnelles : privé d'ancrage corporel, un cerveau en surchauffe permanente compense son impuissance par des scénarios de toute-puissance imaginaire. Le virtuel avait définitivement supplanté la matière.
 
 C'est aussi le terrain propice aux rabbit holes conspirationnistes du web. Quand on souffre d'un monde qu'on ne comprend pas, la tentation est facile d'adopter des explications paresseuses : désigner un bouc émissaire, accuser un groupe religieux ou une ethnie de tirer les ficelles pour donner un visage simple au chaos. Il m'a fallu du temps et de la maturité pour comprendre que c'était une impasse : la prédation et la soif de contrôle ne sont pas l'apanage d'une identité, elles sont structurelles à la nature humaine dès lors qu'un système centralisé offre du pouvoir sans contre-pouvoir vérifiable.
 
@@ -356,7 +356,7 @@ Toute ma vie, j'ai couru après le **FLAG**. En sécurité informatique, le « f
 
 Mais au bout du naufrage, il y a la grâce de l'acceptation : aimer la réalité telle qu'elle est. Ne plus maudire les flammes, mais s'asseoir dans les braises, sécher ses larmes, et comprendre que le feu n'était pas la fin du monde : c'était le four indispensable pour forger l'acier d'un homme souverain.
 
-J'ai fini par déposer les personas de façade. Je ne cherche plus à effacer mes réflexes d'AuDHD ni ma façon de décortiquer les systèmes. Mais j'ai appris où ce regard a sa place, et où il doit s'arrêter.
+J'ai fini par déposer les personas de façade. Je ne cherche plus à effacer mes singularités cognitives ni ma façon de décortiquer les systèmes. Mais j'ai appris où ce regard a sa place, et où il doit s'arrêter.
 
 Dans ma vie personnelle (mes proches, ma famille, mes amis, mon propre corps), le hacking est terminé : pas d'esquives calculées ni de mensonges pour fuir le contact humain, mais de la franchise et la responsabilité d'assumer.
 
@@ -380,7 +380,7 @@ Le socle tient. Nous avons traversé des mois chaotiques sans lâcher la ligne. 
 
 Maintenant, on continue d'avancer.
 
-Aux esprits divergents, aux bâtisseurs AuDHD/TSA/TDAH/everything, aux anomalies étouffées dans les cages de verre des écoles et des entreprises :
+Aux esprits divergents, aux bâtisseurs atypiques, aux anomalies étouffées dans les cages de verre des écoles et des entreprises :
 
 Pour ceux qui restent spectateurs en répétant que *« nothing ever happens »*, le monde restera une fiction immobile. Mais pour ceux qui ont les mains sur le clavier, les choses se construisent au présent. Cessez d'être spectateurs : lâchez le masque et mettez votre énergie dans ce que vous bâtissez.
 
