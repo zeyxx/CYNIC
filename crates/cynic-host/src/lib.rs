@@ -124,5 +124,4 @@ pub fn sha256_digest(bytes: &[u8]) -> String {
 }
 pub mod credential_hardening;
 pub mod emergence_runtime;
-pub mod finance_adapters;
 pub mod local_autonomy_runtime;
