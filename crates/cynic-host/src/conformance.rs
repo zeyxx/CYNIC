@@ -1,7 +1,6 @@
 use serde::Serialize;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
-use cynic_build::{BuildConformanceEvidence, BuildProof};
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
 use crate::hardware_baseline::{HardwareBaselinePlan, plan_hardware_baseline};
 use crate::hardware_conformance::{HardwareConformanceReport, observe_hardware_conformance};
@@ -16,11 +15,19 @@ use crate::profiles::HostProfile;
 use crate::registry::HostProfileResolution;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
+use crate::runtime_layout::current_runtime_layout;
 use crate::runtime_proof::{
     assemble_runtime_proof_bundle, assemble_runtime_proof_persistence_record,
     host_identity_runtime_proof,
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
+use cynic_build::{BuildConformanceEvidence, BuildProof};
+use cynic_eval::convergence::{
+    ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, assess_convergence_matrix,
+};
+use cynic_protocol::{FrameworkSpec, framework_spec};
+use cynic_types::paths::CynicPaths;
+use cynic_vcs::source_control::observe_source_worktree;
 
 #[derive(Debug, Serialize)]
 pub struct HostConformanceReport {
@@ -157,8 +164,7 @@ fn observe_host_conformance_with_observer_and_build_evidence(
     let vertical_evidence = observe_vertical_evidence(build_evidence);
     let verticals = evaluate_vertical_conformance(&context, &gates, &vertical_evidence);
     let subject = identity_proof.subject.clone();
-    let convergence =
-        crate::vertical_conformance::convergence_matrix_for_subject(&subject, &verticals);
+    let convergence = convergence_matrix_for_subject(&subject, &verticals);
     let proof_bundle = assemble_runtime_proof_bundle(identity_proof, &verticals);
     let persistence_record =
         assemble_runtime_proof_persistence_record(&proof_bundle, &verticals, build_evidence);
@@ -563,21 +569,8 @@ mod tests {
         );
     }
 }
-//! Evaluation of the immutable vertical contract catalog against local proof.
 
-use serde::Serialize;
-
-use cynic_eval::convergence::{
-    ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, assess_convergence_matrix,
-};
-use cynic_protocol::{FrameworkSpec, framework_spec};
-
-use cynic_build::BuildConformanceEvidence;
-use cynic_types::paths::CynicPaths;
-use crate::repo_access::current_repo_access_status;
-use crate::runtime_harness::RuntimeHarnessContext;
-use crate::runtime_layout::current_runtime_layout;
-use cynic_vcs::source_control::observe_source_worktree;
+// Evaluation of the immutable vertical contract catalog against local proof.
 
 /// A single conformance gate and its observed outcome.
 ///
