@@ -30,6 +30,7 @@ pub mod probe;
 pub mod quic;
 pub mod registry_maintenance;
 pub mod telemetry;
+pub mod transport;
 pub mod transport_readback;
 pub mod transport_security;
 pub mod types;
