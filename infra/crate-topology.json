@@ -907,7 +907,7 @@
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 410162,
-    "pending_disposition": 3,
+    "pending_disposition": 2,
     "runtime_edges": 169,
     "unjustified": 0,
     "upward_edges": 11
