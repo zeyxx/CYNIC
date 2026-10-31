@@ -682,6 +682,12 @@
       "kind": "library",
       "layer": "L2",
       "loc": 0
+    },
+    "cynic-sqlite": {
+      "layer": "L2",
+      "depends_on": [],
+      "dependents": [],
+      "dev_dependents": []
     }
   },
   "extraction_order": [
