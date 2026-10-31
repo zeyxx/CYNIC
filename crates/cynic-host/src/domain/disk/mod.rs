@@ -11,7 +11,8 @@ pub use attribution::{
 };
 pub use port::{DiskCleanupExecutionPort, DiskObservationPort};
 pub use probe::{
-    ROTATED_SYSLOG_FILES, build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks,
+    ROTATED_SYSLOG_FILES, build_cleanup_plan, parse_df_available_bytes_for_path, parse_df_filesystems,
+    parse_lsblk_disks,
 };
 pub use types::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,

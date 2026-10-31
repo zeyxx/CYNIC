@@ -154,6 +154,50 @@ pub fn parse_lsblk_disks(json_stdout: &str) -> Vec<PhysicalDisk> {
     list
 }
 
+/// Parse the available bytes from a `df -k` read-back of a path.
+///
+/// Two shapes are accepted:
+/// - full form (`df -k <path>`): header plus ≥5 columns; the fourth is the
+///   available space in 1 KiB blocks. The line whose mount point is the
+///   queried path wins; otherwise the first filesystem is the fallback.
+/// - single-column form (`df -k --output=avail <path>`): the only field
+///   after the header is the available KiB.
+///
+/// A missing or unparsable line yields `None`: an unknown disk is not a
+/// measured disk.
+pub fn parse_df_available_bytes_for_path(df_output: &str, query_path: &str) -> Option<u64> {
+    let mut fallback: Option<u64> = None;
+    for line in df_output.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.is_empty() {
+            continue;
+        }
+        if parts.len() == 1 {
+            if fallback.is_none() {
+                if let Ok(available_kb) = parts[0].parse::<u64>() {
+                    fallback = Some(available_kb * 1024);
+                }
+            }
+            continue;
+        }
+        if parts.len() < 5 {
+            continue;
+        }
+        let available_kb: u64 = match parts[3].parse() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let mount_point = parts.last().copied().unwrap_or_default();
+        if mount_point == query_path {
+            return Some(available_kb * 1024);
+        }
+        if fallback.is_none() {
+            fallback = Some(available_kb * 1024);
+        }
+    }
+    fallback
+}
+
 /// Build a cleanup plan from the observed disk report.
 pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
     let mut items = Vec::new();
