@@ -206,7 +206,6 @@
       "consumers": [
         "cynic-cli",
         "cynic-discovery",
-        "cynic-mcp",
         "cynic-node"
       ],
       "depends_on": [
@@ -232,7 +231,8 @@
         "cynic-vcs"
       ],
       "dev_depends_on": [
-        "cynic-audit-engine"
+        "cynic-audit-engine",
+        "cynic-vcs"
       ],
       "justified": true,
       "kind": "binary",
@@ -335,7 +335,6 @@
     "cynic-mcp": {
       "consumers": [],
       "depends_on": [
-        "cynic-host",
         "cynic-process",
         "cynic-protocol"
       ],
@@ -343,7 +342,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 949
+      "loc": 875
     },
     "cynic-network": {
       "consumers": [
@@ -766,6 +765,7 @@
     "cynic-proxmox",
     "cynic-sandbox",
     "cynic-surreal",
+    "cynic-mcp",
     "cynic-agent",
     "cynic-intel",
     "cynic-persistence",
@@ -780,7 +780,6 @@
     "cynic-inference",
     "cynic-host",
     "cynic-discovery",
-    "cynic-mcp",
     "cynic-node",
     "cynic-cli"
   ],
@@ -954,11 +953,11 @@
     "acyclic": true,
     "binaries": 4,
     "crates": 37,
-    "dev_edges": 4,
+    "dev_edges": 5,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 402381,
     "pending_disposition": 3,
-    "runtime_edges": 165,
+    "runtime_edges": 164,
     "unjustified": 1,
     "upward_edges": 10
   },
