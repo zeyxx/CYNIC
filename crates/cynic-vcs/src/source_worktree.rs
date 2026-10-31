@@ -4,8 +4,9 @@
 //! ZERO I/O: operates strictly on snapshots, producing deterministic plans.
 
 use crate::runner::ArgvRunner;
+use std::path::{Path, PathBuf};
+
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 pub const SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA: &str =
     "cynic.source_worktree.convergence_plan.v1";
@@ -595,45 +596,91 @@ mod prune_merged_branch_worktree_tests {
         let runner = MapArgvRunner {
             responses: vec![
                 (
-                    vec!["git".into(), "worktree".into(), "list".into(), "--porcelain".into()],
-                    ArgvOutput { exit_code: Some(0), stdout: listing, stderr: String::new(), spawn_error: None },
+                    vec![
+                        "git".into(),
+                        "worktree".into(),
+                        "list".into(),
+                        "--porcelain".into(),
+                    ],
+                    ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: listing,
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
                 ),
                 (
-                    vec!["git".into(), "-C".into(), wt_path.into(), "status".into(), "--porcelain".into()],
-                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                    vec![
+                        "git".into(),
+                        "-C".into(),
+                        wt_path.into(),
+                        "status".into(),
+                        "--porcelain".into(),
+                    ],
+                    ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
                 ),
                 (
-                    vec!["git".into(), "worktree".into(), "remove".into(), wt_path.into()],
-                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                    vec![
+                        "git".into(),
+                        "worktree".into(),
+                        "remove".into(),
+                        wt_path.into(),
+                    ],
+                    ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
                 ),
                 (
-                    vec!["git".into(), "show-ref".into(), "--verify".into(), "--quiet".into(), format!("refs/heads/{branch}")],
-                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                    vec![
+                        "git".into(),
+                        "show-ref".into(),
+                        "--verify".into(),
+                        "--quiet".into(),
+                        format!("refs/heads/{branch}"),
+                    ],
+                    ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
                 ),
                 (
                     vec!["git".into(), "branch".into(), "-D".into(), branch.into()],
-                    ArgvOutput { exit_code: Some(0), stdout: String::new(), stderr: String::new(), spawn_error: None },
+                    ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
                 ),
             ],
         };
         let result = prune_merged_branch_worktree(branch, &runner);
         assert_eq!(
             result,
-            Ok(format!("local: worktree {wt_path} removed; local branch {branch} deleted"))
+            Ok(format!(
+                "local: worktree {wt_path} removed; local branch {branch} deleted"
+            ))
         );
     }
 }
-//! Materialization boundary for agent-owned Git worktrees.
-//!
-//! A worktree is a disposable execution surface. The source repository and
-//! Forge authority remain outside this module; mutation requires a verified
-//! coordination lease and an explicitly requested apply.
+// Materialization boundary for agent-owned Git worktrees.
+//
+// A worktree is a disposable execution surface. The source repository and
+// Forge authority remain outside this module; mutation requires a verified
+// coordination lease and an explicitly requested apply.
 
-use std::path::{Path, PathBuf};
-
-use cynic_protocol::LeaseGuard;
 use crate::source_worktree_lease_target;
-use serde::Serialize;
+use cynic_protocol::LeaseGuard;
 
 use crate::source_control::{SourceWorktreeObservation, observe_source_worktree};
 use crate::source_lease::SourceLeaseVerifier;

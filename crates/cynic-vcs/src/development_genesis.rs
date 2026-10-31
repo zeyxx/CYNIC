@@ -23,7 +23,9 @@ pub enum DevelopmentGenesisAction {
     CargoCheck,
     BuildCli,
     BuildMcp,
-    Arbitrary { argv: Vec<String> },
+    Arbitrary {
+        argv: Vec<String>,
+    },
 }
 
 /// A one-shot, non-production request for an isolated builder. It contains no
@@ -281,12 +283,12 @@ fn valid_source_capsule_reference(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::SecurityEvidenceState;
     use crate::source_materialization::{
         SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
-        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, 
-        SourceMaterializationObservation, SourceMaterializationRequest,
+        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SourceMaterializationObservation,
+        SourceMaterializationRequest,
     };
+    use cynic_protocol::SecurityEvidenceState;
 
     fn request() -> DevelopmentGenesisBuildRequest {
         DevelopmentGenesisBuildRequest {
@@ -445,12 +447,6 @@ mod tests {
         );
     }
 }
-use crate::{
-    DevelopmentGenesisBuildAdmission, DevelopmentGenesisBuildRequest,
-    SourceMaterializationObservation, SourceMaterializationPlan, SourceMaterializationRequest,
-    admit_development_genesis_build, development_genesis_canonical_argv,
-    plan_source_materialization,
-};
 
 pub const DEVELOPMENT_GENESIS_BUILD_INVOCATION_SCHEMA: &str =
     "cynic.host.development_genesis.build_invocation.v1";
@@ -625,16 +621,16 @@ pub fn execute_development_genesis_build(
 }
 
 #[cfg(test)]
-mod tests {
+mod host_execution_tests {
     use std::cell::Cell;
 
     use super::*;
-    use cynic_protocol::SecurityEvidenceState;
     use crate::{
         SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
         SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SourceMaterializationObservation,
         SourceMaterializationRequest,
     };
+    use cynic_protocol::SecurityEvidenceState;
 
     #[derive(Default)]
     struct RecordingPort {
