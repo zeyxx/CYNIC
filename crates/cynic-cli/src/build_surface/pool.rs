@@ -405,7 +405,7 @@ pub fn measure_pool_from_forgejo(
 /// test failure.
 pub fn evaluate_runner_memory() -> MemoryCapacityAssessment {
     use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
-    use cynic_protocol::capacity::LoadPolicy;
+    use cynic_host::capacity::LoadPolicy;
 
     let adapter = LocalCapacityAdapter::new();
     let available = match adapter.assess_capacity(&LoadPolicy::with_legacy_defaults("node-default"))

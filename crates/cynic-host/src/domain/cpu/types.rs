@@ -1,1 +1,1 @@
-pub use cynic_protocol::cpu::*;
+pub use crate::host_substrate::cpu::*;

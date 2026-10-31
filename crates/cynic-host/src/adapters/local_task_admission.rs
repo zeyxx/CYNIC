@@ -13,7 +13,7 @@
 use std::time::Instant;
 
 use cynic_inference::infra::task_admission_port::TaskAdmissionPort;
-use cynic_protocol::capacity::{CapacityAssessmentV1, LoadPolicy};
+use crate::capacity::{CapacityAssessmentV1, LoadPolicy};
 use cynic_protocol::task_pipeline::{EnergyBudget, FreshnessPolicy};
 
 use crate::adapters::fs_window_journal::FsWindowJournal;
@@ -170,7 +170,7 @@ mod tests {
         // A policy that cannot validate (empty id) makes assess_capacity fail
         // -> the adapter must report not-fresh rather than guessing.
         let broken_policy = LoadPolicy {
-            schema: cynic_protocol::capacity::LOAD_POLICY_SCHEMA.to_string(),
+            schema: crate::capacity::LOAD_POLICY_SCHEMA.to_string(),
             policy_id: String::new(), // invalid: violations non-empty
             saturation_cpu_pct: 85.0,
             saturation_mem_pct: 90.0,

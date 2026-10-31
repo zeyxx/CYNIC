@@ -885,7 +885,7 @@ async fn capacity(State(state): State<AppState>) -> Result<Json<serde_json::Valu
         })
         .collect();
     let disk_avail_bytes =
-        cynic_protocol::capacity::available_bytes_for_path(&mounts, &checkout_base);
+        cynic_host::capacity::available_bytes_for_path(&mounts, &checkout_base);
     Ok(Json(serde_json::json!({
         "schema": "cynic.builder.capacity.v1",
         "node_id": state.config.node_id,

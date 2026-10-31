@@ -18,30 +18,14 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::cpu::CpuReport;
-use crate::memory::MemoryReport;
+pub use cynic_protocol::load_tier::LoadTier;
+
+use crate::host_substrate::cpu::CpuReport;
+use crate::host_substrate::memory::MemoryReport;
 
 pub const LOAD_POLICY_SCHEMA: &str = "cynic.load_policy.v1";
 pub const CAPACITY_ASSESSMENT_SCHEMA: &str = "cynic.capacity_assessment.v1";
 
-/// Classified load tier of a host, from measured CPU and memory utilisation.
-///
-/// The variants name what was measured, not what to do about it. The previous
-/// `Survival` asserted a remedy — this node is barely alive — while the only
-/// underlying fact is "CPU above 85%, or memory above 90%". The same reading
-/// admits two opposite actions: decline promotion, or correct the accounting.
-/// A name that silently picks one is a defect, not a description.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LoadTier {
-    /// Utilisation low: headroom for heavy work.
-    Headroom,
-    /// Utilisation moderate.
-    Normal,
-    /// CPU or memory above the configured saturation threshold. Gates placement
-    /// admissibility: a saturated host is not a leader candidate.
-    Saturated,
-}
 
 /// Per-node declared thresholds. Every value is observed/declared data rather than
 /// a constant in execution code. Defaults preserve the semantics of the former
@@ -268,7 +252,7 @@ pub fn assess_load_tier(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cpu::{CpuPhysical, CpuUsage, CpuVolume};
+    use crate::host_substrate::cpu::{CpuPhysical, CpuUsage, CpuVolume};
 
     fn cpu_report(util_pct: f64) -> CpuReport {
         CpuReport {
@@ -305,20 +289,20 @@ mod tests {
         MemoryReport {
             schema: "cynic.host_memory_report.v1".to_string(),
             timestamp: "annotation-only".to_string(),
-            physical: crate::memory::MemoryUsage {
+            physical: crate::host_substrate::memory::MemoryUsage {
                 total_bytes: total_gb * 1024 * 1024 * 1024,
                 free_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
                 available_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
                 used_bytes: used_gb * 1024 * 1024 * 1024,
                 reclaimable_bytes: 0,
             },
-            volume: crate::memory::MemoryVolume {
+            volume: crate::host_substrate::memory::MemoryVolume {
                 page_size_bytes: 4096,
                 swappiness: None,
                 hugepages_reserved: None,
                 hugepage_size_bytes: None,
             },
-            swap: crate::memory::MemoryUsage {
+            swap: crate::host_substrate::memory::MemoryUsage {
                 total_bytes: 0,
                 free_bytes: 0,
                 available_bytes: 0,

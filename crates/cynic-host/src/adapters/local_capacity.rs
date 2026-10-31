@@ -2,10 +2,10 @@
 //! reports and evaluates the host load tier under a node-declared policy.
 //!
 //! Thin composition layer: reuses `LocalCpuAdapter`/`LocalMemoryAdapter`
-//! observations (no re-measurement) and `cynic_protocol::capacity` pure
+//! observations (no re-measurement) and `crate::capacity` pure
 //! decision. Read-only; never fabricates HighPerformance without evidence.
 
-use cynic_protocol::capacity::{CapacityAssessmentV1, LoadPolicy, assess_load_tier};
+use crate::capacity::{CapacityAssessmentV1, LoadPolicy, assess_load_tier};
 
 use crate::adapters::local_cpu::LocalCpuAdapter;
 use crate::adapters::local_memory::LocalMemoryAdapter;

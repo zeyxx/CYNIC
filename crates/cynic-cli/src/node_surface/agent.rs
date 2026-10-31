@@ -218,7 +218,7 @@ pub(crate) fn execute_agent_scheduler_observe(
     output: &str,
 ) -> ExitCode {
     use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
-    use cynic_protocol::capacity::LoadPolicy;
+    use cynic_host::capacity::LoadPolicy;
     use cynic_protocol::AgentBudget;
     use cynic_agent::{
         AGENT_SCHEDULER_STEP_OBSERVATION_SCHEMA, AgentSchedulerStepObservation,

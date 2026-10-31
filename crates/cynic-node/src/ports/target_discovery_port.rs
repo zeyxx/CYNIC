@@ -1,4 +1,4 @@
-use cynic_protocol::TargetCandidate;
+use cynic_protocol::discovery::TargetCandidate;
 
 /// Provider adapter for read-only target discovery. Implementations may query
 /// local OS state, libvirt, Proxmox, or another provider, but never mutate.

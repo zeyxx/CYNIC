@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AgentWorkspaceLifecycleDecision, AgentWorkspaceLifecyclePlan};
 use cynic_protocol::{AgentBudget, LeaseGuard, digest_json};
-use cynic_protocol::capacity::LoadTier;
+use cynic_protocol::load_tier::LoadTier;
 
 pub const AGENT_SCHEDULER_STEP_OBSERVATION_SCHEMA: &str =
     "cynic.agent_scheduler_step_observation.v1";

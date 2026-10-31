@@ -18,7 +18,7 @@ use crate::domain::build_artefact::{
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
-use cynic_protocol::disk::bytes_to_human;
+use crate::host_substrate::disk::bytes_to_human;
 use cynic_protocol::retention::PressureSignal;
 use cynic_types::paths::CynicPaths;
 
@@ -199,7 +199,7 @@ fn execute_gc_item(item: &RetentionItem) -> RetentionItemExecution {
     }
 }
 
-fn observe_physical_disks() -> Vec<cynic_protocol::disk::PhysicalDisk> {
+fn observe_physical_disks() -> Vec<crate::host_substrate::disk::PhysicalDisk> {
     let out = capture_command(
         "lsblk",
         &[
@@ -215,7 +215,7 @@ fn observe_physical_disks() -> Vec<cynic_protocol::disk::PhysicalDisk> {
     }
 }
 
-fn observe_filesystems() -> Vec<cynic_protocol::disk::DiskFilesystem> {
+fn observe_filesystems() -> Vec<crate::host_substrate::disk::DiskFilesystem> {
     let out = capture_command(
         "df",
         &["-h", "--output=source,fstype,size,used,avail,pcent,target"],
