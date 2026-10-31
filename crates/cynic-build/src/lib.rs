@@ -15,6 +15,7 @@
 pub mod adapters;
 pub mod admin_signal;
 pub mod build;
+pub mod cache;
 pub mod build_artefact;
 pub mod build_disk_capacity;
 pub mod build_memory_capacity;
@@ -47,6 +48,7 @@ pub mod types;
 
 pub use adapters::{HttpDeployAdapter, HttpDeploy, HttpDeploymentAdapter, HttpDeployPortAdapter, HttpDeployer, HttpExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
 pub use build::*;
+pub use cache::*;
 pub use build_artefact::*;
 pub use build_disk_capacity::*;
 pub use build_memory_capacity::*;
