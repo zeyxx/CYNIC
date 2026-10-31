@@ -7,7 +7,10 @@ pub use cynic_build::build_slice::{build_slice_cargo_argv, BuildSliceCommandErro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_build::build_slice::{BUILD_SLICE_ACTION_SCHEMA, BuildSliceScope};
+    use cynic_build::build_slice::{
+        BuildSliceAction, BuildSliceNetworkMode, BuildSlicePhase, BuildSliceScope,
+        BuildSliceTarget, BUILD_SLICE_ACTION_SCHEMA,
+    };
 
     fn action(phase: BuildSlicePhase) -> BuildSliceAction {
         BuildSliceAction {
