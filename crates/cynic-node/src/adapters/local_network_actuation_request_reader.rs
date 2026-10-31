@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cynic_host::network_actuation::{NetworkActuationRequest, NetworkActuationWireRequest};
+use cynic_network::actuator::{NetworkActuationRequest, NetworkActuationWireRequest};
 
 pub fn read_network_actuation_request(
     path: &Path,

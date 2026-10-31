@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
-use cynic_host::adapters::local_network::LocalNetworkAdapter;
-use cynic_host::domain::network::types::NetworkReport;
+use cynic_network::LocalNetworkAdapter;
+use cynic_network::NetworkReport;
 
 pub(crate) fn execute_network(json: bool) -> ExitCode {
     // The port view is infallible: partial failures land in report.unknowns.

@@ -551,7 +551,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             .unwrap_or(hostname);
 
             let specs = cynic_network::discovery::extract_desired_network_specs(&registry_val);
-            let probe = cynic_host::adapters::local_network::LocalNetworkDiscoveryProbeAdapter;
+            let probe = cynic_network::LocalNetworkDiscoveryProbeAdapter;
             let now_unix_ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis() as u64)
@@ -661,7 +661,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let rendered_ruleset = policy.render_nftables_ruleset();
 
             let audit_findings = if *audit {
-                let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter::new();
+                let adapter = cynic_network::LocalNetworkAdapter::new();
                 let live_ruleset = adapter.observe_nftables_ruleset().unwrap_or_default();
                 Some(cynic_network::firewall_policy::audit_firewall_ruleset(
                     &policy,

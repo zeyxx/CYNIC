@@ -105,7 +105,7 @@ pub(crate) fn execute_network_notify(
     let wg_observer = LocalPeerHandshakeObserver;
     let freebox_probe = cynic_network::adapters::HttpFreeboxProbeAdapter::default();
     let services = declared_service_probe_specs();
-    let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter;
+    let adapter = cynic_network::LocalNetworkAdapter;
     let pressure = adapter.observe_network().pressure;
 
     let now_unix_ms = std::time::SystemTime::now()
