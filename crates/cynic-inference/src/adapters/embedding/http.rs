@@ -154,32 +154,8 @@ impl EmbeddingBackend {
     /// without one (excluded runners) never join. Returns `None` when no
     /// registry resolves, letting the caller fall back further.
     fn endpoints_from_registry() -> Option<String> {
-        let mut dir = std::env::current_dir().ok()?;
-        loop {
-            let candidate = dir.join("infra/registry.json");
-            if candidate.is_file() {
-                let data = std::fs::read_to_string(candidate).ok()?;
-                let registry: serde_json::Value = serde_json::from_str(&data).ok()?;
-                let endpoints: Vec<String> = registry
-                    .get("nodes")?
-                    .as_array()?
-                    .iter()
-                    .flat_map(|n| {
-                        n.get("services")
-                            .and_then(|s| s.as_array())
-                            .map(|a| a.iter().cloned().collect::<Vec<_>>())
-                            .unwrap_or_default()
-                    })
-                    .filter(|s| s.get("name").and_then(|n| n.as_str()) == Some("embedding-server"))
-                    .filter_map(|s| s.get("bench_endpoint")?.as_str().map(str::to_string))
-                    .filter(|e| !e.is_empty())
-                    .collect();
-                return (!endpoints.is_empty()).then(|| endpoints.join(","));
-            }
-            if !dir.pop() {
-                return None;
-            }
-        }
+        cynic_network::endpoints_from_workspace_registry("embedding-server")
+            .map(|eps| eps.join(","))
     }
 
     pub fn from_env() -> Result<Self, BackendInitError> {

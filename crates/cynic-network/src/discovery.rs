@@ -46,6 +46,9 @@ pub struct NetworkDiscoveryReport {
 pub trait NetworkDiscoveryProbePort: Send + Sync {
     fn probe_tcp(&self, host: &str, port: u16, timeout_ms: u64) -> Result<u64, String>;
     fn probe_wireguard_handshakes(&self, iface: &str) -> Result<BTreeMap<String, u64>, String>;
+    fn probe_http_health(&self, _url: &str, _timeout_ms: u64) -> Result<(), String> {
+        Err("probe_http_health not implemented".to_string())
+    }
 }
 
 /// Pure evaluation of network cluster state against desired registry nodes.
@@ -350,6 +353,157 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
     specs
 }
 
+/// Pure extraction of service endpoints declared in a registry JSON value.
+///
+/// Inspects `/nodes`, each node's `services` array, matches `service.name == service_name`,
+/// and extracts a `DiscoveredService` using `bench_endpoint` or `endpoint` (preferring
+/// `bench_endpoint`), defaulting the port from the URL when no explicit `port` is present.
+pub fn service_endpoints_from_registry(
+    registry_val: &serde_json::Value,
+    service_name: &str,
+) -> Vec<DiscoveredService> {
+    let mut out = Vec::new();
+    let nodes = match registry_val.get("nodes").and_then(|v| v.as_array()) {
+        Some(n) => n,
+        None => return out,
+    };
+    for node in nodes {
+        let services = match node.get("services").and_then(|v| v.as_array()) {
+            Some(s) => s,
+            None => continue,
+        };
+        for svc in services {
+            if svc.get("name").and_then(|v| v.as_str()) != Some(service_name) {
+                continue;
+            }
+            let endpoint_raw = svc
+                .get("bench_endpoint")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .or_else(|| {
+                    svc.get("endpoint")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                });
+            let endpoint = match endpoint_raw {
+                Some(e) => e.to_string(),
+                None => continue,
+            };
+            let port = svc
+                .get("port")
+                .and_then(|v| v.as_u64())
+                .map(|p| p as u16)
+                .unwrap_or_else(|| port_from_url(&endpoint));
+            out.push(DiscoveredService {
+                name: svc
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(service_name)
+                    .to_string(),
+                endpoint,
+                port,
+                status: "declared".to_string(),
+            });
+        }
+    }
+    out
+}
+
+fn port_from_url(url: &str) -> u16 {
+    let no_frag = url.split('#').next().unwrap_or(url);
+    let no_query = no_frag.split('?').next().unwrap_or(no_frag);
+    let after_scheme = no_query.split("://").nth(1).unwrap_or(no_query);
+    let host_port = after_scheme.split('/').next().unwrap_or(after_scheme);
+    if let Some(idx) = host_port.rfind(':') {
+        let port_str = &host_port[idx + 1..];
+        if let Ok(p) = port_str.parse::<u16>() {
+            return p;
+        }
+    }
+    0
+}
+
+/// Resolve service endpoints from the workspace registry.
+///
+/// Walks up from the current directory to find `infra/registry.json`, parses it,
+/// calls `service_endpoints_from_registry`, and returns the endpoint strings.
+/// Returns `None` when no registry resolves or no endpoints are found.
+pub fn endpoints_from_workspace_registry(service_name: &str) -> Option<Vec<String>> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join("infra/registry.json");
+        if candidate.is_file() {
+            let data = std::fs::read_to_string(&candidate).ok()?;
+            let registry: serde_json::Value = serde_json::from_str(&data).ok()?;
+            let services = service_endpoints_from_registry(&registry, service_name);
+            let endpoints: Vec<String> = services.into_iter().map(|s| s.endpoint).collect();
+            if endpoints.is_empty() {
+                return None;
+            }
+            return Some(endpoints);
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    None
+}
+
+/// Helper to populate `services` for a discovered node from a registry value.
+pub fn services_for_node(
+    registry_val: &serde_json::Value,
+    node_id: &str,
+) -> Vec<DiscoveredService> {
+    if let Some(nodes) = registry_val.get("nodes").and_then(|v| v.as_array()) {
+        for node in nodes {
+            let id = node
+                .get("id")
+                .or_else(|| node.get("name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if id != node_id {
+                continue;
+            }
+            if let Some(services) = node.get("services").and_then(|v| v.as_array()) {
+                let mut out = Vec::new();
+                for svc in services {
+                    let name = svc
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if name.is_empty() {
+                        continue;
+                    }
+                    let endpoint_raw = svc
+                        .get("bench_endpoint")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                        .or_else(|| {
+                            svc.get("endpoint")
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                        });
+                    let endpoint = endpoint_raw.map(str::to_string).unwrap_or_default();
+                    let port = svc
+                        .get("port")
+                        .and_then(|v| v.as_u64())
+                        .map(|p| p as u16)
+                        .unwrap_or_else(|| port_from_url(&endpoint));
+                    out.push(DiscoveredService {
+                        name,
+                        endpoint,
+                        port,
+                        status: "declared".to_string(),
+                    });
+                }
+                return out;
+            }
+        }
+    }
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -523,5 +677,76 @@ mod tests {
         let spec_b = specs.iter().find(|s| s.node_id == "node-b").unwrap();
         assert_eq!(spec_b.synapse_ip.as_deref(), Some("10.42.0.2"));
         assert_eq!(spec_b.direct_ip.as_deref(), Some("192.168.1.2"));
+    }
+
+    #[test]
+    fn service_endpoints_from_registry_extracts_bench_and_endpoint() {
+        let registry = serde_json::json!({
+            "nodes": [
+                {
+                    "id": "node-a",
+                    "services": [
+                        {"name": "embedding-server", "bench_endpoint": "http://10.0.0.1:8080/v1#slots=4", "port": 8080},
+                        {"name": "other", "endpoint": "http://x", "port": 90}
+                    ]
+                },
+                {
+                    "id": "node-b",
+                    "services": [
+                        {"name": "embedding-server", "endpoint": "http://10.0.0.2:9000", "port": 9000}
+                    ]
+                }
+            ]
+        });
+        let svcs = service_endpoints_from_registry(&registry, "embedding-server");
+        assert_eq!(svcs.len(), 2);
+        assert_eq!(svcs[0].endpoint, "http://10.0.0.1:8080/v1#slots=4");
+        assert_eq!(svcs[0].port, 8080);
+        assert_eq!(svcs[0].status, "declared");
+        assert_eq!(svcs[1].endpoint, "http://10.0.0.2:9000");
+        assert_eq!(svcs[1].port, 9000);
+    }
+
+    #[test]
+    fn service_endpoints_from_registry_defaults_port_from_url() {
+        let registry = serde_json::json!({
+            "nodes": [
+                {
+                    "id": "node-a",
+                    "services": [
+                        {"name": "svc", "bench_endpoint": "http://10.0.0.1:7777/path"}
+                    ]
+                }
+            ]
+        });
+        let svcs = service_endpoints_from_registry(&registry, "svc");
+        assert_eq!(svcs.len(), 1);
+        assert_eq!(svcs[0].port, 7777);
+    }
+
+    #[test]
+    fn service_endpoints_from_registry_skips_missing_endpoint() {
+        let registry = serde_json::json!({
+            "nodes": [
+                {
+                    "id": "node-a",
+                    "services": [
+                        {"name": "svc", "port": 80}
+                    ]
+                }
+            ]
+        });
+        let svcs = service_endpoints_from_registry(&registry, "svc");
+        assert!(svcs.is_empty());
+    }
+
+    #[test]
+    fn endpoints_from_workspace_registry_returns_none_when_no_registry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(tmp.path()).unwrap();
+        let res = endpoints_from_workspace_registry("nope");
+        std::env::set_current_dir(prev).unwrap();
+        assert!(res.is_none());
     }
 }
