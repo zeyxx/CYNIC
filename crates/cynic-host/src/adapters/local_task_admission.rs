@@ -12,7 +12,7 @@
 
 use std::time::Instant;
 
-use cynic_inference::infra::task_admission_port::TaskAdmissionPort;
+use cynic_protocol::task_admission::TaskAdmissionPort;
 use crate::capacity::{CapacityAssessmentV1, LoadPolicy};
 use cynic_protocol::task_pipeline::{EnergyBudget, FreshnessPolicy};
 

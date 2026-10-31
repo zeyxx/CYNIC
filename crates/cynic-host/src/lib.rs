@@ -1,4 +1,5 @@
 pub mod adapters;
+pub mod bucket_signatures;
 pub mod capacity;
 pub mod domain;
 pub mod agent_access;

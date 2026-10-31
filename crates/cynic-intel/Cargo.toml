@@ -23,6 +23,7 @@ cynic-network = { path = "../cynic-network" }
 qrcodegen = "1.8"
 url.workspace = true
 cynic-secrets = { path = "../cynic-secrets" }
+cynic-host = { path = "../cynic-host" }
 regex = "1"
 
 # Async test harness only: the crate's own surfaces stay runtime-agnostic behind
