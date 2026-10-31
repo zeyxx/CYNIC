@@ -246,4 +246,17 @@ impl NetworkDiscoveryProbePort for LocalNetworkDiscoveryProbeAdapter {
             Err(e) => Err(e),
         }
     }
+
+    fn probe_http_health(&self, url: &str, timeout_ms: u64) -> Result<(), String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_millis(timeout_ms))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let resp = client.get(url).send().map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("http status {}", resp.status()))
+        }
+    }
 }
