@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use crate::cli_json::emit_pretty_json;
 
 pub(crate) fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
-    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let runner = cynic_vcs::LocalVcsRunner;
     let plan = cynic_vcs::source_worktree_cli::run_worktree_convergence_plan(root, workspace_store, &runner);
 
     if apply {

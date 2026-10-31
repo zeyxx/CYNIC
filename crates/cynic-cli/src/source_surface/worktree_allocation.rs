@@ -28,7 +28,7 @@ pub(crate) fn execute_allocate_worktree(
         };
 
     // Execute through the L2 allocation function
-    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let runner = cynic_vcs::LocalVcsRunner;
     let receipt = match cynic_vcs::isolated_worktree::execute_worktree_allocation(&plan, &runner) {
         Ok(r) => r,
         Err(err) => {
