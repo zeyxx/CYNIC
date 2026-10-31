@@ -1203,7 +1203,6 @@ name = "cynic-release"
 version = "0.9.0"
 dependencies = [
  "cynic-protocol",
- "cynic-ssh",
  "hex",
  "regex",
  "serde",

@@ -38,7 +38,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 7921
+      "loc": 7999
     },
     "cynic-build": {
       "consumers": [
@@ -59,7 +59,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 14777
+      "loc": 17857
     },
     "cynic-cli": {
       "consumers": [],
@@ -100,7 +100,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45745
+      "loc": 45751
     },
     "cynic-consensus": {
       "consumers": [
@@ -149,7 +149,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 4497
+      "loc": 5201
     },
     "cynic-eval": {
       "consumers": [
@@ -239,7 +239,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 89107
+      "loc": 88663
     },
     "cynic-inference": {
       "consumers": [
@@ -404,7 +404,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 64597
+      "loc": 64595
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -458,7 +458,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3746
+      "loc": 2953
     },
     "cynic-pool": {
       "consumers": [
@@ -541,7 +541,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 42265
+      "loc": 39311
     },
     "cynic-proxmox": {
       "consumers": [
@@ -569,14 +569,13 @@
         "cynic-node"
       ],
       "depends_on": [
-        "cynic-protocol",
-        "cynic-ssh"
+        "cynic-protocol"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6153
+      "loc": 5617
     },
     "cynic-sandbox": {
       "consumers": [
@@ -636,8 +635,7 @@
       "consumers": [
         "cynic-cli",
         "cynic-host",
-        "cynic-node",
-        "cynic-release"
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-protocol",
@@ -647,7 +645,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1356
+      "loc": 1383
     },
     "cynic-supervisor": {
       "consumers": [
@@ -762,6 +760,7 @@
     "cynic-lxc",
     "cynic-node-protocol",
     "cynic-process",
+    "cynic-release",
     "cynic-secrets",
     "cynic-ssh",
     "cynic-supervisor",
@@ -770,7 +769,6 @@
     "cynic-domain-ops",
     "cynic-network",
     "cynic-proxmox",
-    "cynic-release",
     "cynic-sandbox",
     "cynic-surreal",
     "cynic-agent",
@@ -988,9 +986,9 @@
     "crates": 37,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 403215,
+    "loc_total": 402381,
     "pending_disposition": 3,
-    "runtime_edges": 166,
+    "runtime_edges": 165,
     "unjustified": 1,
     "upward_edges": 10
   },

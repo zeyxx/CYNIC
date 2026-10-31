@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_pkg::{
+use cynic_release::{
     DeployBinarySpec, LocalReleaseDeployExecutor, ReleaseDeploySpec, RestartUnitSpec,
     apply_release_deployment, plan_release_deployment,
 };
