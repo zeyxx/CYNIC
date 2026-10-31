@@ -9,6 +9,7 @@
 //! health-check. Fails closed when no healthy builder is available.
 
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 /// Resolve the builder HTTP endpoint via the builder pool with health-check.
 ///
@@ -315,6 +316,65 @@ pub fn render_workload_terminal(
         }
     }
     Ok(())
+}
+
+/// Fetch a built artifact from the builder with SHA-256 verification.
+///
+/// GETs `{builder_url}/workloads/{workload_id}/artifacts/{artifact_name}`,
+/// verifies the response status is 200 OK, reads the bytes, and verifies
+/// the SHA-256 against the `x-cynic-sha256` header (or computes it).
+/// Returns `Ok((bytes, sha256))`.
+pub fn fetch_artifact(
+    builder_url: &str,
+    workload_id: &str,
+    artifact_name: &str,
+) -> Result<(Vec<u8>, String), String> {
+    let url = format!(
+        "{}/workloads/{}/artifacts/{}",
+        builder_url.trim_end_matches('/'),
+        workload_id,
+        artifact_name
+    );
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+            .map_err(|e| format!("http client init failed: {e}"))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("failed to fetch artifact from {url}: {e}"))?;
+        if res.status() != reqwest::StatusCode::OK {
+            return Err(format!("artifact fetch refused ({}) from {url}", res.status()));
+        }
+        let header_sha = res
+            .headers()
+            .get("x-cynic-sha256")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let bytes = res
+            .bytes()
+            .map_err(|e| format!("artifact body unreadable: {e}"))?
+            .to_vec();
+        let computed = hex::encode(Sha256::digest(&bytes));
+        let sha = match header_sha {
+            Some(h) if !h.is_empty() => {
+                if h.to_lowercase() != computed {
+                    return Err(format!(
+                        "artifact sha256 mismatch: header {h} computed {computed}"
+                    ));
+                }
+                h
+            }
+            _ => computed.clone(),
+        };
+        if computed != sha.to_lowercase() {
+            return Err(format!("artifact sha256 mismatch: {sha} vs {computed}"));
+        }
+        Ok((bytes, sha))
+    })
+    .join()
+    .map_err(|_| "builder client thread panicked".to_string())?
 }
 
 #[cfg(test)]
