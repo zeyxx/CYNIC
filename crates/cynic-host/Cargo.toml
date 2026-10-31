@@ -30,7 +30,6 @@ cynic-lxc = { path = "../cynic-lxc" }
 cynic-pkg = { path = "../cynic-pkg" }
 cynic-intel = { path = "../cynic-intel" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-finance = { path = "../cynic-finance" }
 # The lease store persists DateTime<Utc> lease deadlines to disk, so chrono's
 # serde impls are required. cynic-kernel already declares it this way; cynic-host
 # did not, because no compiled module had ever needed it.

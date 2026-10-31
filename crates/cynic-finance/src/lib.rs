@@ -9,6 +9,7 @@
 //! - `ledger` — append-only ledger with double-entry invariants
 //! - `exchange` — measured exchange rate table
 
+pub mod adapters;
 pub mod types;
 pub mod ports;
 pub mod ledger;
@@ -26,6 +27,10 @@ pub use types::{
 pub use ports::{
     ComputeMeter, GpuMeter, StorageMeter, NetworkMeter, EnergyMeter,
     TokenMeter, ContextMeter, TimeMeter, ActionMeter, MeterError,
+};
+pub use adapters::{
+    HostActionMeter, HostComputeMeter, HostEnergyMeter, HostNetworkMeter, HostStorageMeter,
+    HostTimeMeter,
 };
 pub use ledger::{increment_unit, LedgerEngine};
 pub use exchange::{ExchangeRate, ExchangeRateTable, EXCHANGE_RATE_TABLE_SCHEMA};

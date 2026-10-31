@@ -26,7 +26,11 @@ fn finance_has_no_std_process_or_reqwest() {
 
     for entry in entries {
         let entry = entry.expect("read entry");
-        let content = fs::read_to_string(entry.path()).expect("read source file");
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let content = fs::read_to_string(&path).expect("read source file");
 
         assert!(
             !content.contains("std::process::Command"),

@@ -15,6 +15,7 @@ thiserror.workspace = true
 tracing.workspace = true
 sha2.workspace = true
 hex.workspace = true
+sysinfo = "0.39.6"
 
 [dev-dependencies]
 tempfile = "3"

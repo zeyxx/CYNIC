@@ -96,7 +96,6 @@ fn manifest_debt() -> (Vec<String>, usize) {
 const BASELINE_EDGES: &[&str] = &[
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)",
-    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-finance (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-inference (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-intel (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
