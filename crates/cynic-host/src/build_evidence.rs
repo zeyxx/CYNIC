@@ -8,13 +8,7 @@ use sha2::{Digest, Sha256};
 use cynic_process::ArgvRunner;
 use cynic_types::paths::CynicPaths;
 
-pub trait BuildRunnerObservationPort {
-    fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String>;
-}
-
-pub trait BuildLeaseVerificationPort {
-    fn verify(&self, guard: &LeaseGuard) -> LeaseVerification;
-}
+pub use cynic_build::build_workflow::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 
 pub struct JsonBuildRunnerObservationAdapter<'a> {
     path: &'a str,

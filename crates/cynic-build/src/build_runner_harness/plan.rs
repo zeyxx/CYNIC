@@ -1,4 +1,4 @@
-use cynic_build::harness::{HarnessObservation, reconcile_harness_matrix};
+use crate::harness::{HarnessObservation, reconcile_harness_matrix};
 
 use super::observe::observe_harness_scenarios;
 use super::registry::load_harness_scenarios;
@@ -29,14 +29,13 @@ pub fn build_runner_harness_plan(
 mod tests {
     use super::*;
     use crate::build_runner_harness::types::BUILD_RUNNER_HARNESS_REPORT_SCHEMA;
-    use cynic_build::harness::HarnessScenarioId;
-    use cynic_build::harness::HarnessStatus;
+    use crate::harness::HarnessScenarioId;
+    use crate::harness::HarnessStatus;
 
     #[test]
     fn build_runner_harness_plan_generates_six_cells_and_is_non_mutating() {
         let registry = format!("{}/../../infra/registry.json", env!("CARGO_MANIFEST_DIR"));
         let report = build_runner_harness_plan(&registry, None).expect("harness plan");
-
         assert_eq!(report.schema, BUILD_RUNNER_HARNESS_REPORT_SCHEMA);
         assert!(!report.mutates);
         assert!(!report.can_apply);

@@ -1,4 +1,4 @@
-use cynic_build::harness::{HarnessScenario, parse_harness_scenarios};
+use crate::harness::{HarnessScenario, parse_harness_scenarios};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
@@ -45,7 +45,6 @@ pub fn load_harness_scenarios_from_value(registry: &Value) -> Result<Vec<Harness
         return parse_harness_scenarios(scenarios_value);
     }
 
-    // Default canonical scenario suite if unspecified in minimal test fixture
     Ok(vec![
         HarnessScenario::closed_lab_vm(),
         HarnessScenario::lxc_clone_conformance(),
