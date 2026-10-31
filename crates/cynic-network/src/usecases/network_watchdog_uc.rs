@@ -1,7 +1,8 @@
 //! Network Watchdog Use Case.
 
-use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
+
+use crate::NetworkDiscoveryProbePort;
 
 use crate::FreeboxProbePort;
 use crate::{
@@ -34,18 +35,24 @@ pub struct NetworkWatchdogExecutionReport {
     pub executed_at_unix_ms: u64,
 }
 
-/// Probes a single TCP service endpoint with a short timeout.
-pub fn probe_tcp_service(spec: &ServiceProbeSpec, timeout: Duration) -> ServicePortAssessment {
-    let start = std::time::Instant::now();
-    let reachable = if let Ok(addr) = spec.endpoint.parse::<SocketAddr>() {
-        TcpStream::connect_timeout(&addr, timeout).is_ok()
-    } else {
-        TcpStream::connect(&spec.endpoint).is_ok()
-    };
-    let latency_ms = if reachable {
-        Some(start.elapsed().as_millis() as u64)
-    } else {
-        None
+/// Probes a single TCP service endpoint with a short timeout via the injected probe port.
+pub fn probe_tcp_service(
+    spec: &ServiceProbeSpec,
+    probe: &dyn NetworkDiscoveryProbePort,
+    timeout: Duration,
+) -> ServicePortAssessment {
+    let timeout_ms = timeout.as_millis() as u64;
+    let (host, port) = spec
+        .endpoint
+        .rsplit_once(':')
+        .and_then(|(h, p)| p.parse::<u16>().ok().map(|port| (h.to_string(), port)))
+        .unzip();
+    let (reachable, latency_ms) = match (host, port) {
+        (Some(host), Some(port)) => match probe.probe_tcp(&host, port, timeout_ms) {
+            Ok(lat) => (true, Some(lat)),
+            Err(_) => (false, None),
+        },
+        _ => (false, None),
     };
 
     ServicePortAssessment {
@@ -64,6 +71,7 @@ pub fn execute_network_watchdog(
     services_to_probe: &[ServiceProbeSpec],
     freebox_endpoint: Option<&str>,
     freebox_observer: Option<&dyn FreeboxProbePort>,
+    tcp_probe: Option<&dyn NetworkDiscoveryProbePort>,
     pressure: Vec<InterfacePressure>,
     outbox_store: &dyn NotificationOutboxStorePort,
     now_unix_ms: u64,
@@ -91,7 +99,18 @@ pub fn execute_network_watchdog(
     let timeout = Duration::from_millis(1500);
     let mut service_ports = Vec::with_capacity(services_to_probe.len());
     for spec in services_to_probe {
-        service_ports.push(probe_tcp_service(spec, timeout));
+        let assessment = if let Some(probe) = tcp_probe {
+            probe_tcp_service(spec, probe, timeout)
+        } else {
+            ServicePortAssessment {
+                service: spec.service.clone(),
+                node: spec.node.clone(),
+                endpoint: spec.endpoint.clone(),
+                reachable: false,
+                latency_ms: None,
+            }
+        };
+        service_ports.push(assessment);
     }
 
     // 4. Probe Freebox router if endpoint configured

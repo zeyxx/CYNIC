@@ -64,6 +64,7 @@ pub(crate) async fn run_watchdog(
 
     let wg_observer = LocalPeerHandshakeObserver;
     let freebox_probe = HttpFreeboxProbeAdapter::default();
+    let tcp_probe = cynic_network::LocalNetworkDiscoveryProbeAdapter;
     let outbox_store = InMemoryNotificationOutboxStore::default();
 
     loop {
@@ -89,6 +90,7 @@ pub(crate) async fn run_watchdog(
                     &services,
                     None, // Freebox probe endpoint is optional / dynamically discovered
                     Some(&freebox_probe),
+                    Some(&tcp_probe),
                     vec![],
                     &outbox_store,
                     now_unix_ms,

@@ -181,6 +181,7 @@ pub(crate) fn try_execute_base(
                 &services,
                 freebox.as_deref(),
                 Some(&freebox_probe),
+                Some(&cynic_network::LocalNetworkDiscoveryProbeAdapter),
                 pressure,
                 &outbox_store,
                 now_unix_ms,

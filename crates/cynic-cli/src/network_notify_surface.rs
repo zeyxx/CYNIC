@@ -119,6 +119,7 @@ pub(crate) fn execute_network_notify(
         &services,
         None,
         Some(&freebox_probe),
+        Some(&cynic_network::LocalNetworkDiscoveryProbeAdapter),
         pressure,
         &store,
         now_unix_ms,
