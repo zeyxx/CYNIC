@@ -151,7 +151,7 @@ pub(crate) fn execute_publish(root: &Path, json: bool) -> ExitCode {
         }
     };
 
-    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let runner = cynic_vcs::LocalVcsRunner;
     let (tracked, files) = match cynic_vcs::source_worktree_cli::observe_publication_inputs(
         root, &contract, &runner,
     ) {

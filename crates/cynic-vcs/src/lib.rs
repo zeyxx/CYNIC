@@ -26,6 +26,7 @@ pub mod reconcile;
 pub mod registry_binding;
 pub mod repo_access;
 pub mod runner;
+pub use runner::LocalVcsRunner;
 pub mod source_control;
 pub mod source_lease;
 pub mod source_materialization;
