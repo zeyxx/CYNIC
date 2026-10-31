@@ -281,7 +281,10 @@ pub fn invoice_from_proofs(
         total_ms = total_ms.saturating_add(proof.duration_ms);
         match proof.cpu_ms {
             Some(ms) => total_cpu_ms = total_cpu_ms.saturating_add(ms),
-            None => cpu_complete = false,
+            None => {
+                cpu_complete = false;
+                unknowns.push(format!("{}:{}:cpu_ms_unobserved", proof.action, proof.duration_ms));
+            }
         }
         if proof.layers.len() == 1 {
             let layer = &proof.layers[0];
