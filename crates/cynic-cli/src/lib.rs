@@ -29,7 +29,6 @@ pub mod coordination_metrics;
 pub mod coordination_surface;
 pub mod constitutional_court_surface;
 pub mod crate_audit;
-pub(crate) mod dependency_surface;
 pub mod deps_surface;
 pub mod deps_surface_audit;
 pub mod deps_surface_model;

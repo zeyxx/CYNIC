@@ -215,10 +215,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "host",
                 commands: vec![
-                    "cynic host <bridge|membrane|transport|ssh|bootstrap|runner|capability|principal|seed|storage|hardware|service|network|request> <verb> [flags] [--apply]",
+                    "cynic host <bridge|membrane|transport|ssh|bootstrap|runner|capability|principal|seed|storage|hardware|service|network|request|tooling> <verb> [flags] [--apply]",
                     "cynic host bridge <bundle|plan|install|status> [--bundle-dir <dir>] [--apply]",
                     "cynic host service reconcile --node <node> --registry <path> <unit> --apply",
                     "cynic host network <baseline|actuate> --profile <name> --target <node> --registry <path> [--apply]",
+                    "cynic host tooling <status|plan|audit|upgrade> [--json] [--yes] [--apply --confirm <token>] [--only <id>]... [--source <path>]",
                 ],
             },
             CommandDomain {
@@ -311,21 +312,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "dependency",
-                commands: vec![
-                    "cynic dependency status",
-                    "cynic dependency plan",
-                    "cynic dependency audit",
-                    "cynic dependency upgrade [--yes] [--apply --confirm <token>] [--only <id>]...",
-                ],
-            },
-            CommandDomain {
                 name: "session",
                 commands: vec!["cynic session observe [--json]"],
-            },
-            CommandDomain {
-                name: "update",
-                commands: vec!["cynic update [<target>] [--json]"],
             },
             CommandDomain {
                 name: "task",
