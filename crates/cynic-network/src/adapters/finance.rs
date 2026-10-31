@@ -2,7 +2,7 @@
 //!
 //! Implements cynic-finance NetworkMeter port using /proc/net/dev and WireGuard telemetry.
 
-use cynic_finance::ports::{MeterError, NetworkMeter};
+use cynic_protocol::resource_meter_port::{MeterError, NetworkMeter};
 use std::fs;
 
 /// Network meter — measures network bytes and packets from /proc/net/dev.

@@ -17,7 +17,6 @@ cynic-secrets = { path = "../cynic-secrets" }
 reqwest.workspace = true
 hmac.workspace = true
 sha1.workspace = true
-cynic-finance = { path = "../cynic-finance" }
 sha2.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

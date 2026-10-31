@@ -12,7 +12,6 @@ chrono = "0.4"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-surreal = { path = "../cynic-surreal" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-finance = { path = "../cynic-finance" }
 bytes.workspace = true
 hex.workspace = true
 parking_lot = "0.12"
