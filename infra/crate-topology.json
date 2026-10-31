@@ -688,6 +688,18 @@
       "depends_on": [],
       "dependents": [],
       "dev_dependents": []
+    },
+    "cynic-persistence": {
+      "layer": "L1",
+      "depends_on": [],
+      "dependents": [],
+      "dev_dependents": []
+    },
+    "cynic-surreal": {
+      "layer": "L1",
+      "depends_on": [],
+      "dependents": [],
+      "dev_dependents": []
     }
   },
   "extraction_order": [
