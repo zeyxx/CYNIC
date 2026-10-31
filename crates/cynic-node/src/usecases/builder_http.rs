@@ -284,7 +284,7 @@ pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, S
         "audit" => Ok("audit:crate"),
         "audit-all" => Ok("audit:all"),
         "build" => Ok("cargo:build"),
-        "build-release" => Ok("cargo:build-release"),
+        "build-release" | "build:release" | "release" => Ok("cargo:build-release"),
         "test" => Ok("cargo:test"),
         other => Err(format!(
             "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
@@ -1938,6 +1938,14 @@ mod tests {
         assert_eq!(submit_action_to_canonical("build"), Ok("cargo:build"));
         assert_eq!(
             submit_action_to_canonical("build-release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(
+            submit_action_to_canonical("build:release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(
+            submit_action_to_canonical("release"),
             Ok("cargo:build-release")
         );
         assert_eq!(submit_action_to_canonical("test"), Ok("cargo:test"));
