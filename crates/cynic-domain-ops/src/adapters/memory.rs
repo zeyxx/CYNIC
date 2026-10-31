@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::port::{DnsAuthorityPort, EdgeProbePort, RegistrarPort, SecretProvider};
-use cynic_protocol::domain_ops::*;
+use crate::domain::*;
 use cynic_protocol::secret_reference::SecretReference;
 
 // ── MemoryRegistrar ────────────────────────────────────────────────────────

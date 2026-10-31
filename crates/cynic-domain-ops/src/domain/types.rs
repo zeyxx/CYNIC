@@ -13,7 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::secret_reference::{SecretClass, SecretProvider, SecretReference};
+use cynic_protocol::secret_reference::{SecretClass, SecretProvider, SecretReference};
 
 // ── Schema constants ──────────────────────────────────────────────────────
 

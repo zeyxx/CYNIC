@@ -8,6 +8,7 @@
 pub mod idempotency;
 pub mod reconcile;
 pub mod transform;
+pub mod types;
 
 pub use idempotency::generate_idempotency_key;
 pub use reconcile::{ConflictDetection, detect_cname_conflict, reconcile_zone};
@@ -15,3 +16,5 @@ pub use transform::{
     RecordCategory, TransformResult, classify_record, policy_for_record_type,
     transform_record_for_cloudflare,
 };
+
+pub use types::*;

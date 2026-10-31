@@ -11,7 +11,7 @@
 //! - `runner.rs` — orchestration over injected ports (Phase 4).
 //! - `adapters/` — provider HTTP clients (Phase 3).
 //!
-//! Types are imported from `cynic_protocol::domain_ops` (pure protocol types).
+//! Pure domain types for external domain operations (moved from cynic-protocol).
 //! All decision logic is deterministic and testable without network access.
 //!
 //! Authority: foundation.json §32 (provider_agnostic_domain), §37 (portable_host_contract).
@@ -47,7 +47,7 @@ pub use cynic_secrets::{SecretEntry, SecretProviderPort, SecretStatus, SecretSto
 pub use crate::contracts::{DomainOpsError, build_proof, parse_desired_state, proof_to_json};
 
 // Re-export protocol types for convenience.
-pub use cynic_protocol::domain_ops::{
+pub use crate::domain::{
     DelegationProof, DnsRecordShape, DnsRecordType, DomainAvailability, DomainOperation,
     DomainOperationProof, DomainOpsDesiredState, EdgeProbeResult, EdgeProbeSpec,
     NameserverUpdateReceipt, ProofStatus, ProviderConfig, ProxyMode, ProxyPolicy,

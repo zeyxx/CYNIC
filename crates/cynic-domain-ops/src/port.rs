@@ -7,7 +7,7 @@
 //! Authority: foundation.json §37 (portable_host_contract) — systemd/k8s/ssh/
 //! rest/mcp/shell are adapters behind portable ports.
 
-use cynic_protocol::domain_ops::{
+use crate::domain::{
     DelegationProof, DnsRecordShape, DomainAvailability, EdgeProbeResult, NameserverUpdateReceipt,
     RegistrationReceipt,
 };
