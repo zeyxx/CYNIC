@@ -46,7 +46,6 @@ pub mod external_audit;
 pub mod federation_surface;
 pub mod forensics_surface;
 pub mod fs_json;
-pub mod git_surface;
 pub mod host_exec_alias_surface;
 pub mod host_profile_selection;
 pub mod host_surface;

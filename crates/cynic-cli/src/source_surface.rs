@@ -7,6 +7,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 mod divergence;
+mod git;
 mod mirrors;
 mod pr;
 mod release;
@@ -25,6 +26,8 @@ use mirrors::execute_mirrors;
 use worktree::execute_worktree;
 use worktree_allocation::execute_allocate_worktree;
 use divergence::execute_divergence;
+use git::execute_git;
+pub(crate) use git::GitCommand;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum SourceReceiptCommand {
@@ -113,6 +116,11 @@ pub(crate) enum SourceCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Git branch topology — observe/reconcile native supervision.
+    Git {
+        #[command(subcommand)]
+        command: GitCommand,
+    },
     /// List Forgejo push mirrors with last sync + errors (read-only).
     Mirrors {
         #[arg(long)]
@@ -190,6 +198,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
         ),
         SourceCommand::Publish { root, json } => execute_publish(Path::new(&root), json),
         SourceCommand::Divergence { root, json } => execute_divergence(Path::new(&root), json),
+        SourceCommand::Git { command } => execute_git(command),
         SourceCommand::Mirrors { json } => execute_mirrors(Path::new("."), json),
         SourceCommand::Receipt { command } => match command {
             SourceReceiptCommand::Verify { path, json } => execute_gate_receipt(&path, json),

@@ -50,7 +50,7 @@ pub(crate) fn execute_git_branch(command: GitBranchCommand) -> ExitCode {
     match command {
         GitBranchCommand::Graph { json } => crate::branch_graph_surface::execute_branch_graph(json),
         GitBranchCommand::Status { root, json } => {
-            let obs = cynic_host::git_topology_observer::observe_git_topology(Path::new(&root));
+            let obs = cynic_vcs::git_topology_observer::observe_git_topology(Path::new(&root));
             if json {
                 emit_pretty_json(&obs)
             } else {
@@ -97,14 +97,14 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
     match command {
         GitCommand::Branch { command } => execute_git_branch(command),
         GitCommand::Reconcile { root, json, apply } => {
-            let obs = cynic_host::git_topology_observer::observe_git_topology(Path::new(&root));
-            let decision = cynic_host::domain::git::decision::reconcile_git_topology(&obs);
+            let obs = cynic_vcs::git_topology_observer::observe_git_topology(Path::new(&root));
+            let decision = cynic_vcs::domain::reconcile::reconcile_git_topology(&obs);
             if json {
                 // Emit combined observation + decision for completeness
                 #[derive(serde::Serialize)]
                 struct Out<'a> {
                     observation: &'a cynic_vcs::git_topology::GitTopologyObservation,
-                    decision: &'a cynic_host::domain::git::decision::GitReconcileDecision,
+                    decision: &'a cynic_vcs::domain::reconcile::GitReconcileDecision,
                 }
                 emit_pretty_json(&Out {
                     observation: &obs,
@@ -169,7 +169,7 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
             }
         }
         GitCommand::Hygiene { root, json } => {
-            let obs = cynic_host::git_topology_observer::observe_git_hygiene(Path::new(&root));
+            let obs = cynic_vcs::git_topology_observer::observe_git_hygiene(Path::new(&root));
             let decision = cynic_vcs::git_hygiene::check_hygiene(&obs);
             if json {
                 #[derive(serde::Serialize)]

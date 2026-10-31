@@ -5,8 +5,9 @@
 //! unknowns instead of fabricating numbers.
 
 use std::path::Path;
-use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 use crate::git_topology::{
     GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitBranchState, GitTopologyObservation,
@@ -16,16 +17,21 @@ use crate::git_topology::{
 const MAX_BRANCHES: usize = 256;
 
 fn run_git(root: &Path, args: &[&str]) -> Option<String> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(root)
-        .output()
-        .ok()?;
-    if output.status.success() {
-        Some(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        None
+    let root_str = root.to_str()?;
+    let runner = LocalArgvRunner;
+    let mut argv: Vec<&str> = Vec::with_capacity(args.len() + 3);
+    argv.push("git");
+    argv.push("-C");
+    argv.push(root_str);
+    argv.extend_from_slice(args);
+    let out = runner.run(&argv);
+    if out.spawn_error.is_some() {
+        return None;
     }
+    if out.exit_code != Some(0) {
+        return None;
+    }
+    Some(out.stdout)
 }
 
 pub fn is_inside_repo(root: &Path) -> bool {
@@ -100,12 +106,8 @@ fn read_first_parents(root: &Path) -> std::collections::HashMap<String, String> 
 }
 
 fn has_remote_branch(root: &Path, branch: &str) -> bool {
-    // Check origin/<branch> exists
-    Command::new("git")
-        .args(["rev-parse", "--verify", &format!("origin/{branch}")])
-        .current_dir(root)
-        .output()
-        .is_ok_and(|o| o.status.success())
+    let spec = format!("origin/{branch}");
+    run_git(root, &["rev-parse", "--verify", &spec]).is_some()
 }
 
 fn count_ahead_behind(root: &Path, branch: &str) -> (Option<u32>, Option<u32>) {
@@ -368,18 +370,7 @@ pub fn observe_head_sha(root: &Path) -> Option<String> {
 /// observation already carries the authoritative entry state, and a missing
 /// count must not fabricate one.
 pub fn count_dirty_files(root: &Path) -> usize {
-    let output = Command::new("git")
-        .args(["-C", &root.to_string_lossy(), "status", "--short"])
-        .output()
-        .ok();
-    output
-        .and_then(|o| {
-            if o.status.success() {
-                Some(String::from_utf8_lossy(&o.stdout).to_string())
-            } else {
-                None
-            }
-        })
+    run_git(root, &["status", "--short"])
         .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
         .unwrap_or(0)
 }

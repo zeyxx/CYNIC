@@ -6,6 +6,7 @@ pub use cynic_protocol::vcs::{
 
 // Internal modules
 pub mod development_genesis;
+pub mod domain;
 pub mod entry;
 pub mod external_source;
 pub mod external_source_uc;

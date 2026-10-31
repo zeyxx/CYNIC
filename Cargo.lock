@@ -679,6 +679,7 @@ dependencies = [
  "cynic-agent",
  "cynic-network",
  "cynic-node-protocol",
+ "cynic-process",
  "cynic-protocol",
  "cynic-release",
  "cynic-types",

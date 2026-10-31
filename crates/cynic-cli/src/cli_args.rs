@@ -6,7 +6,6 @@ use crate::build_surface::BuildCommand;
 use crate::coordination_surface::CoordinationCommand;
 use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
-use crate::git_surface::GitCommand;
 use crate::host_surface::HostCommand;
 use crate::idea_surface::IdeaCommand;
 use crate::mask::{JudgeCommand, MaskCommand};
@@ -103,11 +102,6 @@ pub(crate) enum Command {
     Source {
         #[command(subcommand)]
         command: SourceCommand,
-    },
-    /// Git branch topology — observe/reconcile native supervision.
-    Git {
-        #[command(subcommand)]
-        command: GitCommand,
     },
     /// Local substrate operations (staging + capability-gated mutation).
     Host {

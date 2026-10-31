@@ -40,12 +40,12 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 ## Convergence Procedure (Git & Worktree Hygiene)
 
-1. **Observe**: `cynic git branch status --json` + `cynic source worktree --json`.
-2. **Triate**: `cynic git reconcile --json` → classify branches (ReadyForPr/NeedsRebase/Archive/GcWorktree).
+1. **Observe**: `cynic source git branch status --json` + `cynic source worktree --json`.
+2. **Triate**: `cynic source git reconcile --json` → classify branches (ReadyForPr/NeedsRebase/Archive/GcWorktree).
 3. **Act**:
    - Merge ready branches via `cynic source pr merge` (Forgejo sovereign).
    - Rebase stale branches onto main; resolve conflicts or abandon.
-   - Archive dead branches (0 commits ahead): `cynic git reconcile --apply`.
+   - Archive dead branches (0 commits ahead): `cynic source git reconcile --apply`.
    - GC stale worktrees: `cynic source worktree --apply`.
 4. **Verify**: `cynic audit all` must show:
    - `store_convergence.converged = true` (main == origin/main == github/main via automated mirror).
