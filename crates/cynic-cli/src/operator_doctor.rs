@@ -29,7 +29,7 @@ struct DoctorCheck {
 pub(crate) fn execute_operator_doctor(json: bool) -> ExitCode {
     let inference = build_operator_status();
     let network = cynic_host::runtime_network_preflight::observe_runtime_network_preflight(&[]);
-    let repo_access = cynic_host::repo_access::current_repo_access_status();
+    let repo_access = cynic_vcs::repo_access::current_repo_access_status();
     let resources = cynic_host::inference_observation::observe_inference_resources();
 
     let inference_check = DoctorCheck {

@@ -26,9 +26,12 @@ pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
     let decision = cynic_vcs::sync::reconcile(&observation);
     let plan = cynic_vcs::sync::plan(&decision);
     if apply {
-        let admission = cynic_host::adapters::source_admission_adapter::admit_source_sync(
-            root, &decision,
-        );
+        let gate_proofs = cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs(root);
+        let gate_passed_slices: Vec<(&str, bool)> = gate_proofs
+            .iter()
+            .map(|record| (record.name.as_str(), record.passed))
+            .collect();
+        let admission = cynic_vcs::sync::admit_source_sync(&decision, &gate_passed_slices);
         if !admission.admitted {
             let coherence = sync_coherence::project_sync_coherence_vector(
                 &observation,

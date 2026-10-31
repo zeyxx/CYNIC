@@ -1,16 +1,16 @@
-use cynic_vcs::providers::ForgejoTokenApiPort;
-use cynic_vcs::providers::LocalForgejoTokenApiAdapter;
+use crate::providers::ForgejoTokenApiPort;
+use crate::providers::LocalForgejoTokenApiAdapter;
 
 use crate::repo_access::{
     RepoAccessStatusReport, current_project_root, current_repo_access_status,
     load_forgejo_desired_state,
 };
 
-use cynic_vcs::forgejo_token::{
+use crate::forgejo_token::{
     ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec, ForgejoTokenStatusReport,
     FORGEJO_TOKEN_STATUS_SCHEMA, plan_forgejo_token_convergence,
 };
-use cynic_vcs::{
+use crate::{
     ForgejoDesiredState, ForgejoPlan, build_forgejo_plan, forgejo_token_spec,
 };
 
@@ -55,8 +55,8 @@ impl RuntimeForgejoObserver {
     }
 }
 
-impl cynic_vcs::ForgejoObservationPort for RuntimeForgejoObserver {
-    fn observe(&self, desired: &ForgejoDesiredState) -> cynic_vcs::ForgejoObservedState {
+impl crate::ForgejoObservationPort for RuntimeForgejoObserver {
+    fn observe(&self, desired: &ForgejoDesiredState) -> crate::ForgejoObservedState {
         let remote = self
             .repo_access
             .sovereign_remotes
@@ -100,7 +100,7 @@ impl cynic_vcs::ForgejoObservationPort for RuntimeForgejoObserver {
             ForgejoEvidenceState::Unknown
         };
 
-        cynic_vcs::ForgejoObservedState {
+        crate::ForgejoObservedState {
             admin_path: NetworkPathEvidence {
                 schema: NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
                 id: format!("{}-admin", desired.instance_id),

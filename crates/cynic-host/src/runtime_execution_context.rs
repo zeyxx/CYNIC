@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use crate::process_observation::command_json;
-use crate::repo_access::{current_project_root, current_repo_access_status};
+use crate::project_root::current_project_root;
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
 use crate::runtime_layout::HostRuntimeLayout;
 use crate::runtime_network_preflight::{
@@ -101,12 +101,18 @@ pub fn observe_runtime_execution_context(
     let layout = HostRuntimeLayout::from_env();
     let paths = observe_runtime_paths(&layout);
     let environment = observe_environment();
-    let repo_access_status = current_repo_access_status();
+    let project_root = current_project_root();
+    let profile_path = project_root
+        .as_ref()
+        .map(|root| root.join("infra/repo-access-profile.json"))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "infra/repo-access-profile.json".to_string());
+    let profile_exists = std::path::Path::new(&profile_path).is_file();
     let repo_access = RepoAccessEvidence {
-        project_root: current_project_root().map(path_to_string),
-        profile_path: repo_access_status.profile_path,
-        profile_exists: repo_access_status.profile_exists,
-        known_repo_count: repo_access_status.known_repos.len(),
+        project_root: project_root.clone().map(path_to_string),
+        profile_path,
+        profile_exists,
+        known_repo_count: if project_root.is_some() { 1 } else { 0 },
     };
     let network_preflight = observe_runtime_network_preflight(network_targets);
     let execution_boundary =

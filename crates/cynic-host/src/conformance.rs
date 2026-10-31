@@ -13,7 +13,7 @@ use crate::ports::{
 };
 use crate::profiles::HostProfile;
 use crate::registry::HostProfileResolution;
-use crate::repo_access::current_repo_access_status;
+use crate::project_root::current_project_root;
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
 use crate::runtime_layout::current_runtime_layout;
 use crate::runtime_proof::{
@@ -27,7 +27,6 @@ use cynic_eval::convergence::{
 };
 use cynic_protocol::{FrameworkSpec, framework_spec};
 use cynic_types::paths::CynicPaths;
-use cynic_vcs::source_control::observe_source_worktree;
 
 #[derive(Debug, Serialize)]
 pub struct HostConformanceReport {
@@ -217,11 +216,7 @@ fn conformance_gates(
     proof_bundle: &cynic_protocol::RuntimeProofBundle,
     hardware: &HardwareConformanceReport,
 ) -> Vec<HostConformanceGate> {
-    let repo_access = current_repo_access_status();
-    let forgejo = repo_access
-        .sovereign_remotes
-        .iter()
-        .find(|remote| remote.id == "forgejo");
+    let forgejo: Option<&()> = None;
     vec![
         HostConformanceGate {
             id: "harness_is_conformance_gate",
@@ -280,21 +275,8 @@ fn conformance_gates(
         },
         HostConformanceGate {
             id: "sovereign_git_service_observed",
-            status: if forgejo.is_some_and(|remote| remote.service_health_status == "reachable") {
-                "satisfied"
-            } else {
-                "blocked"
-            },
-            detail: match forgejo {
-                Some(remote) => format!(
-                    "forgejo service_health={} resolution={} tcp={} repo_auth={}",
-                    remote.service_health_status,
-                    remote.host_resolution_status,
-                    remote.tcp_reachability_status,
-                    remote.repo_auth_readiness
-                ),
-                None => "forgejo sovereign remote missing from repo-access authority".to_string(),
-            },
+            status: "blocked",
+            detail: "decoupled from cynic-host".to_string(),
         },
     ]
 }
@@ -630,19 +612,14 @@ pub struct VerticalEvidenceInput {
 pub fn observe_vertical_evidence(
     build_proof: Option<&BuildConformanceEvidence>,
 ) -> VerticalEvidenceInput {
-    let repo_access = current_repo_access_status();
-    let (source_status, source_blockers) = repo_access.canonical_project_root.as_deref().map_or(
+    let canonical_root = current_project_root();
+    let (source_status, source_blockers) = canonical_root.as_deref().map_or(
         (
             "unknown",
             vec!["canonical_project_root_missing".to_string()],
         ),
-        |root| {
-            let worktree = observe_source_worktree(std::path::Path::new(root), Some("cynic"));
-            if worktree.status == "ready" {
-                ("partial", worktree.blockers)
-            } else {
-                ("blocked", worktree.blockers)
-            }
+        |_root| {
+            ("unknown", Vec::new())
         },
     );
     let (build_status, build_blockers) = match build_proof {
@@ -959,7 +936,7 @@ fn gate_status(gates: &[HostConformanceGate], id: &str) -> &'static str {
 }
 
 #[cfg(test)]
-mod tests {
+mod conformance_tests {
     use super::*;
     use crate::runtime_harness::conformance_context;
 

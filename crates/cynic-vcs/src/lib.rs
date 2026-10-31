@@ -11,6 +11,7 @@ pub mod entry;
 pub mod external_source;
 pub mod external_source_uc;
 pub mod forgejo;
+pub mod forgejo_control;
 pub mod forgejo_port;
 pub mod forgejo_token;
 pub mod git_hygiene;
@@ -53,6 +54,7 @@ pub use external_source::{
     ExternalPushProof, ExternalRepoRef, ExternalSourcePort,
 };
 pub use forgejo::*;
+pub use forgejo_control::*;
 pub use forgejo_port::{ForgejoObservationPort, build_forgejo_plan, forgejo_token_spec};
 pub use git_hygiene::*;
 pub use git_topology::*;

@@ -857,7 +857,6 @@ dependencies = [
  "cynic-secrets",
  "cynic-ssh",
  "cynic-types",
- "cynic-vcs",
  "ed25519-dalek",
  "hex",
  "hmac",
