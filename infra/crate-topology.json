@@ -664,7 +664,6 @@
         "cynic-build",
         "cynic-cli",
         "cynic-eval",
-        "cynic-host",
         "cynic-inference",
         "cynic-market",
         "cynic-node",
@@ -681,7 +680,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 0
+      "loc": 7660
     },
     "cynic-sqlite": {
       "layer": "L2",
