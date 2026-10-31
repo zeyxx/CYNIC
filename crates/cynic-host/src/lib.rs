@@ -20,7 +20,6 @@ pub mod coordination_lease_store;
 pub mod credential;
 pub mod credential_provisioning;
 pub mod crypto;
-pub mod development_genesis;
 pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
@@ -92,9 +91,7 @@ pub mod secret_material;
 pub mod secret_presence;
 pub mod service_catalog;
 pub mod service_supervisor_observation;
-pub mod source_control;
 pub mod vcs_ports;
-pub mod source_worktree;
 pub mod space_gc;
 
 pub use cynic_ssh::config as ssh_config;
@@ -108,7 +105,6 @@ pub mod toolchain;
 pub mod transport;
 pub mod tunnel_supervisor;
 pub mod usecases;
-pub mod vertical_conformance;
 pub mod wireguard_readback;
 
 #[cfg(test)]

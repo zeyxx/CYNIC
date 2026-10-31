@@ -268,7 +268,6 @@ const KNOWN: &[&str] = &[
     // Proof fallback, read-only: without an in-memory build proof the
     // conformance check looks for the proof file on disk (canonical
     // reports path, then tmp). Existence check only, gracefully absent.
-    "crates/cynic-host/src/vertical_conformance.rs",
     // Key-file search order, read-only: the supervisor passes the first
     // existing API key file, preferring the injected principal config dir
     // and falling back to /etc/cynic/llama-api-key. Lookup, not placement —
