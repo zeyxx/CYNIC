@@ -26,8 +26,8 @@ use pool::{
 };
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
 use runner::{
-    drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, run_build,
-    submit_build, trigger_build, workload_output,
+    drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, submit_build,
+    workload_output,
 };
 use services::{provision_credentials, serve_webhook};
 
@@ -50,33 +50,6 @@ pub(crate) enum BuildRunnerCommand {
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
 pub(crate) enum BuildCommand {
-    /// Run the build workflow (observe → verify → decide → execute)
-    Run {
-        /// Print JSON output
-        #[arg(long)]
-        json: bool,
-        /// Path to the build runner observation JSON file
-        #[arg(long, default_value = "/tmp/cynic-build-runner-observation.json")]
-        observation_path: String,
-        /// Kernel coordination endpoint for lease verification
-        #[arg(long)]
-        kernel_endpoint: Option<String>,
-        /// Build action (make:check, make:build, make:build-release)
-        #[arg(long, default_value = "make:check")]
-        action: String,
-        /// Target crates (comma-separated)
-        #[arg(long)]
-        crates: Option<String>,
-        /// Apply the build (execute if admitted)
-        #[arg(long)]
-        apply: bool,
-        /// Artifact path for read-back proof
-        #[arg(long, default_value = "target/release/cynic")]
-        artifact_path: String,
-        /// Source commit hash
-        #[arg(long)]
-        source_commit: Option<String>,
-    },
     /// Submit a build workload natively to the builder HTTP node (no SSH).
     Submit {
         /// Exact 40-character source commit.
@@ -124,6 +97,7 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Deprecated: prints a hint routing to `cynic build submit` (canonical).
     /// Trigger a distributed build on the observed network runner.
     Trigger {
         /// Exact 40-character source commit.
@@ -546,25 +520,6 @@ fn render_archive_report(report: &ArchiveReport, json: bool) {
 /// Execute the build CLI command.
 pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
     match command {
-        BuildCommand::Run {
-            json,
-            observation_path,
-            kernel_endpoint,
-            action,
-            crates,
-            apply,
-            artifact_path,
-            source_commit,
-        } => run_build(
-            json,
-            observation_path,
-            kernel_endpoint,
-            action,
-            crates,
-            apply,
-            artifact_path,
-            source_commit,
-        ),
         BuildCommand::Submit {
             commit,
             package,
@@ -606,37 +561,13 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             };
             restart_node(&url, &desired_sha256, json)
         }
-        BuildCommand::Trigger {
-            commit,
-            phase,
-            host,
-            runner,
-            registry,
-            user,
-            network_mode,
-            checkout_base,
-            ssot_url,
-            package,
-            scope,
-            sccache_dir,
-            proof_log,
-            json,
-        } => trigger_build(
-            &commit,
-            &phase,
-            host.as_deref(),
-            runner.as_deref(),
-            &registry,
-            &user,
-            &network_mode,
-            &checkout_base,
-            &ssot_url,
-            package,
-            &scope,
-            &sccache_dir,
-            proof_log.as_deref(),
-            json,
-        ),
+        BuildCommand::Trigger { commit, .. } => {
+            println!(
+                "deprecated: `cynic build trigger` is retired; use the canonical build execution surface: \
+                 cynic build submit --commit {commit} --action check --wait --builder-url http://192.168.0.25:9090"
+            );
+            Ok(())
+        }
         BuildCommand::Invoice {
             commit,
             proof_log,
