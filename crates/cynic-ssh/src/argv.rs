@@ -16,10 +16,7 @@ pub fn validate_target(target: &str) -> Result<(), String> {
     if target.chars().any(|c| c.is_control()) {
         return Err(format!("target {target} contains a control character"));
     }
-    if target
-        .chars()
-        .any(|c| ";|&$()<>`{}\\".contains(c))
-    {
+    if target.chars().any(|c| ";|&$()<>`{}\\".contains(c)) {
         return Err(format!("target {target} contains a shell metacharacter"));
     }
     Ok(())
@@ -36,10 +33,7 @@ pub fn validate_remote_script(script: &str) -> Result<(), String> {
     if script.chars().any(|c| c.is_control()) {
         return Err("remote script must not contain control characters".to_string());
     }
-    if script
-        .chars()
-        .any(|c| "`$|;&<>".contains(c))
-    {
+    if script.chars().any(|c| "`$|;&<>".contains(c)) {
         return Err("remote script must not contain a shell metacharacter".to_string());
     }
     if script.contains("eval") {
@@ -63,10 +57,11 @@ pub fn validate_remote_segment(segment: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Build the SSH argv for a remote command.
-pub fn ssh_argv<T: AsRef<str>>(
+/// Build the SSH argv for a remote command, applying the given options.
+pub fn ssh_argv_with_options<T: AsRef<str>>(
     target: &str,
     remote_argv: &[T],
+    options: &crate::options::SshOptions,
 ) -> Result<Vec<String>, String> {
     validate_target(target)?;
     if remote_argv.is_empty() {
@@ -79,10 +74,15 @@ pub fn ssh_argv<T: AsRef<str>>(
         validate_remote_script(&remote[2])?;
     }
     let mut argv = vec!["ssh".to_string()];
-    argv.extend(SSH_BATCH_OPTIONS.iter().map(|option| option.to_string()));
+    argv.extend(options.to_argv());
     argv.push(target.to_string());
     argv.extend(remote);
     Ok(argv)
+}
+
+/// Build the SSH argv for a remote command.
+pub fn ssh_argv<T: AsRef<str>>(target: &str, remote_argv: &[T]) -> Result<Vec<String>, String> {
+    ssh_argv_with_options(target, remote_argv, &crate::options::SshOptions::default())
 }
 
 /// Build the SCP argv for a copy.
@@ -98,17 +98,26 @@ pub fn scp_argv(source: &str, target: &str) -> Result<Vec<String>, String> {
     Ok(argv)
 }
 
-/// Build the SSH argv for a remote script string.
-pub fn ssh_script_argv(target: &str, script: &str) -> Result<Vec<String>, String> {
+/// Build the SSH argv for a remote script string, applying the given options.
+pub fn ssh_script_argv_with_options(
+    target: &str,
+    script: &str,
+    options: &crate::options::SshOptions,
+) -> Result<Vec<String>, String> {
     validate_target(target)?;
     validate_remote_script(script)?;
     let mut argv = vec!["ssh".to_string()];
-    argv.extend(SSH_BATCH_OPTIONS.iter().map(|option| option.to_string()));
+    argv.extend(options.to_argv());
     argv.push(target.to_string());
     argv.push("sh".to_string());
     argv.push("-c".to_string());
     argv.push(script.to_string());
     Ok(argv)
+}
+
+/// Build the SSH argv for a remote script string.
+pub fn ssh_script_argv(target: &str, script: &str) -> Result<Vec<String>, String> {
+    ssh_script_argv_with_options(target, script, &crate::options::SshOptions::default())
 }
 
 #[cfg(test)]
@@ -209,8 +218,19 @@ mod tests {
     }
 
     #[test]
-    fn ssh_script_argv_rejects_bad_script() {
-        assert!(ssh_script_argv("host", "a\nb").is_err());
+    fn ssh_argv_with_options_applies_options() {
+        let remote = ["true"];
+        let opts = crate::options::SshOptions {
+            batch_mode: false,
+            strict_host_key_checking: true,
+            connect_timeout_secs: 3,
+        };
+        let argv = ssh_argv_with_options("host", &remote, &opts).expect("valid");
+        assert_eq!(argv[0], "ssh");
+        assert!(!argv.contains(&"BatchMode=yes".to_string()));
+        assert!(argv.contains(&"StrictHostKeyChecking=yes".to_string()));
+        assert!(argv.contains(&"ConnectTimeout=3".to_string()));
+        assert_eq!(argv.last().unwrap(), "true");
     }
 
     #[test]
@@ -228,7 +248,10 @@ mod tests {
             "eval rm -rf /",
         ];
         for payload in payloads {
-            assert!(validate_target(payload).is_err(), "target accepted: {payload}");
+            assert!(
+                validate_target(payload).is_err(),
+                "target accepted: {payload}"
+            );
         }
         for payload in payloads {
             // validate_remote_script rejects shell metacharacters / control / eval / nul.
