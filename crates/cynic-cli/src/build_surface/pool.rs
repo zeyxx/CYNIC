@@ -14,7 +14,7 @@ use cynic_host::domain::pool_eligibility::{
     ToolRequirement,
 };
 use cynic_host::domain::pool_metrics::measure_pool;
-use cynic_protocol::build_memory_capacity::{
+use cynic_build::build_memory_capacity::{
     decide_memory_capacity_with_cores, stamp_source_digest, MemoryCapacityAssessment,
     MemoryCapacityDecision, DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,
 };

@@ -10,7 +10,7 @@ use crate::ports::build_runner::{
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
-use cynic_protocol::build_disk_capacity::{
+use cynic_build::build_disk_capacity::{
     DiskCapacityDecision, decide_disk_capacity, parse_df_available_bytes,
 };
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};

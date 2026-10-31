@@ -35,7 +35,7 @@ use crate::workload_observation::{execute_list_workloads, execute_observe_worklo
 use archive::{archive_terminal_workloads, ArchiveReport};
 use artifact::{publish_artifact, pull_artifact, release_artifact};
 use forgejo::{execute_runner_token, execute_runs};
-use cynic_protocol::build_memory_capacity::MemoryCapacityDecision;
+use cynic_build::build_memory_capacity::MemoryCapacityDecision;
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum BuildRunnerCommand {
