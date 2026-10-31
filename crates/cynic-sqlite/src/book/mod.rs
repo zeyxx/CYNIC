@@ -240,36 +240,7 @@ impl<T: BookEntry, W: WalJournalPort> LedgerBook<T> for TypedBook<T, W> {
 
 // ── Domain BookEntry Implementations ─────────────────────────────────────────
 
-// 1. Identity & Node Accounts
-impl BookEntry for cynic_consensus::peer::CitizenAccount {
-    fn schema_uri() -> &'static str {
-        cynic_consensus::peer::CITIZEN_ACCOUNT_SCHEMA
-    }
-    fn entry_id(&self) -> &str {
-        &self.citizen_id
-    }
-}
-
-impl BookEntry for cynic_consensus::peer::NodeAccount {
-    fn schema_uri() -> &'static str {
-        cynic_consensus::peer::NODE_ACCOUNT_SCHEMA
-    }
-    fn entry_id(&self) -> &str {
-        &self.node_id
-    }
-}
-
-// 2. Governance & Mandate Accounts
-impl BookEntry for cynic_consensus::peer::MandateAccount {
-    fn schema_uri() -> &'static str {
-        cynic_consensus::peer::MANDATE_ACCOUNT_SCHEMA
-    }
-    fn entry_id(&self) -> &str {
-        &self.mandate_id
-    }
-}
-
-// 3. Coordination & Claims
+// 1. Coordination & Claims
 impl BookEntry for cynic_protocol::agent_coordination::Claim {
     fn schema_uri() -> &'static str {
         cynic_protocol::agent_coordination::CLAIM_SCHEMA
@@ -311,9 +282,6 @@ impl BookEntry for cynic_persistence::types::OpaqueEnvelope {
 
 /// Sovereign master ledger holding the 6 specialized books of CYNIC.
 pub struct CynicLedger<W: WalJournalPort> {
-    pub citizens: TypedBook<cynic_consensus::peer::CitizenAccount, W>,
-    pub nodes: TypedBook<cynic_consensus::peer::NodeAccount, W>,
-    pub mandates: TypedBook<cynic_consensus::peer::MandateAccount, W>,
     pub claims: TypedBook<cynic_protocol::agent_coordination::Claim, W>,
     pub invoices: TypedBook<cynic_protocol::throughput_invoice::ThroughputInvoice, W>,
     pub proofs: TypedBook<cynic_protocol::runtime::RuntimeProof, W>,
@@ -323,9 +291,6 @@ pub struct CynicLedger<W: WalJournalPort> {
 impl<W: WalJournalPort + 'static> CynicLedger<W> {
     pub fn open(wal: Arc<W>, projection: SqliteProjectionAdapter) -> Result<Self, StorageError> {
         Ok(Self {
-            citizens: TypedBook::new("citizens", wal.clone(), projection.clone())?,
-            nodes: TypedBook::new("nodes", wal.clone(), projection.clone())?,
-            mandates: TypedBook::new("mandates", wal.clone(), projection.clone())?,
             claims: TypedBook::new("claims", wal.clone(), projection.clone())?,
             invoices: TypedBook::new("invoices", wal.clone(), projection.clone())?,
             proofs: TypedBook::new("proofs", wal.clone(), projection.clone())?,

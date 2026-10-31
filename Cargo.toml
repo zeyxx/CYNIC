@@ -15,6 +15,7 @@ members = [
     "crates/cynic-market",
     "crates/cynic-persistence",
     "crates/cynic-surreal",
+    "crates/cynic-sqlite",
     "crates/cynic-supervisor",
     "crates/cynic-mcp",
     "crates/cynic-vcs",

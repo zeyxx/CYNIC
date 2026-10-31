@@ -100,7 +100,6 @@ const BASELINE_EDGES: &[&str] = &[
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-intel (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)",
-    "ARCH-004-UPWARD-EDGE cynic-sqlite (L1) depends on cynic-consensus (L2)",
 ];
 
 #[test]
