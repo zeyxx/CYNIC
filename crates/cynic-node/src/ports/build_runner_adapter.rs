@@ -173,6 +173,21 @@ impl SshBuildRunner {
         format!("{}@{}", self.user, self.host)
     }
 
+    fn run_ssh<T: AsRef<str>>(&self, target: &str, remote_argv: &[T]) -> cynic_protocol::argv::ArgvOutput {
+        match cynic_ssh::argv::ssh_argv(target, remote_argv) {
+            Ok(argv) => {
+                let borrowed: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+                self.runner.run(&borrowed)
+            }
+            Err(err) => cynic_protocol::argv::ArgvOutput {
+                exit_code: Some(255),
+                stdout: String::new(),
+                stderr: err,
+                spawn_error: None,
+            },
+        }
+    }
+
     /// Resolve the cache roots on the runner itself.
     ///
     /// The runner is asked for its own state root with the native CYNIC
@@ -185,9 +200,7 @@ impl SshBuildRunner {
         &self,
         target: &str,
     ) -> Option<cynic_protocol::remote_cache_roots::RemoteCacheRoots> {
-        let paths = self
-            .runner
-            .run(&["ssh", target, "cynic", "runtime", "paths", "--json"]);
+        let paths = self.run_ssh(target, &["cynic", "runtime", "paths", "--json"]);
         if !paths.success() {
             return None;
         }
@@ -317,14 +330,10 @@ impl BuildRunnerPort for SshBuildRunner {
         //
         // The gate is fail-closed: an unobservable disk is not a free disk.
         if let Some(minimum) = self.minimum_available_bytes {
-            let df = self.runner.run(&[
-                "ssh",
+            let df = self.run_ssh(
                 target.as_str(),
-                "df",
-                "-k",
-                "--output=avail",
-                checkout_base.as_str(),
-            ]);
+                &["df", "-k", "--output=avail", checkout_base.as_str()],
+            );
             if let Some(e) = &df.spawn_error {
                 return Err(BuildError::RunnerUnreachable(e.clone()));
             }
@@ -358,25 +367,16 @@ impl BuildRunnerPort for SshBuildRunner {
         }
 
         // Step 1: ensure a checkout exists for the SHA.
-        let probe = self.runner.run(&[
-            "ssh",
-            target.as_str(),
-            "test",
-            "-d",
-            format!("{dir}/.git").as_str(),
-        ]);
+        let git_dir = format!("{dir}/.git");
+        let probe = self.run_ssh(target.as_str(), &["test", "-d", git_dir.as_str()]);
         if let Some(e) = &probe.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
         if !probe.success() {
-            let clone = self.runner.run(&[
-                "ssh",
+            let clone = self.run_ssh(
                 target.as_str(),
-                "git",
-                "clone",
-                self.ssot_url.as_str(),
-                dir.as_str(),
-            ]);
+                &["git", "clone", self.ssot_url.as_str(), dir.as_str()],
+            );
             if let Some(e) = &clone.spawn_error {
                 return Err(BuildError::RunnerUnreachable(e.clone()));
             }
@@ -389,25 +389,15 @@ impl BuildRunnerPort for SshBuildRunner {
         }
 
         // Step 2: pin the checkout to the exact SHA and read it back.
-        // First fetch origin so any newly pushed commit is guaranteed present locally:
-        let _ = self.runner.run(&[
-            "ssh",
+        // Step 2: pin the checkout to the exact SHA and read it back.
+        let _ = self.run_ssh(
             target.as_str(),
-            "git",
-            "-C",
-            dir.as_str(),
-            "fetch",
-            "origin",
-        ]);
-        let checkout = self.runner.run(&[
-            "ssh",
+            &["git", "-C", dir.as_str(), "fetch", "origin"],
+        );
+        let checkout = self.run_ssh(
             target.as_str(),
-            "git",
-            "-C",
-            dir.as_str(),
-            "checkout",
-            sha.as_str(),
-        ]);
+            &["git", "-C", dir.as_str(), "checkout", sha.as_str()],
+        );
         if let Some(e) = &checkout.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
@@ -417,15 +407,10 @@ impl BuildRunnerPort for SshBuildRunner {
         // accept only `rev-parse HEAD == requested SHA`, never stderr text.
         let checkout_failed = !checkout.success();
         let checkout_stderr = build_evidence(&checkout.stderr);
-        let head = self.runner.run(&[
-            "ssh",
+        let head = self.run_ssh(
             target.as_str(),
-            "git",
-            "-C",
-            dir.as_str(),
-            "rev-parse",
-            "HEAD",
-        ]);
+            &["git", "-C", dir.as_str(), "rev-parse", "HEAD"],
+        );
         if let Some(e) = &head.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
@@ -452,60 +437,30 @@ impl BuildRunnerPort for SshBuildRunner {
         // the pin (reaper, concurrent run, partial checkout) must not reach
         // cargo as a confusing manifest error. Verify the manifest, heal once
         // by re-cloning, and block with an explicit verdict if still absent.
-        let manifest_ok = self
-            .runner
-            .run(&[
-                "ssh",
-                target.as_str(),
-                "test",
-                "-f",
-                format!("{dir}/Cargo.toml").as_str(),
-            ])
-            .success();
+        let manifest_ok = self.run_ssh(
+            target.as_str(),
+            &["test", "-f", format!("{dir}/Cargo.toml").as_str()],
+        ).success();
         if !manifest_ok {
-            let _ = self
-                .runner
-                .run(&["ssh", target.as_str(), "rm", "-rf", dir.as_str()]);
-            let reclone = self.runner.run(&[
-                "ssh",
+            let _ = self.run_ssh(target.as_str(), &["rm", "-rf", dir.as_str()]);
+            let reclone = self.run_ssh(
                 target.as_str(),
-                "git",
-                "clone",
-                self.ssot_url.as_str(),
-                dir.as_str(),
-            ]);
-            let recheckout = self.runner.run(&[
-                "ssh",
+                &["git", "clone", self.ssot_url.as_str(), dir.as_str()],
+            );
+            let recheckout = self.run_ssh(
                 target.as_str(),
-                "git",
-                "-C",
-                dir.as_str(),
-                "checkout",
-                sha.as_str(),
-            ]);
-            let rehead = self.runner.run(&[
-                "ssh",
+                &["git", "-C", dir.as_str(), "checkout", sha.as_str()],
+            );
+            let rehead = self.run_ssh(
                 target.as_str(),
-                "git",
-                "-C",
-                dir.as_str(),
-                "rev-parse",
-                "HEAD",
-            ]);
+                &["git", "-C", dir.as_str(), "rev-parse", "HEAD"],
+            );
+            let cargo_toml = format!("{dir}/Cargo.toml");
             let rehealed = reclone.success()
                 && recheckout.success()
                 && rehead.success()
                 && rehead.stdout.trim() == sha
-                && self
-                    .runner
-                    .run(&[
-                        "ssh",
-                        target.as_str(),
-                        "test",
-                        "-f",
-                        format!("{dir}/Cargo.toml").as_str(),
-                    ])
-                    .success();
+                && self.run_ssh(target.as_str(), &["test", "-f", cargo_toml.as_str()]).success();
             if !rehealed {
                 return blocked(
                     None,
@@ -544,9 +499,7 @@ impl BuildRunnerPort for SshBuildRunner {
         // /home/titouan/.local/share/cynic, while the client would have sent
         // /var/lib/cynic/shared-target. Two conventions then coexisted, and
         // 33 GiB of cache was invisible to the disk observer.
-        let mut argv: Vec<String> = vec![
-            "ssh".to_string(),
-            target,
+        let mut remote_cmd: Vec<String> = vec![
             "env".to_string(),
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
@@ -554,18 +507,17 @@ impl BuildRunnerPort for SshBuildRunner {
             format!("CARGO_TARGET_DIR={}", roots.target_dir),
         ];
         if self.sccache_dir.is_some() {
-            argv.push(format!("RUSTC_WRAPPER={}", roots.sccache_bin));
-            argv.push(format!("SCCACHE_DIR={}", roots.sccache_dir));
+            remote_cmd.push(format!("RUSTC_WRAPPER={}", roots.sccache_bin));
+            remote_cmd.push(format!("SCCACHE_DIR={}", roots.sccache_dir));
         }
-        argv.extend(cargo);
-        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
-        let cpu_before = sample_builder_cpu(&self.runner, refs[1]);
-        let out = self.runner.run(&refs);
+        remote_cmd.extend(cargo);
+        let cpu_before = sample_builder_cpu(self, &target);
+        let out = self.run_ssh(&target, &remote_cmd);
         let duration_ms = started.elapsed().as_millis() as u64;
         if let Some(e) = &out.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
-        let cpu_ms = match (cpu_before, sample_builder_cpu(&self.runner, refs[1])) {
+        let cpu_ms = match (cpu_before, sample_builder_cpu(self, &target)) {
             (Some(before), Some(after)) => cpu_ms_between(before, after),
             _ => None,
         };
@@ -597,12 +549,8 @@ impl BuildRunnerPort for SshBuildRunner {
 
     fn observe_runner(&self) -> RunnerHealth {
         let target = self.ssh_target();
-        let cargo = self
-            .runner
-            .run(&["ssh", target.as_str(), "cargo", "--version"]);
-        let rustc = self
-            .runner
-            .run(&["ssh", target.as_str(), "rustc", "--version"]);
+        let cargo = self.run_ssh(target.as_str(), &["cargo", "--version"]);
+        let rustc = self.run_ssh(target.as_str(), &["rustc", "--version"]);
         let reachable = cargo.success() && rustc.success();
         let toolchain = if reachable {
             rustc.stdout.trim().to_string()
@@ -614,15 +562,11 @@ impl BuildRunnerPort for SshBuildRunner {
         let warm = match self.resolve_runner_cache_roots(&target) {
             Some(roots) => {
                 let base = self.checkout_base.clone().unwrap_or(roots.checkout_base);
-                self.runner
-                    .run(&["ssh", target.as_str(), "test", "-d", base.as_str()])
-                    .success()
+                self.run_ssh(target.as_str(), &["test", "-d", base.as_str()]).success()
             }
             None => false,
         };
-        let version = self
-            .runner
-            .run(&["ssh", target.as_str(), "cynic", "version", "--json"]);
+        let version = self.run_ssh(target.as_str(), &["cynic", "version", "--json"]);
         let binary_sha = if version.success() {
             parse_binary_sha(&version.stdout)
         } else {
@@ -645,7 +589,7 @@ impl SshBuildRunner {
     /// output is `None` — the caller records the unknown, never a number.
     pub fn probe_free_ram_bytes(&self) -> Option<u64> {
         let target = self.ssh_target();
-        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        let out = self.run_ssh(target.as_str(), &["free", "-b"]);
         if !out.success() {
             return None;
         }
@@ -657,14 +601,7 @@ impl SshBuildRunner {
     /// never a path.
     pub fn probe_state_root(&self) -> Option<String> {
         let target = self.ssh_target();
-        let out = self.runner.run(&[
-            "ssh",
-            target.as_str(),
-            "cynic",
-            "runtime",
-            "paths",
-            "--json",
-        ]);
+        let out = self.run_ssh(target.as_str(), &["cynic", "runtime", "paths", "--json"]);
         if !out.success() {
             return None;
         }
@@ -675,14 +612,7 @@ impl SshBuildRunner {
     /// `None` on any failure — the caller records the unknown, never a number.
     pub fn probe_disk_avail_bytes(&self) -> Option<u64> {
         let target = self.ssh_target();
-        let paths = self.runner.run(&[
-            "ssh",
-            target.as_str(),
-            "cynic",
-            "runtime",
-            "paths",
-            "--json",
-        ]);
+        let paths = self.run_ssh(target.as_str(), &["cynic", "runtime", "paths", "--json"]);
         if !paths.success() {
             return None;
         }
@@ -691,9 +621,7 @@ impl SshBuildRunner {
         // Classic `df -k` columns: the parser reads Avail (parts[3]) and
         // matches the mount point. `--output=avail` prints a single column
         // the parser skips, which muted every runner's disk.
-        let df = self
-            .runner
-            .run(&["ssh", target.as_str(), "df", "-k", checkout_base.as_str()]);
+        let df = self.run_ssh(target.as_str(), &["df", "-k", checkout_base.as_str()]);
         if !df.success() {
             return None;
         }
@@ -704,7 +632,7 @@ impl SshBuildRunner {
     /// failure — the caller records the unknown, never a number.
     pub fn probe_total_ram_bytes(&self) -> Option<u64> {
         let target = self.ssh_target();
-        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        let out = self.run_ssh(target.as_str(), &["free", "-b"]);
         if !out.success() {
             return None;
         }
@@ -722,15 +650,16 @@ impl SshBuildRunner {
         let target = self.ssh_target();
         let roots = self.remote_roots(&target)?;
         let before = self.du_bytes(&target, &roots.sccache_dir)?;
-        let rm = self.runner.run(&[
-            "ssh",
+        let rm = self.run_ssh(
             target.as_str(),
-            "find",
-            roots.sccache_dir.as_str(),
-            "-mindepth",
-            "1",
-            "-delete",
-        ]);
+            &[
+                "find",
+                roots.sccache_dir.as_str(),
+                "-mindepth",
+                "1",
+                "-delete",
+            ],
+        );
         if !rm.success() {
             return Err(format!("gc-disk failed on {}: {}", self.host, rm.stderr));
         }
@@ -754,9 +683,7 @@ impl SshBuildRunner {
         &self,
         target: &str,
     ) -> Result<cynic_protocol::remote_cache_roots::RemoteCacheRoots, String> {
-        let paths = self
-            .runner
-            .run(&["ssh", target, "cynic", "runtime", "paths", "--json"]);
+        let paths = self.run_ssh(target, &["cynic", "runtime", "paths", "--json"]);
         if !paths.success() {
             return Err(format!(
                 "runner {} does not answer runtime paths; will not guess locations",
@@ -773,7 +700,7 @@ impl SshBuildRunner {
     }
 
     fn du_bytes(&self, target: &str, path: &str) -> Result<u64, String> {
-        let du = self.runner.run(&["ssh", target, "du", "-sb", path]);
+        let du = self.run_ssh(target, &["du", "-sb", path]);
         if !du.success() {
             return Err(format!("du failed on {}: {}", self.host, du.stderr));
         }
@@ -808,12 +735,12 @@ struct BuilderCpuSample {
 
 /// Sample builder CPU over explicit ssh argv (no shell composition).
 /// Any failure yields None: unknown sampling, never a fabricated zero.
-fn sample_builder_cpu(runner: &Box<dyn CommandRunner>, target: &str) -> Option<BuilderCpuSample> {
-    let stat = runner.run(&["ssh", target, "cat", "/proc/stat"]);
+fn sample_builder_cpu(runner: &SshBuildRunner, target: &str) -> Option<BuilderCpuSample> {
+    let stat = runner.run_ssh(target, &["cat", "/proc/stat"]);
     if !stat.success() {
         return None;
     }
-    let tick = runner.run(&["ssh", target, "getconf", "CLK_TCK"]);
+    let tick = runner.run_ssh(target, &["getconf", "CLK_TCK"]);
     if !tick.success() {
         return None;
     }
