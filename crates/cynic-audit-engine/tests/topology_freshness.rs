@@ -50,11 +50,11 @@ fn the_committed_document_is_what_the_generator_produces() {
     let committed = topology_generate::committed(&root)
         .unwrap_or_else(|error| panic!("reading {} failed: {error}", topology_generate::TOPOLOGY_DOC));
 
-    if rendered == committed {
-        return;
-    }
     let diff = topology_generate::diff_paths(&committed, &rendered)
         .unwrap_or_else(|error| panic!("the committed document is unreadable: {error}"));
+    if diff.is_empty() {
+        return;
+    }
     panic!(
         "{} is stale: the manifests and the policy keys no longer produce it.\n\
          differences (committed -> rendered):\n{}\n\
