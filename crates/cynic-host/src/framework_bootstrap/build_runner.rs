@@ -13,10 +13,9 @@ use std::path::Path;
 use crate::clock::now_unix_ms;
 use crate::{
     adapters::local_build_cache::LocalBuildCacheAdapter,
-    domain::disk::build_runner::{
-        BuildCacheObservationPort, BuildCachePlan, load_build_cache_desired_state,
-        reconcile_build_cache,
-    },
+};
+use cynic_build::cache::{
+    BuildCacheObservationPort, BuildCachePlan, load_build_cache_desired_state, reconcile_build_cache,
 };
 use cynic_process::ArgvRunner;
 use cynic_types::paths::CynicPaths;
