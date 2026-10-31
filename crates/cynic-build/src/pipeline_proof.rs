@@ -303,17 +303,19 @@ pub fn invoice_from_proofs(
 
     let cpu_dimensions = if cpu_complete && !proofs.is_empty() {
         EnergyDimensions {
-            cpu_cycles: total_cpu_ms.saturating_mul(1_000_000),
-            gpu_flop: 0,
-            network_bytes: 0,
-            disk_bytes: 0,
+            wall_time_ms: total_ms,
+            cpu_ms: Some(total_cpu_ms),
+            network_bytes: None,
+            disk_bytes: None,
+            estimated_joules: 0.0,
         }
     } else {
         EnergyDimensions {
-            cpu_cycles: 0,
-            gpu_flop: 0,
-            network_bytes: 0,
-            disk_bytes: 0,
+            wall_time_ms: total_ms,
+            cpu_ms: None,
+            network_bytes: None,
+            disk_bytes: None,
+            estimated_joules: 0.0,
         }
     };
 
@@ -322,15 +324,7 @@ pub fn invoice_from_proofs(
         source_commit: source_commit.to_string(),
         proofs_observed: proofs.len(),
         proofs_invoiced: lines.len(),
-        total: EnergyDimensions {
-            wall_time_ms: total_ms,
-            cpu_ms: if cpu_complete && !proofs.is_empty() {
-                Some(total_cpu_ms)
-            } else {
-                None
-            },
-            ..EnergyDimensions::default()
-        },
+        total: cpu_dimensions,
         lines,
         residual_unknowns: unknowns,
     }
