@@ -1,0 +1,22 @@
+[package]
+name = "cynic-sqlite"
+version = "0.1.0"
+edition = "2024"
+description = "Embedded SQLite projection engine and transactional state storage for CYNIC"
+authors = ["TALARIA Architecture Group"]
+
+[dependencies]
+cynic-persistence = { path = "../cynic-persistence" }
+cynic-protocol = { path = "../cynic-protocol" }
+cynic-consensus = { path = "../cynic-consensus" }
+rusqlite = { version = "0.34", features = ["bundled"] }
+bytes.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { version = "2.0" }
+parking_lot = { version = "0.12" }
+hex = { version = "0.4" }
+
+[dev-dependencies]
+tempfile = { version = "3.17" }

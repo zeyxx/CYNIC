@@ -76,6 +76,10 @@ pub fn execute_storage_sync(
             KnowledgeEdgeKind::EnforcesContract => "enforces",
             KnowledgeEdgeKind::CrateDependency => "depends_on",
             KnowledgeEdgeKind::ParentSection => "parent_of",
+            KnowledgeEdgeKind::UsesModule => "uses_module",
+            KnowledgeEdgeKind::ImplementsTrait => "implements_trait",
+            KnowledgeEdgeKind::DeclaresModule => "declares_module",
+            KnowledgeEdgeKind::InherentImpl => "inherent_impl",
         };
         statements.push(format!("RELATE doc:⟨{src}⟩ -> {rel} -> doc:⟨{tgt}⟩;"));
     }

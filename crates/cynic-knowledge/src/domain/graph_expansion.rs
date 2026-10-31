@@ -17,6 +17,10 @@ pub fn edge_weight(kind: &CorpusEdgeKind) -> f64 {
         CorpusEdgeKind::CitesDocument => 1.0,
         CorpusEdgeKind::CrateDependency => 0.9,
         CorpusEdgeKind::ParentSection => 0.8,
+        CorpusEdgeKind::UsesModule => 0.7,
+        CorpusEdgeKind::ImplementsTrait => 0.6,
+        CorpusEdgeKind::DeclaresModule => 0.75,
+        CorpusEdgeKind::InherentImpl => 0.5,
     }
 }
 

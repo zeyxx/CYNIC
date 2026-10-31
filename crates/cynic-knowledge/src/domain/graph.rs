@@ -14,6 +14,14 @@ pub enum CorpusEdgeKind {
     ParentSection,
     /// Dépendance topologique d'une crate Rust vers une autre.
     CrateDependency,
+    /// Import de module Rust (use crate::... ou use super::...).
+    UsesModule,
+    /// Implémentation de trait Rust (impl Trait for Type).
+    ImplementsTrait,
+    /// Déclaration de module Rust (mod foo;).
+    DeclaresModule,
+    /// Implémentation inhérente Rust (impl Type).
+    InherentImpl,
 }
 
 /// Une arête orientée dans le graphe de connaissances CYNIC.
@@ -57,6 +65,10 @@ impl CorpusGraph {
         let mut graph = Self::build_from_manifest_with_paths(known_paths, manifest);
         // Câblage topologique des crates (I/O adapter).
         wire_crate_topology(root, &mut graph.edges, &mut graph.nodes);
+        // Câblage des imports Rust (use crate::..., use super::...).
+        wire_rust_use_edges(root, &mut graph.edges, &mut graph.nodes);
+        // Câblage des impl Traits Rust (impl Trait for Type).
+        wire_rust_impl_traits(root, &mut graph.edges, &mut graph.nodes);
         graph
     }
 
@@ -264,6 +276,337 @@ fn extract_prose_contract_references(
                         });
                     }
                 }
+            }
+        }
+    }
+}
+
+fn wire_rust_use_edges(root: &Path, edges: &mut Vec<CorpusEdge>, nodes: &mut HashSet<String>) {
+    use std::fs;
+    use walkdir::WalkDir;
+
+    let crates_dir = root.join("crates");
+    if !crates_dir.exists() {
+        return;
+    }
+
+    let mut rs_files: Vec<PathBuf> = Vec::new();
+    for entry in WalkDir::new(&crates_dir)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            name != "target" && name != ".git" && name != "node_modules"
+        })
+        .flatten()
+    {
+        if entry.file_type().is_file()
+            && entry.path().extension().is_some_and(|ext| ext == "rs")
+            && (entry.path().to_string_lossy().contains("/src/")
+                || entry.path().to_string_lossy().contains("/tests/"))
+        {
+            rs_files.push(entry.path().to_path_buf());
+        }
+    }
+
+    for path in &rs_files {
+        let rel_path = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
+        nodes.insert(rel_path.clone());
+
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("use ") {
+                continue;
+            }
+            let module_ref = trimmed
+                .trim_start_matches("use ")
+                .trim_end_matches(';')
+                .split(" as ")
+                .next()
+                .unwrap_or("")
+                .trim();
+
+            let resolved_target = if module_ref.starts_with("crate::") {
+                Some(resolve_crate_use(root, &rel_path, module_ref))
+            } else if module_ref.starts_with("super::") {
+                Some(resolve_super_use(root, &rel_path, module_ref))
+            } else {
+                None
+            };
+
+            if let Some(target) = resolved_target {
+                if !target.is_empty() && target != rel_path && root.join(&target).exists() {
+                    nodes.insert(target.clone());
+                    if !edges
+                        .iter()
+                        .any(|e| e.source == rel_path && e.target == target)
+                    {
+                        edges.push(CorpusEdge {
+                            source: rel_path.clone(),
+                            target,
+                            kind: CorpusEdgeKind::UsesModule,
+                            label: Some("uses".to_string()),
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn resolve_crate_use(root: &Path, source: &str, module_ref: &str) -> String {
+    let parts: Vec<&str> = module_ref.split("::").collect();
+    if parts.len() < 2 {
+        return String::new();
+    }
+
+    let source_parts: Vec<&str> = source.split('/').collect();
+    let crate_name = if source_parts.len() >= 2 && source_parts[0] == "crates" {
+        source_parts[1]
+    } else {
+        return String::new();
+    };
+
+    let module_path = parts[1..].join("/");
+    let rs_path = format!("crates/{}/src/{}.rs", crate_name, module_path);
+    if root.join(&rs_path).exists() {
+        return rs_path;
+    }
+    let mod_path = format!("crates/{}/src/{}/mod.rs", crate_name, module_path);
+    if root.join(&mod_path).exists() {
+        return mod_path;
+    }
+    String::new()
+}
+
+fn resolve_super_use(_root: &Path, source: &str, module_ref: &str) -> String {
+    let source_dir = Path::new(source).parent().unwrap_or(Path::new(""));
+    let super_dir = source_dir.parent().unwrap_or(Path::new(""));
+    let module_name = module_ref.trim_start_matches("super::");
+    let target = super_dir.join(format!("{}.rs", module_name));
+    target.to_string_lossy().to_string()
+}
+
+fn wire_rust_impl_traits(root: &Path, edges: &mut Vec<CorpusEdge>, nodes: &mut HashSet<String>) {
+    use std::fs;
+    use walkdir::WalkDir;
+
+    let crates_dir = root.join("crates");
+    if !crates_dir.exists() {
+        return;
+    }
+
+    let mut rs_files: Vec<PathBuf> = Vec::new();
+    for entry in WalkDir::new(&crates_dir)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            name != "target" && name != ".git" && name != "node_modules"
+        })
+        .flatten()
+    {
+        if entry.file_type().is_file()
+            && entry.path().extension().is_some_and(|ext| ext == "rs")
+            && (entry.path().to_string_lossy().contains("/src/")
+                || entry.path().to_string_lossy().contains("/tests/"))
+        {
+            rs_files.push(entry.path().to_path_buf());
+        }
+    }
+
+    for path in &rs_files {
+        let rel_path = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
+        nodes.insert(rel_path.clone());
+
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        // Extract impl Trait for Type patterns
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("impl ") {
+                continue;
+            }
+            // Match "impl Trait for Type" or "impl Trait for Type<T>"
+            if let Some(for_idx) = trimmed.find(" for ") {
+                let trait_part = trimmed[5..for_idx].trim();
+                let type_part = trimmed[for_idx + 4..]
+                    .trim()
+                    .trim_end_matches('{')
+                    .trim();
+                // Clean up generics: Type<T> -> Type
+                let type_clean = type_part.split('<').next().unwrap_or(type_part).trim();
+                let trait_clean = trait_part.split('<').next().unwrap_or(trait_part).trim();
+
+                if !trait_clean.is_empty() && !type_clean.is_empty() {
+                    // The trait might be defined in another file, but we record the relation
+                    // as a self-referential edge for now (source = file, target = file)
+                    // since we don't have cross-file trait resolution yet.
+                    // Instead, we record it as a node-level annotation.
+                    // For now, skip cross-file resolution (requires trait registry).
+                }
+            }
+        }
+    }
+}
+
+fn wire_rust_mod_declarations(root: &Path, edges: &mut Vec<CorpusEdge>, nodes: &mut HashSet<String>) {
+    use std::fs;
+    use walkdir::WalkDir;
+
+    let crates_dir = root.join("crates");
+    if !crates_dir.exists() {
+        return;
+    }
+
+    let mut rs_files: Vec<PathBuf> = Vec::new();
+    for entry in WalkDir::new(&crates_dir)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            name != "target" && name != ".git" && name != "node_modules"
+        })
+        .flatten()
+    {
+        if entry.file_type().is_file()
+            && entry.path().extension().is_some_and(|ext| ext == "rs")
+            && (entry.path().to_string_lossy().contains("/src/")
+                || entry.path().to_string_lossy().contains("/tests/"))
+        {
+            rs_files.push(entry.path().to_path_buf());
+        }
+    }
+
+    for path in &rs_files {
+        let rel_path = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
+        nodes.insert(rel_path.clone());
+
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("mod ") {
+                continue;
+            }
+            let mod_name = trimmed
+                .trim_start_matches("pub ")
+                .trim_start_matches("mod ")
+                .trim_end_matches(';')
+                .trim_end_matches('{')
+                .trim_end_matches('}')
+                .trim();
+            if mod_name.is_empty() || mod_name.contains(' ') {
+                continue;
+            }
+
+            let source_dir = Path::new(&rel_path).parent().unwrap_or(Path::new(""));
+            let mod_rs = source_dir.join(format!("{}.rs", mod_name));
+            let mod_dir = source_dir.join(mod_name).join("mod.rs");
+
+            let target = if root.join(&mod_rs).exists() {
+                Some(mod_rs.to_string_lossy().to_string())
+            } else if root.join(&mod_dir).exists() {
+                Some(mod_dir.to_string_lossy().to_string())
+            } else {
+                None
+            };
+
+            if let Some(target_path) = target {
+                if target_path != rel_path {
+                    nodes.insert(target_path.clone());
+                    if !edges
+                        .iter()
+                        .any(|e| e.source == rel_path && e.target == target_path)
+                    {
+                        edges.push(CorpusEdge {
+                            source: rel_path.clone(),
+                            target: target_path,
+                            kind: CorpusEdgeKind::DeclaresModule,
+                            label: Some("declares".to_string()),
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn wire_rust_inherent_impls(root: &Path, edges: &mut Vec<CorpusEdge>, nodes: &mut HashSet<String>) {
+    use std::fs;
+    use walkdir::WalkDir;
+
+    let crates_dir = root.join("crates");
+    if !crates_dir.exists() {
+        return;
+    }
+
+    let mut rs_files: Vec<PathBuf> = Vec::new();
+    for entry in WalkDir::new(&crates_dir)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            name != "target" && name != ".git" && name != "node_modules"
+        })
+        .flatten()
+    {
+        if entry.file_type().is_file()
+            && entry.path().extension().is_some_and(|ext| ext == "rs")
+            && (entry.path().to_string_lossy().contains("/src/")
+                || entry.path().to_string_lossy().contains("/tests/"))
+        {
+            rs_files.push(entry.path().to_path_buf());
+        }
+    }
+
+    for path in &rs_files {
+        let rel_path = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
+        nodes.insert(rel_path.clone());
+
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("impl ") {
+                continue;
+            }
+            if trimmed.contains(" for ") {
+                continue;
+            }
+            let type_part = trimmed[5..]
+                .trim()
+                .trim_end_matches('{')
+                .trim();
+            let type_clean = type_part.split('<').next().unwrap_or(type_part).trim();
+            if type_clean.is_empty() || type_clean.contains(' ') {
+                continue;
             }
         }
     }
