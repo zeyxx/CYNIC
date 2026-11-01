@@ -52,6 +52,18 @@ impl NodeRole {
     pub fn can_inference(self) -> bool {
         matches!(self, Self::InferenceProxy)
     }
+
+    /// Converts this legacy discovery role into the canonical agnostic topological `NodeRole`.
+    pub fn to_topological(self) -> cynic_protocol::node_role::NodeRole {
+        match self {
+            Self::Builder | Self::InferenceProxy => cynic_protocol::node_role::NodeRole::Compute,
+            Self::Storage | Self::Forge => cynic_protocol::node_role::NodeRole::Storage,
+            Self::Network => cynic_protocol::node_role::NodeRole::Gateway,
+            Self::Orchestrator => cynic_protocol::node_role::NodeRole::Control,
+            Self::DevStation => cynic_protocol::node_role::NodeRole::Workstation,
+            Self::Unknown => cynic_protocol::node_role::NodeRole::Compute,
+        }
+    }
 }
 
 impl std::fmt::Display for NodeRole {

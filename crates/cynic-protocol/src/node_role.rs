@@ -1,67 +1,98 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::str::FromStr;
 
-/// Canonical host/node capability role designating a node's declared specialization in the mesh.
+/// Canonical top-level topological role of a node in the CYNIC mesh.
 ///
-/// Derived from `infra/registry.json` and canonicalized in `contracts/glossary.json`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// Follows the agnostic distributed systems standard:
+/// A node's fundamental identity in the mesh topology is one of 5 invariant roles:
+/// - `Compute`: Workload execution (CPU/RAM/GPU, compilation, sandboxed tasks, tensor inference).
+/// - `Storage`: Durable state and data persistence (databases, SMR, block storage).
+/// - `Gateway`: Network perimeter and boundary (DMZ, bastions, VPN mesh overlay, relays).
+/// - `Control`: Mesh coordination, consensus, governance, and scheduling authority.
+/// - `Workstation`: Direct operator interactive access endpoint.
+///
+/// Specific workload specializations (e.g. "cargo_build", "tensor_inference", "wireguard_overlay")
+/// are expressed via capability flags and services, not hardcoded software roles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NodeRole {
-    BuildRunner,
-    EmbeddingRunner,
-    Hypervisor,
-    CortexHost,
-    KernelPrimary,
-    StoragePrimary,
-    WorkstationPortable,
-    AgentHost,
-    RelayHost,
-    ForgePrimary,
-    MeshCoordinator,
-    IngressEdge,
-    #[serde(untagged)]
-    Custom(String),
+    /// Workload execution and compute (CPU/GPU workers, compilers, sandbox runners).
+    Compute,
+    /// Durable persistence and state (databases, structured stores, SMR logs).
+    Storage,
+    /// Network perimeter and transit (DMZ, overlay VPN, SSH bastions, network relays).
+    Gateway,
+    /// Mesh coordination, scheduling, consensus, and orchestration authority.
+    Control,
+    /// Interactive operator access workstation / client terminal.
+    Workstation,
 }
 
 impl NodeRole {
-    pub const BUILD_RUNNER_STR: &'static str = "build_runner";
-    pub const EMBEDDING_RUNNER_STR: &'static str = "embedding_runner";
-    pub const HYPERVISOR_STR: &'static str = "hypervisor";
-    pub const CORTEX_HOST_STR: &'static str = "cortex_host";
-    pub const KERNEL_PRIMARY_STR: &'static str = "kernel_primary";
-    pub const STORAGE_PRIMARY_STR: &'static str = "storage_primary";
-    pub const WORKSTATION_PORTABLE_STR: &'static str = "workstation_portable";
-    pub const AGENT_HOST_STR: &'static str = "agent_host";
-    pub const RELAY_HOST_STR: &'static str = "relay_host";
-    pub const FORGE_PRIMARY_STR: &'static str = "forge_primary";
-    pub const MESH_COORDINATOR_STR: &'static str = "mesh_coordinator";
-    pub const INGRESS_EDGE_STR: &'static str = "ingress_edge";
+    pub const COMPUTE_STR: &'static str = "compute";
+    pub const STORAGE_STR: &'static str = "storage";
+    pub const GATEWAY_STR: &'static str = "gateway";
+    pub const CONTROL_STR: &'static str = "control";
+    pub const WORKSTATION_STR: &'static str = "workstation";
 
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(self) -> &'static str {
         match self {
-            Self::BuildRunner => Self::BUILD_RUNNER_STR,
-            Self::EmbeddingRunner => Self::EMBEDDING_RUNNER_STR,
-            Self::Hypervisor => Self::HYPERVISOR_STR,
-            Self::CortexHost => Self::CORTEX_HOST_STR,
-            Self::KernelPrimary => Self::KERNEL_PRIMARY_STR,
-            Self::StoragePrimary => Self::STORAGE_PRIMARY_STR,
-            Self::WorkstationPortable => Self::WORKSTATION_PORTABLE_STR,
-            Self::AgentHost => Self::AGENT_HOST_STR,
-            Self::RelayHost => Self::RELAY_HOST_STR,
-            Self::ForgePrimary => Self::FORGE_PRIMARY_STR,
-            Self::MeshCoordinator => Self::MESH_COORDINATOR_STR,
-            Self::IngressEdge => Self::INGRESS_EDGE_STR,
-            Self::Custom(s) => s.as_str(),
+            Self::Compute => Self::COMPUTE_STR,
+            Self::Storage => Self::STORAGE_STR,
+            Self::Gateway => Self::GATEWAY_STR,
+            Self::Control => Self::CONTROL_STR,
+            Self::Workstation => Self::WORKSTATION_STR,
         }
     }
 
-    pub fn is_build_runner(&self) -> bool {
-        matches!(self, Self::BuildRunner)
+    pub fn is_compute(self) -> bool {
+        matches!(self, Self::Compute)
     }
 
-    pub fn is_embedding_runner(&self) -> bool {
-        matches!(self, Self::EmbeddingRunner)
+    pub fn is_storage(self) -> bool {
+        matches!(self, Self::Storage)
+    }
+
+    pub fn is_gateway(self) -> bool {
+        matches!(self, Self::Gateway)
+    }
+
+    pub fn is_control(self) -> bool {
+        matches!(self, Self::Control)
+    }
+
+    pub fn is_workstation(self) -> bool {
+        matches!(self, Self::Workstation)
+    }
+
+    /// Parses canonical strings as well as legacy software/metaphor names for seamless backward-compatibility.
+    pub fn parse_with_legacy_fallback(s: &str) -> Option<Self> {
+        match s.trim().to_lowercase().as_str() {
+            // Canonical names
+            "compute" => Some(Self::Compute),
+            "storage" => Some(Self::Storage),
+            "gateway" => Some(Self::Gateway),
+            "control" => Some(Self::Control),
+            "workstation" => Some(Self::Workstation),
+
+            // Legacy compute aliases
+            "build_runner" | "builder" | "embedding_runner" | "inference_runner" | "inference_proxy"
+            | "agent_host" | "sandbox_runner" | "hypervisor" => Some(Self::Compute),
+
+            // Legacy storage aliases
+            "storage_primary" | "forge_primary" | "forge" | "database_server" => Some(Self::Storage),
+
+            // Legacy gateway aliases
+            "mesh_coordinator" | "ingress_edge" | "relay_host" | "network" | "bastion" => Some(Self::Gateway),
+
+            // Legacy control aliases
+            "kernel_primary" | "orchestrator" | "kernel_host" => Some(Self::Control),
+
+            // Legacy workstation aliases
+            "cortex_host" | "dev_station" | "workstation_portable" => Some(Self::Workstation),
+
+            _ => None,
+        }
     }
 }
 
@@ -77,63 +108,80 @@ impl fmt::Display for NodeRole {
     }
 }
 
-impl From<&str> for NodeRole {
-    fn from(s: &str) -> Self {
-        match s {
-            Self::BUILD_RUNNER_STR => Self::BuildRunner,
-            Self::EMBEDDING_RUNNER_STR => Self::EmbeddingRunner,
-            Self::HYPERVISOR_STR => Self::Hypervisor,
-            Self::CORTEX_HOST_STR => Self::CortexHost,
-            Self::KERNEL_PRIMARY_STR => Self::KernelPrimary,
-            Self::STORAGE_PRIMARY_STR => Self::StoragePrimary,
-            Self::WORKSTATION_PORTABLE_STR => Self::WorkstationPortable,
-            Self::AGENT_HOST_STR => Self::AgentHost,
-            Self::RELAY_HOST_STR => Self::RelayHost,
-            Self::FORGE_PRIMARY_STR => Self::ForgePrimary,
-            Self::MESH_COORDINATOR_STR => Self::MeshCoordinator,
-            Self::INGRESS_EDGE_STR => Self::IngressEdge,
-            other => Self::Custom(other.to_string()),
-        }
-    }
-}
-
 impl FromStr for NodeRole {
-    type Err = std::convert::Infallible;
+    type Err = NodeRoleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from(s))
+        Self::parse_with_legacy_fallback(s).ok_or_else(|| NodeRoleParseError(s.to_string()))
     }
 }
+
+impl Serialize for NodeRole {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for NodeRole {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeRoleParseError(pub String);
+
+impl fmt::Display for NodeRoleParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Unknown or invalid node role: '{}'", self.0)
+    }
+}
+
+impl std::error::Error for NodeRoleParseError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn node_role_roundtrip() {
-        let roles = vec![
-            (NodeRole::BuildRunner, "build_runner"),
-            (NodeRole::EmbeddingRunner, "embedding_runner"),
-            (NodeRole::Hypervisor, "hypervisor"),
-            (NodeRole::CortexHost, "cortex_host"),
-            (NodeRole::KernelPrimary, "kernel_primary"),
-            (NodeRole::StoragePrimary, "storage_primary"),
-            (NodeRole::WorkstationPortable, "workstation_portable"),
-            (NodeRole::AgentHost, "agent_host"),
-            (NodeRole::RelayHost, "relay_host"),
-            (NodeRole::ForgePrimary, "forge_primary"),
-            (NodeRole::MeshCoordinator, "mesh_coordinator"),
-            (NodeRole::IngressEdge, "ingress_edge"),
-            (NodeRole::Custom("custom_node".to_string()), "custom_node"),
+    fn canonical_roundtrip() {
+        let canonical_cases = vec![
+            (NodeRole::Compute, "compute"),
+            (NodeRole::Storage, "storage"),
+            (NodeRole::Gateway, "gateway"),
+            (NodeRole::Control, "control"),
+            (NodeRole::Workstation, "workstation"),
         ];
 
-        for (role, expected_str) in roles {
-            assert_eq!(role.as_str(), expected_str);
-            assert_eq!(role.to_string(), expected_str);
-            assert_eq!(NodeRole::from(expected_str), role);
+        for (role, s) in canonical_cases {
+            assert_eq!(role.as_str(), s);
+            assert_eq!(role.to_string(), s);
+            assert_eq!(NodeRole::from_str(s).unwrap(), role);
             let json = serde_json::to_string(&role).unwrap();
+            assert_eq!(json, format!("\"{}\"", s));
             let deserialized: NodeRole = serde_json::from_str(&json).unwrap();
             assert_eq!(deserialized, role);
         }
+    }
+
+    #[test]
+    fn legacy_fallback_deserialization() {
+        assert_eq!(NodeRole::from_str("build_runner").unwrap(), NodeRole::Compute);
+        assert_eq!(NodeRole::from_str("embedding_runner").unwrap(), NodeRole::Compute);
+        assert_eq!(NodeRole::from_str("hypervisor").unwrap(), NodeRole::Compute);
+        assert_eq!(NodeRole::from_str("storage_primary").unwrap(), NodeRole::Storage);
+        assert_eq!(NodeRole::from_str("forge_primary").unwrap(), NodeRole::Storage);
+        assert_eq!(NodeRole::from_str("mesh_coordinator").unwrap(), NodeRole::Gateway);
+        assert_eq!(NodeRole::from_str("ingress_edge").unwrap(), NodeRole::Gateway);
+        assert_eq!(NodeRole::from_str("kernel_primary").unwrap(), NodeRole::Control);
+        assert_eq!(NodeRole::from_str("cortex_host").unwrap(), NodeRole::Workstation);
+        assert_eq!(NodeRole::from_str("workstation_portable").unwrap(), NodeRole::Workstation);
     }
 }
