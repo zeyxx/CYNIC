@@ -15,7 +15,7 @@
 
 use cynic_build::build::BuildRunnerObservation;
 use cynic_build::runtime_release::RuntimeReleaseDeclaration;
-use cynic_build::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
+use cynic_build::build_workflow::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_build::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_vcs::providers::forgejo_webhook::{
     ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
