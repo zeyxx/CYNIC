@@ -21,7 +21,7 @@ use crate::runtime_proof::{
     host_identity_runtime_proof,
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
-use cynic_build::{BuildConformanceEvidence, BuildProof};
+use cynic_protocol::build::{BuildConformanceEvidence, BuildProof};
 use cynic_protocol::convergence::{
     ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, assess_convergence_matrix,
 };

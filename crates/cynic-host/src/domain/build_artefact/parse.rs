@@ -4,7 +4,7 @@
 //! command output into intermediate types that adapters convert to the
 //! retention trio's `RetentionObservation`.
 
-use cynic_build::build_artefact::{CheckoutEntry, DiskPressure};
+use cynic_protocol::build::{CheckoutEntry, DiskPressure};
 use crate::host_substrate::disk::bytes_to_human;
 
 /// Parse `ls -1 <checkouts>` + `du -sb` + `stat` lines into CheckoutEntry.

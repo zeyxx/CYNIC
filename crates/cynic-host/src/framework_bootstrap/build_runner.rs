@@ -11,10 +11,6 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::clock::now_unix_ms;
-
-use cynic_build::cache::{
-    BuildCacheObservationPort, BuildCachePlan, load_build_cache_desired_state, reconcile_build_cache,
-};
 use cynic_process::ArgvRunner;
 use cynic_types::paths::CynicPaths;
 
@@ -204,7 +200,7 @@ fn registry_file_digest(path: &Path) -> Option<String> {
 
 pub fn write_bootstrap_admission_receipt(
     path: &Path,
-    receipt: &cynic_build::BuildRunnerBootstrapAdmission,
+    receipt: &cynic_protocol::build::BuildRunnerBootstrapAdmission,
 ) -> Result<(), String> {
     if !receipt.validate().is_empty() {
         return Err("build_runner_bootstrap_receipt_contract_invalid".to_string());
@@ -212,7 +208,7 @@ pub fn write_bootstrap_admission_receipt(
     let bytes = serde_json::to_vec_pretty(receipt)
         .map_err(|_| "build_runner_bootstrap_receipt_encode_failed".to_string())?;
     write_new_json_durable(path, &bytes, "build_runner_bootstrap_receipt")?;
-    let read_back: cynic_build::BuildRunnerBootstrapAdmission = serde_json::from_slice(
+    let read_back: cynic_protocol::build::BuildRunnerBootstrapAdmission = serde_json::from_slice(
         &std::fs::read(path)
             .map_err(|_| "build_runner_bootstrap_receipt_read_back_failed".to_string())?,
     )
@@ -268,7 +264,7 @@ pub fn bootstrap_admission_from_proof(
     plan: &BuildRunnerBootstrapPlan,
     registry_path: &Path,
     registry_digest: String,
-) -> cynic_build::BuildRunnerBootstrapAdmission {
+) -> cynic_protocol::build::BuildRunnerBootstrapAdmission {
     // Scope names only: nothing composes argv from this list (the bootstrap
     // executes fixed git plans plus the real `build-host-exec` Makefile
     // target). Retired make:* spellings are absent: they name Makefile
@@ -282,8 +278,8 @@ pub fn bootstrap_admission_from_proof(
         "build" => vec!["cargo:build".to_string()],
         _ => Vec::new(),
     };
-    cynic_build::BuildRunnerBootstrapAdmission {
-        schema: cynic_build::BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA.to_string(),
+    cynic_protocol::build::BuildRunnerBootstrapAdmission {
+        schema: cynic_protocol::build::BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA.to_string(),
         status: "admitted".to_string(),
         authority_class: "MachineEnrollment".to_string(),
         node_id: plan.node_id.clone(),
@@ -308,7 +304,6 @@ pub struct BuildRunnerBootstrapObservation {
     pub source_bundle_staged: bool,
     pub source_bundle_digest_matches: bool,
     pub registry_digest: Option<String>,
-    pub resource_plan: Option<BuildCachePlan>,
     pub blockers: Vec<String>,
 }
 
@@ -357,32 +352,6 @@ pub fn observe_build_runner_bootstrap(
     if !source_bundle_digest_matches {
         blockers.push("build_runner_bootstrap_source_bundle_digest_mismatch".to_string());
     }
-    let resource_plan =
-        match load_build_cache_desired_state(registry, node_id, state_root, temporary_root) {
-            Ok(desired) => {
-                let adapter = cynic_build::adapters::local_build_cache::LocalBuildCacheAdapter::protecting(|| {
-                    crate::adapters::live_service_paths::observe_unit_executables()
-                        .into_iter()
-                        .map(|u| cynic_build::adapters::local_build_cache::ProtectedExecutable {
-                            name: u.unit,
-                            path: u.executable,
-                        })
-                        .collect()
-                });
-                let observed = adapter.observe(&desired);
-                let plan = reconcile_build_cache(&desired, &observed);
-                if plan.status != "satisfied" {
-                    blockers.extend(plan.blockers.iter().cloned());
-                    blockers
-                        .push("build_runner_bootstrap_resource_preflight_unsatisfied".to_string());
-                }
-                Some(plan)
-            }
-            Err(blocker) => {
-                blockers.push(blocker);
-                None
-            }
-        };
     // Role observation: le nœud exécutant le bootstrap doit avoir le rôle
     // build_runner dans le registry. Empêche un agent de builder localement
     // sur un nœud kernel_primary (cortex) en forgeant un node_id erroné.
@@ -400,7 +369,6 @@ pub fn observe_build_runner_bootstrap(
         source_bundle_staged,
         source_bundle_digest_matches,
         registry_digest,
-        resource_plan,
         blockers,
     }
 }
@@ -524,7 +492,6 @@ mod tests {
                 source_bundle_staged: true,
                 source_bundle_digest_matches: false,
                 registry_digest: Some(format!("sha256:{}", "c".repeat(64))),
-                resource_plan: None,
                 blockers: vec!["build_runner_bootstrap_source_bundle_digest_mismatch".to_string()],
             },
         );

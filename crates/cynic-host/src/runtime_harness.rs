@@ -1,10 +1,10 @@
-use cynic_build::build::{
+use cynic_protocol::build::{
     BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
     BuildRunnerRouteState, reconcile_build_runner_route,
 };
 use serde::{Deserialize, Serialize};
 
-pub use cynic_build::HarnessAuthority;
+pub use cynic_protocol::build::HarnessAuthority;
 
 pub const RUNTIME_HARNESS_CONTEXT_SCHEMA: &str = "cynic.runtime_harness.context.v1";
 pub const RUNTIME_HARNESS_CATALOG_SCHEMA: &str = "cynic.runtime_harness.catalog.v1";
@@ -369,8 +369,8 @@ mod tests {
         validate_runtime_harness_target_attestation,
         validate_runtime_harness_target_attestation_at,
     };
-    use cynic_build::BuildRunnerObservation;
-    use cynic_build::build::{
+    use cynic_protocol::build::BuildRunnerObservation;
+    use cynic_protocol::build::{
         BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRunnerCoordinationRouteObservation,
         BuildRunnerProviderRouteObservation, BuildRunnerRouteObservation, BuildRunnerRoutePath,
         BuildRunnerRouteState, BuildRunnerSeedRouteObservation,
@@ -491,8 +491,8 @@ mod tests {
 
     const ROUTE_NOW: u64 = 1_000_000;
 
-    fn route_desired() -> cynic_build::build::BuildRunnerRouteDesiredState {
-        cynic_build::build::BuildRunnerRouteDesiredState {
+    fn route_desired() -> cynic_protocol::build::BuildRunnerRouteDesiredState {
+        cynic_protocol::build::BuildRunnerRouteDesiredState {
             node_id: "cynic-builder".to_string(),
             provider: "proxmox".to_string(),
             resource_id: "lxc/105".to_string(),

@@ -16,7 +16,6 @@ cynic-types = { path = "../cynic-types" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-persistence = { path = "../cynic-persistence" }
 cynic-proxmox = { path = "../cynic-proxmox" }
-cynic-build = { path = "../cynic-build" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-process = { path = "../cynic-process" }
 cynic-network = { path = "../cynic-network" }
@@ -57,6 +56,7 @@ rpassword = "7.5.4"
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-vcs = { path = "../cynic-vcs" }
 tempfile = "3"
+cynic-build = { path = "../cynic-build" }
 hmac.workspace = true
 # adversarial_red_team_suite and multi_agent_e2e_simulation both import
 # cynic_intel::{escore, futarchy}. The crate exists and exports them; it was

@@ -113,11 +113,24 @@ pub mod resolve {
                     .and_then(|target| target.split('@').next_back())
                     == Some(wanted);
             if matches {
-                return Ok(
-                    cynic_build::cache::resolve_minimum_available_bytes(
-                        &path, &node_id,
-                    )?,
-                );
+                let bytes = std::fs::read(&path)
+                    .map_err(|error| format!("build_cache_registry_read_failed:{error}"))?;
+                let doc: serde_json::Value = serde_json::from_slice(&bytes)
+                    .map_err(|error| format!("build_cache_registry_decode_failed:{error}"))?;
+                let node = doc
+                    .get("nodes")
+                    .and_then(|v| v.as_array())
+                    .and_then(|ns| {
+                        ns.iter().find(|n| {
+                            n.get("id").and_then(|x| x.as_str()) == Some(&node_id)
+                                || n.get("name").and_then(|x| x.as_str()) == Some(&node_id)
+                        })
+                    });
+                let value = node
+                    .and_then(|n| n.get("build_lifecycle"))
+                    .and_then(|b| b.get("minimum_available_bytes"))
+                    .and_then(|x| x.as_u64());
+                return Ok(value);
             }
         }
         Ok(None)
@@ -385,7 +398,32 @@ pub mod resolve {
         registry_path: Option<&str>,
     ) -> Result<String, String> {
         let path = resolve_registry_path(registry_path)?;
-        cynic_build::cache::canonical_target_relative_path(&path)
+        let bytes = std::fs::read(&path)
+            .map_err(|error| format!("build_cache_registry_read_failed:{error}"))?;
+        let doc: serde_json::Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("build_cache_registry_decode_failed:{error}"))?;
+        let mut found: Vec<String> = Vec::new();
+        if let Some(nodes) = doc.get("nodes").and_then(|v| v.as_array()) {
+            for node in nodes {
+                if node.get("role").and_then(|x| x.as_str()) != Some("build_runner") {
+                    continue;
+                }
+                let Some(policy) = node.get("build_lifecycle") else { continue };
+                let Some(path_val) = policy.get("canonical_target_relative_path").and_then(|x| x.as_str()) else { continue };
+                let path = path_val.trim();
+                if path.is_empty() { continue; }
+                if path.starts_with('/') { return Err("canonical_target_not_relative".to_string()); }
+                if path.split('/').any(|c| c == ".." || c.is_empty()) {
+                    return Err("canonical_target_escapes_state_root".to_string());
+                }
+                found.push(path.to_string());
+            }
+        }
+        if found.is_empty() { return Err("build_runner_canonical_target_undeclared".to_string()); }
+        found.sort();
+        found.dedup();
+        if found.len() > 1 { return Err("build_runner_canonical_target_ambiguous".to_string()); }
+        Ok(found[0].clone())
     }
 
     /// Resolve a runner by node id, name, or alias (e.g. a compat builder
