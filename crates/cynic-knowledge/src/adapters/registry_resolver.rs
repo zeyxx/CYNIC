@@ -8,36 +8,9 @@ use std::path::PathBuf;
 
 /// Locate the canonical registry path.
 ///
-/// Hierarchy:
-/// 1. `CYNIC_REGISTRY_PATH` environment variable.
-/// 2. Walk upwards from current directory to repository root looking for `infra/registry.json` (active workspace SSOT).
-/// 3. `cynic_types::CynicPaths::registry_path()` (typically `/etc/cynic/registry.json` on installed host).
+/// Delegates to `cynic_types::CynicPaths::find_canonical_registry_path`.
 pub fn find_canonical_registry_path() -> Option<PathBuf> {
-    if let Ok(path_str) = std::env::var("CYNIC_REGISTRY_PATH") {
-        let p = PathBuf::from(path_str);
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-
-    if let Ok(mut dir) = std::env::current_dir() {
-        loop {
-            let candidate = dir.join("infra/registry.json");
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-            if !dir.pop() {
-                break;
-            }
-        }
-    }
-
-    let canonical = cynic_types::CynicPaths::registry_path();
-    if canonical.is_file() {
-        return Some(canonical);
-    }
-
-    None
+    cynic_types::CynicPaths::find_canonical_registry_path()
 }
 
 /// Dynamically resolve a service endpoint by service name from the canonical registry.

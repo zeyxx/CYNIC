@@ -67,6 +67,40 @@ impl CynicPaths {
             .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_SYSTEM_ROOT))
     }
 
+    /// Locate the canonical registry path.
+    ///
+    /// Hierarchy:
+    /// 1. `CYNIC_REGISTRY_PATH` environment variable if the file exists.
+    /// 2. Walk upwards from the current directory looking for `infra/registry.json`.
+    /// 3. `CynicPaths::registry_path()` if the file exists.
+    pub fn find_canonical_registry_path() -> Option<PathBuf> {
+        if let Ok(path_str) = std::env::var("CYNIC_REGISTRY_PATH") {
+            let p = PathBuf::from(path_str);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+
+        if let Ok(mut dir) = std::env::current_dir() {
+            loop {
+                let candidate = dir.join("infra").join("registry.json");
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+                if !dir.pop() {
+                    break;
+                }
+            }
+        }
+
+        let canonical = Self::registry_path();
+        if canonical.is_file() {
+            return Some(canonical);
+        }
+
+        None
+    }
+
     /// Résout le chemin du registre runtime de flotte.
     /// Ordre d'autorité :
     /// 1. `CYNIC_REGISTRY_PATH`

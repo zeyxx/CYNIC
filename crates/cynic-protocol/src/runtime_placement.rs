@@ -7,7 +7,8 @@ pub const RUNTIME_REGISTRY_SCHEMA: &str = "cynic.registry.v1.minimal";
 pub const RUNTIME_PLACEMENT_PROMOTION_PLAN_SCHEMA: &str =
     "cynic.runtime_placement.promotion_plan.v1";
 pub const KERNEL_IDENTITY_READ_BACK_SCHEMA: &str = "cynic.kernel.identity.read_back.v1";
-pub const FLEET_DISCOVERY_REPORT_SCHEMA: &str = "cynic.fleet_discovery.v1";
+/// Alias for `cynic_protocol::fleet_discovery::FLEET_DISCOVERY_SCHEMA`.
+pub const FLEET_DISCOVERY_REPORT_SCHEMA: &str = crate::fleet_discovery::FLEET_DISCOVERY_SCHEMA;
 pub const FLEET_INVENTORY_MAX_AGE_MS: u64 = 5 * 60 * 1000;
 pub const FLEET_INVENTORY_FUTURE_TOLERANCE_MS: u64 = 5 * 1000;
 
