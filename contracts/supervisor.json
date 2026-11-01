@@ -81,7 +81,7 @@
         "kind": "embedded-child",
         "witnesses": [
           {
-            "file": "crates/cynic-node/src/supervise.rs",
+            "file": "crates/cynic-supervisor/src/spawn.rs",
             "contains": ["spawn_backend", "KillOnDrop"]
           }
         ]
@@ -105,7 +105,7 @@
       "Stdio of a supervised child is inherited, never piped without a draining reader (pipe-buffer deadlock)."
     ],
     "code_sources": [
-      "crates/cynic-node/src/supervise.rs/graceful_stop, spawn_backend (process-wrap, group leader, KillOnDrop)"
+      "crates/cynic-supervisor/src/spawn.rs (process-wrap, group leader, KillOnDrop)"
     ]
   },
   "backoff": {
