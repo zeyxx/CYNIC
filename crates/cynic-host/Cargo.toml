@@ -56,6 +56,7 @@ rpassword = "7.5.4"
 # A dev-dependency, not a production edge: cynic-host the library must not
 # depend on its own auditor.
 cynic-audit-engine = { path = "../cynic-audit-engine" }
+cynic-build = { path = "../cynic-build" }
 tempfile = "3"
 hmac.workspace = true
 # adversarial_red_team_suite and multi_agent_e2e_simulation both import
