@@ -2,7 +2,7 @@
 //! artefact to a runtime target.
 //!
 //! Layering: `cynic-lifecycle` (port) ← adapter (cynic-host or http/ssh
-//! crate) ← usecase (`kernel_release::reconcile_runtime_artifact_release`).
+//! crate) ← usecase (`runtime_artifact_release::reconcile_runtime_artifact_release`).
 //!
 //! The domain [`ArtifactPublicationRequest`](artifact_publication::ArtifactPublicationRequest)
 //! is transport-agnostic; this port is the seam that lets a concrete

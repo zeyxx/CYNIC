@@ -16,7 +16,7 @@ pub mod deploy_locations;
 pub mod error;
 pub mod evaluator;
 pub mod external_deploy;
-pub mod kernel_release;
+pub mod runtime_artifact_release;
 pub mod ports;
 pub mod types;
 

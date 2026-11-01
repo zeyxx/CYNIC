@@ -15,7 +15,7 @@ use std::path::Path;
 
 use cynic_protocol::hash_chain::HashChain;
 
-use super::types::KernelReleaseEvent;
+use cynic_protocol::RuntimeArtifactReleaseEvent;
 
 /// Genesis prev-hash for the unified hash chain.
 pub const GENESIS_PREV_HASH: &str = "genesis";
@@ -25,11 +25,11 @@ pub fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(hex::encode(Sha256::digest(bytes)))
 }
 
-fn event_hash(event: &KernelReleaseEvent) -> Result<String, String> {
+fn event_hash(event: &RuntimeArtifactReleaseEvent) -> Result<String, String> {
     Ok(HashChain::seal(event))
 }
 
-fn load_and_verify(path: &Path) -> Result<Vec<KernelReleaseEvent>, String> {
+fn load_and_verify(path: &Path) -> Result<Vec<RuntimeArtifactReleaseEvent>, String> {
     let Ok(raw) = fs::read_to_string(path) else {
         return Ok(Vec::new());
     };
@@ -39,7 +39,7 @@ fn load_and_verify(path: &Path) -> Result<Vec<KernelReleaseEvent>, String> {
         .filter(|line| !line.trim().is_empty())
         .enumerate()
     {
-        let event: KernelReleaseEvent = serde_json::from_str(line)
+        let event: RuntimeArtifactReleaseEvent = serde_json::from_str(line)
             .map_err(|error| format!("invalid release proof line {}: {error}", index + 1))?;
         if event.seq != index as u64 + 1 {
             return Err(format!("release proof chain broken at seq={}", event.seq));
@@ -53,8 +53,8 @@ fn load_and_verify(path: &Path) -> Result<Vec<KernelReleaseEvent>, String> {
 
 pub fn append_event(
     path: &Path,
-    mut event: KernelReleaseEvent,
-) -> Result<KernelReleaseEvent, String> {
+    mut event: RuntimeArtifactReleaseEvent,
+) -> Result<RuntimeArtifactReleaseEvent, String> {
     let events = load_and_verify(path)?;
     event.seq = events.len() as u64 + 1;
     event.prev_hash = events
@@ -81,11 +81,11 @@ pub fn append_event(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kernel_release::types::{KERNEL_RELEASE_EVENT_SCHEMA, KernelReleaseEvent};
+    use cynic_protocol::{RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA, RuntimeArtifactReleaseEvent};
 
-    fn event(node: &str) -> KernelReleaseEvent {
-        KernelReleaseEvent {
-            schema: KERNEL_RELEASE_EVENT_SCHEMA.to_string(),
+    fn event(node: &str) -> RuntimeArtifactReleaseEvent {
+        RuntimeArtifactReleaseEvent {
+            schema: cynic_protocol::RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA.to_string(),
             seq: 0,
             timestamp_unix_ms: 1,
             artifact_id: "cynic-kernel".to_string(),
