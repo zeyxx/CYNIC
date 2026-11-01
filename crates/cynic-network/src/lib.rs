@@ -29,6 +29,7 @@ pub mod fleet_membership;
 pub mod plane_vocabulary;
 pub mod port;
 pub mod probe;
+pub mod preflight;
 pub mod quic;
 pub mod registry_maintenance;
 pub mod telemetry;
