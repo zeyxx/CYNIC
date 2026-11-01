@@ -369,10 +369,14 @@ mod tests {
 
 // ── External audit evidence (DDD unified under cynic-protocol) ────────────────
 
-pub const EXTERNAL_AUDIT_EVIDENCE_SCHEMA: &str = "cynic.evidence.external_audit.v1";
+/// Canonical schema for external evidence (audit).
 pub const EXTERNAL_EVIDENCE_SCHEMA: &str = "cynic.evidence.external_audit.v1";
-pub const INGESTION_PROOF_SCHEMA: &str = "cynic.evidence.ingestion_proof.v1";
+/// Alias for [`EXTERNAL_EVIDENCE_SCHEMA`].
+pub const EXTERNAL_AUDIT_EVIDENCE_SCHEMA: &str = EXTERNAL_EVIDENCE_SCHEMA;
+/// Canonical schema for external evidence ingestion proof.
 pub const EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA: &str = "cynic.evidence.ingestion_proof.v1";
+/// Alias for [`EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA`].
+pub const INGESTION_PROOF_SCHEMA: &str = EXTERNAL_EVIDENCE_INGESTION_PROOF_SCHEMA;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExternalAuditEvidenceBatch {
