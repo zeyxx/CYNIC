@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use cynic_process::ArgvRunner;
+use cynic_ssh::argv::{ssh_control_exit_argv, ssh_forward_tunnel_argv, SshForwardSpec};
 
 /// Desired state — the tunnel configuration. Portable; no substrate details.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -134,37 +135,30 @@ impl KernelTunnelManager {
         }
 
         // Bounded action: spawn SSH tunnel
-        // Bind the forward spec first: a `format!` temporary cannot be borrowed
-        // into a Vec<&str> that outlives the expression.
-        let forward_spec = format!(
-            "{}:{}",
-            self.config.local_socket.display(),
-            self.config.surrealdb_addr
-        );
-        let argv: Vec<&str> = vec![
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "ServerAliveInterval=10",
-            "-o",
-            "ExitOnForwardFailure=yes",
-            "-o",
-            "ControlMaster=no",
-            "-i",
-            self.config.ssh_key.to_str().unwrap_or(""),
-            "-L",
-            &forward_spec,
+        let forward = SshForwardSpec {
+            local_socket: self.config.local_socket.clone(),
+            remote_addr: self.config.surrealdb_addr.clone(),
+        };
+        let argv = match ssh_forward_tunnel_argv(
             &self.config.ssh_target,
-            "-N",
-            "-f",
-            "-o",
-            "LogLevel=ERROR",
-        ];
+            Some(&self.config.ssh_key),
+            &forward,
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                let socket_readable = is_socket_readable(&self.config.local_socket);
+                return TunnelProof {
+                    healthy: false,
+                    socket_readable,
+                    pid: None,
+                    reconnect_count: health.reconnect_count,
+                    error: Some(e),
+                };
+            }
+        };
 
-        let result = self.runner.run(&argv);
+        let argv_refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let result = self.runner.run(&argv_refs);
 
         let pid = if result.success() {
             // SSH -f forks → we need to track via ControlMaster or pgrep
@@ -216,14 +210,14 @@ impl KernelTunnelManager {
     /// Bounded action: tear down tunnel (fail-fast stop).
     pub fn teardown(&self) -> bool {
         self.active.store(false, Ordering::SeqCst);
-        // Same borrow rule as reconcile(): bind before building the argv slice.
-        let forward_spec = format!(
-            "{}:{}",
-            self.config.local_socket.display(),
-            self.config.surrealdb_addr
-        );
-        let argv: Vec<&str> = vec!["ssh", "-O", "exit", &forward_spec, &self.config.ssh_target];
-        let result = self.runner.run(&argv);
+        let forward = SshForwardSpec {
+            local_socket: self.config.local_socket.clone(),
+            remote_addr: self.config.surrealdb_addr.clone(),
+        };
+        let argv = ssh_control_exit_argv(&self.config.ssh_target, &forward)
+            .unwrap_or_default();
+        let argv_refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let result = self.runner.run(&argv_refs);
         let _ = result; // best-effort
         true
     }
@@ -252,7 +246,9 @@ impl KernelTunnelManager {
 mod tests {
     use super::*;
     use cynic_process::MapArgvRunner;
+    use cynic_ssh::argv::{ssh_control_exit_argv, ssh_forward_tunnel_argv, SshForwardSpec};
     use std::sync::Arc;
+    use std::sync::Mutex;
 
     fn test_config(tmp: &std::path::Path) -> KernelTunnelConfig {
         KernelTunnelConfig {
@@ -348,5 +344,69 @@ mod tests {
         let mgr = KernelTunnelManager::new(config, runner);
 
         assert!(mgr.teardown());
+    }
+
+    struct RecordingRunner {
+        recorded: Mutex<Vec<Vec<String>>>,
+    }
+
+    impl RecordingRunner {
+        fn new() -> Self {
+            Self {
+                recorded: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl cynic_process::ArgvRunner for RecordingRunner {
+        fn run(&self, argv: &[&str]) -> cynic_process::ArgvOutput {
+            let owned: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
+            self.recorded.lock().unwrap().push(owned);
+            cynic_process::ArgvOutput {
+                exit_code: Some(0),
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: None,
+            }
+        }
+    }
+
+    #[test]
+    fn reconcile_uses_canonical_ssh_forward_argv() {
+        let runner = Arc::new(RecordingRunner::new());
+        let tmp = std::env::temp_dir().join("test_kernel_sock_canonical_reconcile");
+        let config = test_config(&tmp);
+        let expected_forward = SshForwardSpec {
+            local_socket: config.local_socket.clone(),
+            remote_addr: config.surrealdb_addr.clone(),
+        };
+        let expected = ssh_forward_tunnel_argv(
+            &config.ssh_target,
+            Some(&config.ssh_key),
+            &expected_forward,
+        )
+        .expect("valid");
+        let mgr = KernelTunnelManager::new(config, runner.clone());
+        let _ = mgr.reconcile();
+        let recorded = runner.recorded.lock().unwrap();
+        assert!(!recorded.is_empty());
+        assert_eq!(recorded[0], expected);
+    }
+
+    #[test]
+    fn teardown_uses_canonical_ssh_control_exit_argv() {
+        let runner = Arc::new(RecordingRunner::new());
+        let tmp = std::env::temp_dir().join("test_kernel_sock_canonical_teardown");
+        let config = test_config(&tmp);
+        let expected_forward = SshForwardSpec {
+            local_socket: config.local_socket.clone(),
+            remote_addr: config.surrealdb_addr.clone(),
+        };
+        let expected = ssh_control_exit_argv(&config.ssh_target, &expected_forward).expect("valid");
+        let mgr = KernelTunnelManager::new(config, runner.clone());
+        assert!(mgr.teardown());
+        let recorded = runner.recorded.lock().unwrap();
+        assert!(!recorded.is_empty());
+        assert_eq!(recorded[0], expected);
     }
 }
