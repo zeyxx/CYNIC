@@ -165,6 +165,7 @@ pub fn app(
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/workloads/{id}/artifacts/{name}", get(get_artifact))
+        .route("/artifacts/{digest}", get(get_artifact_by_digest))
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
         .route("/exec", post(exec))
@@ -1112,6 +1113,59 @@ async fn get_artifact(
         format!("attachment; filename=\"{name}\"").parse().unwrap(),
     );
     headers.insert("x-cynic-sha256", digest.parse().unwrap());
+
+    Ok((StatusCode::OK, headers, bytes).into_response())
+}
+
+async fn get_artifact_by_digest(
+    State(state): State<AppState>,
+    Path(digest): Path<String>,
+) -> Result<axum::response::Response, StatusCode> {
+    use axum::response::IntoResponse;
+
+    // Validate digest: exactly 64 hex chars.
+    if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    // Directory traversal is impossible for hex, but keep an explicit guard.
+    if digest.contains('/') || digest.contains('\\') || digest.contains("..") {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let state_root = std::path::PathBuf::from(&state.config.state_root);
+    // Candidate storage locations (content-addressed).
+    let candidates = [
+        state_root.join("evidence").join(format!("{digest}.json")),
+        state_root.join("evidence").join(&digest),
+        state_root.join("artifacts").join(&digest),
+        state_root.join("artifacts").join(format!("{digest}.bin")),
+        state_root.join(&digest),
+    ];
+
+    let mut chosen: Option<std::path::PathBuf> = None;
+    for candidate in &candidates {
+        if let Ok(meta) = std::fs::symlink_metadata(candidate) {
+            if meta.file_type().is_symlink() || !meta.is_file() || meta.len() == 0 {
+                continue;
+            }
+            chosen = Some(candidate.clone());
+            break;
+        }
+    }
+    let path = chosen.ok_or(StatusCode::NOT_FOUND)?;
+    let bytes = std::fs::read(&path).map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        axum::http::header::CONTENT_TYPE,
+        "application/octet-stream".parse().unwrap(),
+    );
+    headers.insert(
+        axum::http::header::CONTENT_DISPOSITION,
+        format!("attachment; filename=\"{digest}\"").parse().unwrap(),
+    );
+    let computed = hex::encode(sha2::Sha256::digest(&bytes));
+    headers.insert("x-cynic-sha256", computed.parse().unwrap());
 
     Ok((StatusCode::OK, headers, bytes).into_response())
 }
