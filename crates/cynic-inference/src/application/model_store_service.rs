@@ -2,11 +2,11 @@
 
 use crate::adapters::local::FsModelStore;
 use crate::domain::model_store::ModelStoreReport;
+use crate::hf::HfCliAdapter;
+use crate::hf::{HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort};
 use crate::infra::model_layout::ModelLayout;
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
-use crate::hf::HfCliAdapter;
-use crate::hf::{HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort};
 
 #[derive(Debug)]
 pub struct ModelStoreService {

@@ -24,7 +24,11 @@ pub struct ForgejoExternalSourceAdapter {
 
 impl ForgejoExternalSourceAdapter {
     pub fn new(base_url: String, token: String) -> Self {
-        Self { base_url, token, builder_url: None }
+        Self {
+            base_url,
+            token,
+            builder_url: None,
+        }
     }
 
     /// Run a closure with a reqwest blocking client on a dedicated OS thread.
@@ -98,7 +102,8 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
             let exec_url = format!("{}/exec", builder_url.trim_end_matches('/'));
             let clone_cmd = format!(
                 "rm -rf {tp} && git clone {url} {tp}",
-                tp = target_path, url = repo.remote_url
+                tp = target_path,
+                url = repo.remote_url
             );
             let (clone_exit, clone_out) = post_exec(&exec_url, &clone_cmd, "")?;
             if clone_exit != Some(0) {
@@ -167,7 +172,6 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
             success: true,
             error: None,
         })
-
     }
 
     fn fetch(&self, repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
@@ -351,8 +355,11 @@ mod tests {
     }
 }
 
-
-fn post_exec(exec_url: &str, command: &str, work_dir: &str) -> Result<(Option<i32>, String), String> {
+fn post_exec(
+    exec_url: &str,
+    command: &str,
+    work_dir: &str,
+) -> Result<(Option<i32>, String), String> {
     let exec_url = exec_url.to_string();
     let command = command.to_string();
     let work_dir = work_dir.to_string();
@@ -382,9 +389,19 @@ fn post_exec(exec_url: &str, command: &str, work_dir: &str) -> Result<(Option<i3
             return Err(format!("builder /exec failed ({status}): {body}"));
         }
         #[derive(serde::Deserialize)]
-        struct R { exit_code: Option<i32>, stdout: String, stderr: String }
-        let r: R = res.json().map_err(|e| format!("parse /exec response: {e}"))?;
-        let out = if r.exit_code == Some(0) { r.stdout } else { r.stderr };
+        struct R {
+            exit_code: Option<i32>,
+            stdout: String,
+            stderr: String,
+        }
+        let r: R = res
+            .json()
+            .map_err(|e| format!("parse /exec response: {e}"))?;
+        let out = if r.exit_code == Some(0) {
+            r.stdout
+        } else {
+            r.stderr
+        };
         Ok((r.exit_code, out))
     })
     .join()

@@ -157,7 +157,10 @@ mod tests {
     #[test]
     fn local_runtime_state_maps_onto_supervisor_lifecycle() {
         assert_eq!(LocalRuntimeState::Inactive.supervisor_state(), S::Stopped);
-        assert_eq!(LocalRuntimeState::Activating.supervisor_state(), S::Starting);
+        assert_eq!(
+            LocalRuntimeState::Activating.supervisor_state(),
+            S::Starting
+        );
         assert_eq!(LocalRuntimeState::Active.supervisor_state(), S::Active);
         assert_eq!(LocalRuntimeState::Failed.supervisor_state(), S::Failed);
         assert_eq!(LocalRuntimeState::Unknown.supervisor_state(), S::Unknown);

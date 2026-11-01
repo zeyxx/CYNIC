@@ -265,7 +265,9 @@ mod tests {
         );
         let steps = plan(&decision).steps;
         let writes_github = steps.iter().any(|s| match s {
-            SyncStep::GitCommand { argv, .. } => argv.iter().any(|a| a == "github") || argv.iter().any(|a| a == "--force"),
+            SyncStep::GitCommand { argv, .. } => {
+                argv.iter().any(|a| a == "github") || argv.iter().any(|a| a == "--force")
+            }
             _ => false,
         });
         assert!(

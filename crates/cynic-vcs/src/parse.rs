@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use crate::source_worktree_inventory::{SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES, SourceWorktreeInventoryEntry};
+use crate::source_worktree_inventory::{
+    SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES, SourceWorktreeInventoryEntry,
+};
 
 use super::entry::flush;
 

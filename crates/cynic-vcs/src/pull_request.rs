@@ -267,7 +267,12 @@ mod tests {
         };
         let verdict = evaluate_pr_admission(&open_pr(10), false, &[violation]);
         assert!(!verdict.admitted);
-        assert_eq!(verdict.blockers.len(), 2, "expected 2 blockers, got: {:?}", verdict.blockers);
+        assert_eq!(
+            verdict.blockers.len(),
+            2,
+            "expected 2 blockers, got: {:?}",
+            verdict.blockers
+        );
     }
 
     #[test]
@@ -277,7 +282,11 @@ mod tests {
         pr.mergeable = false;
         let verdict = evaluate_pr_admission(&pr, true, &[]);
         assert!(!verdict.admitted);
-        assert!(verdict.blockers.contains(&"merge_conflict_detected".to_string()));
+        assert!(
+            verdict
+                .blockers
+                .contains(&"merge_conflict_detected".to_string())
+        );
     }
 
     #[test]
@@ -286,7 +295,12 @@ mod tests {
         pr.state = PrState::Merged;
         let verdict = evaluate_pr_admission(&pr, true, &[]);
         assert!(!verdict.admitted);
-        assert!(verdict.blockers.iter().any(|b| b.starts_with("pr_not_open:")));
+        assert!(
+            verdict
+                .blockers
+                .iter()
+                .any(|b| b.starts_with("pr_not_open:"))
+        );
     }
 
     #[test]
@@ -298,7 +312,10 @@ mod tests {
             severity: "critical".to_string(),
         }];
         let token_prefix = concat!("gh", "p_");
-        let diff = format!("diff --git a/f.txt b/f.txt\n+token = {}abcdefghijklmnopqrstuvwxyz1234567890ab\";", token_prefix);
+        let diff = format!(
+            "diff --git a/f.txt b/f.txt\n+token = {}abcdefghijklmnopqrstuvwxyz1234567890ab\";",
+            token_prefix
+        );
         let v = secret_lint(&diff, &patterns);
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].pattern_id, "github_pat");

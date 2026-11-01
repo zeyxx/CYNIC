@@ -196,8 +196,15 @@ fn test_epistemic_grounding_live_matrix() {
 
         let verdict = assemble_epistemic_context(test_case.query, &fused_hits, &assembly_config);
         if let Some(top) = fused_hits.first() {
-            let cov = cynic_knowledge::domain::epistemic_grounding::compute_term_coverage(test_case.query, &top.chunk.content, &top.chunk.source_path);
-            println!("DEBUG [{}] -> top path: {}, cov: {:.2}, score: {:.2}", test_case.id, top.chunk.source_path, cov, top.score);
+            let cov = cynic_knowledge::domain::epistemic_grounding::compute_term_coverage(
+                test_case.query,
+                &top.chunk.content,
+                &top.chunk.source_path,
+            );
+            println!(
+                "DEBUG [{}] -> top path: {}, cov: {:.2}, score: {:.2}",
+                test_case.id, top.chunk.source_path, cov, top.score
+            );
         }
 
         if test_case.is_trap {
