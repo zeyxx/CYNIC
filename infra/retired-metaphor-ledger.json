@@ -98,9 +98,15 @@
     },
     {
       "count": 13,
-      "evidence": "crates/cynic-eval/src/eval/dog_health.rs:1",
-      "path": "crates/cynic-eval/src/eval/dog_health.rs",
+      "evidence": "crates/cynic-protocol/src/dog_health.rs:1",
+      "path": "crates/cynic-protocol/src/dog_health.rs",
       "terms": "dog, Dog, organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-protocol/src/lib.rs:51",
+      "path": "crates/cynic-protocol/src/lib.rs",
+      "terms": "dog"
     },
     {
       "count": 8,
@@ -668,7 +674,7 @@
       "Organic": 3,
       "Organism": 3,
       "Organs": 2,
-      "dog": 48,
+      "dog": 50,
       "dogs": 13,
       "genome": 1,
       "metabolic": 8,
@@ -678,9 +684,9 @@
       "organism": 31,
       "organs": 18
     },
-    "files": 107,
+    "files": 108,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 742
+    "occurrences": 744
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {
