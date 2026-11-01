@@ -37,6 +37,7 @@ pub enum NodeCommand {
     Source { #[command(subcommand)] command: NodeSourceCommand },
     Service { #[command(subcommand)] command: NodeServiceCommand },
     Admin { #[command(subcommand)] command: admin::NodeAdminCommand },
+    Hypervisor { #[command(subcommand)] command: crate::agent_host_surface::AgentHostCommand },
 }
 
 #[derive(Subcommand)]
@@ -199,5 +200,6 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
                 Err(error) => { eprintln!("error: {error}"); std::process::ExitCode::FAILURE }
             },
         },
+        NodeCommand::Hypervisor { command } => crate::agent_host_surface::execute_agent_host(command),
     }
 }
