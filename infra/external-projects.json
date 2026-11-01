@@ -212,7 +212,18 @@
         "observed_on": "cortex (node v22.23.3 present)",
         "build_result": "not run",
         "test_result": "not run",
-        "notes": "Scripts from package.json (start/dev/test/lint/format); run on builder pending before verified."
+        "notes": "Relay deployment active on 10.10.10.107."
+      },
+      "ports_candidate": [
+        "SourcePort",
+        "BuildPort",
+        "EvidencePort"
+      ],
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports, SSH + GitHub)",
+      "port_status": {
+        "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter + GitHubExternalSourceAdapter)",
+        "BuildPort": "adapter_defined (HttpExternalBuildAdapter + LocalExternalBuildAdapter in cynic-host)",
+        "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     },
     {
