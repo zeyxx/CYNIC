@@ -1,6 +1,3 @@
-use crate::{
-    adapters::agent_access::observe_linux_uid, runtime_authority::default_runtime_authority_paths,
-};
 use cynic_process::ArgvRunner;
 
 use super::{
@@ -149,7 +146,7 @@ fn observe_install_provenance(
         let output = runner.run(&["stat", "--format=%u", resolved]);
         output.success().then(|| first_line(&output.stdout))
     });
-    let expected = default_runtime_authority_paths().principal.runtime_user;
+    let expected = "cynic".to_string();
     let expected_uid = observe_linux_uid(&expected).ok().map(|uid| uid.to_string());
     let payload_owner = match (owner.as_deref(), expected_uid.as_deref()) {
         (Some(owner), Some(expected)) if owner == expected => {
@@ -218,7 +215,7 @@ fn install_provenance_node(provenance: &AgentRuntimeInstallProvenance) -> Capabi
 }
 
 fn observe_declared_runtime_principal() -> CapabilityNode {
-    let principal = default_runtime_authority_paths().principal.runtime_user;
+    let principal = "cynic";
     match observe_linux_uid(&principal) {
         Ok(_) => CapabilityNode {
             id: "runtime_principal",
@@ -442,6 +439,22 @@ fn tool_gateway_node(status: &str) -> CapabilityNode {
     }
 }
 
+fn parse_passwd_uid(database: &str, expected: &str) -> Option<u32> {
+    database.lines().find_map(|line| {
+        let mut fields = line.split(':');
+        let name = fields.next()?;
+        let _password = fields.next()?;
+        let uid = fields.next()?.parse::<u32>().ok()?;
+        (name == expected).then_some(uid)
+    })
+}
+
+fn observe_linux_uid(principal: &str) -> Result<u32, String> {
+    let database = std::fs::read_to_string("/etc/passwd")
+        .map_err(|error| format!("principal database is unreadable: {error}"))?;
+    parse_passwd_uid(&database, principal)
+        .ok_or_else(|| format!("principal `{principal}` is not observable"))
+}
 fn first_line(output: &str) -> String {
     output
         .lines()
