@@ -1245,7 +1245,7 @@ fn shape_record_response(
     })
 }
 
-fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool {
+pub fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool {
     let sig = signature.trim();
     let sig = sig.strip_prefix("sha256=").unwrap_or(sig);
     let presented = match hex::decode(sig) {
