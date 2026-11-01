@@ -1,0 +1,11 @@
+{
+  "name": "hermes-model-detector",
+  "version": "0.1.0",
+  "description": "Detect available models on Hermes-Agent, including free ones",
+  "entry_point": "python detect.py",
+  "language": "python",
+  "status": "native-plugin",
+  "origin": "CYNIC internal",
+  "owner": "Titouan",
+  "license": "private"
+}

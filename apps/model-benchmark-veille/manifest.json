@@ -1,0 +1,11 @@
+{
+  "name": "model-benchmark-veille",
+  "version": "0.1.0",
+  "description": "Veille technologique on LLM model benchmarks via open APIs (LLMBenchmark.ai, modelgrep.com)",
+  "entry_point": "python veille.py",
+  "language": "python",
+  "status": "native-plugin",
+  "origin": "CYNIC internal",
+  "owner": "Titouan",
+  "license": "private"
+}
