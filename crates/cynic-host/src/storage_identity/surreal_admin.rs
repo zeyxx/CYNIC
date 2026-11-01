@@ -4,7 +4,6 @@
 //! the host-local `StorageIdentityAdminPort`.
 
 use cynic_persistence::identity::StorageIdentitySpec;
-use cynic_surreal::SurrealStorageIdentityAdminAdapter;
 
 use crate::secret_material::SecretMaterial;
 
