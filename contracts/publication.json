@@ -270,7 +270,7 @@
         }
       ],
       "measured_occurrences": {
-        "files": 1623,
+        "files": 1629,
         "domain_literals": 28,
         "hardcoded": 84,
         "note": "all published crates and contracts protected by automated RFC 2606 domain and private IPv4 redactions"

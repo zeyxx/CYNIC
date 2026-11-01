@@ -127,7 +127,7 @@ mod tests {
         let names = runtime_release_artifact_names().expect("release artifacts");
 
         assert!(names.contains(&"cynic-mcp".to_string()));
-        assert!(names.contains(&"cynic-lxc-exec-bridge".to_string()));
+        assert!(names.contains(&"cynic-host-exec".to_string()));
         assert!(names.contains(&basket.runtime_seed.executor));
     }
 

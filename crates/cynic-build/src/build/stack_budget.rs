@@ -120,21 +120,25 @@ mod tests {
     use super::*;
 
     fn registry() -> ToolchainRegistry {
-        let mut crates = std::collections::BTreeMap::new();
+        let mut crates = std::collections::HashMap::new();
         for name in ["cynic-node", "cynic-cli", "cynic-host", "cynic-inference"] {
             crates.insert(
                 name.to_string(),
                 ToolchainEntry {
-                    toolchain: Some("1.95.0".to_string()),
+                    toolchain: "1.95.0".to_string(),
                     min_stack: Some("8589934592".to_string()),
+                    fallback: None,
+                    reason: None,
                 },
             );
         }
         crates.insert(
             "cynic-kernel".to_string(),
             ToolchainEntry {
-                toolchain: Some("1.95.0".to_string()),
+                toolchain: "1.95.0".to_string(),
                 min_stack: Some("4294967296".to_string()),
+                fallback: None,
+                reason: None,
             },
         );
         ToolchainRegistry { crates }

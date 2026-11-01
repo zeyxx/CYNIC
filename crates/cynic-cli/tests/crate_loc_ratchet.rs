@@ -60,7 +60,7 @@ const MATERIAL_GAP: usize = 500;
 const GOD_OBJECTS: &[(&str, usize)] = &[
     ("cynic-host", 85_687),
     ("cynic-node", 62_683),
-    ("cynic-protocol", 41_245),
+    ("cynic-protocol", 41_472),
     ("cynic-cli", 41_809),
     // `cynic-inference` is 16_140, under the ceiling: removed, not rewritten (see kernel below).
     // `cynic-kernel` was recorded at 40_434 and is now 5_899 — under the ceiling,

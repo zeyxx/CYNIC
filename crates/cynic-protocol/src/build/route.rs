@@ -5,7 +5,6 @@ use super::bootstrap::{
     BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,
     build_runner_bootstrap_input_digest,
 };
-use crate::vcs::SourceSnapshot;
 
 pub const BUILD_RUNNER_OBSERVATION_SCHEMA: &str = "cynic.runtime.node_observation.v1";
 pub const BUILD_RUNNER_OBSERVATION_MAX_AGE_MS: u64 = 300_000;

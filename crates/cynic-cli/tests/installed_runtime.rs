@@ -289,7 +289,7 @@ fn inference_start_process_supervisor_can_launch_and_supervise_fake_llama_server
                 fake_server.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-start", &alias, "--yes", "--json"],
+        &["inference", "start", &alias, "--yes", "--json"],
     );
     assert_success_output(&start, "inference-start fake model");
     let started = parse_json_payload(&start.stdout, "inference-start payload");
@@ -321,7 +321,7 @@ fn inference_start_process_supervisor_can_launch_and_supervise_fake_llama_server
                 principal_home.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-status", "--json"],
+        &["inference", "status", "--json"],
     );
     assert_success_output(&status, "inference-status while running");
     let running = parse_json_payload(&status.stdout, "inference-status payload");
@@ -363,7 +363,7 @@ fn inference_start_process_supervisor_can_launch_and_supervise_fake_llama_server
                 principal_home.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-status", "--tail", "6"],
+        &["inference", "status", "--tail", "6"],
     );
     assert_success_output(&status_tail, "inference-status with tail while running");
     assert!(
@@ -388,7 +388,7 @@ fn inference_start_process_supervisor_can_launch_and_supervise_fake_llama_server
                 principal_home.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-stop", &alias, "--yes", "--json"],
+        &["inference", "stop", &alias, "--yes", "--json"],
     );
     assert_success_output(&stop, "inference-stop fake model");
     let stopped = parse_json_payload(&stop.stdout, "inference-stop payload");
@@ -412,7 +412,7 @@ fn inference_status_reports_inactive_when_nothing_is_running_for_clean_principal
             "CYNIC_PRINCIPAL_HOME",
             principal_home.to_string_lossy().into_owned(),
         )],
-        &["runtime", "inference-status", "--json"],
+        &["inference", "status", "--json"],
     );
 
     assert_success_output(&status, "inference-status when idle");
@@ -461,7 +461,7 @@ fn inference_start_requires_explicit_operator_consent() {
             "CYNIC_PRINCIPAL_HOME",
             principal_home.to_string_lossy().into_owned(),
         )],
-        &["runtime", "inference-start", "auto", "--json"],
+        &["inference", "start", "auto", "--json"],
     );
 
     assert!(!start.status.success(), "start without --yes must fail");
@@ -484,7 +484,7 @@ fn inference_stop_requires_running_instance_or_alias() {
             "CYNIC_PRINCIPAL_HOME",
             principal_home.to_string_lossy().into_owned(),
         )],
-        &["runtime", "inference-stop", "--yes", "--json"],
+        &["inference", "stop", "--yes", "--json"],
     );
 
     assert!(
@@ -534,7 +534,7 @@ fn inference_start_fails_fast_when_gguf_architecture_is_unsupported() {
                 profiles_root.to_string_lossy().into_owned(),
             ),
         ],
-        &["runtime", "inference-start", &alias, "--yes", "--json"],
+        &["inference", "start", &alias, "--yes", "--json"],
     );
 
     assert!(!start.status.success(), "unsupported GGUF must fail fast");
