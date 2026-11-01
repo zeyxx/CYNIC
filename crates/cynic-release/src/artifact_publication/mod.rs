@@ -8,7 +8,6 @@
 //! Layering: cynic-lifecycle (domain) ← reads registry shapes.
 //! Depends only on std + serde; never on adapter (http/ssh) crates.
 
-use cynic_protocol::artifact_release::{ArtifactPublicationTarget, TransportProtocol};
 use serde::{Deserialize, Serialize};
 
 pub use cynic_protocol::artifact_release::TransportProtocol;
