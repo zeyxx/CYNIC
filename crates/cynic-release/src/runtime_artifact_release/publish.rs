@@ -1,6 +1,6 @@
 //! Post-activation artifact publication.
 //!
-//! After [`reconcile_kernel_release`](super::reconcile::reconcile_kernel_release)
+//! After [`reconcile_runtime_artifact_release`](super::reconcile::reconcile_runtime_artifact_release)
 //! reports success, the CLI may publish the staged artifact to the remote
 //! target declared in `spec.publication`. This module builds the
 //! transport-agnostic request and drives the injected
@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use super::types::KernelReleaseSpec;
+use cynic_protocol::RuntimeArtifactReleaseSpec;
 use crate::artifact_publication::{
     ArtifactPublicationRequest, PublishError, PublishedArtefact, select_transport, ArtifactPublisher,
 };
@@ -20,7 +20,7 @@ use crate::artifact_publication::{
 /// (local-only release). `proof_sha` closes the provenance chain
 /// (build proof baked into the binary).
 pub fn publication_request_for(
-    spec: &KernelReleaseSpec,
+    spec: &RuntimeArtifactReleaseSpec,
     proof_sha: &str,
     http_target: &str,
     ssh_target: &str,
@@ -50,7 +50,7 @@ pub fn publication_request_for(
 /// No-op (`Ok(None)`) when the spec declares no publication target.
 /// Fail-closed: transport errors propagate, never masked as success.
 pub fn publish_released_artifact(
-    spec: &KernelReleaseSpec,
+    spec: &RuntimeArtifactReleaseSpec,
     proof_sha: &str,
     http_target: &str,
     ssh_target: &str,
@@ -93,8 +93,8 @@ mod tests {
         }
     }
 
-    fn spec_with(publication: Option<ArtifactPublicationTarget>) -> KernelReleaseSpec {
-        KernelReleaseSpec {
+    fn spec_with(publication: Option<ArtifactPublicationTarget>) -> RuntimeArtifactReleaseSpec {
+        RuntimeArtifactReleaseSpec {
             schema: "cynic.runtime_artifact_release.spec.v1".to_string(),
             node_id: "test-node".to_string(),
             phase: "conformance".to_string(),

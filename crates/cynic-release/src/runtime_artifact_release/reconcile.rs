@@ -3,22 +3,22 @@ use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 
 use super::proof::{append_event, sha256_file};
-use super::types::{
-    KERNEL_RELEASE_EVENT_SCHEMA, KERNEL_RELEASE_REPORT_SCHEMA, KERNEL_RELEASE_SPEC_SCHEMA,
-    KernelIdentityEvidence, KernelReleaseAction, KernelReleaseEvent, KernelReleaseReport,
-    KernelReleaseSpec,
+use cynic_protocol::{
+    RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA, RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
+    RUNTIME_ARTIFACT_RELEASE_SPEC_SCHEMA, RuntimeArtifactReleaseAction, RuntimeArtifactReleaseEvent,
+    RuntimeArtifactReleaseReport, RuntimeArtifactReleaseSpec, ServiceIdentityEvidence,
 };
 use cynic_protocol::argv::ArgvRunner;
 use serde_json::Value;
 
-type ReconcileError = (Option<Box<KernelReleaseSpec>>, String);
+type ReconcileError = (Option<Box<RuntimeArtifactReleaseSpec>>, String);
 
-pub fn reconcile_kernel_release(
+pub fn reconcile_runtime_artifact_release(
     lifecycle_state_path: &Path,
     spec_path: &Path,
     yes: bool,
     runner: &dyn ArgvRunner,
-) -> KernelReleaseReport {
+) -> RuntimeArtifactReleaseReport {
     match reconcile(lifecycle_state_path, spec_path, yes, runner) {
         Ok(report) => report,
         Err((spec, error)) => failure_report(spec.as_deref(), error),
@@ -30,10 +30,10 @@ fn reconcile(
     spec_path: &Path,
     yes: bool,
     runner: &dyn ArgvRunner,
-) -> Result<KernelReleaseReport, ReconcileError> {
+) -> Result<RuntimeArtifactReleaseReport, ReconcileError> {
     let raw = fs::read_to_string(spec_path)
         .map_err(|error| (None, format!("read {}: {error}", spec_path.display())))?;
-    let spec: KernelReleaseSpec = serde_json::from_str(&raw)
+    let spec: RuntimeArtifactReleaseSpec = serde_json::from_str(&raw)
         .map_err(|error| (None, format!("parse {}: {error}", spec_path.display())))?;
     validate_spec(&spec).map_err(|error| (Some(Box::new(spec.clone())), error))?;
 
@@ -77,8 +77,8 @@ fn reconcile(
     let actions = planned_actions(&spec, &release_binary, &current_link);
 
     if !yes {
-        return Ok(KernelReleaseReport {
-            schema: KERNEL_RELEASE_REPORT_SCHEMA,
+        return Ok(RuntimeArtifactReleaseReport {
+            schema: RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
             status: "planned".to_string(),
             artifact_id: spec.artifact.id.clone(),
             service_id: spec.service_id.clone(),
@@ -138,8 +138,8 @@ fn reconcile(
                             "release proof append failed: {proof_error}; rollback failed: {rollback_error}"
                         ),
                     };
-                    return Ok(KernelReleaseReport {
-                        schema: KERNEL_RELEASE_REPORT_SCHEMA,
+                    return Ok(RuntimeArtifactReleaseReport {
+                        schema: RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
                         status: if rolled_back {
                             "rolled_back"
                         } else {
@@ -165,8 +165,8 @@ fn reconcile(
                     });
                 }
             };
-            Ok(KernelReleaseReport {
-                schema: KERNEL_RELEASE_REPORT_SCHEMA,
+            Ok(RuntimeArtifactReleaseReport {
+                schema: RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
                 status: "ok".to_string(),
                 artifact_id: spec.artifact.id.clone(),
                 service_id: spec.service_id.clone(),
@@ -216,8 +216,8 @@ fn reconcile(
                 None,
             );
             let proof_event = append_event(&proof_path, event).ok();
-            Ok(KernelReleaseReport {
-                schema: KERNEL_RELEASE_REPORT_SCHEMA,
+            Ok(RuntimeArtifactReleaseReport {
+                schema: RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
                 status: if rolled_back {
                     "rolled_back"
                 } else {
@@ -245,8 +245,8 @@ fn reconcile(
     }
 }
 
-fn validate_spec(spec: &KernelReleaseSpec) -> Result<(), String> {
-    if spec.schema != KERNEL_RELEASE_SPEC_SCHEMA {
+fn validate_spec(spec: &RuntimeArtifactReleaseSpec) -> Result<(), String> {
+    if spec.schema != RUNTIME_ARTIFACT_RELEASE_SPEC_SCHEMA {
         return Err(format!("unsupported release spec schema {}", spec.schema));
     }
     if spec.node_id.is_empty() || spec.node_id.chars().any(char::is_control) {
@@ -285,26 +285,26 @@ fn validate_spec(spec: &KernelReleaseSpec) -> Result<(), String> {
 }
 
 fn planned_actions(
-    spec: &KernelReleaseSpec,
+    spec: &RuntimeArtifactReleaseSpec,
     release: &Path,
     current: &Path,
-) -> Vec<KernelReleaseAction> {
+) -> Vec<RuntimeArtifactReleaseAction> {
     vec![
-        KernelReleaseAction {
+        RuntimeArtifactReleaseAction {
             phase: "preflight",
             description: "verify desired artifact SHA-256 and lifecycle phase".to_string(),
             mutates: false,
             requires_privilege: false,
             proof: spec.artifact.sha256.clone(),
         },
-        KernelReleaseAction {
+        RuntimeArtifactReleaseAction {
             phase: "stage",
             description: format!("materialize immutable artifact {}", release.display()),
             mutates: true,
             requires_privilege: spec.requires_privilege,
             proof: "staged artifact hash equals desired hash".to_string(),
         },
-        KernelReleaseAction {
+        RuntimeArtifactReleaseAction {
             phase: "activate",
             description: format!(
                 "atomically replace {} and execute restart argv",
@@ -314,7 +314,7 @@ fn planned_actions(
             requires_privilege: spec.requires_privilege,
             proof: "atomic link target + restart exit status".to_string(),
         },
-        KernelReleaseAction {
+        RuntimeArtifactReleaseAction {
             phase: "observe",
             description: format!(
                 "verify {} returns desired service/node/version/git",
@@ -324,12 +324,12 @@ fn planned_actions(
             requires_privilege: false,
             proof: spec.identity_schema.clone(),
         },
-        KernelReleaseAction {
+        RuntimeArtifactReleaseAction {
             phase: "proof",
             description: "append and fsync hash-chained release event".to_string(),
             mutates: true,
             requires_privilege: spec.requires_privilege,
-            proof: KERNEL_RELEASE_EVENT_SCHEMA.to_string(),
+            proof: RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA.to_string(),
         },
     ]
 }
@@ -383,7 +383,7 @@ fn run_restart(runner: &dyn ArgvRunner, argv: &[String]) -> Result<(), String> {
     }
 }
 
-fn observe_identity(runner: &dyn ArgvRunner, url: &str) -> Result<KernelIdentityEvidence, String> {
+fn observe_identity(runner: &dyn ArgvRunner, url: &str) -> Result<ServiceIdentityEvidence, String> {
     let argv = [
         "curl",
         "--fail",
@@ -407,9 +407,9 @@ fn observe_identity(runner: &dyn ArgvRunner, url: &str) -> Result<KernelIdentity
 }
 
 fn verify_identity(
-    spec: &KernelReleaseSpec,
-    identity: KernelIdentityEvidence,
-) -> Result<KernelIdentityEvidence, String> {
+    spec: &RuntimeArtifactReleaseSpec,
+    identity: ServiceIdentityEvidence,
+) -> Result<ServiceIdentityEvidence, String> {
     if identity.schema != spec.identity_schema
         || identity.service != spec.service_id
         || identity.node_id != spec.node_id
@@ -436,16 +436,16 @@ fn rollback(
 }
 
 fn event_for(
-    spec: &KernelReleaseSpec,
+    spec: &RuntimeArtifactReleaseSpec,
     phase: &str,
     event: &str,
     status: &str,
     previous_target: Option<String>,
     activated_target: Option<String>,
-    identity: Option<&KernelIdentityEvidence>,
-) -> KernelReleaseEvent {
-    KernelReleaseEvent {
-        schema: KERNEL_RELEASE_EVENT_SCHEMA.to_string(),
+    identity: Option<&ServiceIdentityEvidence>,
+) -> RuntimeArtifactReleaseEvent {
+    RuntimeArtifactReleaseEvent {
+        schema: RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA.to_string(),
         seq: 0,
         timestamp_unix_ms: {
             use std::time::{SystemTime, UNIX_EPOCH};
@@ -467,9 +467,9 @@ fn event_for(
     }
 }
 
-fn failure_report(spec: Option<&KernelReleaseSpec>, error: String) -> KernelReleaseReport {
-    KernelReleaseReport {
-        schema: KERNEL_RELEASE_REPORT_SCHEMA,
+fn failure_report(spec: Option<&RuntimeArtifactReleaseSpec>, error: String) -> RuntimeArtifactReleaseReport {
+    RuntimeArtifactReleaseReport {
+        schema: RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA,
         status: "blocked".to_string(),
         artifact_id: spec
             .map(|value| value.artifact.id.clone())
