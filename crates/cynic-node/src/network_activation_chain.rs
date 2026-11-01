@@ -233,7 +233,7 @@ fn build_activation_chain_report_with_runtime(
             commands: vec![
                 activation_command(
                     "build",
-                    "cargo build -q -p cynic-node --bin cynic-network-actuator",
+                    "cynic network actuator apply",
                 ),
                 activation_command(
                     "bundle",

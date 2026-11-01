@@ -21,7 +21,7 @@
 //!
 //! WHY THE REGISTRY IS THE AUTHORITY. `infra/rust-toolchain.json` already
 //! records, per crate, the stack that crate's test harness was measured to
-//! need (`cynic-node` at 8 GiB, `cynic-kernel` at 4 GiB, the rest at the
+//! need (`cynic-node` at 8 GiB, the rest at the
 //! 256 MiB default). `docs/design/CI_SOVEREIGNTY.md` states the rule that
 //! makes it binding: the 8 GiB stack is safe on a host of the ">= 32 GiB RAM
 //! class", and the builder is an 8 GiB host — so the 8 GiB stack must apply
@@ -132,15 +132,6 @@ mod tests {
                 },
             );
         }
-        crates.insert(
-            "cynic-kernel".to_string(),
-            ToolchainEntry {
-                toolchain: "1.95.0".to_string(),
-                min_stack: Some("4294967296".to_string()),
-                fallback: None,
-                reason: None,
-            },
-        );
         ToolchainRegistry { crates }
     }
 
@@ -154,7 +145,6 @@ mod tests {
     fn a_crate_with_an_entry_gets_its_measured_stack() {
         let registry = registry();
         assert_eq!(registry.min_stack_for("cynic-node"), 8_589_934_592);
-        assert_eq!(registry.min_stack_for("cynic-kernel"), 4_294_967_296);
     }
 
     #[test]
@@ -169,7 +159,6 @@ mod tests {
         let registry = registry();
         let crates = vec![
             "cynic-data".to_string(),
-            "cynic-fleet".to_string(),
             "cynic-intel-futarchy".to_string(),
         ];
         assert_eq!(decide_min_stack(&registry, &crates), DEFAULT_MIN_STACK);

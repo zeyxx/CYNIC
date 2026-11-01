@@ -1,4 +1,4 @@
-//! Storage client policy — liste ordonnée endpoints + failover, consommée par cynic-kernel
+//! Storage client policy — liste ordonnée endpoints + failover, consommée par cynic-node
 //! SSOT: infra/storage_client_policy.json (cynic.storage_client_policy.v1)
 //! Kernel ne dépend que de ce type, pas de StorageTopologyDesired (découplage IaaS vs plan données)
 
