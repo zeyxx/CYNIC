@@ -10,7 +10,7 @@ fn lxc_domain_has_no_orchestrator_dependencies() {
     let cargo_toml_path = lxc_crate_root().join("Cargo.toml");
     let content = fs::read_to_string(&cargo_toml_path).expect("read Cargo.toml");
 
-    let forbidden_orchestrators = ["cynic-node", "cynic-host", "cynic-cli", "cynic-kernel"];
+    let forbidden_orchestrators = ["cynic-node", "cynic-host", "cynic-cli", "cynic-agent"];
     for forbidden in forbidden_orchestrators {
         assert!(
             !content.contains(&format!("\"{}\"", forbidden)),

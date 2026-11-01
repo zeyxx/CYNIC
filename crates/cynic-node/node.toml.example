@@ -6,14 +6,14 @@
 # cynic-node --watchdog --config /etc/cynic/node-watchdog.toml
 #
 # [kernel]
-# url = "http://cynic-kernel-primary.synapse.cynic:3030"
+# url = "http://cynic-agent.synapse.cynic:3030"
 # api_key_env = "CYNIC_API_KEY"
 #
 # [node]
 # name = "cynic-vm-v2"
 # role = "kernel_primary"
 # constellation = "kernel"
-# services = ["cynic-kernel.service", "cynic-node.service"]
+# services = ["cynic-node.service", "cynic-agent.service"]
 #
 # [watchdog]
 # interval_secs = 30

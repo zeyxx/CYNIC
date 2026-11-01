@@ -10,7 +10,7 @@ fn intel_domain_is_pure_zero_io() {
     let cargo_toml =
         fs::read_to_string(intel_crate_root().join("Cargo.toml")).expect("read Cargo.toml");
 
-    let forbidden_crates = ["cynic-host", "cynic-kernel", "cynic-node", "cynic-cli"];
+    let forbidden_crates = ["cynic-host", "cynic-agent", "cynic-node", "cynic-cli"];
     for forbidden in &forbidden_crates {
         assert!(
             !cargo_toml.contains(forbidden),

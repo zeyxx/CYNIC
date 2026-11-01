@@ -11,6 +11,7 @@ fn no_dependency_on_higher_layer_crates() {
     let manifest = include_str!("../Cargo.toml");
     for forbidden in [
         "cynic-host",
+        "cynic-agent",
         "cynic-node",
         "cynic-cli",
         "cynic-inference",

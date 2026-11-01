@@ -10,7 +10,7 @@ fn surreal_boundary_no_orchestrators() {
     let cargo_toml =
         fs::read_to_string(crate_root().join("Cargo.toml")).expect("read Cargo.toml");
 
-    let forbidden = ["cynic-host", "cynic-kernel", "cynic-node", "cynic-cli"];
+    let forbidden = ["cynic-host", "cynic-agent", "cynic-node", "cynic-cli"];
     for name in &forbidden {
         assert!(
             !cargo_toml.contains(name),

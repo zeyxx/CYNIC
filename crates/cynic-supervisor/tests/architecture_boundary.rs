@@ -10,7 +10,7 @@ fn supervisor_shell_never_pulls_orchestrators() {
     let cargo_toml =
         fs::read_to_string(supervisor_crate_root().join("Cargo.toml")).expect("read Cargo.toml");
 
-    let forbidden_crates = ["cynic-host", "cynic-kernel", "cynic-node", "cynic-cli"];
+    let forbidden_crates = ["cynic-host", "cynic-agent", "cynic-node", "cynic-cli"];
     for forbidden in &forbidden_crates {
         assert!(
             !cargo_toml.contains(forbidden),
