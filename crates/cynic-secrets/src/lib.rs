@@ -14,6 +14,7 @@
 
 pub mod adapters;
 pub mod composite;
+pub mod material;
 pub mod error;
 pub mod identity;
 pub mod ports;
@@ -29,6 +30,7 @@ pub use cynic_protocol::secret_use as secret_use;
 // Re-export the port traits and concrete providers from this crate.
 pub use adapters::{EncryptedFileSecretProvider, OsCredentialStoreSecretProvider, ProcessEnvironmentSecretProvider};
 pub use composite::CompositeSecretProvider;
+pub use material::SecretMaterial;
 pub use ports::{SecretProviderPort, SecretStorePort, SecretUseGatePort};
 pub use protocol::{
     SecretEntry, SecretError, SecretStatus, SecretUseExecutionReport, SecretUseHandle,
