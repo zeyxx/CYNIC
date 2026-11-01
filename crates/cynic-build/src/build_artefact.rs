@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 
 pub use cynic_protocol::build::{CheckoutEntry, DiskPressure};
 
-pub const BUILD_ARTEFACT_REPORT_SCHEMA: &str = "cynic.build_artefact_report.v1";
-pub const BUILD_ARTEFACT_GC_PLAN_SCHEMA: &str = "cynic.build_artefact_gc_plan.v1";
-pub const BUILD_ARTEFACT_GC_RESULT_SCHEMA: &str = "cynic.build_artefact_gc_result.v1";
+pub const BUILD_ARTEFACT_REPORT_SCHEMA: &str = cynic_protocol::retention::BUILD_ARTEFACT_REPORT_SCHEMA;
+pub const BUILD_ARTEFACT_GC_PLAN_SCHEMA: &str = cynic_protocol::retention::BUILD_ARTEFACT_GC_PLAN_SCHEMA;
+pub const BUILD_ARTEFACT_GC_RESULT_SCHEMA: &str = cynic_protocol::retention::BUILD_ARTEFACT_GC_RESULT_SCHEMA;
 
-pub const FLEET_BUILD_ARTEFACT_SCHEMA: &str = "cynic.fleet_build_artefact.v1";
+pub const FLEET_BUILD_ARTEFACT_SCHEMA: &str = cynic_protocol::retention::FLEET_BUILD_ARTEFACT_SCHEMA;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]

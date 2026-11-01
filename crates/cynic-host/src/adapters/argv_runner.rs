@@ -25,25 +25,7 @@ use std::process::Command;
 
 use cynic_protocol::resource_budget::ResourceLimit;
 
-/// Output of a successful argv execution.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArgvOutput {
-    /// Exit code of the process.
-    pub exit_code: Option<i32>,
-    /// Captured stdout.
-    pub stdout: String,
-    /// Captured stderr.
-    pub stderr: String,
-    /// Spawn error (e.g., binary not found).
-    pub spawn_error: Option<String>,
-}
-
-impl ArgvOutput {
-    /// Whether the execution succeeded (exit code 0, no spawn error).
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-}
+pub use cynic_protocol::argv::ArgvOutput;
 
 /// Unified argv runner for CYNIC.
 ///
