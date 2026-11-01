@@ -6,8 +6,8 @@
 use cynic_build::build::{
     BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation, build_recipe,
 };
-use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
+use cynic_build::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
+use cynic_build::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_process::ArgvOutput;
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 

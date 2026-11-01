@@ -93,9 +93,7 @@ fn manifest_debt() -> (Vec<String>, usize) {
 /// lived in the SSOT, a single edit would raise the ceiling and the gate would
 /// agree with itself. Two copies in two files means paying debt is a visible
 /// act and adding debt is a diff in both.
-const BASELINE_EDGES: &[&str] = &[
-    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
-];
+const BASELINE_EDGES: &[&str] = &[];
 
 #[test]
 fn the_manifest_debt_and_the_engine_agree_exactly() {

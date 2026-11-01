@@ -281,11 +281,11 @@ impl<'a> LifecycleRegistry<'a> {
             return vec!["release_publication_desired_state_missing".to_string()];
         };
         let Ok(desired) =
-            serde_json::from_value::<cynic_build::ReleasePublicationDesiredState>(desired)
+            serde_json::from_value::<cynic_protocol::build::ReleasePublicationDesiredState>(desired)
         else {
             return vec!["release_publication_desired_state_invalid".to_string()];
         };
-        cynic_build::validate_release_publication_desired_state(&desired)
+        cynic_protocol::build::validate_release_publication_desired_state(&desired)
     }
 
     pub(super) fn artifact_packaging_blockers(&self) -> Vec<String> {
@@ -586,7 +586,7 @@ impl<'a> LifecycleRegistry<'a> {
             .collect()
     }
 
-    fn release_publication_desired(&self) -> Option<cynic_build::ReleasePublicationDesiredState> {
+    fn release_publication_desired(&self) -> Option<cynic_protocol::build::ReleasePublicationDesiredState> {
         self.root
             .get("release_publication")
             .cloned()

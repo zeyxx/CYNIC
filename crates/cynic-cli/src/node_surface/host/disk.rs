@@ -2,7 +2,6 @@
 
 use std::process::ExitCode;
 
-use cynic_host::adapters::local_build_cache::host_build_cache_adapter;
 use cynic_host::adapters::local_disk::LocalDiskAdapter;
 use cynic_build::cache::{
     load_build_cache_desired_state, reconcile_build_cache_resources,
@@ -128,11 +127,20 @@ fn execute_build_runner_cache(
             return ExitCode::FAILURE;
         }
     };
+    let build_cache_adapter = cynic_build::adapters::local_build_cache::LocalBuildCacheAdapter::protecting(|| {
+        cynic_host::adapters::live_service_paths::observe_unit_executables()
+            .into_iter()
+            .map(|u| cynic_build::adapters::local_build_cache::ProtectedExecutable {
+                name: u.unit,
+                path: u.executable,
+            })
+            .collect()
+    });
     let report = reconcile_build_cache_resources(
         &desired,
         apply,
-        &host_build_cache_adapter(),
-        &host_build_cache_adapter(),
+        &build_cache_adapter,
+        &build_cache_adapter,
     );
     if json {
         return emit_json(&report, report.status == "blocked");

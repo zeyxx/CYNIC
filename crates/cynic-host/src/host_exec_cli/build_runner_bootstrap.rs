@@ -8,7 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_build::{
+use cynic_protocol::build::{
     BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,
     validate_build_runner_bootstrap_capability_binding,
 };

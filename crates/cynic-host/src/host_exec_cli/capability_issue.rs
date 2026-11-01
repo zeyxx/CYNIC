@@ -9,7 +9,7 @@
 use std::fs;
 use std::path::Path;
 
-use cynic_build::build::{
+use cynic_protocol::build::{
     BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA, BuildRunnerBootstrapCapabilityBinding,
     build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
     validate_build_runner_bootstrap_capability_binding,

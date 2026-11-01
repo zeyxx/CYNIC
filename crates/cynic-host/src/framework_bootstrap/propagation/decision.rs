@@ -1,4 +1,4 @@
-use cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA;
+use cynic_protocol::build::BUILD_RUNNER_OBSERVATION_SCHEMA;
 
 use super::types::{FrameworkPropagationDecision, FrameworkPropagationObservation};
 
