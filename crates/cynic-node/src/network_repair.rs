@@ -248,13 +248,10 @@ fn command_preview_with_context(
             argv_command(
                 "build_actuator",
                 vec![
-                    "cargo".to_string(),
-                    "build".to_string(),
-                    "-q".to_string(),
-                    "-p".to_string(),
-                    "cynic-node".to_string(),
-                    "--bin".to_string(),
-                    "cynic-network-actuator".to_string(),
+                    "cynic".to_string(),
+                    "network".to_string(),
+                    "actuator".to_string(),
+                    "apply".to_string(),
                 ],
             ),
             argv_command(
@@ -293,13 +290,10 @@ fn command_preview_with_context(
             argv_command(
                 "build_actuator",
                 vec![
-                    "cargo".to_string(),
-                    "build".to_string(),
-                    "-q".to_string(),
-                    "-p".to_string(),
-                    "cynic-node".to_string(),
-                    "--bin".to_string(),
-                    "cynic-network-actuator".to_string(),
+                    "cynic".to_string(),
+                    "network".to_string(),
+                    "actuator".to_string(),
+                    "apply".to_string(),
                 ],
             ),
             argv_command(

@@ -162,7 +162,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "askesis_companion",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: vec!["cynic-askesis"],
+                current_owner: vec!["cynic-eval"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "content-addressed context assembly",
@@ -181,7 +181,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "accessible_personal_ml",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: vec!["cynic-inference", "cynic-askesis"],
+                current_owner: vec!["cynic-inference", "cynic-eval"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "task-oriented ML ports independent of provider APIs",
@@ -340,7 +340,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "closed_evolution",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-protocol", "cynic-host", "cynic-node", "cynic-kernel"],
+                current_owner: vec!["cynic-protocol", "cynic-host", "cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Blocked,
                 translated_primitives: vec![
                     "source claim",
@@ -360,7 +360,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "contestable_judgment",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-protocol", "cynic-kernel", "cynic-askesis"],
+                current_owner: vec!["cynic-protocol", "cynic-node", "cynic-eval"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec![
                     "evidence envelopes",
@@ -413,7 +413,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "replayable_memory",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-kernel", "cynic-askesis"],
+                current_owner: vec!["cynic-node", "cynic-eval"],
                 runtime_status: FrameworkAmbitionStatus::Partial,
                 translated_primitives: vec![
                     "content-addressed evidence",
@@ -432,7 +432,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "node_recursion",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-protocol", "cynic-node", "cynic-kernel"],
+                current_owner: vec!["cynic-protocol", "cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Blocked,
                 translated_primitives: vec![
                     "delegation envelope",
@@ -451,7 +451,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "fleet_coordination",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-node", "cynic-kernel"],
+                current_owner: vec!["cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Blocked,
                 translated_primitives: vec!["registry placement", "node proof", "lease fencing"],
                 forbidden_substitutions: vec![
@@ -466,7 +466,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "runtime_federation",
                 classification: FrameworkAmbitionClass::Core,
-                current_owner: vec!["cynic-protocol", "cynic-node", "cynic-kernel"],
+                current_owner: vec!["cynic-protocol", "cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Absent,
                 translated_primitives: vec!["peer identity", "reduced delegation authority"],
                 forbidden_substitutions: vec![
@@ -515,7 +515,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkAmbitionTranslation {
                 id: "decision_outcome_loop",
                 classification: FrameworkAmbitionClass::UpperLayer,
-                current_owner: vec!["cynic-protocol", "cynic-kernel"],
+                current_owner: vec!["cynic-protocol", "cynic-node"],
                 runtime_status: FrameworkAmbitionStatus::Partial,
                 translated_primitives: vec!["outcome spec", "KPI score", "runtime observations"],
                 forbidden_substitutions: vec![
@@ -569,7 +569,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkLayer {
                 id: "l3_kernel_memory",
                 responsibility: "Persist observations, coordination, runtime proof history, and task memory.",
-                owned_by: vec!["cynic-kernel"],
+                owned_by: vec!["cynic-node"],
                 evidence: vec!["kernel_health_observed", "runtime_proof_persisted"],
             },
             FrameworkLayer {
@@ -717,7 +717,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 reconciliation: "build node-scoped plans and bounded rollout",
                 bounded_action: "canary or staged node action",
                 read_back_proof: "node proofs, lease events, rollout history",
-                owner: vec!["cynic-kernel", "cynic-node"],
+                owner: vec!["cynic-node"],
                 coverage: "partial",
             },
             FrameworkVerticalContract {
@@ -727,7 +727,7 @@ pub fn framework_spec() -> FrameworkSpec {
                 reconciliation: "separate local recursion from node federation",
                 bounded_action: "delegated action within reduced authority",
                 read_back_proof: "peer identity and completion envelope",
-                owner: vec!["cynic-protocol", "cynic-kernel"],
+                owner: vec!["cynic-protocol", "cynic-node"],
                 coverage: "partial",
             },
             FrameworkVerticalContract {
