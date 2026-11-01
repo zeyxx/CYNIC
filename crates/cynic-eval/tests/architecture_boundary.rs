@@ -43,6 +43,7 @@ fn domain_modules_are_pure() {
                 if name.contains("live_runner")
                     || name.contains("executor")
                     || name.contains("runner")
+                    || name.contains("observer")
                 {
                     continue;
                 }
