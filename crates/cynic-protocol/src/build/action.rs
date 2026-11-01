@@ -41,6 +41,12 @@ impl BuildAction {
     }
 }
 
+impl Default for BuildAction {
+    fn default() -> Self {
+        Self::CargoCheck
+    }
+}
+
 impl FromStr for BuildAction {
     type Err = String;
 
@@ -114,6 +120,11 @@ mod tests {
             BuildAction::CargoBuildRelease
         );
         assert_eq!("test".parse::<BuildAction>().unwrap(), BuildAction::CargoTest);
+    }
+
+    #[test]
+    fn default_is_cargo_check() {
+        assert_eq!(BuildAction::default(), BuildAction::CargoCheck);
     }
 
     #[test]
