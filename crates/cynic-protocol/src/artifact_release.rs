@@ -69,6 +69,15 @@ impl From<&str> for TransportProtocol {
     }
 }
 
+
+fn deserialize_transport_protocol<'de, D>(deserializer: D) -> Result<TransportProtocol, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    Ok(value.parse().unwrap_or_default())
+}
+
 /// Remote publication target for a released artifact.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactPublicationTarget {
@@ -77,7 +86,7 @@ pub struct ArtifactPublicationTarget {
     /// Concrete endpoint for the transport (host, URL, or ssh target).
     pub endpoint: String,
     /// Transport protocol: `http_put` (default) or `ssh`.
-    #[serde(default, from = "String")]
+    #[serde(default, deserialize_with = "deserialize_transport_protocol")]
     pub protocol: TransportProtocol,
 }
 
