@@ -222,7 +222,10 @@ impl PrPort for ForgejoPrAdapter {
                 Ok(()) if self.curl_json("GET", &branch_url, None).is_err() => {
                     (true, format!("branch {head_ref} deleted"))
                 }
-                Ok(()) => (false, format!("branch {head_ref} delete not reflected on read-back")),
+                Ok(()) => (
+                    false,
+                    format!("branch {head_ref} delete not reflected on read-back"),
+                ),
                 Err(e) => (false, format!("branch {head_ref} delete failed: {e}")),
             }
         };

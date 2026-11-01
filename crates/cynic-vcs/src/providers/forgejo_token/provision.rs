@@ -1,14 +1,12 @@
 //! Forgejo token observation and provisioning logic.
 
 use crate::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenProvisionReport,
-    ForgejoTokenSpec, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA, ForgejoTokenAuthState, ForgejoTokenObservation,
+    ForgejoTokenProvisionReport, ForgejoTokenSpec,
 };
 
 use super::api::*;
-use super::{
-    forgejo_token_path, ForgejoTokenApiPort, ForgejoTokenRuntimeSpec,
-};
+use super::{ForgejoTokenApiPort, ForgejoTokenRuntimeSpec, forgejo_token_path};
 
 /// This is the runtime entry point for `cynic forgejo token-status`.
 pub fn observe_forgejo_token_runtime(spec: &ForgejoTokenRuntimeSpec) -> ForgejoTokenObservation {

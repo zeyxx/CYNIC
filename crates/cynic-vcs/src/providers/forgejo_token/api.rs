@@ -8,9 +8,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
-use crate::forgejo_token::{
-    ForgejoTokenMetadata, ForgejoTokenSpec,
-};
+use crate::forgejo_token::{ForgejoTokenMetadata, ForgejoTokenSpec};
 
 use super::{forgejo_token_directory, forgejo_token_path};
 
@@ -316,4 +314,3 @@ pub fn http_client() -> Result<reqwest::blocking::Client, String> {
         .build()
         .map_err(|e| format!("http client build failed: {e}"))
 }
-

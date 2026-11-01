@@ -9,12 +9,11 @@ use std::fmt;
 use std::path::PathBuf;
 use zeroize::Zeroize;
 
-use cynic_types::paths::CynicPaths;
 use crate::forgejo_token::{
-    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA,
-    ForgejoTokenAuthState, ForgejoTokenMetadata,
-    ForgejoTokenObservation, ForgejoTokenSpec,
+    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoTokenAuthState,
+    ForgejoTokenMetadata, ForgejoTokenObservation, ForgejoTokenSpec,
 };
+use cynic_types::paths::CynicPaths;
 
 use self::api::*;
 
@@ -303,4 +302,3 @@ impl Default for ForgejoTokenRuntimeSpec {
         }
     }
 }
-

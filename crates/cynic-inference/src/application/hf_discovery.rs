@@ -8,12 +8,12 @@ use crate::domain::hf_catalog::{
     CategoryInfo, HardwareFit, ModelCategory, category_catalog, estimate_gguf_bytes, score_fit,
     short_alias_from_repo,
 };
-use crate::infra::model_layout::ModelLayout;
 use crate::hf::HfCliAdapter;
 use crate::hf::{
     HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
     HfSearchRequest,
 };
+use crate::infra::model_layout::ModelLayout;
 
 #[derive(Debug)]
 pub struct HfDiscoveryService {

@@ -1,9 +1,9 @@
-pub mod hf;
 pub mod adapters;
 pub mod application;
 pub mod config_loader;
 pub mod domain;
 pub mod embedding;
+pub mod hf;
 pub mod infra;
 pub mod math;
 pub mod ods_discovery;
@@ -56,7 +56,6 @@ pub use application::vault_consolidate::{
 };
 pub use config_loader::load_inference_config_from_path_public;
 pub use config_loader::{InferenceConfigError, LoadedInferenceConfig, load_inference_config};
-pub use hf::*;
 pub use domain::backend_config::InferenceBackendConfig;
 pub use domain::chat_session::{
     ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
@@ -77,6 +76,7 @@ pub use domain::token_entropy::{
     TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_logits,
     token_entropy_from_probabilities,
 };
+pub use hf::*;
 
 // Infrastructure (I/O primitives)
 pub use infra::backend_health;

@@ -34,10 +34,7 @@ pub fn execute_plan(root: &Path, plan: &SyncPlan) -> SyncProof {
     }
 }
 
-fn execute_step(
-    root: &Path,
-    step: &SyncStep,
-) -> SyncStepResult {
+fn execute_step(root: &Path, step: &SyncStep) -> SyncStepResult {
     match step {
         SyncStep::GitCommand { argv, layer: _ } => {
             let mut cmd = Command::new(&argv[0]);

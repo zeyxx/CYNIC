@@ -282,9 +282,7 @@ fn validator_does_not_inspect_evidence_beyond_the_declared_limit() {
     observed.evidence_refs.clear();
     observed.evidence_refs.push(DIGEST.to_string());
     for index in 1..8192 {
-        observed
-            .evidence_refs
-            .push(format!("sha256:{index:064x}"));
+        observed.evidence_refs.push(format!("sha256:{index:064x}"));
     }
     observed.evidence_refs.push("not-a-digest".to_string());
 

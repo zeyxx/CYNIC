@@ -17,8 +17,8 @@
 use std::path::PathBuf;
 
 use cynic_eval::bench::retrieval_gain::{
-    BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline,
-    grade_chunk, load_vector_cache,
+    BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline, grade_chunk,
+    load_vector_cache,
 };
 use cynic_inference::adapters::embedding::http::EmbeddingBackend;
 use cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge;

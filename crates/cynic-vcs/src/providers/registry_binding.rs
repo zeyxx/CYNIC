@@ -13,12 +13,12 @@
 
 use std::path::Path;
 
+use crate::find_ssot_in_registry;
+use crate::pull_request::PrPort;
 use cynic_secrets::{
     OsCredentialStoreSecretProvider, SecretProviderKind, SecretProviderPort, SecretReference,
 };
 use cynic_types::paths::CynicPaths;
-use crate::find_ssot_in_registry;
-use crate::pull_request::PrPort;
 
 use super::pull_request::ForgejoPrAdapter;
 

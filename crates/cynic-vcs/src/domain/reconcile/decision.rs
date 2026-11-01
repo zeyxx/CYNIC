@@ -219,11 +219,9 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::git_topology::{
-        GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation,
-    };
     use super::super::verdict::GitVerdict;
+    use super::*;
+    use crate::git_topology::{GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation};
 
     fn valid_entry(branch: &str) -> GitBranchEntry {
         GitBranchEntry {

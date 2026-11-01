@@ -194,11 +194,11 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use crate::runner::{ArgvOutput, MapArgvRunner};
     use crate::source_worktree::{
         WorktreeConvergenceAction, WorktreeConvergencePlan, WorktreeConvergenceSummary,
     };
+    use std::path::PathBuf;
 
     #[test]
     fn test_apply_executes_safe_prune_idempotently() {

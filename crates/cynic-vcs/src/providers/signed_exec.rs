@@ -62,7 +62,10 @@ mod tests {
             }
             _ => {
                 let error = exec_secret().expect_err("must refuse without secret");
-                assert!(error.contains("refusing unsigned remote shell"), "got: {error}");
+                assert!(
+                    error.contains("refusing unsigned remote shell"),
+                    "got: {error}"
+                );
             }
         }
     }
