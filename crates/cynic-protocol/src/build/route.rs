@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::SecurityEvidenceState;
+use super::BUILD_RUNNER_ROLE;
 use super::bootstrap::{
     BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,
     build_runner_bootstrap_input_digest,
@@ -466,7 +467,7 @@ mod tests {
             node_id: "cynic-builder".to_string(),
             provider: "proxmox".to_string(),
             resource_id: "lxc/105".to_string(),
-            role: "build_runner".to_string(),
+            role: BUILD_RUNNER_ROLE.to_string(),
             source_commit: "a".repeat(40),
         }
     }
@@ -498,7 +499,7 @@ mod tests {
                 status: "observed".to_string(),
                 node_id: "cynic-builder".to_string(),
                 hostname: "cynic-builder".to_string(),
-                declared_role: Some("build_runner".to_string()),
+                declared_role: Some(BUILD_RUNNER_ROLE.to_string()),
                 identity_match: SecurityEvidenceState::Proven,
                 observed_at_unix_ms: NOW,
                 registry_path: "/etc/cynic/registry.json".to_string(),
