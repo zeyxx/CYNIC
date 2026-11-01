@@ -383,7 +383,9 @@
       "aliases": [
         "ubuntu"
       ],
-      "role": "cortex_host",
+      "role": "workstation",
+      "canonical_role": "workstation",
+      "legacy_role": "cortex_host",
       "status": "candidate",
       "deploy_target": false,
       "network": {
@@ -470,6 +472,7 @@
         "note": "Overflow runner, RAM-gated (on >= 6G free, off < 4G). Cargo present but the host is RAM-loaded: it must not take a gate job."
       },
       "roles": [
+        "workstation",
         "cortex_host"
       ]
     },
@@ -511,7 +514,7 @@
     {
       "id": "local-builder",
       "name": "local-builder",
-      "role": null,
+      "role": "compute",
       "status": "stub",
       "deploy_target": false,
       "aliases": [
@@ -922,7 +925,9 @@
         "ax16pro",
         "elitebook"
       ],
-      "role": "workstation_portable",
+      "role": "workstation",
+      "canonical_role": "workstation",
+      "legacy_role": "workstation_portable",
       "host_family": "windows-service",
       "status": "observed",
       "deploy_target": false,
@@ -980,6 +985,7 @@
       },
       "services": [],
       "roles": [
+        "workstation",
         "workstation_portable"
       ]
     },
@@ -1142,7 +1148,9 @@
         "headscale",
         "organ-headscale"
       ],
-      "role": "mesh_coordinator",
+      "role": "gateway",
+      "canonical_role": "gateway",
+      "legacy_role": "mesh_coordinator",
       "host_family": "linux.debian.systemd",
       "status": "candidate",
       "deploy_target": true,
@@ -1170,6 +1178,7 @@
         "class": "always_on"
       },
       "roles": [
+        "gateway",
         "mesh_coordinator"
       ]
     },
@@ -1439,7 +1448,9 @@
         "ingress-109",
         "edge-ingress"
       ],
-      "role": "ingress_edge",
+      "role": "gateway",
+      "canonical_role": "gateway",
+      "legacy_role": "ingress_edge",
       "host_family": "linux.debian.systemd",
       "status": "observed",
       "deploy_target": false,

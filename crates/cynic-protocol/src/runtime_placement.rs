@@ -137,7 +137,7 @@ fn candidate_for(observation: &FleetDiscoveryNode) -> KernelPlacementCandidate {
     let reserved_role = observation.declared_role.as_deref().is_some_and(|role| {
         matches!(
             role,
-            "cortex_host" | "hypervisor" | "storage_primary" | "forge_primary" | "build_runner"
+            "workstation" | "cortex_host" | "hypervisor" | "storage_primary" | "forge_primary" | "build_runner"
         )
     });
 
@@ -637,8 +637,10 @@ pub fn validate_runtime_placement(
         let matches = nodes
             .iter()
             .filter(|node| {
+                let role = node.get("role").and_then(Value::as_str);
                 node.get("id").and_then(Value::as_str) == Some(host_id)
-                    && node.get("role").and_then(Value::as_str) != Some("cortex_host")
+                    && role != Some("cortex_host")
+                    && role != Some("workstation")
             })
             .count();
         if matches != 1 {
