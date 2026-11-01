@@ -336,6 +336,22 @@
         "addresses": {
           "lan": "192.168.0.25"
         }
+      },
+      {
+        "name": "gasdf-relay-107",
+        "dns": [
+          "gasdf-relay-107.service.cynic"
+        ],
+        "service": "10.10.10.127",
+        "admin": "10.10.10.127"
+      },
+      {
+        "name": "cynic-ingress-bastion",
+        "dns": [
+          "cynic-ingress-bastion.service.cynic"
+        ],
+        "service": "10.10.10.128",
+        "admin": "10.10.10.128"
       }
     ]
   },
