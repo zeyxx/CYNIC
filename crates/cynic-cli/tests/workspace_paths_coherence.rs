@@ -125,6 +125,15 @@ fn no_unregistered_hardcoded_path_exists() {
             .strip_prefix(&format!("{}/", repo_root().display()))
             .unwrap_or(line)
             .to_string();
+
+        // Parity trace snapshots and training fixtures record historical captures
+        // from local dev sessions and are not executable path consumers.
+        if relative.starts_with("crates/cynic-traces/tests/parity/")
+            || relative == "crates/cynic-knowledge/tests/retrieval_training_pairs.json"
+        {
+            continue;
+        }
+
         // Grep returns `.hermes/plans/...` as `hermes/plans/...` (no leading dot).
         // Normalize: if the relative path without the first char is in allowed,
         // it's a hidden directory match.
