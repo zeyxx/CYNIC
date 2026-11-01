@@ -14,7 +14,7 @@ use crate::external_build::{
     build_external_proof,
 };
 use crate::ports::BuildCommandOutput;
-use cynic_protocol::build::ExecResponse;
+use cynic_protocol::build::{ExecRequest, ExecResponse};
 use serde::Deserialize;
 
 /// HTTP adapter: executes build/test commands on a remote builder via HTTP.
@@ -54,10 +54,10 @@ impl HttpExternalBuildAdapter {
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .map_err(|e| format!("http client init failed: {e}"))?;
-            let payload = serde_json::json!({
-                "command": command,
-                "work_dir": work_dir,
-            });
+            let payload = ExecRequest {
+                command: command.to_string(),
+                work_dir: work_dir.to_string(),
+            };
             let res = client
                 .post(&url)
                 .json(&payload)

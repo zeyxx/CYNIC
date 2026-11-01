@@ -48,7 +48,7 @@ impl FromStr for BuildAction {
         match s.trim() {
             "cargo:check" | "check" => Ok(Self::CargoCheck),
             "cargo:build" | "build" => Ok(Self::CargoBuild),
-            "cargo:build-release" | "build-release" => Ok(Self::CargoBuildRelease),
+            "cargo:build-release" | "build-release" | "build:release" | "release" => Ok(Self::CargoBuildRelease),
             "cargo:test" | "test" => Ok(Self::CargoTest),
             "audit:crate" | "audit" => Ok(Self::AuditCrate),
             "audit:all" | "audit-all" | "audit_all" => Ok(Self::AuditAll),
@@ -103,6 +103,14 @@ mod tests {
         assert_eq!("build".parse::<BuildAction>().unwrap(), BuildAction::CargoBuild);
         assert_eq!(
             "build-release".parse::<BuildAction>().unwrap(),
+            BuildAction::CargoBuildRelease
+        );
+        assert_eq!(
+            "build:release".parse::<BuildAction>().unwrap(),
+            BuildAction::CargoBuildRelease
+        );
+        assert_eq!(
+            "release".parse::<BuildAction>().unwrap(),
             BuildAction::CargoBuildRelease
         );
         assert_eq!("test".parse::<BuildAction>().unwrap(), BuildAction::CargoTest);
