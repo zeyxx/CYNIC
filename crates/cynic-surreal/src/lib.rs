@@ -1,9 +1,9 @@
 //! cynic-surreal: L1 SurrealDB domain — pure domain logic, ports, and HTTP adapter.
 
 pub mod adapters;
+pub mod capabilities;
 pub mod domain;
 pub mod ports;
-
 pub use adapters::{
     StorageAdminObservation, SurrealConfig, SurrealHttpClient, SurrealStorageIdentityAdminAdapter,
 };

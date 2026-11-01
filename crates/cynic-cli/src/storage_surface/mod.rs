@@ -104,7 +104,7 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
             let endpoint = url
                 .or_else(|| std::env::var("SURREALDB_URL").ok())
                 .unwrap_or_else(|| "http://localhost:8000".into());
-            let report = cynic_host::storage_capabilities::observe_storage_capabilities(&endpoint);
+            let report = cynic_surreal::capabilities::observe_storage_capabilities(&endpoint);
             emit_json(&report, report.status == "blocked")
         }
         StorageCommand::Credential { json, endpoint } => {
