@@ -78,7 +78,7 @@ pub const BUILD_BOOTSTRAP_GRANT_SCHEMA: &str = "cynic.build.bootstrap_grant.v1";
 /// usecases; the protocol layer owns wire-contract vocabulary, so consumers name
 /// this constant instead of restating the string.
 pub const BUILD_GRANT_READ_BACK_PROOF: &str = "build_grant_read_back";
-pub const BUILD_RUNNER_OBSERVATION_MAX_AGE_MS: u64 = 300_000;
+pub use cynic_protocol::build::route::BUILD_RUNNER_OBSERVATION_MAX_AGE_MS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildInputAdmission {

@@ -8,8 +8,7 @@
 use cynic_protocol::transport_security::SecurityEvidenceState;
 use serde::{Deserialize, Serialize};
 
-pub const TRANSPORT_SECURITY_REPORT_SCHEMA: &str = "cynic.transport_security.report.v1";
-pub const NETWORK_PATH_EVIDENCE_SCHEMA: &str = "cynic.network_path.evidence.v1";
+pub use cynic_protocol::transport_security::{NETWORK_PATH_EVIDENCE_SCHEMA, TRANSPORT_SECURITY_REPORT_SCHEMA};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

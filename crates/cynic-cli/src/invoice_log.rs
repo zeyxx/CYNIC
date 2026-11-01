@@ -8,8 +8,7 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 
-/// Schema accepted for retention.
-pub const THROUGHPUT_INVOICE_SCHEMA: &str = "cynic.workload.metabolic_invoice.v1";
+pub use cynic_protocol::throughput_invoice::THROUGHPUT_INVOICE_SCHEMA;
 
 /// Resolve the default invoice log path from the operator home.
 pub fn default_invoice_log_path() -> Result<String, String> {

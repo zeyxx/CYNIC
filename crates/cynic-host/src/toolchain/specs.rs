@@ -11,40 +11,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// A single crate/entry in the toolchain registry seed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ToolchainEntry {
-    /// Canonical rustup toolchain channel (e.g. \"1.96.0\").
-    pub toolchain: String,
-    /// Fallback channel when the primary ICEs (e.g. \"1.95.0\").
-    #[serde(default)]
-    pub fallback: Option<String>,
-    /// Human-readable reason for the entry/fallback.
-    #[serde(default)]
-    pub reason: Option<String>,
-    /// Minimum RUST_MIN_STACK in bytes.
-    #[serde(default)]
-    pub min_stack: Option<String>,
-}
-
-/// Versioned registry: crate_name -> ToolchainEntry.
-/// Loaded from infra/rust-toolchain.json (observé via port).
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ToolchainRegistry {
-    pub crates: std::collections::HashMap<String, ToolchainEntry>,
-}
-
-impl ToolchainRegistry {
-    pub fn entry(&self, crate_name: &str) -> Option<&ToolchainEntry> {
-        self.crates.get(crate_name)
-    }
-
-    /// Load registry seed from infra/rust-toolchain.json.
-    pub fn load(path: &Path) -> Option<ToolchainRegistry> {
-        let content = std::fs::read_to_string(path).ok()?;
-        serde_json::from_str::<ToolchainRegistry>(&content).ok()
-    }
-}
+// Canonical model lives in cynic-protocol; re-exported here.
+pub use cynic_protocol::toolchain::{ToolchainEntry, ToolchainRegistry};
 
 /// Proof history: accumulated learning from observed ICE + successful builds.
 /// This is the dynamic projection layer — the registry seed gets patched
