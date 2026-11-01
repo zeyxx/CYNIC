@@ -4,9 +4,9 @@
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use cynic_host::adapters::local_build_discovery::LocalBuildDiscoveryAdapter;
-use cynic_host::adapters::remote_build_discovery::RemoteBuildDiscoveryAdapter;
-use cynic_host::domain::build_discovery::port::BuildDiscoveryObservationPort;
+use cynic_build::adapters::build_discovery::LocalBuildDiscoveryAdapter;
+use cynic_build::adapters::build_discovery::RemoteBuildDiscoveryAdapter;
+use cynic_build::domain::build_discovery::port::BuildDiscoveryObservationPort;
 use cynic_process::LocalArgvRunner;
 
 use crate::cli_json::emit_pretty_json;

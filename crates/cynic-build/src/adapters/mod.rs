@@ -21,3 +21,6 @@ pub use local_build_cache::LocalBuildCacheAdapter;
 pub use mem_fs::MemFilesystem;
 pub use os_identity::OsIdentity;
 pub use std_fs::StdFilesystem;
+
+pub mod build_discovery;
+pub use build_discovery::{LocalBuildDiscoveryAdapter, RemoteBuildDiscoveryAdapter};

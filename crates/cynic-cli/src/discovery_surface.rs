@@ -17,7 +17,7 @@ use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
 use crate::emit_json;
-use cynic_host::domain::build_discovery::port::BuildDiscoveryObservationPort;
+use cynic_build::domain::build_discovery::port::BuildDiscoveryObservationPort;
 
 #[derive(Subcommand)]
 pub(crate) enum DiscoveryCommand {
@@ -163,7 +163,7 @@ fn execute_events(endpoint: &str, _node: Option<&str>) -> ExitCode {
 fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
     match kind {
         "local" => {
-            let adapter = cynic_discovery::LocalBuildDiscoveryAdapter;
+            let adapter = cynic_build::adapters::build_discovery::LocalBuildDiscoveryAdapter;
             match adapter.observe() {
                 Ok(report) => {
                     if json {
@@ -188,7 +188,7 @@ fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
             };
             let runner = std::sync::Arc::new(cynic_process::LocalArgvRunner);
             let adapter =
-                match cynic_discovery::RemoteBuildDiscoveryAdapter::new(runner, ssh_target) {
+                match cynic_build::adapters::build_discovery::RemoteBuildDiscoveryAdapter::new(runner, ssh_target) {
                     Ok(a) => a,
                     Err(e) => {
                         eprintln!("invalid ssh target: {e}");
