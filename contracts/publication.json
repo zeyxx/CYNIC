@@ -60,6 +60,10 @@
       "status": "public"
     },
     {
+      "path": ".forgejo/workflows/post_merge_build.yml",
+      "status": "public"
+    },
+    {
       "path": "Cargo.toml",
       "status": "public"
     },
