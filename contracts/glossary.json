@@ -95,13 +95,24 @@
         "Passing raw string literals for publication transport protocols in domain code and tests"
       ]
     },
-    "BuildRunnerRole": {
-      "definition": "Canonical host/node capability role designating a node capable of executing isolated cargo builds and test workloads.",
+    "NodeRole": {
+      "definition": "Canonical host/node capability role designating a node's declared specialization in the mesh (e.g. build_runner, embedding_runner, hypervisor, storage_primary, kernel_primary).",
       "canonical_values": [
-        "build_runner"
+        "build_runner",
+        "embedding_runner",
+        "hypervisor",
+        "cortex_host",
+        "kernel_primary",
+        "storage_primary",
+        "workstation_portable",
+        "agent_host",
+        "relay_host",
+        "forge_primary",
+        "mesh_coordinator",
+        "ingress_edge"
       ],
       "banned_usages": [
-        "Passing raw string literals for build runner roles across domain logic, routing, and fleet models"
+        "Passing raw string literals for node capability roles across domain logic, routing, and fleet models"
       ]
     }
   }

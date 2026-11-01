@@ -25,6 +25,7 @@ pub mod peer_resolver;
 pub mod pre_os;
 pub mod runtime_takeover_activation;
 
+pub use cynic_protocol::node_role::*;
 pub use bootstrap_federation::*;
 pub use deployment_epoch::*;
 pub use emergence::*;

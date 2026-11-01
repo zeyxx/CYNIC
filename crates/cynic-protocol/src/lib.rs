@@ -80,6 +80,7 @@ pub mod intent;
 pub mod llm_port;
 pub mod load_tier;
 pub mod machine_identity;
+pub mod node_role;
 pub mod mcp_projection;
 pub mod throughput_invoice;
 pub mod observation_record;
