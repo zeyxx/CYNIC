@@ -1,5 +1,4 @@
 pub mod apply;
-pub mod fleet_observer;
 pub mod local_adapter;
 pub mod probe;
 pub mod reconcile;
@@ -9,7 +8,6 @@ pub use apply::{
     StorageTopologyApplyIntent, StorageTopologyArgvAction, apply_and_prove_storage_topology,
     apply_client_policy_file, plan_storage_topology_apply,
 };
-pub use fleet_observer::FleetStorageTopologyObserver;
 pub use local_adapter::{LocalStorageClientPolicyAdapter, LocalStorageTopologyAdapter};
 pub use probe::{
     InMemoryStorageClientPolicyAdapter, InMemoryStorageTopologyAdapter,

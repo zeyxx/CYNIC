@@ -11,10 +11,10 @@
   "ratified_at_commit": "6886e0fbc028ab079c1e19cde33e48be51004d77",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "identities": 36,
-    "edges": 108,
+    "identities": 34,
+    "edges": 107,
     "by_crate": {
-      "cynic-host": 13,
+      "cynic-host": 12,
       "cynic-inference": 5,
       "cynic-intel": 2,
       "cynic-node": 13,
@@ -32,11 +32,6 @@
       "identity": "cynic-host|domain -> execution",
       "count": 4,
       "evidence": "crates/cynic-host/src/domain/ecosystem_package/integration_apply.rs:2"
-    },
-    {
-      "identity": "cynic-host|domain -> fleet_discovery",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/domain/storage/fleet_observer.rs:9"
     },
     {
       "identity": "cynic-host|domain -> install_contract",
