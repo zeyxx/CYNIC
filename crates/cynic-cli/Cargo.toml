@@ -12,11 +12,8 @@ name = "cynic"
 path = "src/main.rs"
 
 [features]
-# Off by default: the canonical reader binary stays read-only. Enabling this
-# compiles the explicit `--apply` SSOT writer for operators who regenerate
-# the derived half of the topology document.
 default = []
-topology_write = []
+
 
 [dependencies]
 cynic-agent = { path = "../cynic-agent" }

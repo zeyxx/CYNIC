@@ -55,7 +55,6 @@ pub(crate) mod inference_surface;
 pub mod invoice_log;
 pub mod knowledge_surface;
 pub mod mask;
-#[cfg(feature = "topology_write")]
 pub mod topology_write;
 
 pub mod daemon_surface;
