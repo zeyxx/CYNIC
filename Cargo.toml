@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/cynic-agent",
+    "crates/cynic-anchoring",
     "crates/cynic-cli",
     "crates/cynic-protocol",
     "crates/cynic-types",
