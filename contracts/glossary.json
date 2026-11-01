@@ -56,6 +56,44 @@
       "banned_usages": [
         "Vague synonym for pure Rust domain modules"
       ]
+    },
+    "MonotonicRatchet": {
+      "definition": "A compliance and health assertion enforcing that measured debt never increases (current <= ceiling) while allowing debt reduction without breaking the gate.",
+      "prescribed_usage": "All governance checks measuring retired metaphors, god-object size limits, and transitional debt.",
+      "banned_usages": [
+        "Using strict scalar equality (actual == declared) that penalizes debt payoff or unblocks only with synchronous manual contract updates"
+      ]
+    },
+    "TopologyGenerator": {
+      "definition": "Pure inference engine that derives the workspace directed acyclic graph (DAG) and canonical extraction order directly from Cargo metadata and layer rules.",
+      "prescribed_usage": "Always derived via cynic audit topology --apply, never manually authored in infra/crate-topology.json.",
+      "banned_usages": [
+        "Feature-gating the topology generator behind obscure or uncompiled build flags",
+        "Hand-editing topological dependency edges or extraction order"
+      ]
+    },
+    "PassiveFixture": {
+      "definition": "Non-executable evaluation data, historical traces, session snapshots, or training labels stored for test verification.",
+      "canonical_locations": [
+        "**/tests/fixtures/**",
+        "**/tests/parity/**",
+        "**/tests/snapshots/**",
+        "crates/*/tests/*.json",
+        "docs/observations/*.jsonl"
+      ],
+      "banned_usages": [
+        "Treating captured test traces or eval datasets as active executable workspace path consumers"
+      ]
+    },
+    "ArtifactPublicationTransport": {
+      "definition": "Typed network protocol (TransportProtocol enum) governing binary artifact release and node deployment.",
+      "canonical_values": [
+        "HttpPut",
+        "Ssh"
+      ],
+      "banned_usages": [
+        "Passing raw string literals for publication transport protocols in domain code and tests"
+      ]
     }
   }
 }
