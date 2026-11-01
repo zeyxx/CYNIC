@@ -422,8 +422,7 @@
       "dependents": [],
       "depends_on": [
         "cynic-protocol",
-        "cynic-secrets",
-        "cynic-surreal"
+        "cynic-secrets"
       ],
       "dev_dependents": [],
       "dev_depends_on": [],
@@ -654,11 +653,13 @@
     "cynic-surreal": {
       "consumers": [
         "cynic-knowledge",
-        "cynic-persistence"
+        "cynic-host",
+        "cynic-cli"
       ],
       "dependents": [],
       "depends_on": [
-        "cynic-secrets"
+        "cynic-secrets",
+        "cynic-persistence"
       ],
       "dev_dependents": [],
       "dev_depends_on": [],

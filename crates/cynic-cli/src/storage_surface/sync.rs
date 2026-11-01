@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use cynic_knowledge::domain::graph::{KnowledgeEdgeKind, KnowledgeGraph};
-use cynic_persistence::SurrealHttpClient;
-use cynic_persistence::SurrealStoragePort;
+use cynic_surreal::SurrealHttpClient;
+use cynic_surreal::SurrealStoragePort;
 
 #[derive(Debug, Serialize)]
 pub struct StorageSyncReport {

@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 chrono = "0.4"
 cynic-protocol = { path = "../cynic-protocol" }
-cynic-surreal = { path = "../cynic-surreal" }
 cynic-secrets = { path = "../cynic-secrets" }
 bytes.workspace = true
 hex.workspace = true
