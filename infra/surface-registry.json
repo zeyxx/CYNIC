@@ -1199,7 +1199,7 @@
         "cynic_host::conformance",
         "cynic_host::runtime_metrics",
         "cynic_host::repo_access",
-        "cynic_host::storage_capabilities::observe_storage_capabilities"
+        "cynic_surreal::capabilities::observe_storage_capabilities"
       ],
       "owner_crate": "cynic-host",
       "owner_modules": [

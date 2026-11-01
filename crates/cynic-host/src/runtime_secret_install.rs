@@ -108,7 +108,7 @@ pub(crate) fn observe_runtime_secret(spec: &RuntimeSecretInstallSpec) -> Runtime
 
 pub(crate) fn install_runtime_secret(
     spec: &RuntimeSecretInstallSpec,
-    material: &crate::secret_material::SecretMaterial,
+    material: &cynic_secrets::SecretMaterial,
 ) -> Result<RuntimeSecretInstallReport, String> {
     validate_spec(spec)?;
     if unsafe { libc::geteuid() } != 0 {
@@ -170,7 +170,7 @@ pub(crate) fn install_runtime_secret(
 
 pub(crate) fn remove_runtime_secret_if_matches(
     spec: &RuntimeSecretInstallSpec,
-    material: &crate::secret_material::SecretMaterial,
+    material: &cynic_secrets::SecretMaterial,
 ) -> Result<RuntimeSecretObservation, String> {
     validate_spec(spec)?;
     if unsafe { libc::geteuid() } != 0 {

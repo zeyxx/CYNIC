@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-pub(crate) use cynic_host::network_actuation::NetworkActuationPolicyDocument as NetworkActuatorPolicyDocument;
+pub(crate) use cynic_network::actuator::NetworkActuationPolicyDocument as NetworkActuatorPolicyDocument;
 
 use crate::network_actuator::CommandExecution;
 use crate::network_command_surface::NetworkCommandSurface;

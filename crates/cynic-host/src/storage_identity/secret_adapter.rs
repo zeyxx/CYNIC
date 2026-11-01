@@ -2,7 +2,7 @@ use crate::runtime_secret_install::{
     RuntimeSecretInstallReport, RuntimeSecretInstallSpec, RuntimeSecretObservation,
     install_runtime_secret, observe_runtime_secret, remove_runtime_secret_if_matches,
 };
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 
 use super::StorageIdentitySecretPort;
 

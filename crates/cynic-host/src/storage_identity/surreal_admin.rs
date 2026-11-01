@@ -5,7 +5,7 @@
 
 use cynic_persistence::identity::StorageIdentitySpec;
 
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 
 use super::{StorageAdminObservation, StorageIdentityAdminPort};
 

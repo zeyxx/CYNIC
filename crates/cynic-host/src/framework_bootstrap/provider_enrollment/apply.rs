@@ -7,7 +7,7 @@ use crate::runtime_secret_install::{
     install_protected_runtime_file, install_runtime_secret,
     remove_protected_runtime_file_if_matches, remove_runtime_secret_if_matches,
 };
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 
 use super::decision::plan_provider_control_enrollment;
 use super::observe::observe_provider_control_enrollment;

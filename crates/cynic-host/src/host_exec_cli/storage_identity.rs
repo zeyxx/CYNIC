@@ -9,7 +9,7 @@ use cynic_persistence::{
 };
 
 use crate::runtime_secret_install::RuntimeSecretInstallSpec;
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 use crate::storage_identity::{
     LocalStorageIdentitySecretAdapter, StorageIdentityEnrollmentLease, StorageIdentitySecretPort,
     SurrealStorageIdentityAdminAdapter, enroll_storage_identity,

@@ -329,7 +329,7 @@ mod tests {
     use cynic_process::{ArgvOutput, ArgvRunner};
     use serde_json::Value;
 
-    use cynic_host::network_actuation::{
+    use cynic_network::actuator::{
         NetworkActuationObservation, NetworkActuationObserver, NetworkActuationTarget,
     };
 

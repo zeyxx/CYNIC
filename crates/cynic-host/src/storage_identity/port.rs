@@ -3,7 +3,7 @@ use cynic_persistence::identity::StorageIdentitySpec;
 use crate::runtime_secret_install::{
     RuntimeSecretInstallReport, RuntimeSecretInstallSpec, RuntimeSecretObservation,
 };
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 
 use super::StorageAdminObservation;
 
