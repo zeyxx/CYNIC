@@ -635,6 +635,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 json,
             ),
         },
+        BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
                 workload_id,
                 state_root,
