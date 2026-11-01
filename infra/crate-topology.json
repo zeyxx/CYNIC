@@ -770,10 +770,10 @@
     "cynic-knowledge",
     "cynic-pool",
     "cynic-sqlite",
-    "cynic-eval",
     "cynic-discovery",
-    "cynic-inference",
+    "cynic-eval",
     "cynic-intel",
+    "cynic-inference",
     "cynic-market",
     "cynic-node",
     "cynic-cli"
