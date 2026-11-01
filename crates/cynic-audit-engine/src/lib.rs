@@ -3,6 +3,7 @@ pub mod debt_ledger;
 pub mod growth;
 pub mod history;
 mod module_inversion_rule;
+mod debt_pattern_rule;
 pub mod path_rules;
 pub mod prose_citation_rule;
 pub mod retired_metaphor_rule;
@@ -19,6 +20,7 @@ use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, Audit
 
 use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
 use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
+use self::debt_pattern_rule::DebtPatternRule;
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::prose_citation_rule::CodeCitesProseRule;
 use self::retired_metaphor_rule::RetiredMetaphorRule;
@@ -83,6 +85,7 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(RuntimePathLiteralRule),
         Box::new(RetiredMetaphorRule),
         Box::new(HostProbeLeakRule),
+        Box::new(DebtPatternRule),
     ]
 }
 
