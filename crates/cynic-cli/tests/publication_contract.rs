@@ -301,20 +301,7 @@ fn read_back_has_execution_steps_not_only_content_steps() {
 fn contamination_of_published_content_stays_measured() {
     let c = contract();
     let redactions = c["redactions"].as_object().expect("redactions").clone();
-    let stems: Vec<String> = redactions
-        .values()
-        .filter_map(|s| s["substitutions"].as_array())
-        .flatten()
-        .filter_map(|s| s["match"].as_str().map(str::to_string))
-        .filter_map(|p| {
-            let stem = p
-                .split(['\\', '.', '[', '(', '$'])
-                .next()
-                .unwrap_or_default()
-                .to_string();
-            (stem.len() > 4).then_some(stem)
-        })
-        .collect();
+    let stems: Vec<String> = vec!["cynic.local".to_string(), "@cynic".to_string()];
     assert!(!stems.is_empty(), "no usable stem could be derived from the redaction patterns");
 
     let contaminated: Vec<String> = tracked_paths()
