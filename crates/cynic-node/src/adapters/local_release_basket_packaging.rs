@@ -135,7 +135,7 @@ fn package_sync(
         .args([
             RUNTIME_SEED_BUNDLE_MARKER_FILE,
             "cynic",
-            "cynic-kernel",
+            "cynic-host-exec",
             "cynic-mcp",
             "cynic-node",
             "registry.json",

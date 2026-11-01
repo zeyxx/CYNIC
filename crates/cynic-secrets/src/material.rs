@@ -105,7 +105,7 @@ impl SecretMaterial {
         std::str::from_utf8(&self.0).expect("secret material is validated as UTF-8")
     }
 
-    #[cfg(test)]
+    /// Test-only constructor for creating sample secret material.
     pub fn fixture(value: &str) -> Self {
         Self(value.as_bytes().to_vec())
     }

@@ -1066,6 +1066,8 @@ mod tests {
             ok(""),
             ok(""),
             ok(&commit),
+            ok(&commit),
+            ok(""),
             ok(stat),
             ok("100"),
             ok("Checking cynic-host"),
@@ -1095,7 +1097,9 @@ mod tests {
         let fake = FakeRunner::with(vec![
             ok(""),
             ok(""),
+            ok(""),
             ok(&commit),
+            ok(""),
             ok(stat_before),
             ok("100"),
             ok("Checking cynic-host"),
@@ -1107,14 +1111,14 @@ mod tests {
             .trigger(&check_trigger(&commit))
             .expect("trigger succeeds");
         assert_eq!(proof.source_commit, commit);
-        assert_eq!(proof.status, PipelineStatus::Converged);
+        eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         assert_eq!(proof.status, PipelineStatus::Converged);
         assert_eq!(proof.layers.len(), 1);
         assert_eq!(proof.layers[0].layer, "cynic-host");
         assert!(proof.to_json().contains("\"duration_ms\":"));
         // Busy jiffies 250-150 = 100 at 100 Hz = 1000 ms of builder CPU.
         assert_eq!(proof.cpu_ms, Some(1000));
         let log = handle.argv_log();
-        assert_eq!(log.len(), 9);
+        assert_eq!(log.len(), 11);
         assert!(log.iter().all(|argv| argv[0] == "ssh"));
         assert!(
             log.iter()
@@ -1152,6 +1156,8 @@ mod tests {
             ok(""),
             ok(""),
             ok(&commit),
+            ok(&commit),
+            ok(""),
             ok(stat),
             ok("100"),
             ok("test result: ok"),
@@ -1189,6 +1195,8 @@ mod tests {
             ok("Cloning"),
             ok(""),
             ok(&commit),
+            ok(&commit),
+            ok(""),
             ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
             ok("100"),
             ok("Checking cynic-host"),
@@ -1199,9 +1207,9 @@ mod tests {
         let proof = runner
             .trigger(&check_trigger(&commit))
             .expect("trigger succeeds");
-        assert_eq!(proof.status, PipelineStatus::Converged);
+        eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         assert_eq!(proof.status, PipelineStatus::Converged);
         let log = handle.argv_log();
-        assert_eq!(log.len(), 10);
+        assert_eq!(log.len(), 12);
         // log[0] is the runner path probe (`cynic runtime paths --json`);
         // the clone follows it.
         assert!(
@@ -1218,8 +1226,10 @@ mod tests {
         let commit = "f".repeat(40);
         let fake = FakeRunner::with(vec![
             ok(""),
+            ok(""),
             fail("advisory detached HEAD message"),
             ok(&commit),
+            ok(""),
             ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
             ok("100"),
             ok("Checking cynic-host"),
@@ -1230,14 +1240,14 @@ mod tests {
         let proof = runner
             .trigger(&check_trigger(&commit))
             .expect("matching read-back is authoritative");
-        assert_eq!(proof.status, PipelineStatus::Converged);
-        assert_eq!(handle.argv_log().len(), 9);
+        eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(handle.argv_log().len(), 11);
     }
 
     #[test]
     fn trigger_blocks_on_head_mismatch() {
         let commit = "c".repeat(40);
-        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&"d".repeat(40))]);
+        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(""), ok(&"d".repeat(40))]);
         let (runner, _) = test_runner(fake);
         let proof = runner
             .trigger(&check_trigger(&commit))
@@ -1267,15 +1277,19 @@ mod tests {
             ok(""),
             ok(""),
             ok(&commit),
+            ok(&commit),
+            ok(""),
             ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
             ok("100"),
             fail("error[E0432]: unresolved import"),
+            ok("cpu  20 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
         ]);
         let (runner, _) = test_runner(fake);
         let proof = runner
             .trigger(&check_trigger(&commit))
             .expect("a failed build is a verdict, not an error");
-        assert_eq!(proof.status, PipelineStatus::Blocked);
+        eprintln!("STATUS={:?} REASON={:?} BROKEN={:?}", proof.status, proof.verdict_reason, proof.broken_layer);         assert_eq!(proof.status, PipelineStatus::Blocked);
         // The scope is the package under test, not a generic "workspace".
         assert_eq!(proof.broken_layer.as_deref(), Some("cynic-host"));
         assert_eq!(proof.layers[0].layer, "cynic-host");
@@ -1302,6 +1316,8 @@ mod tests {
             ok(""),
             ok(""),
             ok(&commit),
+            ok(&commit),
+            ok(""),
             ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
             ok("100"),
             fail("error: expected \"struct\", found \\ backslash\n  --> src/lib.rs:3:1"),
