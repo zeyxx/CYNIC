@@ -20,6 +20,7 @@ pub mod build_artefact;
 pub mod build_disk_capacity;
 pub mod build_memory_capacity;
 pub mod build_discovery;
+pub mod domain;
 pub mod build_discovery_recipe;
 pub mod build_node;
 pub mod build_proof;
