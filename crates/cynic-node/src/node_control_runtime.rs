@@ -122,11 +122,16 @@ pub async fn start_tasks(
         .build_scheduler
         .as_ref()
         .is_none_or(|scheduler| scheduler.registry_path.is_file());
+    let role_is_build_runner = control.enrollment_role == cynic_protocol::build::BUILD_RUNNER_ROLE
+        || control.enrollment_role == "compute"
+        || cynic_protocol::node_role::NodeRole::parse_with_legacy_fallback(
+            &control.enrollment_role,
+        )
+        .is_some_and(|r| r.is_compute());
     let builder_activation = crate::builder_activation::decide_builder_activation(
         &crate::builder_activation::BuilderActivationInput {
             build_scheduler_configured: control.build_scheduler.is_some(),
-            role_is_build_runner: control.enrollment_role
-                == cynic_protocol::build::BUILD_RUNNER_ROLE,
+            role_is_build_runner,
             enrollment_proven,
             scheduler_capabilities_proven: build_scheduler_authorized,
             signing_key_present: control.signing_key_path.is_file(),

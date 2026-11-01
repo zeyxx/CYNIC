@@ -167,9 +167,16 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
         }
     }
     if let Some(scheduler) = &cfg.build_scheduler {
-        if cfg.enrollment_role != "build_runner" {
+        let role_is_valid_build_runner = cfg.enrollment_role == "build_runner"
+            || cfg.enrollment_role == "compute"
+            || cynic_protocol::node_role::NodeRole::parse_with_legacy_fallback(
+                &cfg.enrollment_role,
+            )
+            .is_some_and(|r| r.is_compute());
+        if !role_is_valid_build_runner {
             return Err(
-                "node_control.build_scheduler requires enrollment_role=build_runner".into(),
+                "node_control.build_scheduler requires enrollment_role=build_runner or compute"
+                    .into(),
             );
         }
         if !scheduler.registry_path.is_absolute() {
