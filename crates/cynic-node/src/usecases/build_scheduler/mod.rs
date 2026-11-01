@@ -13,6 +13,7 @@ use cynic_host::capacity::{
     CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
 };
 use cynic_protocol::AgentCompletionStatus;
+use cynic_types::paths::CynicPaths;
 use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
 use tokio_util::sync::CancellationToken;
 
@@ -255,10 +256,11 @@ async fn execute_claimed(
         persist_cancellation_proof(workload_id, after_execution.revision);
         return Ok(());
     }
-    let target_dir = match scheduler.shared_target_root.as_deref() {
-        Some(root) => root.join(prepare::profile_for_argv(&after_execution.record.envelope.action.argv)),
-        None => prepared.workspace.workspace_root.join("target"),
-    };
+    let target_dir = CynicPaths::scoped_build_target_dir(
+        scheduler.shared_target_root.as_deref(),
+        &prepared.workspace.workspace_root,
+        prepare::profile_for_argv(&after_execution.record.envelope.action.argv),
+    );
     let evidence_store =
         LocalContentAddressedEvidenceStore::new(control.agent_workload_state_root.join("evidence"));
     let memory_observation_unknown = matches!(
@@ -278,7 +280,7 @@ async fn execute_claimed(
                 &prepared.provenance,
                 &evidence_store,
                 &target_dir,
-                &control.agent_workload_state_root.join("artifacts"),
+                &CynicPaths::build_artifacts_dir(&control.agent_workload_state_root),
             );
             match evidence {
                 Ok(mut evidence_refs) => {
