@@ -56,7 +56,7 @@
       "status": "public"
     },
     {
-      "path": ".forgejo/workflows/release.yml",
+      "path": ".forgejo/workflows/ci.yml",
       "status": "public"
     },
     {
@@ -174,6 +174,11 @@
       "reason": "a public bounty target: contains a mainnet program address and a submission template"
     },
     {
+      "path": "talaria_relay.json",
+      "status": "exclude",
+      "reason": "contains sovereign DNS zone records and real infrastructure IP addresses for talaria.build relay endpoints"
+    },
+    {
       "path": "apps/**",
       "status": "exclude",
       "reason": "a separate Kotlin product, not one of the runtime crates"
@@ -265,7 +270,7 @@
         }
       ],
       "measured_occurrences": {
-        "files": 1499,
+        "files": 1623,
         "domain_literals": 28,
         "hardcoded": 84,
         "note": "all published crates and contracts protected by automated RFC 2606 domain and private IPv4 redactions"
