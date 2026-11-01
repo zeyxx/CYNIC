@@ -58,16 +58,12 @@ pub(crate) enum AuditCommand {
     },
     /// Audit workspace crate topology, layer rules (L0-L4), cycles, and declared edges.
     ///
-    /// With the `topology_write` feature compiled in, `--write --apply` regenerates
-    /// the derived half of the topology SSOT. The default binary carries no write
-    /// path at all: the flags do not exist unless the feature is enabled.
+    /// With `--write --apply` (or `--apply`), regenerates the derived half of the topology SSOT.
     Topology {
         #[arg(long)]
         json: bool,
-        #[cfg(feature = "topology_write")]
         #[arg(long)]
         write: bool,
-        #[cfg(feature = "topology_write")]
         #[arg(long)]
         apply: bool,
     },
@@ -464,17 +460,12 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
-        #[cfg(feature = "topology_write")]
         AuditCommand::Topology { json, write, apply } => {
-            // Compile-time gated writer: the flag pair does not exist in the
-            // default binary, so a reader build cannot write even by accident.
-            if *write {
+            if *write || *apply {
                 return crate::topology_write::execute(*json, *apply);
             }
             execute_topology_read(*json)
         }
-        #[cfg(not(feature = "topology_write"))]
-        AuditCommand::Topology { json } => execute_topology_read(*json),
         AuditCommand::Persistence {
             json,
             registry,

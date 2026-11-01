@@ -6,9 +6,8 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-# The topology writer binary was absorbed into `cynic audit topology
-# --write --apply` behind the `topology_write` feature; the read/write
-# boundary is now compile-time, proven by building with and without it.
+# The topology writer is accessible via `cynic audit topology --apply`.
+# The read/write boundary is enforced by requiring the explicit `--apply` flag.
 
 [dependencies]
 # Measured, by compiling: the module reached cynic_protocol 11 times and one
