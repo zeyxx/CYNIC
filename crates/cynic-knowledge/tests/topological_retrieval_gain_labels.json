@@ -1,0 +1,67 @@
+{
+  "schema": "cynic.topological_retrieval_gain_labels.v1",
+  "note": "Topological retrieval gain labels. Extends retrieval_gain_labels.v1 with topological_grades (chunks reachable via SurrealDB graph relations).",
+  "queries": [
+    {
+      "id": "RQ1_MERGE_GATE",
+      "query": "merge gate audit crate",
+      "trap": false,
+      "grades": {
+        "contracts/dependency-policy.json": 2,
+        "contracts/release-gates.json": 1,
+        "AGENTS.md": 1
+      },
+      "topological_grades": {
+        "contracts/dependency-policy.json": 2,
+        "contracts/release-gates.json": 1,
+        "AGENTS.md": 1
+      }
+    },
+    {
+      "id": "RQ2_DISK_RECLAIM",
+      "query": "how is disk space reclaimed on the builder",
+      "trap": false,
+      "grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      },
+      "topological_grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ3_BUILDER_SSOT",
+      "query": "build gate ssot 10.10.10.119",
+      "trap": false,
+      "grades": {
+        "AGENTS.md": 2
+      },
+      "topological_grades": {
+        "AGENTS.md": 2
+      }
+    },
+    {
+      "id": "RQ4_POWERS",
+      "query": "5 pouvoirs separation constituante judiciaire",
+      "trap": false,
+      "grades": {
+        "docs/specs/cynic-government-architecture.md": 2
+      },
+      "topological_grades": {
+        "docs/specs/cynic-government-architecture.md": 2
+      }
+    },
+    {
+      "id": "RQ5_ADMISSION",
+      "query": "memory admission formula weights kv activations",
+      "trap": false,
+      "grades": {
+        "contracts/inference-calibration.json": 2
+      },
+      "topological_grades": {
+        "contracts/inference-calibration.json": 2
+      }
+    }
+  ]
+}

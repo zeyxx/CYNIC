@@ -1,0 +1,610 @@
+{
+  "relations": [
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "GitHub",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "security@cynic.local",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "cynic audit secret",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "SecretProviderPort",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "main development branch",
+      "kind": "contains"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "0.8.x",
+      "kind": "contains"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "pre-commit",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "CI",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "environment variables",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "principal-owned files",
+      "kind": "uses"
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source": "CYNIC",
+      "target": "OS keyrings",
+      "kind": "uses"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "cynic-protocol",
+      "target": "cynic-host",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "cynic-protocol",
+      "target": "cynic-kernel",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "cynic-protocol",
+      "target": "cynic-node",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "Functional Core",
+      "target": "CYNIC",
+      "kind": "implements"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "Imperative Shell",
+      "target": "adapters/",
+      "kind": "contains"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "Imperative Shell",
+      "target": "SecretProviderPort",
+      "kind": "implements"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "CYNIC",
+      "target": "Conventional Commits",
+      "kind": "uses"
+    },
+    {
+      "source_file": "CONTRIBUTING.md",
+      "source": "CYNIC",
+      "target": "main",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Fiber",
+      "target": "CYNIC",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Fiber",
+      "target": "solana-foundation/fiber",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Two-phase close",
+      "target": "Fiber",
+      "kind": "implements"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Distribution hash",
+      "target": "Blake3",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Distribution hash",
+      "target": "Channel account",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Batch instructions",
+      "target": "batch_open",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Batch instructions",
+      "target": "batch_finalize",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "Batch instructions",
+      "target": "batch_distribute",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "fastlane!",
+      "target": "Fiber",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "pay-kit",
+      "target": "session intent",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "pay-kit",
+      "target": "charge",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "fastlane!",
+      "target": "Solana programs",
+      "kind": "implements"
+    },
+    {
+      "source_file": "docs/rnd-fiber.md",
+      "source": "CYNIC",
+      "target": "Computation market",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "docs/",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "contracts/foundation.json",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "infra/runtime-authority.json",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "infra/directory-tree.json",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "infra/registry.json",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "Cargo.toml",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "crates/",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/README.md",
+      "source": "Quarantined Historical Prose",
+      "target": "infra/agent-exposure.json",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_EN.md",
+      "source": "CYNIC",
+      "target": "sovereign agents",
+      "kind": "builds"
+    },
+    {
+      "source_file": "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_EN.md",
+      "source": "CYNIC",
+      "target": "zero-sum game",
+      "kind": "abandons"
+    },
+    {
+      "source_file": "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_FR.md",
+      "source": "CYNIC",
+      "target": "agents souverains",
+      "kind": "builds"
+    },
+    {
+      "source_file": "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_FR.md",
+      "source": "jeanterre13",
+      "target": "CYNIC",
+      "kind": "builds"
+    },
+    {
+      "source_file": "docs/articles/odyssey/ERROR_404_AUTOPSY_OF_A_HACKER_FR.md",
+      "source": "Erreur 404",
+      "target": "Humanit\u00e9 404",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "One-Person Futarchy",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "LLM",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "contracts/foundation.json",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "contracts/framework.json",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "infra/SYSTEM_AGENTIC_MAPPING.md",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "Rust",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "Read-Back",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "4 Questions Canoniques",
+      "kind": "enforces"
+    },
+    {
+      "source_file": "docs/archive/sovereign/SOVEREIGN_SYSTEM_DESIGN.md",
+      "source": "CYNIC",
+      "target": "Prompt-as-Law",
+      "kind": "enforces"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "sovereign infrastructure",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "personal edge",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon Mobile",
+      "target": "Android",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon Desktop",
+      "target": "Linux",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon Desktop",
+      "target": "Windows",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon Desktop",
+      "target": "macOS",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "compute",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "storage",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "coordination",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "proof",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "kernel",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Federation",
+      "target": "attestations",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "authenticated human attention",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "authenticated human attention",
+      "kind": "captures"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "personal data",
+      "kind": "protects"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "attention",
+      "kind": "measures"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "CYNIC",
+      "target": "proof",
+      "kind": "provides"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "local proof of consent",
+      "kind": "implements"
+    },
+    {
+      "source_file": "docs/archive/sovereign/CYNIC_ATTENTION_SOVEREIGNTY_STRATEGY.md",
+      "source": "Kyon",
+      "target": "membrane",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "Scion",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "Forgejo",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "cynic source",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "cynic source worktree",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "CoherenceVector",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CoherenceVector",
+      "target": "cynic-eval",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "capabilities registry",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "scope claims",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "per-SHA worktrees",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "TTL",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "CYNIC",
+      "target": "post-merge proof",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "Scion",
+      "target": "changeset model",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "Scion",
+      "target": "server-side RPCs",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "Scion",
+      "target": "merge-queue",
+      "kind": "defines"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "Scion",
+      "target": "blame",
+      "kind": "returns"
+    },
+    {
+      "source_file": "docs/archive/sovereign/sovereign-vcs-study.md",
+      "source": "Scion",
+      "target": "history",
+      "kind": "returns"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Convergence Order Theory",
+      "target": "CYNIC",
+      "kind": "depends_on"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Patch",
+      "target": "git merge-base",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Semantic",
+      "target": "AST",
+      "kind": "uses"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Dominance",
+      "target": "Recency",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Dominance",
+      "target": "Completeness",
+      "kind": "has_field"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Dependency Graph",
+      "target": "Ancestor",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Dependency Graph",
+      "target": "Semantic",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Dependency Graph",
+      "target": "File Overlap",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Dependency Graph",
+      "target": "Independent",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Patch Space",
+      "target": "Patch",
+      "kind": "contains"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Recency",
+      "target": "Patch",
+      "kind": "returns"
+    },
+    {
+      "source_file": "docs/archive/convergence/convergence-order-theory.md",
+      "source": "Completeness",
+      "target": "Patch",
+      "kind": "returns"
+    }
+  ]
+}
