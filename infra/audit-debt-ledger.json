@@ -1094,7 +1094,7 @@
     },
     {
       "count": 1,
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/builder_http.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/http_builder_server.rs",
       "rule": "ARCH-001",
       "severity": "debt"
     },
