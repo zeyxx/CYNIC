@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::causal::CAUSAL_CONVERGENCE_EPOCH_SCHEMA;
-use cynic_protocol::evidence::valid_sha256_digest;
+use crate::evidence::valid_sha256_digest;
 
 pub const CAUSAL_EPOCH_INDEX_SCHEMA: &str = "cynic.convergence_epoch_index.v1";
 

@@ -22,7 +22,7 @@ use crate::runtime_proof::{
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
 use cynic_build::{BuildConformanceEvidence, BuildProof};
-use cynic_eval::convergence::{
+use cynic_protocol::convergence::{
     ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, assess_convergence_matrix,
 };
 use cynic_protocol::{FrameworkSpec, framework_spec};
@@ -44,7 +44,7 @@ pub struct HostConformanceReport {
     pub next_command: Option<String>,
     pub gates: Vec<HostConformanceGate>,
     pub verticals: VerticalConformanceReport,
-    pub convergence: cynic_eval::convergence::ConvergenceMatrixReport,
+    pub convergence: cynic_protocol::convergence::ConvergenceMatrixReport,
     pub observed: HostObservationReports,
     pub bootstrap_evidence: HostBootstrapEvidenceReport,
     pub hardware: HardwareConformanceReport,

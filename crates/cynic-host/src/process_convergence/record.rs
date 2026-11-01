@@ -1,4 +1,4 @@
-use cynic_eval::convergence::{
+use cynic_protocol::convergence::{
     CausalConvergenceEpochInput, CausalEvidenceRefs, TrustAssessment, TrustDimensionStatus,
     TrustRequirements, assess_causal_convergence_epoch,
 };
@@ -242,7 +242,7 @@ mod tests {
     use super::*;
     use crate::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
     use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
-    use cynic_eval::convergence::ConvergenceStatus;
+    use cynic_protocol::convergence::ConvergenceStatus;
     use cynic_protocol::{
         SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,
         ServiceSupervisorUnitObservation,

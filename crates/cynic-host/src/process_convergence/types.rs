@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_eval::convergence::{
+use cynic_protocol::convergence::{
     CausalConvergenceEpoch, CausalEpochIndexEntry, ConvergenceStatus,
 };
 use cynic_protocol::EvidenceEnvelope;

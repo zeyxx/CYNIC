@@ -14,8 +14,6 @@ path = "src/bin/cynic-host-exec.rs"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
-cynic-inference = { path = "../cynic-inference" }
-cynic-eval = { path = "../cynic-eval" }
 cynic-persistence = { path = "../cynic-persistence" }
 cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-build = { path = "../cynic-build" }
@@ -27,7 +25,6 @@ cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }
 cynic-lxc = { path = "../cynic-lxc" }
 cynic-pkg = { path = "../cynic-pkg" }
-cynic-intel = { path = "../cynic-intel" }
 cynic-secrets = { path = "../cynic-secrets" }
 # The lease store persists DateTime<Utc> lease deadlines to disk, so chrono's
 # serde impls are required. cynic-kernel already declares it this way; cynic-host

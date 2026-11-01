@@ -57,10 +57,13 @@ pub struct DynamicFirewallPlanes {
 }
 
 impl Default for DynamicFirewallPlanes {
+    /// CIDRs are intentionally empty: they MUST be supplied dynamically from the
+    /// registry (`derive_firewall_policy_from_registry`). Never hardcode
+    /// production CIDRs here.
     fn default() -> Self {
         Self {
-            service_cidr: "10.10.10.0/24".to_string(),
-            admin_cidr: "192.168.100.0/24".to_string(),
+            service_cidr: String::new(),
+            admin_cidr: String::new(),
             mesh_interface: "wg0".to_string(),
         }
     }
@@ -459,7 +462,11 @@ mod tests {
         let policy = DynamicFirewallPolicy {
             schema: DYNAMIC_FIREWALL_POLICY_SCHEMA.to_string(),
             node_id: "cortex".to_string(),
-            planes: DynamicFirewallPlanes::default(),
+            planes: DynamicFirewallPlanes {
+                service_cidr: "10.10.10.0/24".to_string(),
+                admin_cidr: "192.168.100.0/24".to_string(),
+                mesh_interface: "wg0".to_string(),
+            },
             bindings: vec![
                 DynamicPortBinding {
                     service_name: "cynic-kernel".to_string(),

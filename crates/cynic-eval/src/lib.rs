@@ -19,12 +19,13 @@
 pub mod agent_execution_provenance;
 pub mod agents;
 pub mod bench;
-pub mod convergence;
+pub use cynic_protocol::convergence;
 pub mod emergence_gallery;
 pub mod eval;
 pub mod evidence_projection;
 pub mod harness;
 pub mod judge_patch;
+pub mod judge_patch_observer;
 pub mod judgment;
 pub mod kyon;
 pub mod sweep;
