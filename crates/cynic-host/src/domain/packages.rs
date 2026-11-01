@@ -645,7 +645,7 @@ mod tests {
             .join("\n");
 
         assert!(rendered.contains("/portable/bin/apt-get install -y coredns wireguard-tools"));
-        assert!(rendered.contains("/portable/bin/dpkg -s coredns"));
+        assert!(rendered.contains("/portable/bin/dpkg-query -W -f=${Status} coredns"));
     }
 
     #[test]

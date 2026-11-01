@@ -640,7 +640,7 @@ fn activation_plan_uses_injected_host_command_context() {
         "/portable/bin/getent passwd cynic",
         "/portable/bin/sudo -n /portable/bin/ip route show",
         "/portable/bin/apt-get install -y wireguard-tools iproute2",
-        "/portable/bin/dpkg -s wireguard-tools",
+        "/portable/bin/dpkg-query -W -f=${Status} wireguard-tools",
         "/portable/bin/systemctl enable --now cynic-node.service",
         "test -f /portable/etc/os-release",
     ] {
