@@ -63,11 +63,11 @@ impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
             request.proof_sha, request.artefact_name
         );
         let remote_dir = format!(".cynic-releases/{}", request.proof_sha);
-        validate_ssh_target(&request.target.target)?;
+        validate_ssh_target(&request.target.endpoint)?;
         validate_remote_segment(&request.proof_sha)?;
         validate_remote_segment(&request.artefact_name)?;
         let mkdir_argv = ssh_argv(
-            &request.target.target,
+            &request.target.endpoint,
             &[format!("mkdir -p {remote_dir}")],
         )
         .map_err(|_| PublishError::Transport("invalid ssh target".to_string()))?;
@@ -79,7 +79,7 @@ impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
                 mkdir_out.spawn_error.unwrap_or(mkdir_out.stderr)
             )));
         }
-        let destination = format!("{}:{remote_path}", request.target.target);
+        let destination = format!("{}:{remote_path}", request.target.endpoint);
         let argv = self.scp_argv(&request.local_path, &destination)?;
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
         let output = self.runner.run(&refs);
@@ -109,7 +109,7 @@ mod tests {
             proof_sha: "abc123".to_string(),
             target: PublicationTarget {
                 node: "synapse".to_string(),
-                target: "cynic@10.10.10.119".to_string(),
+                endpoint: "cynic@10.10.10.119".to_string(),
                 protocol: TransportProtocol::Ssh,
             },
             artefact_name: "cynic".to_string(),
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn rejects_malicious_target() {
         let mut req = request();
-        req.target.target = "cynic@host; rm -rf /".to_string();
+        req.target.endpoint = "cynic@host; rm -rf /".to_string();
         let publisher = SshArtifactPublisher::with_runner(MapArgvRunner::default());
         assert!(matches!(
             publisher.publish(&req),

@@ -115,21 +115,21 @@ mod tests {
     fn http_put_is_default() {
         let t = select_transport("generic_http_put_get", "10.10.10.119", "cynic@10.10.10.119");
         assert_eq!(t.protocol, TransportProtocol::HttpPut);
-        assert_eq!(t.target, "10.10.10.119");
+        assert_eq!(t.endpoint, "10.10.10.119");
     }
 
     #[test]
     fn ssh_explicit_protocol() {
         let t = select_transport("ssh", "10.10.10.119", "cynic@172.30.41.10");
         assert_eq!(t.protocol, TransportProtocol::Ssh);
-        assert_eq!(t.target, "cynic@172.30.41.10");
+        assert_eq!(t.endpoint, "cynic@172.30.41.10");
     }
 
     #[test]
     fn unknown_protocol_falls_back_to_http() {
         let t = select_transport("ftp", "target.example", "cynic@host");
         assert_eq!(t.protocol, TransportProtocol::HttpPut);
-        assert_eq!(t.target, "target.example");
+        assert_eq!(t.endpoint, "target.example");
     }
 
     #[test]
