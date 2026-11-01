@@ -269,4 +269,12 @@ mod tests {
         assert_eq!(EMERGENCE_STATE_SCHEMA, "cynic.emergence_state.v1");
         assert_eq!(EMERGENCE_DECISION_SCHEMA, "cynic.emergence_decision.v1");
     }
+
+    #[test]
+    fn node_role_enum_interop() {
+        use cynic_protocol::node_role::NodeRole;
+        assert_eq!(NodeRole::BuildRunner.as_str(), "build_runner");
+        assert_eq!(NodeRole::EmbeddingRunner.as_str(), "embedding_runner");
+        assert_eq!(NodeRole::Hypervisor.as_str(), "hypervisor");
+    }
 }

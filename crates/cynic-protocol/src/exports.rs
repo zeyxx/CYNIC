@@ -66,6 +66,7 @@ pub use crate::one_shot_capability::{
     OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus, authority_class,
 };
 pub use crate::candidate_opportunity::*;
+pub use crate::node_role::*;
 pub use crate::outcomes::*;
 pub use crate::policy::*;
 pub use crate::phi::*;
