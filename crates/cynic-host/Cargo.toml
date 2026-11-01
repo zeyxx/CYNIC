@@ -57,7 +57,6 @@ rpassword = "7.5.4"
 # depend on its own auditor.
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 tempfile = "3"
-cynic-build = { path = "../cynic-build" }
 hmac.workspace = true
 # adversarial_red_team_suite and multi_agent_e2e_simulation both import
 # cynic_intel::{escore, futarchy}. The crate exists and exports them; it was

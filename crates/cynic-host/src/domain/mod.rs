@@ -2,7 +2,6 @@ pub mod agent_session;
 pub mod metrics;
 pub mod bootstrap;
 pub mod build_artefact;
-pub mod build_discovery;
 pub mod cpu;
 pub mod disk;
 pub mod ecosystem_package;
