@@ -257,7 +257,12 @@
         "BuildPort",
         "EvidencePort"
       ],
-      "port_wiring_status": "not_wired"
+      "port_wiring_status": "not_wired",
+      "port_status": {
+        "SourcePort": "candidate",
+        "BuildPort": "candidate",
+        "EvidencePort": "candidate"
+      }
     }
   ],
   "rules": [
