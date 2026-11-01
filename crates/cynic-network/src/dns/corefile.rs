@@ -15,6 +15,8 @@ pub const SERVICE_DNS_COREFILE_FILENAME: &str = "Corefile";
 pub const SERVICE_DNS_SERVICE_FILENAME: &str = "coredns-service.service";
 pub const SERVICE_DNS_RESOLVED_DROPIN_FILENAME: &str = "cynic-service-dns.conf";
 pub const SERVICE_DNS_MANIFEST_FILENAME: &str = "manifest.json";
+/// Generated bundle output artifact filename explaining activation steps to operators.
+/// This is an emitted artifact in staging directories, not a repository source file.
 pub const SERVICE_DNS_README_FILENAME: &str = "README.activation.md";
 
 /// Bundle hosts filename for a zone: canonical file for the service

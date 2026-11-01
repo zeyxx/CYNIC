@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 
 const MANIFEST_FILENAME: &str = "manifest.json";
 const PLAN_FILENAME: &str = "mesh-plan.json";
+/// Generated mesh bundle output artifact filename written by `build_network_mesh_bundle`.
+/// This is an emitted artifact in staging directories, not a repository source file.
 const README_FILENAME: &str = "README.activation.md";
 const WIREGUARD_DIR: &str = "wireguard";
 const DNS_FILENAME: &str = "dns-records.json";
