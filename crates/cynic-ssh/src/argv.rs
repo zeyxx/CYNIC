@@ -120,6 +120,67 @@ pub fn ssh_script_argv(target: &str, script: &str) -> Result<Vec<String>, String
     ssh_script_argv_with_options(target, script, &crate::options::SshOptions::default())
 }
 
+/// Specification for an SSH local forward (`-L`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SshForwardSpec {
+    pub local_socket: std::path::PathBuf,
+    pub remote_addr: String,
+}
+
+/// Build the SSH argv for a persistent local forward tunnel.
+pub fn ssh_forward_tunnel_argv(
+    target: &str,
+    identity_file: Option<&std::path::Path>,
+    forward: &SshForwardSpec,
+) -> Result<Vec<String>, String> {
+    validate_target(target)?;
+    let mut argv = vec![
+        "ssh".to_string(),
+        "-o".to_string(),
+        "BatchMode=yes".to_string(),
+        "-o".to_string(),
+        "StrictHostKeyChecking=no".to_string(),
+        "-o".to_string(),
+        "ServerAliveInterval=10".to_string(),
+        "-o".to_string(),
+        "ExitOnForwardFailure=yes".to_string(),
+        "-o".to_string(),
+        "ControlMaster=no".to_string(),
+    ];
+    if let Some(identity) = identity_file {
+        argv.push("-i".to_string());
+        argv.push(identity.display().to_string());
+    }
+    argv.push("-L".to_string());
+    argv.push(format!(
+        "{}:{}",
+        forward.local_socket.display(),
+        forward.remote_addr
+    ));
+    argv.push(target.to_string());
+    argv.push("-N".to_string());
+    argv.push("-f".to_string());
+    argv.push("-o".to_string());
+    argv.push("LogLevel=ERROR".to_string());
+    Ok(argv)
+}
+
+/// Build the SSH argv to tear down a forward tunnel via control socket.
+pub fn ssh_control_exit_argv(
+    target: &str,
+    forward: &SshForwardSpec,
+) -> Result<Vec<String>, String> {
+    validate_target(target)?;
+    Ok(vec![
+        "ssh".to_string(),
+        "-O".to_string(),
+        "exit".to_string(),
+        "-L".to_string(),
+        format!("{}:{}", forward.local_socket.display(), forward.remote_addr),
+        target.to_string(),
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,5 +336,105 @@ mod tests {
         assert!(validate_remote_segment("a`b").is_err());
         assert!(validate_remote_segment("a$(b)").is_err());
         assert!(validate_remote_segment("a${b}").is_err());
+    }
+
+    #[test]
+    fn ssh_forward_tunnel_argv_builds_expected_with_identity() {
+        use std::path::Path;
+        use std::path::PathBuf;
+        let forward = SshForwardSpec {
+            local_socket: PathBuf::from("/run/cynic/kernel.sock"),
+            remote_addr: "10.10.10.103:8000".to_string(),
+        };
+        let argv = ssh_forward_tunnel_argv(
+            "root@10.10.10.103",
+            Some(Path::new("/tmp/test-key")),
+            &forward,
+        )
+        .expect("valid");
+        assert_eq!(
+            argv,
+            vec![
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ServerAliveInterval=10",
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "-o",
+                "ControlMaster=no",
+                "-i",
+                "/tmp/test-key",
+                "-L",
+                "/run/cynic/kernel.sock:10.10.10.103:8000",
+                "root@10.10.10.103",
+                "-N",
+                "-f",
+                "-o",
+                "LogLevel=ERROR",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn ssh_forward_tunnel_argv_builds_expected_without_identity() {
+        use std::path::PathBuf;
+        let forward = SshForwardSpec {
+            local_socket: PathBuf::from("/run/cynic/kernel.sock"),
+            remote_addr: "10.10.10.103:8000".to_string(),
+        };
+        let argv = ssh_forward_tunnel_argv("root@10.10.10.103", None, &forward).expect("valid");
+        assert!(!argv.contains(&"-i".to_string()));
+        assert_eq!(argv[argv.len() - 4], "-N");
+    }
+
+    #[test]
+    fn ssh_forward_tunnel_argv_rejects_bad_target() {
+        use std::path::PathBuf;
+        let forward = SshForwardSpec {
+            local_socket: PathBuf::from("/run/cynic/kernel.sock"),
+            remote_addr: "10.10.10.103:8000".to_string(),
+        };
+        assert!(ssh_forward_tunnel_argv("host; rm -rf /", None, &forward).is_err());
+    }
+
+    #[test]
+    fn ssh_control_exit_argv_builds_expected() {
+        use std::path::PathBuf;
+        let forward = SshForwardSpec {
+            local_socket: PathBuf::from("/run/cynic/kernel.sock"),
+            remote_addr: "10.10.10.103:8000".to_string(),
+        };
+        let argv = ssh_control_exit_argv("root@10.10.10.103", &forward).expect("valid");
+        assert_eq!(
+            argv,
+            vec![
+                "ssh",
+                "-O",
+                "exit",
+                "-L",
+                "/run/cynic/kernel.sock:10.10.10.103:8000",
+                "root@10.10.10.103",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn ssh_control_exit_argv_rejects_bad_target() {
+        use std::path::PathBuf;
+        let forward = SshForwardSpec {
+            local_socket: PathBuf::from("/run/cynic/kernel.sock"),
+            remote_addr: "10.10.10.103:8000".to_string(),
+        };
+        assert!(ssh_control_exit_argv("host name", &forward).is_err());
     }
 }
