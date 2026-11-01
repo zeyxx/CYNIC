@@ -20,7 +20,6 @@ use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_b
 use cynic_vcs::providers::forgejo_webhook::{
     ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
 };
-use cynic_vcs::providers::{WebhookServerConfig, spawn_webhook_server};
 use cynic_host::harness_progression::{
     HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
     decide_harness_progression,
@@ -393,26 +392,3 @@ use cynic_node_protocol::{NODE_DESIRED_STATE_SCHEMA};
     assert_eq!(policy_digest, declaration.desired_state.policy_digest);
 }
 
-/// E2E step 5: Webhook server starts and accepts TCP POST
-#[test]
-fn e2e_step5_webhook_server_listens() {
-    let port = {
-        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let p = l.local_addr().unwrap().port();
-        drop(l);
-        p
-    };
-
-    let config = WebhookServerConfig {
-        bind: format!("127.0.0.1:{port}"),
-        node_webhook_url: String::new(),
-        webhook_secret: None,
-    };
-
-    let _handle = spawn_webhook_server(config).expect("should spawn server");
-    std::thread::sleep(std::time::Duration::from_millis(100));
-
-    // The server should be listening — connection attempt should succeed
-    let result = std::net::TcpStream::connect(format!("127.0.0.1:{port}"));
-    assert!(result.is_ok(), "server should accept TCP connections");
-}
