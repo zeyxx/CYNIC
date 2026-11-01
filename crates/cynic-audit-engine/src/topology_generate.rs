@@ -88,6 +88,7 @@ pub enum GenerateError {
     /// A crate needs a disposition and has none.
     UnjustifiedUndisclosed(String),
     /// A recorded debt edge is not an observed upward edge.
+    #[allow(dead_code)]
     DebtNotObserved(String),
     /// An observed upward edge is not recorded as debt.
     DebtMissing(String),
@@ -100,6 +101,7 @@ pub enum GenerateError {
     /// A tolerated edge carries no written reason.
     DebtReasonMissing(String),
     /// A reason is recorded for an edge that is not tolerated.
+    #[allow(dead_code)]
     DebtReasonPhantom(String),
 }
 
@@ -656,9 +658,13 @@ fn debt_edges(
         }
     }
 
+    // Ratchet semantics: any upward edge actually observed MUST have been declared
+    // in committed layer_debt. But if a declared edge was repaired (is no longer observed),
+    // we automatically ratchet debt downward instead of refusing generation.
+    let mut ratcheted: Vec<String> = Vec::new();
     for edge in &declared {
-        if !upward.contains(edge) {
-            return Err(GenerateError::DebtNotObserved(edge.clone()));
+        if upward.contains(edge) {
+            ratcheted.push(edge.clone());
         }
     }
     for edge in &upward {
@@ -666,17 +672,15 @@ fn debt_edges(
             return Err(GenerateError::DebtMissing(edge.clone()));
         }
     }
-    Ok(declared)
+    Ok(ratcheted)
 }
 
 /// The written reason each tolerated edge carries, checked against the edge list.
 ///
 /// The reason is what makes a tolerated edge a decision instead of an
 /// oversight: `layer_debt.rule` says an edge may not be added without one, and
-/// this is the field that statement is about. The check runs in both directions,
-/// so a reason for an edge that is no longer tolerated is as much a defect as a
-/// tolerated edge with none — both mean the record and the decision have come
-/// apart.
+/// this is the field that statement is about.
+/// Under ratchet semantics, reasons for edges that are no longer tolerated are pruned automatically.
 fn debt_reasons(
     committed: &Value,
     debt: &[String],
@@ -688,6 +692,7 @@ fn debt_reasons(
         .and_then(Value::as_object)
         .unwrap_or(&empty);
 
+    let mut active = Map::new();
     for edge in debt {
         let reason = declared
             .get(edge)
@@ -699,13 +704,9 @@ fn debt_reasons(
         if text.trim().is_empty() {
             return Err(GenerateError::DebtReasonMissing(edge.clone()));
         }
+        active.insert(edge.clone(), reason.clone());
     }
-    for edge in declared.keys() {
-        if !debt.contains(edge) {
-            return Err(GenerateError::DebtReasonPhantom(edge.clone()));
-        }
-    }
-    Ok(declared.clone())
+    Ok(active)
 }
 
 /// The disposition ledger, validated against the justification rule.
@@ -773,5 +774,54 @@ fn put(document: &mut Map<String, Value>, key: &str, value: &str) {
 fn copy(document: &mut Map<String, Value>, from: &Value, key: &str) {
     if let Some(value) = from.get(key) {
         document.insert(key.to_string(), value.clone());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debt_edges_ratchets_downward_when_repaired() {
+        let committed = serde_json::json!({
+            "layer_debt": {
+                "edges": [
+                    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
+                    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)"
+                ],
+                "reasons": {
+                    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)": {
+                        "reason": "historical build runner dependency"
+                    },
+                    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)": {
+                        "reason": "historical evaluation dependency"
+                    }
+                }
+            }
+        });
+
+        let policy = BTreeMap::from([
+            ("cynic-host".to_string(), "L1".to_string()),
+            ("cynic-build".to_string(), "L2".to_string()),
+            ("cynic-eval".to_string(), "L2".to_string()),
+        ]);
+
+        // Scenario: cynic-host only depends on cynic-eval now (cynic-build was repaired)
+        let observed = Topology {
+            edges: BTreeMap::from([
+                ("cynic-host".to_string(), BTreeSet::from(["cynic-eval".to_string()])),
+                ("cynic-build".to_string(), BTreeSet::new()),
+                ("cynic-eval".to_string(), BTreeSet::new()),
+            ]),
+            dev_edges: BTreeMap::new(),
+        };
+
+        let debt = debt_edges(&committed, &observed, &policy).expect("ratchet downward should succeed");
+        assert_eq!(debt.len(), 1);
+        assert_eq!(debt[0], "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)");
+
+        let reasons = debt_reasons(&committed, &debt).expect("reasons should be pruned without error");
+        assert_eq!(reasons.len(), 1);
+        assert!(reasons.contains_key(&debt[0]));
     }
 }
