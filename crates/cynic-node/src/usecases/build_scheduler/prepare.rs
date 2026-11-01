@@ -30,6 +30,7 @@ use crate::{
 };
 
 use super::source_prepare::prepare_build_source;
+use cynic_types::paths::CynicPaths;
 
 pub(super) struct PreparedBuild {
     pub durable: DurableAgentWorkloadRecord,
@@ -229,7 +230,11 @@ pub(super) fn build_execution_env(
     if let Some(root) = scheduler.shared_target_root.as_ref() {
         // Per-checkout cargo cache: same-SHA rebuilds reuse their own warm
         // dir; two SHAs never share one fingerprint space (E0432 class).
-        let target_dir = shared_target_dir_for(root, argv, workspace_root);
+        let target_dir = CynicPaths::scoped_build_target_dir(
+            Some(root),
+            workspace_root,
+            profile_for_argv(argv),
+        );
         env.insert(
             "CARGO_TARGET_DIR".into(),
             target_dir.to_string_lossy().into_owned(),
@@ -265,37 +270,6 @@ pub(crate) fn profile_for_argv(argv: &[String]) -> &'static str {
     } else {
         "debug"
     }
-}
-
-/// Resolve the per-checkout cargo target directory for a build:
-/// `<root>/<profile>/<checkout>` with `release` when `--release` is in
-/// argv, `debug` otherwise. Pure. Same checkout ⇒ same path, so warm
-/// reuse survives across same-SHA rebuilds; different checkouts never
-/// share one fingerprint space.
-fn shared_target_dir_for(
-    root: &std::path::Path,
-    argv: &[String],
-    workspace_root: &std::path::Path,
-) -> std::path::PathBuf {
-    let profile_root = root.join(profile_for_argv(argv));
-    let checkout_name = workspace_root
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("");
-    cynic_protocol::remote_cache_roots::scoped_target_dir(
-        &profile_root.to_string_lossy(),
-        checkout_name,
-    )
-    .map(std::path::PathBuf::from)
-    .unwrap_or(profile_root)
-}
-
-/// Resolve the stable build workspace path for a profile:
-/// `<root>/<profile>`. Pure: the same profile always maps to the same path,
-/// so absolute-path fingerprints embedded in build artifacts survive across
-/// builds.
-fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::PathBuf {
-    root.join(profile)
 }
 
 /// Prepare the stable workspace path for a build: ensure the parent
@@ -392,7 +366,7 @@ fn apply_stable_workspace(
         Some(root) => root,
     };
     validate_stable_workspace_root(root, &layout.repository_root)?;
-    let workspace_root = stable_workspace_for(root, profile_for_argv(argv));
+    let workspace_root = CynicPaths::build_workspace_dir(root, profile_for_argv(argv));
     prepare_stable_workspace(&workspace_root)?;
     layout.workspace_root = workspace_root;
     // Recompute the evidence digest so it describes the actual workspace
@@ -455,7 +429,9 @@ fn sandbox_mode_for(
     let target_dir = scheduler
         .shared_target_root
         .as_ref()
-        .map(|root| shared_target_dir_for(root, argv, workspace_root));
+        .map(|root| {
+            CynicPaths::scoped_build_target_dir(Some(root), workspace_root, profile_for_argv(argv))
+        });
     let mut spec =
         CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
             .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
@@ -645,11 +621,11 @@ mod tests {
         ];
         let debug_argv = vec!["cargo".to_string(), "build".to_string()];
         assert_eq!(
-            shared_target_dir_for(root, &release_argv, checkout),
+            CynicPaths::scoped_build_target_dir(Some(root), checkout, profile_for_argv(&release_argv)),
             PathBuf::from("/var/lib/cynic/build-targets/release/cynic-0123456789ab")
         );
         assert_eq!(
-            shared_target_dir_for(root, &debug_argv, checkout),
+            CynicPaths::scoped_build_target_dir(Some(root), checkout, profile_for_argv(&debug_argv)),
             PathBuf::from("/var/lib/cynic/build-targets/debug/cynic-0123456789ab")
         );
     }
@@ -926,21 +902,21 @@ mod tests {
     fn stable_workspace_reuses_profile_dir() {
         let root = std::path::Path::new("/var/lib/cynic/build-workspaces");
         assert_eq!(
-            stable_workspace_for(root, "debug"),
-            stable_workspace_for(root, "debug"),
+            CynicPaths::build_workspace_dir(root, "debug"),
+            CynicPaths::build_workspace_dir(root, "debug"),
             "the same profile must map to the same stable workspace path"
         );
         assert_eq!(
-            stable_workspace_for(root, "debug"),
+            CynicPaths::build_workspace_dir(root, "debug"),
             PathBuf::from("/var/lib/cynic/build-workspaces/debug")
         );
         assert_eq!(
-            stable_workspace_for(root, "release"),
+            CynicPaths::build_workspace_dir(root, "release"),
             PathBuf::from("/var/lib/cynic/build-workspaces/release")
         );
         assert_ne!(
-            stable_workspace_for(root, "debug"),
-            stable_workspace_for(root, "release"),
+            CynicPaths::build_workspace_dir(root, "debug"),
+            CynicPaths::build_workspace_dir(root, "release"),
             "different profiles must not share a workspace path"
         );
     }

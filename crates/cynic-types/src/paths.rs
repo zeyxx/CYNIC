@@ -239,4 +239,129 @@ impl CynicPaths {
     pub fn is_under_system_root(path: &Path) -> bool {
         path.starts_with(Self::DEFAULT_SYSTEM_ROOT)
     }
+
+    /// Canonical root for shared build targets: `<state_root>/build-targets`.
+    pub fn build_targets_root(state_root: &Path) -> PathBuf {
+        state_root.join("build-targets")
+    }
+
+    /// Canonical root for shared build workspaces: `<state_root>/build-workspaces`.
+    pub fn build_workspaces_root(state_root: &Path) -> PathBuf {
+        state_root.join("build-workspaces")
+    }
+
+    /// Canonical artifacts directory: `<state_root>/artifacts`.
+    pub fn build_artifacts_dir(state_root: &Path) -> PathBuf {
+        state_root.join("artifacts")
+    }
+
+    /// Canonical evidence directory: `<state_root>/evidence`.
+    pub fn build_evidence_dir(state_root: &Path) -> PathBuf {
+        state_root.join("evidence")
+    }
+
+    /// Canonical per-profile build workspace: `<workspaces_root>/<profile>`.
+    pub fn build_workspace_dir(workspaces_root: &Path, profile: &str) -> PathBuf {
+        workspaces_root.join(profile)
+    }
+
+    /// Scoped build target directory for a checkout.
+    ///
+    /// When `shared_root` is `Some(root)`: `<root>/<profile>/<checkout_name>`,
+    /// where `checkout_name` is the final path component of `workspace_root`.
+    /// A hostile/empty/invalid checkout name falls back to `<root>/<profile>`.
+    /// When `shared_root` is `None`: `<workspace_root>/target`.
+    pub fn scoped_build_target_dir(
+        shared_root: Option<&Path>,
+        workspace_root: &Path,
+        profile: &str,
+    ) -> PathBuf {
+        match shared_root {
+            Some(root) => {
+                let profile_root = root.join(profile);
+                let checkout_name = workspace_root
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                let name = checkout_name.trim();
+                if name.is_empty()
+                    || name == "."
+                    || name == ".."
+                    || name.contains('/')
+                    || name.contains('\\')
+                    || name.contains('\0')
+                {
+                    profile_root
+                } else {
+                    profile_root.join(name)
+                }
+            }
+            None => workspace_root.join("target"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn build_targets_root_joins() {
+        let root = PathBuf::from("/var/lib/cynic");
+        assert_eq!(CynicPaths::build_targets_root(&root), root.join("build-targets"));
+    }
+
+    #[test]
+    fn build_workspaces_root_joins() {
+        let root = PathBuf::from("/var/lib/cynic");
+        assert_eq!(CynicPaths::build_workspaces_root(&root), root.join("build-workspaces"));
+    }
+
+    #[test]
+    fn build_artifacts_dir_joins() {
+        let root = PathBuf::from("/var/lib/cynic");
+        assert_eq!(CynicPaths::build_artifacts_dir(&root), root.join("artifacts"));
+    }
+
+    #[test]
+    fn build_evidence_dir_joins() {
+        let root = PathBuf::from("/var/lib/cynic");
+        assert_eq!(CynicPaths::build_evidence_dir(&root), root.join("evidence"));
+    }
+
+    #[test]
+    fn build_workspace_dir_joins_profile() {
+        let root = PathBuf::from("/var/lib/cynic/build-workspaces");
+        assert_eq!(CynicPaths::build_workspace_dir(&root, "debug"), root.join("debug"));
+    }
+
+    #[test]
+    fn scoped_build_target_dir_shared() {
+        let shared = PathBuf::from("/var/lib/cynic/build-targets");
+        let ws = PathBuf::from("/var/lib/cynic/checkouts/cynic-0123456789ab");
+        assert_eq!(
+            CynicPaths::scoped_build_target_dir(Some(&shared), &ws, "debug"),
+            shared.join("debug").join("cynic-0123456789ab")
+        );
+    }
+
+    #[test]
+    fn scoped_build_target_dir_none() {
+        let ws = PathBuf::from("/var/lib/cynic/checkouts/cynic-0123456789ab");
+        assert_eq!(
+            CynicPaths::scoped_build_target_dir(None, &ws, "debug"),
+            ws.join("target")
+        );
+    }
+
+    #[test]
+    fn scoped_build_target_dir_fallback_hostile() {
+        let shared = PathBuf::from("/var/lib/cynic/build-targets");
+        let ws = PathBuf::from("/");
+        assert_eq!(
+            CynicPaths::scoped_build_target_dir(Some(&shared), &ws, "debug"),
+            shared.join("debug")
+        );
+    }
 }
