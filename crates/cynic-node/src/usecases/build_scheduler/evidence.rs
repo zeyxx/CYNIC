@@ -18,6 +18,7 @@ pub(super) fn persist_success_proofs(
     observed_at_ms: u64,
     provenance: &[String],
     store: &dyn ContentAddressedEvidenceStorePort,
+    artifacts_dir: &Path,
 ) -> Result<Vec<AgentEvidenceRef>, String> {
     let mut refs = Vec::new();
     for proof in expected_proofs {
@@ -55,7 +56,7 @@ pub(super) fn persist_success_proofs(
             "release_binary_artifact_read_back" => serde_json::json!({
                 "schema": RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
                 "source_commit": workspace.source_commit,
-                "artifacts": release_artifacts(&workspace.workspace_root)?,
+                "artifacts": release_artifacts(&workspace.workspace_root, artifacts_dir)?,
             }),
             unsupported => return Err(format!("build_proof_kind_unsupported:{unsupported}")),
         };
@@ -161,8 +162,9 @@ pub(super) fn persist_execution_provenance(
     })
 }
 
-fn release_artifacts(workspace: &Path) -> Result<BTreeMap<String, String>, String> {
+fn release_artifacts(workspace: &Path, artifacts_dir: &Path) -> Result<BTreeMap<String, String>, String> {
     let mut artifacts = BTreeMap::new();
+    fs::create_dir_all(artifacts_dir).map_err(|_| "release_artifact_dir_uncreatable".to_string())?;
     for name in cynic_protocol::runtime_release_artifact_names()
         .map_err(|error| format!("release_runtime_basket_invalid:{error}"))?
     {
@@ -173,10 +175,15 @@ fn release_artifacts(workspace: &Path) -> Result<BTreeMap<String, String>, Strin
             return Err(format!("release_artifact_rejected:{name}"));
         }
         let bytes = fs::read(&path).map_err(|_| format!("release_artifact_unreadable:{name}"))?;
-        artifacts.insert(
-            name,
-            format!("sha256:{}", hex::encode(Sha256::digest(bytes))),
-        );
+        let sha = hex::encode(Sha256::digest(&bytes));
+        let digest = format!("sha256:{sha}");
+        // Persist the compiled binary under state_root/artifacts/<hex> so the
+        // builder HTTP server's GET /artifacts/{digest} can serve it by its
+        // content digest (hex only, no `sha256:` prefix).
+        let hex = sha;
+        fs::write(artifacts_dir.join(&hex), &bytes)
+            .map_err(|_| format!("release_artifact_persist_failed:{name}"))?;
+        artifacts.insert(name, digest);
     }
     Ok(artifacts)
 }
@@ -219,6 +226,7 @@ mod tests {
             1,
             &["grant:file".to_string()],
             &store,
+            std::path::Path::new("/tmp/artifacts"),
         )
         .expect("grant read-back proof must be supported");
         assert_eq!(refs.len(), 1);
