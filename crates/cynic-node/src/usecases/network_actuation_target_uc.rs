@@ -9,12 +9,13 @@ use std::path::Path;
 use std::time::Duration;
 
 use cynic_host::execution::command_to_argv;
-use cynic_host::network_actuation::gate_network_actuation_harness;
 use cynic_network::actuator::{
     NetworkActuationProofReport, NetworkActuationRequest, execute_network_actuation_with_readback,
     gate_network_actuation_request,
 };
-use cynic_host::runtime_harness::{RuntimeHarnessContext, RuntimeHarnessTargetAttestation};
+use cynic_host::runtime_harness::{
+    RuntimeHarnessContext, RuntimeHarnessTargetAttestation, validate_runtime_harness_target_attestation,
+};
 use cynic_host::runtime_harness::runtime_harness_catalog;
 use cynic_process::ArgvRunner;
 use cynic_process::LocalArgvRunner;
@@ -43,11 +44,17 @@ pub fn execute_qemu_network_actuation<R: ArgvRunner + Send + Sync>(
     config: QemuNetworkActuationConfig,
 ) -> Result<NetworkActuationProofReport, String> {
     let mut blockers = gate_network_actuation_request(request);
-    blockers.extend(gate_network_actuation_harness(
-        &request.plan,
-        &context,
-        &attestation,
-    ));
+    let mut target_blockers = validate_runtime_harness_target_attestation(&context, &attestation)
+        .into_iter()
+        .map(|violation| violation.code.to_string())
+        .collect::<Vec<_>>();
+    if attestation.target_id != request.plan.target {
+        target_blockers.push("harness_target_plan_mismatch".to_string());
+    }
+    if context.mutates_host_network {
+        target_blockers.push("harness_may_mutate_operator_host_network".to_string());
+    }
+    blockers.extend(target_blockers);
 
     let mut allowed_argv = request
         .plan

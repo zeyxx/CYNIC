@@ -6,7 +6,7 @@ use cynic_protocol::{ExecutionAuthorization, PolicyAuthority, RequiredProof};
 use crate::execution::{HostCommandExecution, stderr_with_spawn_error};
 use crate::host_exec_cli::args::flag_value;
 use crate::host_exec_cli::io::emit_json;
-use crate::network_actuation::{
+use cynic_network::actuator::{
     NETWORK_ACTUATION_REQUEST_SCHEMA, NetworkActuationExecutor, NetworkActuationObservation,
     NetworkActuationObserver, NetworkActuationPlan, NetworkActuationRequest,
     NetworkActuationRuntime, admit_network_actuation_plan, build_network_actuation_commands,
@@ -52,7 +52,7 @@ fn execute_with_runner(
     let policy_allows = allowed.is_some();
     let observation_output = runner.run(&[node_bin, "network", "actuation", "observation", "--json"]);
     let mut observation = if observation_output.success() {
-        serde_json::from_str::<crate::network_actuation::NetworkActuationObservation>(
+        serde_json::from_str::<cynic_network::actuator::NetworkActuationObservation>(
             observation_output.stdout.trim(),
         )
         .ok()
@@ -280,7 +280,7 @@ impl<'a> NetworkActuationObserver for NetworkActuationObserverLocal<'a> {
 }
 
 fn project_direct_management_target_from_registry(
-    observation: &mut crate::network_actuation::NetworkActuationObservation,
+    observation: &mut cynic_network::actuator::NetworkActuationObservation,
     local_link: Option<&ObservedManagementLink>,
     registry_path: Option<&str>,
 ) -> Result<ResolvedHostIdentity, String> {
@@ -355,7 +355,7 @@ fn observe_local_management_link(
 }
 
 fn apply_direct_management_projection(
-    observation: &mut crate::network_actuation::NetworkActuationObservation,
+    observation: &mut cynic_network::actuator::NetworkActuationObservation,
     resolved: &ResolvedDirectManagementLink,
 ) {
     observation.target.management_interface = Some(resolved.interface.clone());
@@ -367,7 +367,7 @@ fn apply_direct_management_projection(
 #[cfg(test)]
 mod tests {
     use super::{execute_with_runner, project_direct_management_target_from_registry};
-    use crate::network_actuation::NetworkActuationObservation;
+    use cynic_network::actuator::NetworkActuationObservation;
     use cynic_process::{ArgvOutput, MapArgvRunner};
     use std::fs;
 
@@ -447,7 +447,7 @@ mod tests {
             synapse_route_active: false,
             wireguard_active: false,
             management_link_active: false,
-            target: crate::network_actuation::NetworkActuationTarget {
+            target: cynic_network::actuator::NetworkActuationTarget {
                 provider_fallback_cidr: "192.168.100.0/24".to_string(),
                 provider_fallback_gateway: Some("192.168.100.1".to_string()),
                 service_cidr: "10.10.10.0/24".to_string(),
@@ -503,7 +503,7 @@ mod tests {
             synapse_route_active: false,
             wireguard_active: false,
             management_link_active: false,
-            target: crate::network_actuation::NetworkActuationTarget {
+            target: cynic_network::actuator::NetworkActuationTarget {
                 provider_fallback_cidr: "192.168.100.0/24".to_string(),
                 provider_fallback_gateway: Some("192.168.100.1".to_string()),
                 service_cidr: "10.10.10.0/24".to_string(),
@@ -560,7 +560,7 @@ mod tests {
             synapse_route_active: false,
             wireguard_active: false,
             management_link_active: false,
-            target: crate::network_actuation::NetworkActuationTarget {
+            target: cynic_network::actuator::NetworkActuationTarget {
                 provider_fallback_cidr: "192.168.100.0/24".to_string(),
                 provider_fallback_gateway: Some("192.168.100.1".to_string()),
                 service_cidr: "10.10.10.0/24".to_string(),
