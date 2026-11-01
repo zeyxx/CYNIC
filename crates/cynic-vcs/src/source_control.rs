@@ -7,8 +7,7 @@ use cynic_process::{ArgvOutput, ArgvRunner};
 use cynic_protocol::{LeaseGuard, SecurityEvidenceState};
 use serde::{Deserialize, Serialize};
 
-pub const SOURCE_ADMISSION_REPORT_SCHEMA: &str = "cynic.source.admission.v1";
-pub const SOURCE_CHANGE_PROPOSAL_SCHEMA: &str = "cynic.source.change_proposal.v1";
+pub use cynic_protocol::source_control::{SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

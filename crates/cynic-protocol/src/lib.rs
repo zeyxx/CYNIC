@@ -118,6 +118,7 @@ pub mod task_admission;
 pub mod task_pipeline;
 pub mod tasks;
 pub mod temporal;
+pub mod toolchain;
 pub mod transport_security;
 pub mod vcs;
 pub mod vocabulary;

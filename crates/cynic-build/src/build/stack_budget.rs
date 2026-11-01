@@ -37,38 +37,9 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_MIN_STACK: u64 = 268_435_456; // 256 MiB
 
 /// The registry seed (`infra/rust-toolchain.json`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ToolchainRegistry {
-    #[serde(default)]
-    pub crates: std::collections::BTreeMap<String, ToolchainEntry>,
-}
+pub use cynic_protocol::toolchain::{ToolchainEntry, ToolchainRegistry};
 
-/// One crate's toolchain facts.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ToolchainEntry {
-    #[serde(default)]
-    pub toolchain: Option<String>,
-    /// The stack this crate's build was measured to need, as a decimal
-    /// string (the registry stores bytes as a string).
-    #[serde(default)]
-    pub min_stack: Option<String>,
-}
-
-impl ToolchainRegistry {
-    pub fn parse(json_str: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(json_str)
-    }
-
-    /// The stack a crate needs, or the workspace default when the registry
-    /// says nothing about it.
-    pub fn min_stack_for(&self, crate_name: &str) -> u64 {
-        self.crates
-            .get(crate_name)
-            .and_then(|entry| entry.min_stack.as_deref())
-            .and_then(|value| value.trim().parse::<u64>().ok())
-            .unwrap_or(DEFAULT_MIN_STACK)
-    }
-}
+// Methods (parse, min_stack_for) are provided by cynic_protocol::toolchain::ToolchainRegistry.
 
 /// The stack to reserve for a build touching these crates.
 ///
