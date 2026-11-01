@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use cynic_protocol::argv_allow::canonical_build_actions;
+pub use cynic_protocol::build::*;
 
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
@@ -69,7 +70,6 @@ pub use workload_grant::{
 pub const BUILD_INPUT_ADMISSION_SCHEMA: &str = "cynic.build.input_admission.v1";
 pub const BUILD_RUNNER_ENVELOPE_SCHEMA: &str = "cynic.build.runner_envelope.v1";
 pub const BUILD_RUNNER_ADMISSION_SCHEMA: &str = "cynic.build.runner_admission.v1";
-pub const BUILD_RUNNER_OBSERVATION_SCHEMA: &str = "cynic.runtime.node_observation.v1";
 pub const BUILD_BOOTSTRAP_GRANT_SCHEMA: &str = "cynic.build.bootstrap_grant.v1";
 /// Proof requirement name a build workload must satisfy: the grant must be read
 /// back after admission, not assumed from a successful submission.
@@ -106,22 +106,8 @@ pub struct BuildRunnerEnvelope {
     pub evidence_refs: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RuntimeNodeObservation {
-    pub schema: String,
-    pub status: String,
-    pub node_id: String,
-    pub hostname: String,
-    pub declared_role: Option<String>,
-    pub identity_match: SecurityEvidenceState,
-    pub observed_at_unix_ms: u64,
-    pub registry_path: String,
-    pub evidence: serde_json::Value,
-    #[serde(default)]
-    pub evidence_refs: Vec<String>,
-}
-
-pub type BuildRunnerObservation = RuntimeNodeObservation;
+pub use cynic_protocol::build::RuntimeNodeObservation;
+pub use cynic_protocol::build::BuildRunnerObservation;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildRunnerAdmission {
