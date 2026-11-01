@@ -103,6 +103,18 @@
       "terms": "dog, Dog, organ"
     },
     {
+      "count": 13,
+      "evidence": "crates/cynic-protocol/src/dog_health.rs:1",
+      "path": "crates/cynic-protocol/src/dog_health.rs",
+      "terms": "dog, Dog, organ"
+    },
+    {
+      "count": 2,
+      "evidence": "crates/cynic-protocol/src/lib.rs:1",
+      "path": "crates/cynic-protocol/src/lib.rs",
+      "terms": "dog, Dog"
+    },
+    {
       "count": 8,
       "evidence": "crates/cynic-eval/src/eval/mod.rs:1",
       "path": "crates/cynic-eval/src/eval/mod.rs",
