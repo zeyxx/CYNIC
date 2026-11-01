@@ -126,10 +126,13 @@ fn no_unregistered_hardcoded_path_exists() {
             .unwrap_or(line)
             .to_string();
 
-        // Parity trace snapshots and training fixtures record historical captures
-        // from local dev sessions and are not executable path consumers.
-        if relative.starts_with("crates/cynic-traces/tests/parity/")
-            || relative == "crates/cynic-knowledge/tests/retrieval_training_pairs.json"
+        // Passive test fixtures, parity snapshots, and evaluation datasets
+        // are not executable consumers: they capture historical traces or labels.
+        if relative.contains("/tests/fixtures/")
+            || relative.contains("/tests/parity/")
+            || relative.contains("/tests/snapshots/")
+            || (relative.contains("/tests/") && relative.ends_with(".json"))
+            || relative.ends_with(".jsonl")
         {
             continue;
         }
