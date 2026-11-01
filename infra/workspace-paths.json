@@ -21,14 +21,14 @@
   ],
   "consumers": [
     {
-      "site": "crates/cynic-protocol/src/agent_host_sandbox.rs:655",
-      "form": "\"<canonical_path>/worktree-1\".to_string()",
-      "file": "crates/cynic-protocol/src/agent_host_sandbox.rs"
-    },
-    {
       "site": "docs/specs/checklist.md:216",
       "form": "<canonical_path>",
       "file": "docs/specs/checklist.md"
+    },
+    {
+      "site": "apps/cynic-data/docs/HERMES_CYNIC_BRIDGE_SPEC.md:271",
+      "form": "<canonical_path>",
+      "file": "apps/cynic-data/docs/HERMES_CYNIC_BRIDGE_SPEC.md"
     }
   ],
   "external_projects": {
