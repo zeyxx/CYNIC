@@ -1,7 +1,6 @@
 pub mod agent_session;
 pub mod metrics;
 pub mod bootstrap;
-pub mod branch_graph;
 pub mod build_artefact;
 pub mod build_discovery;
 pub mod cpu;
