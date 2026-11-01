@@ -7,6 +7,8 @@
     "allowed_directories": [
       ".cargo",
       ".codex",
+      ".cynic",
+      ".forgejo",
       ".github",
       "apps",
       "contracts",
@@ -14,6 +16,8 @@
       "docs",
       "infra",
       "programs",
+      "scripts",
+      "services",
       "tests"
     ],
     "allowed_files": [
@@ -23,6 +27,7 @@
       ".gitleaks.toml",
       ".mcp.json",
       "AGENTS.md",
+      "BUILDER_TOOLCHAIN_PROVISIONING.md",
       "CONTRIBUTING.md",
       "Cargo.lock",
       "Cargo.toml",
@@ -35,6 +40,7 @@
       "env.example",
       "rust-toolchain.toml",
       "rustfmt.toml",
+      "talaria_relay.json",
       "vercel.json"
     ]
   },
