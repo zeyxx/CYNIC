@@ -3,6 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use cynic_protocol::build::BUILD_RUNNER_ROLE;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     pub name: String,
@@ -20,14 +22,14 @@ pub struct Node {
 
 impl EffectiveNode {
     pub fn is_build_runner(&self) -> bool {
-        self.role == "build_runner" || self.roles.iter().any(|r| r == "build_runner")
+        self.role == BUILD_RUNNER_ROLE || self.roles.iter().any(|r| r == BUILD_RUNNER_ROLE)
     }
 }
 
 impl Node {
     /// Check if this node has the build_runner role (single or multi-role).
     pub fn is_build_runner(&self) -> bool {
-        self.role == "build_runner" || self.roles.iter().any(|r| r == "build_runner")
+        self.role == BUILD_RUNNER_ROLE || self.roles.iter().any(|r| r == BUILD_RUNNER_ROLE)
     }
 
     pub fn identities(&self) -> BTreeSet<String> {

@@ -296,6 +296,7 @@ pub fn install_artifact(
 mod tests {
     use std::path::PathBuf;
 
+    use cynic_protocol::build::BUILD_RUNNER_ROLE;
     use cynic_protocol::{LeaseGuard, SecurityEvidenceState};
 
     use super::*;
@@ -351,7 +352,7 @@ mod tests {
             runner_envelope: BuildRunnerEnvelope {
                 schema: "cynic.build.runner_envelope.v1".to_string(),
                 node_id: "builder-1".to_string(),
-                declared_role: "build_runner".to_string(),
+                declared_role: BUILD_RUNNER_ROLE.to_string(),
                 role_observation: SecurityEvidenceState::Proven,
                 source_commit: "abc123".to_string(),
                 lease: lease(),

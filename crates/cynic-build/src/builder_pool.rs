@@ -6,6 +6,7 @@
 //! return the first healthy one. Pure selection logic, I/O in adapters.
 //! NEGATIVE BOUNDARY: no SSH, no subprocess. HTTP only (builder_client).
 
+use cynic_protocol::build::BUILD_RUNNER_ROLE;
 use serde_json::Value;
 
 /// Hardware capabilities of a build runner node.
@@ -81,7 +82,7 @@ pub fn resolve_node_pool(registry: &Value, role: &str) -> Vec<BuilderEndpoint> {
 
 /// Backward-compatible alias for build_runner pool.
 pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
-    resolve_node_pool(registry, "build_runner")
+    resolve_node_pool(registry, BUILD_RUNNER_ROLE)
 }
 
 /// Resolve all node endpoints for a given role and health-check each one.
@@ -95,7 +96,7 @@ pub fn resolve_node_pool_with_health(registry: &Value, role: &str) -> Vec<Builde
 
 /// Backward-compatible alias.
 pub fn resolve_builder_pool_with_health(registry: &Value) -> Vec<BuilderEndpoint> {
-    resolve_node_pool_with_health(registry, "build_runner")
+    resolve_node_pool_with_health(registry, BUILD_RUNNER_ROLE)
 }
 
 /// HTTP health-check for a single builder endpoint.
@@ -354,7 +355,7 @@ pub fn select_by_pressure(
 /// the `/capacity` surface (old binaries) stay eligible through the
 /// legacy fallback — they never silently win against a gauge.
 pub fn resolve_builder_pool_with_capacity(registry: &serde_json::Value) -> Option<BuilderEndpoint> {
-    resolve_node_pool_with_capacity(registry, "build_runner")
+    resolve_node_pool_with_capacity(registry, BUILD_RUNNER_ROLE)
 }
 
 pub fn resolve_node_pool_with_capacity(registry: &serde_json::Value, role: &str) -> Option<BuilderEndpoint> {
@@ -400,12 +401,12 @@ pub fn resolve_ordered_ssh_runners(registry: &Value) -> Vec<SshRunnerEndpoint> {
             let has_role = node
                 .get("role")
                 .and_then(|r| r.as_str())
-                .map(|r| r == "build_runner")
+                .map(|r| r == BUILD_RUNNER_ROLE)
                 .unwrap_or(false)
                 || node
                     .get("roles")
                     .and_then(|r| r.as_array())
-                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("build_runner")))
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some(BUILD_RUNNER_ROLE)))
                     .unwrap_or(false);
             if !has_role {
                 continue;

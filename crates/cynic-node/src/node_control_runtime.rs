@@ -125,7 +125,8 @@ pub async fn start_tasks(
     let builder_activation = crate::builder_activation::decide_builder_activation(
         &crate::builder_activation::BuilderActivationInput {
             build_scheduler_configured: control.build_scheduler.is_some(),
-            role_is_build_runner: control.enrollment_role == "build_runner",
+            role_is_build_runner: control.enrollment_role
+                == cynic_protocol::build::BUILD_RUNNER_ROLE,
             enrollment_proven,
             scheduler_capabilities_proven: build_scheduler_authorized,
             signing_key_present: control.signing_key_path.is_file(),

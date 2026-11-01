@@ -27,7 +27,7 @@ use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, EvidenceEnvelope,
     MutationAdmission, SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
-use cynic_protocol::build::{BuildAction, ExecRequest, ExecResponse};
+use cynic_protocol::build::{BuildAction, ExecRequest, ExecResponse, BUILD_RUNNER_ROLE};
 use cynic_protocol::supervision::{
     DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
 };
@@ -327,7 +327,7 @@ async fn submit_workload(
             snapshot: None,
         },
         action: canonical_action.as_str().to_string(),
-        desired_role: "build_runner".into(),
+        desired_role: BUILD_RUNNER_ROLE.into(),
         mutation_authorized: true,
         proof_requirements,
         release_publication: None,
@@ -1338,7 +1338,7 @@ async fn webhook_forgejo(
     // - A held claim containing the target scope
     // - Sufficient budget
     // - Matching build role
-    let desired_role = "build_runner";
+    let desired_role = BUILD_RUNNER_ROLE;
     let citizen = AgentCitizenshipRecord {
         schema: AGENT_CITIZENSHIP_SCHEMA,
         agent_id: payload
@@ -1400,7 +1400,7 @@ async fn webhook_forgejo(
         // (`audit:crate`, the native spelling of what `make:check`
         // aliased), never an ad-hoc cargo invocation.
         action: "audit:crate".into(),
-        desired_role: "build_runner".into(),
+        desired_role: BUILD_RUNNER_ROLE.into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
         release_publication: None,
@@ -1961,7 +1961,7 @@ mod tests {
                 snapshot: None,
             },
             action: "audit:crate".to_string(),
-            desired_role: "build_runner".to_string(),
+            desired_role: BUILD_RUNNER_ROLE.to_string(),
             mutation_authorized: true,
             proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
             release_publication: None,
@@ -2085,7 +2085,7 @@ mod tests {
                 snapshot: None,
             },
             action: "audit:crate".to_string(),
-            desired_role: "build_runner".to_string(),
+            desired_role: BUILD_RUNNER_ROLE.to_string(),
             mutation_authorized: true,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             release_publication: None,
