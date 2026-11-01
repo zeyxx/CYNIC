@@ -44,7 +44,6 @@
       "consumers": [
         "cynic-cli",
         "cynic-discovery",
-        "cynic-host",
         "cynic-node"
       ],
       "depends_on": [
@@ -226,6 +225,7 @@
       "dev_depends_on": [
         "cynic-audit-engine",
         "cynic-build",
+        "cynic-intel",
         "cynic-vcs"
       ],
       "justified": true,
@@ -766,11 +766,11 @@
     "cynic-pkg",
     "cynic-vcs",
     "cynic-build",
+    "cynic-host",
     "cynic-knowledge",
     "cynic-pool",
     "cynic-sqlite",
     "cynic-eval",
-    "cynic-host",
     "cynic-discovery",
     "cynic-inference",
     "cynic-intel",
@@ -921,13 +921,13 @@
     "acyclic": true,
     "binaries": 4,
     "crates": 37,
-    "dev_edges": 5,
+    "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 397893,
     "pending_disposition": 3,
-    "runtime_edges": 159,
+    "runtime_edges": 158,
     "unjustified": 1,
-    "upward_edges": 1
+    "upward_edges": 0
   },
   "pending_disposition": {
     "cynic-market": {
