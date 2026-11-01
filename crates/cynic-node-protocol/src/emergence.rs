@@ -273,8 +273,12 @@ mod tests {
     #[test]
     fn node_role_enum_interop() {
         use cynic_protocol::node_role::NodeRole;
-        assert_eq!(NodeRole::BuildRunner.as_str(), "build_runner");
-        assert_eq!(NodeRole::EmbeddingRunner.as_str(), "embedding_runner");
-        assert_eq!(NodeRole::Hypervisor.as_str(), "hypervisor");
+        use std::str::FromStr;
+        assert_eq!(NodeRole::Compute.as_str(), "compute");
+        assert_eq!(NodeRole::Storage.as_str(), "storage");
+        assert_eq!(NodeRole::Gateway.as_str(), "gateway");
+        assert_eq!(NodeRole::Control.as_str(), "control");
+        assert_eq!(NodeRole::Workstation.as_str(), "workstation");
+        assert_eq!(NodeRole::from_str("build_runner").unwrap(), NodeRole::Compute);
     }
 }

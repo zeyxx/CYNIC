@@ -96,23 +96,16 @@
       ]
     },
     "NodeRole": {
-      "definition": "Canonical host/node capability role designating a node's declared specialization in the mesh (e.g. build_runner, embedding_runner, hypervisor, storage_primary, kernel_primary).",
+      "definition": "Canonical top-level topological role of a node in the CYNIC mesh. Follows the agnostic distributed systems standard with 5 invariant roles: compute, storage, gateway, control, workstation. Specializations are expressed via capability flags, not hardcoded software roles.",
       "canonical_values": [
-        "build_runner",
-        "embedding_runner",
-        "hypervisor",
-        "cortex_host",
-        "kernel_primary",
-        "storage_primary",
-        "workstation_portable",
-        "agent_host",
-        "relay_host",
-        "forge_primary",
-        "mesh_coordinator",
-        "ingress_edge"
+        "compute",
+        "storage",
+        "gateway",
+        "control",
+        "workstation"
       ],
       "banned_usages": [
-        "Passing raw string literals for node capability roles across domain logic, routing, and fleet models"
+        "Passing software-coupled or metaphor-based role names (cortex_host, mesh_coordinator, forge_primary, storage_primary) as canonical NodeRole values"
       ]
     }
   }

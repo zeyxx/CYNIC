@@ -21,12 +21,20 @@ pub struct Node {
 }
 
 impl EffectiveNode {
+    pub fn topological_role(&self) -> Option<cynic_protocol::node_role::NodeRole> {
+        cynic_protocol::node_role::NodeRole::parse_with_legacy_fallback(&self.role)
+    }
+
     pub fn is_build_runner(&self) -> bool {
         self.role == BUILD_RUNNER_ROLE || self.roles.iter().any(|r| r == BUILD_RUNNER_ROLE)
     }
 }
 
 impl Node {
+    pub fn topological_role(&self) -> Option<cynic_protocol::node_role::NodeRole> {
+        cynic_protocol::node_role::NodeRole::parse_with_legacy_fallback(&self.role)
+    }
+
     /// Check if this node has the build_runner role (single or multi-role).
     pub fn is_build_runner(&self) -> bool {
         self.role == BUILD_RUNNER_ROLE || self.roles.iter().any(|r| r == BUILD_RUNNER_ROLE)
