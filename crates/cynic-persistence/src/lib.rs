@@ -28,7 +28,6 @@ pub use types::{
     WalAppendInput, WalEntry, WalReceipt,
 };
 pub use wal::WalFsAdapter;
-pub use cynic_surreal::*;
 pub use client_policy::*;
 pub use credential_sync::*;
 pub use identity::*;

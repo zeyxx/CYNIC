@@ -1,13 +1,7 @@
-use cynic_persistence::identity::StorageEvidenceState;
-use cynic_persistence::identity::{StorageIdentityPlan, StorageIdentityRole};
+use cynic_persistence::identity::StorageIdentityPlan;
 use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StorageAdminObservation {
-    pub database_identity: StorageEvidenceState,
-    pub role: Option<StorageIdentityRole>,
-    pub unknowns: Vec<String>,
-}
+pub use cynic_surreal::StorageAdminObservation;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct StorageIdentityStage {
