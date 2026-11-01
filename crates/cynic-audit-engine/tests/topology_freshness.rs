@@ -58,7 +58,7 @@ fn the_committed_document_is_what_the_generator_produces() {
     panic!(
         "{} is stale: the manifests and the policy keys no longer produce it.\n\
          differences (committed -> rendered):\n{}\n\
-         regenerate with: cargo run -q -p cynic-cli --features topology_write -- audit topology --write --apply",
+         regenerate with: cargo run -q -p cynic-cli -- audit topology --write --apply",
         topology_generate::TOPOLOGY_DOC,
         diff.join("\n"),
     );

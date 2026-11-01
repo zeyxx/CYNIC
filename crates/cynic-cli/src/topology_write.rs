@@ -1,9 +1,9 @@
-//! Feature-gated topology SSOT writer for `cynic audit topology`.
+//! Topology SSOT writer for `cynic audit topology`.
 //!
-//! WHY THIS EXISTS. The default canonical CLI is a reader of the workspace
-//! topology. The SSOT generator must be able to write it. Those two roles are
-//! not the same trust boundary, so the writer is compiled in only when the
-//! `topology_write` feature is enabled.
+//! WHY THIS EXISTS. The default canonical CLI reads the workspace topology.
+//! The SSOT generator must be able to write it. Both roles ship in the same
+//! binary as a standard capability: regeneration is available without any
+//! feature flag, gated only by the explicit `--apply` flag at runtime.
 //!
 //! HOW IT WORKS. The writer calls the existing pure renderer in
 //! `cynic-audit-engine::topology_generate`, compares the rendered text with the

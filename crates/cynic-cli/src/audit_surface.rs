@@ -670,8 +670,8 @@ fn host_was_observed(root: &Path) -> bool {
 /// Read-only topology audit: ARCH-004/ARCH-005 violations plus SSOT freshness.
 ///
 /// The committed SSOT must match what the manifests and policy keys render. No
-/// file is written here; regeneration lives behind the `topology_write` feature
-/// in `topology_write::execute`.
+/// file is written here; regeneration runs through `topology_write::execute`
+/// via `cynic audit topology --write --apply` (or `--apply`).
 fn execute_topology_read(json: bool) -> ExitCode {
     let root = crate::rust_source::workspace_root();
     let engine = cynic_audit_engine::run_workspace_audit(&root);
