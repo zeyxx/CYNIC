@@ -14,15 +14,8 @@ use crate::external_build::{
     build_external_proof,
 };
 use crate::ports::BuildCommandOutput;
+use cynic_protocol::build::ExecResponse;
 use serde::Deserialize;
-
-/// Response body returned by `POST /exec` on the builder.
-#[derive(Debug, Deserialize)]
-struct ExecResponse {
-    exit_code: Option<i32>,
-    stdout: String,
-    stderr: String,
-}
 
 /// HTTP adapter: executes build/test commands on a remote builder via HTTP.
 ///
@@ -87,7 +80,7 @@ impl ExternalBuildPort for HttpExternalBuildAdapter {
     fn run_command(&self, command: &str, work_dir: &str) -> BuildCommandOutput {
         match self.post_exec(command, work_dir) {
             Ok(resp) => BuildCommandOutput {
-                exit_code: resp.exit_code,
+                exit_code: Some(resp.exit_code),
                 stdout: resp.stdout,
                 stderr: resp.stderr,
                 spawn_error: None,
