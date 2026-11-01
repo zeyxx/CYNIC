@@ -4,7 +4,9 @@ pub mod adapters;
 pub mod domain;
 pub mod ports;
 
-pub use adapters::{SurrealConfig, SurrealHttpClient};
+pub use adapters::{
+    StorageAdminObservation, SurrealConfig, SurrealHttpClient, SurrealStorageIdentityAdminAdapter,
+};
 pub use domain::{
     AgentSessionRecord, AgentSessionStatus, EpistemicFactRecord, EpistemicStatus, SurrealQuery,
     SurrealQueryResult, TopologicalContext, parse_and_validate_results,

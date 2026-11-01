@@ -10,11 +10,13 @@ description = "L1 SurrealDB domain: pure domain logic, ports, and HTTP adapter f
 publish = false
 
 [dependencies]
+cynic-persistence = { path = "../cynic-persistence" }
 cynic-secrets = { path = "../cynic-secrets" }
 reqwest = { workspace = true, features = ["rustls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror.workspace = true
+zeroize.workspace = true
 
 [lints]
 workspace = true
