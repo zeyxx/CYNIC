@@ -135,7 +135,7 @@ mod tests {
         let spec = spec_with(Some(ArtifactPublicationTarget {
             node: "synapse".to_string(),
             endpoint: String::new(),
-            protocol: "http_put".to_string(),
+            protocol: TransportProtocol::HttpPut,
         }));
         let req =
             publication_request_for(&spec, "proof123", "https://pve:8006", "ssh").expect("request");
@@ -154,7 +154,7 @@ mod tests {
         let spec = spec_with(Some(ArtifactPublicationTarget {
             node: "synapse".to_string(),
             endpoint: "cynic@10.10.10.119".to_string(),
-            protocol: "ssh".to_string(),
+            protocol: TransportProtocol::Ssh,
         }));
         let req = publication_request_for(&spec, "proof", "https://pve:8006", "fallback")
             .expect("request");
@@ -168,7 +168,7 @@ mod tests {
         let spec = spec_with(Some(ArtifactPublicationTarget {
             node: "synapse".to_string(),
             endpoint: String::new(),
-            protocol: "http_put".to_string(),
+            protocol: TransportProtocol::HttpPut,
         }));
         let stub = StubPublisher {
             result: Err(PublishError::Transport("boom".to_string())),
