@@ -368,7 +368,7 @@ mod tests {
                     "cynic": format!("sha256:{}", "1".repeat(64)),
                     "cynic-node": format!("sha256:{}", "2".repeat(64)),
                     "cynic-mcp": format!("sha256:{}", "4".repeat(64)),
-                    "cynic-lxc-exec-bridge": format!("sha256:{}", "5".repeat(64)),
+                    "cynic-host-exec": format!("sha256:{}", "5".repeat(64)),
                 }
             }),
         )
