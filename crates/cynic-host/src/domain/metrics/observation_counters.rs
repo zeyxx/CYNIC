@@ -29,8 +29,6 @@ pub struct ObservationCounters {
     pub verdicts: u64,
     /// Total verdicts served to clients (K15 consumption opportunity).
     pub verdicts_served: u64,
-    /// Total crystal observations recorded.
-    pub crystal_observations: u64,
 
     // ── Derived ratios (the organism's vital signs) ──
     /// Fraction of accepted observations that have been digested (digested / ingested).
@@ -40,9 +38,6 @@ pub struct ObservationCounters {
     /// This measures consumption opportunity, not observation digestion.
     /// `None` means no verdict has been issued yet.
     pub verdict_consumption_ratio: Option<f64>,
-    /// Fraction of verdicts that produced crystals (crystal_obs / verdicts).
-    /// Healthy: > 0.01. Low: < 0.005.
-    pub crystallization_rate: f64,
     /// Fraction of observations dropped (dropped / (ingested + dropped)).
     /// Healthy: 0. Any drops = capacity issue.
     pub drop_rate: f64,
@@ -59,7 +54,6 @@ pub fn snapshot(metrics: &Metrics) -> ObservationCounters {
     let domain_gate_skipped = metrics.domain_gate_skipped_total.load(Ordering::Relaxed);
     let verdicts = metrics.verdicts_total.load(Ordering::Relaxed);
     let verdicts_served = metrics.verdicts_served_total.load(Ordering::Relaxed);
-    let crystal_observations = metrics.crystal_observations_total.load(Ordering::Relaxed);
 
     let observation_digestion_ratio = if ingested > 0 {
         Some(digested as f64 / ingested as f64)
@@ -70,12 +64,6 @@ pub fn snapshot(metrics: &Metrics) -> ObservationCounters {
         Some(verdicts_served as f64 / verdicts as f64)
     } else {
         None
-    };
-
-    let crystallization_rate = if verdicts > 0 {
-        crystal_observations as f64 / verdicts as f64
-    } else {
-        0.0
     };
 
     let total_attempted = ingested + dropped;
@@ -95,10 +83,8 @@ pub fn snapshot(metrics: &Metrics) -> ObservationCounters {
         domain_gate_skipped,
         verdicts,
         verdicts_served,
-        crystal_observations,
         observation_digestion_ratio,
         verdict_consumption_ratio,
-        crystallization_rate,
         drop_rate,
         backlog,
     }
@@ -153,27 +139,13 @@ pub fn diagnose(state: &ObservationCounters) -> Vec<ObservationCounterAlert> {
         });
     }
 
-    // Low crystallization: verdicts aren't producing wisdom
-    if state.verdicts > 50 && state.crystallization_rate < 0.005 {
-        alerts.push(ObservationCounterAlert {
-            kind: "low_crystallization",
-            message: format!(
-                "Crystallization rate {:.2}% ({} crystals from {} verdicts) — wisdom extraction stalled",
-                state.crystallization_rate * 100.0,
-                state.crystal_observations,
-                state.verdicts,
-            ),
-            severity: "warning",
-        });
-    }
-
     // Domain gate filtering too aggressively
-    if state.verdicts > 50 && state.domain_gate_skipped > state.crystal_observations * 10 {
+    if state.verdicts > 50 && state.domain_gate_skipped > state.verdicts * 10 {
         alerts.push(ObservationCounterAlert {
             kind: "domain_gate_aggressive",
             message: format!(
-                "{} crystal observations skipped by domain gate vs {} recorded — most verdicts produce 'general' domain",
-                state.domain_gate_skipped, state.crystal_observations,
+                "{} crystal observations skipped by domain gate vs {} verdicts — most verdicts produce 'general' domain",
+                state.domain_gate_skipped, state.verdicts,
             ),
             severity: "warning",
         });
@@ -242,9 +214,6 @@ mod tests {
         m.add_nightshift_digested(50);
         for _ in 0..20 {
             m.inc_verdict();
-        }
-        for _ in 0..5 {
-            m.inc_crystal_obs();
         }
         let s = snapshot(&m);
         let alerts = diagnose(&s);
