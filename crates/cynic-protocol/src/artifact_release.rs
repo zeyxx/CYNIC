@@ -27,20 +27,67 @@ pub struct RuntimeArtifactReleaseSpec {
     pub publication: Option<ArtifactPublicationTarget>,
 }
 
+/// Physical transport for publishing an artefact to a runtime target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TransportProtocol {
+    #[default]
+    HttpPut,
+    Ssh,
+}
+
+impl std::str::FromStr for TransportProtocol {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "http_put" | "generic_http_put_get" | "http" => Ok(TransportProtocol::HttpPut),
+            "ssh" => Ok(TransportProtocol::Ssh),
+            "" => Ok(Self::default()),
+            _ => Ok(Self::default()),
+        }
+    }
+}
+
+impl From<String> for TransportProtocol {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or_default()
+    }
+}
+
+impl TransportProtocol {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TransportProtocol::HttpPut => "http_put",
+            TransportProtocol::Ssh => "ssh",
+        }
+    }
+}
+
+impl From<&str> for TransportProtocol {
+    fn from(value: &str) -> Self {
+        value.parse().unwrap_or_default()
+    }
+}
+
+
+fn deserialize_transport_protocol<'de, D>(deserializer: D) -> Result<TransportProtocol, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    Ok(value.parse().unwrap_or_default())
+}
+
 /// Remote publication target for a released artifact.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactPublicationTarget {
     /// Registry node id owning the target (e.g. `synapse`).
     pub node: String,
     /// Concrete endpoint for the transport (host, URL, or ssh target).
     pub endpoint: String,
     /// Transport protocol: `http_put` (default) or `ssh`.
-    #[serde(default = "default_publication_protocol")]
-    pub protocol: String,
-}
-
-fn default_publication_protocol() -> String {
-    "http_put".to_string()
+    #[serde(default, deserialize_with = "deserialize_transport_protocol")]
+    pub protocol: TransportProtocol,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,6 +218,6 @@ mod tests {
         let spec: RuntimeArtifactReleaseSpec =
             serde_json::from_value(raw).expect("spec with publication parses");
         let target = spec.publication.expect("target");
-        assert_eq!(target.protocol, "http_put");
+        assert_eq!(target.protocol, TransportProtocol::HttpPut);
     }
 }

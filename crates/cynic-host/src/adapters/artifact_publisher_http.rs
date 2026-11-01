@@ -111,7 +111,7 @@ mod tests {
             proof_sha: "a7f5293c".into(),
             target: cynic_release::artifact_publication::PublicationTarget {
                 node: "synapse".into(),
-                target: "cynic@10.10.10.119".into(),
+                endpoint: "cynic@10.10.10.119".into(),
                 protocol: TransportProtocol::Ssh,
             },
             artefact_name: "cynic".into(),
@@ -129,7 +129,7 @@ mod tests {
             proof_sha: "a7f5293c".into(),
             target: cynic_release::artifact_publication::PublicationTarget {
                 node: "synapse".into(),
-                target: "pve.service.cynic".into(),
+                endpoint: "pve.service.cynic".into(),
                 protocol: TransportProtocol::HttpPut,
             },
             artefact_name: "cynic".into(),

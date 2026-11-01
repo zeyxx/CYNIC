@@ -30,7 +30,7 @@ pub fn publication_request_for(
     let mut selected = select_transport(protocol_str, http_target, ssh_target);
     selected.node = target.node.clone();
     if !target.endpoint.trim().is_empty() {
-        selected.target = target.endpoint.clone();
+        selected.endpoint = target.endpoint.clone();
     }
     Some(ArtifactPublicationRequest {
         proof_sha: proof_sha.to_string(),
@@ -141,7 +141,7 @@ mod tests {
             publication_request_for(&spec, "proof123", "https://pve:8006", "ssh").expect("request");
         assert_eq!(req.proof_sha, "proof123");
         assert_eq!(req.target.protocol, TransportProtocol::HttpPut);
-        assert_eq!(req.target.target, "https://pve:8006");
+        assert_eq!(req.target.endpoint, "https://pve:8006");
         assert_eq!(req.artefact_name, "cynic-node");
         assert!(
             req.local_path
@@ -159,7 +159,7 @@ mod tests {
         let req = publication_request_for(&spec, "proof", "https://pve:8006", "fallback")
             .expect("request");
         assert_eq!(req.target.protocol, TransportProtocol::Ssh);
-        assert_eq!(req.target.target, "cynic@10.10.10.119");
+        assert_eq!(req.target.endpoint, "cynic@10.10.10.119");
         assert_eq!(req.target.node, "synapse");
     }
 

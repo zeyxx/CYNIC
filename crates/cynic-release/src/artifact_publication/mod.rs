@@ -10,46 +10,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Physical transport for publishing an artefact to a runtime target.
-///
-/// Mirrors `release_publication.protocol` from [`infra/registry.json`].
-/// Unknown strings default to [`TransportProtocol::HttpPut`] (legacy channel).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TransportProtocol {
-    HttpPut,
-    Ssh,
-}
-
-impl Default for TransportProtocol {
-    #[inline]
-    fn default() -> Self {
-        TransportProtocol::HttpPut
-    }
-}
-
-impl std::str::FromStr for TransportProtocol {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "http_put" | "generic_http_put_get" | "http" => Ok(TransportProtocol::HttpPut),
-            "ssh" => Ok(TransportProtocol::Ssh),
-            "" => Ok(Self::default()),
-            _ => Ok(Self::default()),
-        }
-    }
-}
-
-/// Target runtime descriptor, decoded from the node registry entry.
-///
-/// `node` is the registry host id (e.g. `synapse`); `target` is the
-/// concrete endpoint/host used by a [`TransportProtocol`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PublicationTarget {
-    pub node: String,
-    pub target: String,
-    pub protocol: TransportProtocol,
-}
+pub use cynic_protocol::artifact_release::TransportProtocol;
+pub use cynic_protocol::artifact_release::ArtifactPublicationTarget;
+pub use cynic_protocol::artifact_release::ArtifactPublicationTarget as PublicationTarget;
 
 /// A request to publish a built artefact to one target.
 ///
@@ -102,7 +65,7 @@ pub fn select_transport(
     };
     PublicationTarget {
         node: http_target.to_owned(),
-        target: target.to_owned(),
+        endpoint: target.to_owned(),
         protocol,
     }
 }
@@ -115,21 +78,21 @@ mod tests {
     fn http_put_is_default() {
         let t = select_transport("generic_http_put_get", "10.10.10.119", "cynic@10.10.10.119");
         assert_eq!(t.protocol, TransportProtocol::HttpPut);
-        assert_eq!(t.target, "10.10.10.119");
+        assert_eq!(t.endpoint, "10.10.10.119");
     }
 
     #[test]
     fn ssh_explicit_protocol() {
         let t = select_transport("ssh", "10.10.10.119", "cynic@172.30.41.10");
         assert_eq!(t.protocol, TransportProtocol::Ssh);
-        assert_eq!(t.target, "cynic@172.30.41.10");
+        assert_eq!(t.endpoint, "cynic@172.30.41.10");
     }
 
     #[test]
     fn unknown_protocol_falls_back_to_http() {
         let t = select_transport("ftp", "target.example", "cynic@host");
         assert_eq!(t.protocol, TransportProtocol::HttpPut);
-        assert_eq!(t.target, "target.example");
+        assert_eq!(t.endpoint, "target.example");
     }
 
     #[test]
@@ -138,7 +101,7 @@ mod tests {
             proof_sha: "a7f5293c".into(),
             target: PublicationTarget {
                 node: "synapse".into(),
-                target: "10.10.10.119".into(),
+                endpoint: "10.10.10.119".into(),
                 protocol: TransportProtocol::HttpPut,
             },
             artefact_name: "cynic".into(),
