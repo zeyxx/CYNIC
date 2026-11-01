@@ -7,21 +7,7 @@ use std::time::{Duration, Instant};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command as TokioCommand;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CommandObservation {
-    pub command: String,
-    pub args: Vec<String>,
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct TcpObservation {
-    pub host: String,
-    pub port: u16,
-    pub status: String,
-}
+pub use cynic_network::preflight::{CommandObservation, TcpObservation};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandCapture {

@@ -9,9 +9,8 @@ pub enum HostSubstrateDomain {
     Services,
 }
 
-pub use cynic_pkg::integration::lifecycle::{
-    BoundaryKind, LifecycleDisposition, LifecycleProjection, LifecycleStatus, SurfaceStatus,
-};
+pub use cynic_network::preflight::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
+pub use cynic_pkg::integration::lifecycle::{LifecycleProjection, SurfaceStatus};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SurfaceContract {
