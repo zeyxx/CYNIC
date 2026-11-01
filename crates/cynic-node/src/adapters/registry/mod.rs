@@ -333,6 +333,9 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
         let mut records = Vec::new();
         let vm_aliases = vm_aliases_by_name(registry.nodes.as_deref().unwrap_or(&[]));
         for node in registry.nodes.unwrap_or_default() {
+            if !status_allows_service_checks(node.status.as_deref()) {
+                continue;
+            }
             let Some(service_ip) = node
                 .network
                 .as_ref()
