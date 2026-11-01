@@ -28,7 +28,6 @@ use cynic_protocol::{
     MutationAdmission, SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
 use cynic_protocol::build::{BuildAction, ExecRequest, ExecResponse};
-use crate::domain::builder_restart::{decide_builder_restart, BuilderRestartDecision};
 use cynic_protocol::supervision::{
     DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
 };
@@ -827,7 +826,7 @@ async fn admin_reload(
             })?;
             // Re-derive the registry-bound fields under the new config so
             // the very next submit/webhook uses the reloaded values.
-            let derived = super::builder_runtime::builder_runtime_config_from(
+            let derived = crate::usecases::builder_runtime::builder_runtime_config_from(
                 &control,
                 &state.config.config_path,
             );
@@ -1734,7 +1733,7 @@ pub async fn run_http_server(
     crate::config::parse_node_control_str(&applied_raw)
         .map_err(|error| format!("boot config invalid: {error}"))?;
     let derived =
-        super::builder_runtime::builder_runtime_config_from(&control, &config.config_path);
+        crate::usecases::builder_runtime::builder_runtime_config_from(&control, &config.config_path);
     let live = BuilderLiveConfig {
         control,
         repository_id: derived.repository_id,
