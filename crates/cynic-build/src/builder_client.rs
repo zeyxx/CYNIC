@@ -377,6 +377,52 @@ pub fn fetch_artifact(
     .map_err(|_| "builder client thread panicked".to_string())?
 }
 
+/// Pull a content-addressed artifact by its SHA-256 digest directly from the
+/// builder's native artifact stream.
+///
+/// GETs `{builder_url}/artifacts/{digest}`, reads the bytes, and verifies
+/// their SHA-256 against `digest` (fail-closed). Returns the bytes on match.
+pub fn fetch_artifact_by_digest(
+    builder_url: &str,
+    digest: &str,
+) -> Result<Vec<u8>, String> {
+    let normalized = digest.trim().to_lowercase();
+    if normalized.len() != 64 || !normalized.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(format!("invalid artifact digest: {digest}"));
+    }
+    let url = format!(
+        "{}/artifacts/{}",
+        builder_url.trim_end_matches('/'),
+        normalized
+    );
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+            .map_err(|e| format!("http client init failed: {e}"))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("failed to fetch artifact from {url}: {e}"))?;
+        if res.status() != reqwest::StatusCode::OK {
+            return Err(format!("artifact fetch refused ({}) from {url}", res.status()));
+        }
+        let bytes = res
+            .bytes()
+            .map_err(|e| format!("artifact body unreadable: {e}"))?
+            .to_vec();
+        let computed = hex::encode(Sha256::digest(&bytes));
+        if computed != normalized {
+            return Err(format!(
+                "artifact sha256 mismatch: expected {normalized} computed {computed}"
+            ));
+        }
+        Ok(bytes)
+    })
+    .join()
+    .map_err(|_| "builder client thread panicked".to_string())?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
