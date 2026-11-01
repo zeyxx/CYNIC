@@ -314,6 +314,13 @@ async fn submit_workload(
     // Request-scoped builder facts come from the live snapshot, so a
     // `POST /admin/reload` takes effect without bouncing the process.
     let live = live_snapshot(&state);
+    let canonical_action = submit_action_to_canonical(payload.action.as_str())
+        .map_err(|reason| (StatusCode::BAD_REQUEST, reason))?;
+    let mut proof_requirements = vec![BUILD_GRANT_READ_BACK_PROOF.to_string()];
+    if canonical_action == "cargo:build" || canonical_action == "cargo:build-release" {
+        proof_requirements.push("release_binary_artifact_read_back".to_string());
+    }
+
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
@@ -330,12 +337,10 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: submit_action_to_canonical(payload.action.as_str())
-            .map_err(|reason| (StatusCode::BAD_REQUEST, reason))?
-            .to_string(),
+        action: canonical_action.to_string(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
-        proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
+        proof_requirements,
         release_publication: None,
         evidence_refs: vec![format!("agent:{}@{}", payload.requested_by, commit_sha)],
     };
