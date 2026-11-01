@@ -8,7 +8,6 @@ pub mod cpu_usage_meter;
 pub mod cgroup_isolation;
 pub mod forgejo_run_observer;
 pub mod fs_window_journal;
-pub mod local_branch_graph;
 pub mod live_service_paths;
 pub mod local_build_artefact;
 pub mod local_build_discovery;
@@ -36,7 +35,6 @@ pub mod privilege_projection;
 // Proxmox adapters moved to cynic-proxmox (L1, canonical home).
 // Consumers import via cynic_proxmox::adapters::{ProxmoxSshCloneAdapter, ...} directly.
 
-pub mod remote_branch_graph;
 pub mod remote_build_discovery;
 pub mod remote_execution;
 pub mod remote_queue;

@@ -4,8 +4,8 @@
 
 use std::process::ExitCode;
 
-use cynic_host::adapters::local_branch_graph::LocalBranchGraphAdapter;
-use cynic_host::domain::branch_graph::port::BranchGraphObservationPort;
+use cynic_vcs::branch_graph::LocalBranchGraphAdapter;
+use cynic_vcs::branch_graph::BranchGraphObservationPort;
 
 use crate::cli_json::emit_pretty_json;
 

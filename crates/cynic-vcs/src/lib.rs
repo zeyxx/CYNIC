@@ -5,6 +5,7 @@ pub use cynic_protocol::vcs::{
 };
 
 // Internal modules
+pub mod branch_graph;
 pub mod development_genesis;
 pub mod domain;
 pub mod entry;
@@ -46,6 +47,7 @@ mod source_worktree_inventory_tests;
 
 use std::path::{Path, PathBuf};
 
+pub use branch_graph::LocalBranchGraphAdapter;
 pub use development_genesis::*;
 pub use external_source_uc::*;
 pub use external_source::{

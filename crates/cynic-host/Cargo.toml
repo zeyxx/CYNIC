@@ -47,6 +47,7 @@ regex = "1"
 walkdir.workspace = true
 thiserror.workspace = true
 rusqlite = { version = "0.34", features = ["bundled"] }
+cynic-vcs = { path = "../cynic-vcs" }
 rand = "0.8"
 rpassword = "7.5.4"
 
@@ -55,7 +56,6 @@ rpassword = "7.5.4"
 # A dev-dependency, not a production edge: cynic-host the library must not
 # depend on its own auditor.
 cynic-audit-engine = { path = "../cynic-audit-engine" }
-cynic-vcs = { path = "../cynic-vcs" }
 tempfile = "3"
 cynic-build = { path = "../cynic-build" }
 hmac.workspace = true
