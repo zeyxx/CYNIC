@@ -63,24 +63,6 @@ pub(crate) enum BuildWorkloadCommand {
     },
 }
 
-/// Forgejo push webhook receiver.
-#[derive(Subcommand, Debug)]
-pub(crate) enum BuildWebhookCommand {
-    /// Serve the Forgejo push webhook receiver.
-    Serve {
-        /// Address to bind (e.g. 127.0.0.1:9147).
-        #[arg(long, default_value = "127.0.0.1:9147")]
-        bind: String,
-        /// Node builder webhook URL. Required: an empty endpoint is a blocked
-        /// forwarding configuration, never a guessed runner or registry path.
-        #[arg(long)]
-        node_webhook_url: String,
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
-    },
-}
-
 /// Machine credentials derived from the registry.
 #[derive(Subcommand, Debug)]
 pub(crate) enum BuildCredentialsCommand {
@@ -101,48 +83,6 @@ pub(crate) enum BuildCredentialsCommand {
     },
 }
 
-pub(crate) fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), String> {
-    use cynic_vcs::providers::WebhookServerConfig;
-    use cynic_vcs::providers::forgejo_webhook_server::spawn_webhook_server;
-
-    if node_webhook_url.trim().is_empty() {
-        return Err("node webhook URL is required; no forwarding target is guessed".to_string());
-    }
-    let config = WebhookServerConfig {
-        bind: bind.to_string(),
-        node_webhook_url: node_webhook_url.to_string(),
-        webhook_secret: cynic_secrets::env_var("webhook-secret", "CYNIC_WEBHOOK_SECRET"),
-    };
-
-    let handle = spawn_webhook_server(config)
-        .map_err(|e| format!("failed to bind webhook server on {bind}: {e}"))?;
-
-    let startup = serde_json::json!({
-        "status": "listening",
-        "bind": bind,
-        "node_webhook_url": node_webhook_url,
-        "forwarding": "configured",
-        "webhook_secret_present": cynic_secrets::env_var_present("webhook-secret", "CYNIC_WEBHOOK_SECRET"),
-    });
-
-    if json {
-        println!("{}", serde_json::to_string_pretty(&startup).unwrap());
-    } else {
-        println!("Forgejo webhook server listening on {bind}");
-        println!("  Node webhook: {node_webhook_url}");
-        println!(
-            "  Webhook secret: {}",
-            if cynic_secrets::env_var_present("webhook-secret", "CYNIC_WEBHOOK_SECRET") {
-                "configured"
-            } else {
-                "absent (unsigned pushes are reported as such)"
-            }
-        );
-    }
-
-    let _ = handle.join();
-    Ok(())
-}
 
 pub(crate) fn provision_credentials(
     registry_path: &str,

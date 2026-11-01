@@ -16,7 +16,7 @@ mod services;
 pub(crate) use artifact::BuildArtifactCommand;
 pub(crate) use invoice::BuildProofsCommand;
 pub(crate) use pool::BuildPoolCommand;
-pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
+pub(crate) use services::{BuildCredentialsCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
 use pool::{
@@ -29,7 +29,7 @@ use runner::{
     drain_node, list_runners, prove_build, resolve_default_builder_url, restart_node, submit_build,
     workload_output,
 };
-use services::{provision_credentials, serve_webhook};
+use services::{provision_credentials};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 use archive::{archive_terminal_workloads, ArchiveReport};
@@ -218,11 +218,6 @@ pub(crate) enum BuildCommand {
     Workload {
         #[command(subcommand)]
         command: BuildWorkloadCommand,
-    },
-    /// Serve the Forgejo push webhook receiver.
-    Webhook {
-        #[command(subcommand)]
-        command: BuildWebhookCommand,
     },
     /// Provision SSH credentials for all machine_enrollment transports in the registry.
     Credentials {
@@ -711,13 +706,6 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 };
                 workload_output(&workload_id, &url, tail, json)
             }
-        },
-        BuildCommand::Webhook { command } => match command {
-            BuildWebhookCommand::Serve {
-                bind,
-                node_webhook_url,
-                json,
-            } => serve_webhook(&bind, &node_webhook_url, json),
         },
         BuildCommand::Credentials { command } => match command {
             BuildCredentialsCommand::Provision {

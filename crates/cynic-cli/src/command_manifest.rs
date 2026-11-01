@@ -346,7 +346,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build proof --json",
                     "cynic build workload observe --json",
                     "cynic build workload list --json",
-                    "cynic build webhook serve --json",
                     "cynic build credentials provision --json",
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build reclaim --json",
