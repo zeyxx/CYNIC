@@ -814,6 +814,8 @@ mod tests {
                 ("cynic-eval".to_string(), BTreeSet::new()),
             ]),
             dev_edges: BTreeMap::new(),
+            binaries: BTreeSet::new(),
+            consumers: BTreeMap::new(),
         };
 
         let debt = debt_edges(&committed, &observed, &policy).expect("ratchet downward should succeed");
