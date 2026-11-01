@@ -27,7 +27,7 @@ use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, EvidenceEnvelope,
     MutationAdmission, SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
-use cynic_protocol::build::{ExecRequest, ExecResponse};
+use cynic_protocol::build::{BuildAction, ExecRequest, ExecResponse};
 use cynic_protocol::supervision::{
     DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
 };
@@ -195,8 +195,8 @@ pub struct AgentBuildSubmission {
     pub repository_id: Option<String>,
     #[serde(default = "default_cargo_package")]
     pub package: Option<String>,
-    #[serde(default = "default_build_action")]
-    pub action: String,
+    #[serde(default)]
+    pub action: BuildAction,
     pub requested_by: String,
 }
 
@@ -265,19 +265,19 @@ async fn exec(
 ///
 /// Pure so the honesty rule is testable without HTTP: `check` compiles,
 /// audits are explicit, unknown verbs are refused instead of silently
-/// becoming whatever the old default was.
+/// Maps a user-supplied action string to its canonical form via `BuildAction`.
+///
+/// Keeps legacy support for verbs like `check`, `build-release`, etc.
+/// Centralized in `BuildAction` to eliminate primitive obsession.
 pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, String> {
-    match action {
-        "check" => Ok("cargo:check"),
-        "audit" => Ok("audit:crate"),
-        "audit-all" => Ok("audit:all"),
-        "build" => Ok("cargo:build"),
-        "build-release" | "build:release" | "release" => Ok("cargo:build-release"),
-        "test" => Ok("cargo:test"),
-        other => Err(format!(
-            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
-        )),
-    }
+    action
+        .parse::<BuildAction>()
+        .map(|a| a.as_str())
+        .map_err(|_| {
+            format!(
+                "unsupported build action: {action} (expected check, audit, audit-all, build, build-release, test)"
+            )
+        })
 }
 
 async fn submit_workload(
@@ -301,10 +301,12 @@ async fn submit_workload(
     // Request-scoped builder facts come from the live snapshot, so a
     // `POST /admin/reload` takes effect without bouncing the process.
     let live = live_snapshot(&state);
-    let canonical_action = submit_action_to_canonical(payload.action.as_str())
-        .map_err(|reason| (StatusCode::BAD_REQUEST, reason))?;
+    let canonical_action = payload.action;
+
     let mut proof_requirements = vec![BUILD_GRANT_READ_BACK_PROOF.to_string()];
-    if canonical_action == "cargo:build" || canonical_action == "cargo:build-release" {
+    if canonical_action == BuildAction::CargoBuild
+        || canonical_action == BuildAction::CargoBuildRelease
+    {
         proof_requirements.push("release_binary_artifact_read_back".to_string());
     }
 
@@ -324,7 +326,7 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: canonical_action.to_string(),
+        action: canonical_action.as_str().to_string(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements,
