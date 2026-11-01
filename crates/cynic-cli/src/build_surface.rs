@@ -97,61 +97,6 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Deprecated: prints a hint routing to `cynic build submit` (canonical).
-    /// Trigger a distributed build on the observed network runner.
-    Trigger {
-        /// Exact 40-character source commit.
-        #[arg(long)]
-        commit: String,
-        /// Build phase: check, build, test, or activate.
-        ///
-        /// The test phase runs the test suite ON THE RUNNER: the operator
-        /// host is not a test machine.
-        #[arg(long, default_value = "check")]
-        phase: String,
-        /// Explicit runner host override (breakglass only). When absent, the
-        /// runner SSH target is resolved from the fleet registry.
-        #[arg(long)]
-        host: Option<String>,
-        /// Named runner (node id, name, or alias) from the fleet registry,
-        /// e.g. a compat builder. Ignored when --host is set; otherwise the
-        /// default `build_runner` role is used.
-        #[arg(long)]
-        runner: Option<String>,
-        /// Path to the fleet registry JSON used for runner resolution.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
-        /// Runner SSH user.
-        #[arg(long, default_value = "cynic")]
-        user: String,
-        /// Network mode: offline or online.
-        #[arg(long, default_value = "offline")]
-        network_mode: String,
-        /// Checkout base dir on the runner for per-SHA checkouts.
-        #[arg(long, default_value = "")]
-        checkout_base: String,
-        /// Source of truth cloned when the runner has no checkout.
-        #[arg(long, default_value = "")]
-        ssot_url: String,
-        /// Optional single package scope. None = workspace.
-        #[arg(long)]
-        package: Option<String>,
-        /// Gate scope: full (default) or auto (classify the commit diff and
-        /// run only the gate the change deserves: narrowed cargo check,
-        /// local pytest, JSON validation, or nothing).
-        #[arg(long, default_value = "full")]
-        scope: String,
-        /// Shared sccache dir on the runner (content-keyed compiler cache).
-        /// Empty = no wrapper (current behavior).
-        #[arg(long, default_value = "")]
-        sccache_dir: String,
-        /// Proof log path. Defaults to the operator log under $HOME.
-        #[arg(long)]
-        proof_log: Option<String>,
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
-    },
     /// Inspect build-pool membership and toolchain eligibility.
     Pool {
         #[command(subcommand)]
@@ -556,13 +501,6 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             };
             restart_node(&url, &desired_sha256, json)
         }
-        BuildCommand::Trigger { commit, .. } => {
-            println!(
-                "deprecated: `cynic build trigger` is retired; use the canonical build execution surface: \
-                 cynic build submit --commit {commit} --action check --wait --builder-url http://192.168.0.25:9090"
-            );
-            Ok(())
-        }
         BuildCommand::Invoice {
             commit,
             proof_log,
@@ -660,6 +598,25 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 token_file,
                 json,
             } => pull_artifact(&manifest, &url, &output, &token_file, json),
+            BuildArtifactCommand::Fetch {
+                builder_url,
+                digest,
+                output,
+                json,
+            } => {
+                let url = match builder_url {
+                    Some(explicit) => explicit,
+                    None => resolve_default_builder_url()?,
+                };
+                let bytes = cynic_build::fetch_artifact_by_digest(&url, &digest)?;
+                std::fs::write(&output, &bytes).map_err(|e| format!("artifact_unwritable: {e}"))?;
+                if json {
+                    println!("{}", serde_json::json!({"digest": digest, "output": output, "bytes": bytes.len()}));
+                } else {
+                    println!("fetched artifact sha256={} bytes={} -> {}", digest, bytes.len(), output);
+                }
+                Ok(())
+            }
             BuildArtifactCommand::Release {
                 artifact,
                 manifest,
@@ -678,7 +635,6 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 json,
             ),
         },
-        BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
                 workload_id,
                 state_root,

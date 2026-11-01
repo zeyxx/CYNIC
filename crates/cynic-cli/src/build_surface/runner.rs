@@ -547,7 +547,7 @@ mod tests {
     fn scoped_package_is_the_fast_lane_for_test_only_fixes() {
         // A test-only fix in one crate needs only that crate's proof:
         // `cynic build proof --package <crate> --phase test --filter <name>`
-        // or `cynic build trigger --package <crate> --phase check`.
+        // `cynic build submit --package <crate> --action check`.
         // This locks the rule that package scope is honored, never ignored.
         let scoped = ["--package", "cynic-host"];
         assert!(scoped.contains(&"--package"));
