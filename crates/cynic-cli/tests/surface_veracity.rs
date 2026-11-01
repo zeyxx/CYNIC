@@ -34,7 +34,7 @@ const PROBES: &[Probe] = &[
         allowed_exits: &[0],
     },
     Probe {
-        argv: &["transport", "ssh-supervision", "--json"],
+        argv: &["network", "transport", "ssh-supervision", "--json"],
         allowed_exits: &[0, 1],
     },
     // `audit paths` reports Critical violations on the current tree by design —
