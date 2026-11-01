@@ -34,7 +34,11 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Advanced => execute_advanced_help(),
         Command::Runtime { command } => execute_runtime(command),
         Command::Inference { command } => {
-            crate::inference_surface::execute_inference_command(command)
+            tokio::task::spawn_blocking(move || {
+                crate::inference_surface::execute_inference_command(command)
+            })
+            .await
+            .unwrap_or(ExitCode::FAILURE)
         }
         Command::Hub { command } => crate::hub_surface::execute_hub_command(command),
         Command::Status { command, json } => match command {
