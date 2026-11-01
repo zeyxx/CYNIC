@@ -176,13 +176,13 @@ impl NodeObservation {
     pub fn network_actuation_observation(
         &self,
         mesh_interface: impl Into<String>,
-    ) -> cynic_host::network_actuation::NetworkActuationObservation {
-        cynic_host::network_actuation::NetworkActuationObservation {
+    ) -> cynic_network::actuator::NetworkActuationObservation {
+        cynic_network::actuator::NetworkActuationObservation {
             provider_fallback_active: self.capabilities.provider_fallback_active,
             synapse_route_active: self.capabilities.synapse_route_active,
             wireguard_active: self.capabilities.wireguard_active,
             management_link_active: false,
-            target: cynic_host::network_actuation::NetworkActuationTarget {
+            target: cynic_network::actuator::NetworkActuationTarget {
                 provider_fallback_cidr: self.topology.provider_fallback_cidr.clone(),
                 provider_fallback_gateway: self.topology.provider_fallback_gateway.clone(),
                 service_cidr: self.topology.service_cidr.clone(),

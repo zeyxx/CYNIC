@@ -6,7 +6,7 @@ use cynic_persistence::{STORAGE_IDENTITY_SPEC_SCHEMA, StorageIdentityRole, Stora
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 use crate::storage_identity::SurrealStorageIdentityAdminAdapter;
 
 const MAX_TIMEOUT_SECONDS: u64 = 120;

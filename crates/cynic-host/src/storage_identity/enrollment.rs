@@ -4,7 +4,7 @@ use cynic_persistence::identity::{
 };
 
 use crate::runtime_secret_install::RuntimeSecretInstallSpec;
-use crate::secret_material::SecretMaterial;
+use cynic_secrets::SecretMaterial;
 
 use super::{
     StorageIdentityAdminPort, StorageIdentityEnrollmentReport, StorageIdentitySecretPort,
