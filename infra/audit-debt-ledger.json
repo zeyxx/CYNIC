@@ -1580,36 +1580,6 @@
     },
     {
       "count": 1,
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-lxc-exec-bridge` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "rule": "ART-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-network-actuator` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "rule": "ART-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-node-enroll` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "rule": "ART-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-pool` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
-      "rule": "ART-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
-      "identity": "ART-001-UNDECLARED-ARTIFACT|The workspace declares a `[[bin]]` named `cynic-host-exec` that infra/runtime-basket.json does not account for. A binary produced by the compiler but absent from the contract is a deployment artefact nobody agreed to ship.",
-      "rule": "ART-001",
-      "severity": "critical"
-    },
-    {
-      "count": 1,
       "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-proxmox/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
       "rule": "ART-002",
       "severity": "critical"
@@ -1797,7 +1767,6 @@
       "ARCH-001": 249,
       "ARCH-004": 11,
       "ARCH-005": 4,
-      "ART-001": 5,
       "ART-002": 1,
       "PATH-002": 2,
       "PATH-004": 6,
@@ -1805,11 +1774,11 @@
       "RUN-001": 4,
       "SEC-001": 9
     },
-    "critical": 37,
+    "critical": 32,
     "debt": 249,
-    "identities": 291,
+    "identities": 286,
     "note": "Reconciled with physical substrate",
-    "total": 292,
+    "total": 287,
     "warning": 6
   },
   "purpose": "Declared, counted, shrink-only ledger of audit violations present at ratification. Read by audit_engine::apply_debt_ledger. A violation whose identity is absent here fails the gate; a ledger entry with no observed violation also fails the gate, because paid debt left in the ledger hides that the ledger is stale.",
