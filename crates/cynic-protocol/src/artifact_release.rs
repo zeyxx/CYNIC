@@ -79,7 +79,7 @@ where
 }
 
 /// Remote publication target for a released artifact.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactPublicationTarget {
     /// Registry node id owning the target (e.g. `synapse`).
     pub node: String,
