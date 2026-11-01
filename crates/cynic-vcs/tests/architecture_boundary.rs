@@ -13,7 +13,7 @@ fn vcs_never_depends_on_high_layer_crates() {
 
     let forbidden = [
         "cynic-host",
-        "cynic-kernel",
+        "cynic-agent",
         "cynic-node",
         "cynic-cli",
         "cynic-mcp",

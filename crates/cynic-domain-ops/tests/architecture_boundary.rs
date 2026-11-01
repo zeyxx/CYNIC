@@ -2,7 +2,7 @@
 //!
 //! Enforces the CYNIC crate invariants (AGENTS.md Architecture & Crate Invariants):
 //!   1. Strict DAG: cynic-domain-ops depends ONLY on cynic-protocol (pure types).
-//!      Must NOT depend on cynic-host, cynic-kernel, cynic-node, cynic-cli, or
+//!      Must NOT depend on cynic-host, cynic-agent, cynic-node, cynic-cli, or
 //!      cynic-mcp.
 //!   2. Zero-I/O Domain Core: the `domain/` module is 100% pure — no
 //!      `std::process::Command`, no `reqwest`, no `tokio::spawn`.
@@ -12,7 +12,7 @@ use std::path::Path;
 
 const FORBIDDEN_DEPS: &[&str] = &[
     "cynic-host",
-    "cynic-kernel",
+    "cynic-agent",
     "cynic-node",
     "cynic-cli",
     "cynic-mcp",

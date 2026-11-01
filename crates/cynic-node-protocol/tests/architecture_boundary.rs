@@ -17,12 +17,12 @@ fn no_orchestrator_dependencies() {
     for forbidden in [
         "\"cynic-host\"",
         "\"cynic-node\"",
-        "\"cynic-kernel\"",
+        "\"cynic-agent\"",
         "\"cynic-cli\"",
         "\"cynic-mcp\"",
         "cynic-host =",
         "cynic-node =",
-        "cynic-kernel =",
+        "cynic-agent =",
         "cynic-cli =",
         "cynic-mcp =",
     ] {

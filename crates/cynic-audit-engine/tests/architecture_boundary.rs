@@ -31,7 +31,7 @@ fn audit_engine_has_no_orchestrator_dependencies() {
     let cargo_toml_path = crate_root().join("Cargo.toml");
     let content = fs::read_to_string(&cargo_toml_path).expect("read Cargo.toml");
 
-    let forbidden_orchestrators = ["cynic-node", "cynic-cli", "cynic-kernel"];
+    let forbidden_orchestrators = ["cynic-node", "cynic-cli", "cynic-agent"];
     for forbidden in forbidden_orchestrators {
         assert!(
             !content.contains(&format!("\"{}\"", forbidden)),

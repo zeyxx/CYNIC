@@ -10,7 +10,7 @@ use std::path::Path;
 
 const FORBIDDEN_DEPS: &[&str] = &[
     "cynic-host",
-    "cynic-kernel",
+    "cynic-agent",
     "cynic-node",
     "cynic-cli",
     "cynic-mcp",
