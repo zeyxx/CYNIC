@@ -1090,6 +1090,14 @@ mod tests {
     }
 
     #[test]
+    fn fixture_registry_creates_an_isolated_path_per_test() {
+        let first = fixture_registry();
+        let second = fixture_registry();
+
+        assert_ne!(first, second, "test fixtures must not share a registry path");
+    }
+
+    #[test]
     fn explicit_override_wins_over_registry() {
         let path = fixture_registry();
         let base = resolve_kernel_base(path.to_str().unwrap(), Some("http://127.0.0.1:9999/"))
