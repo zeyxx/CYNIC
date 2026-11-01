@@ -19,7 +19,7 @@ pub use cynic_build::build_discovery_recipe::{
 
 pub use cynic_build::adapters::build_discovery::LocalBuildDiscoveryAdapter;
 pub use cynic_build::adapters::build_discovery::RemoteBuildDiscoveryAdapter;
-pub use cynic_network::fleet_discovery::FleetDiscoveryAdapter;
+pub use cynic_host::fleet_discovery::FleetDiscoveryAdapter;
 
 // ── Re-exports from cynic-discovery (pure types) ─────────────────────────────
 
