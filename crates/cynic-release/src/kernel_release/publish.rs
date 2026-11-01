@@ -30,7 +30,7 @@ pub fn publication_request_for(
     let mut selected = select_transport(protocol_str, http_target, ssh_target);
     selected.node = target.node.clone();
     if !target.endpoint.trim().is_empty() {
-        selected.target = target.endpoint.clone();
+        selected.endpoint = target.endpoint.clone();
     }
     Some(ArtifactPublicationRequest {
         proof_sha: proof_sha.to_string(),
