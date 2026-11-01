@@ -1036,7 +1036,7 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("cynic-agent-resolve-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
-        let path = dir.join("registry.json");
+        let path = dir.join(format!("registry-{}.json", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::write(
             &path,
             serde_json::json!({
@@ -1105,7 +1105,8 @@ mod tests {
     #[test]
     fn builder_endpoint_resolves_from_registry() {
         let path = fixture_registry();
-        let host = resolve_builder_endpoint(path.to_str().unwrap()).expect("host");
+        let host = resolve_builder_endpoint(path.to_str().unwrap())
+            .unwrap_or_else(|| panic!("failed to resolve builder endpoint from path: {}", path.display()));
         assert_eq!(host, "10.10.10.119");
     }
 
