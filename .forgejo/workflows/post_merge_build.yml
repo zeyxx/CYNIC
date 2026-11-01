@@ -1,0 +1,13 @@
+name: Post-Merge Build & Artifact Generation
+on:
+  push:
+    branches: [main]
+jobs:
+  build-release:
+    runs-on: "cynic/build"
+    steps:
+      - uses: "actions/checkout@v4"
+      - name: Submit build to builder pool
+        run: |
+          echo "=== Triggering build for main commit ${GITHUB_SHA} ==="
+          cynic build submit --commit "${GITHUB_SHA}" --action build --wait || cargo build --release
