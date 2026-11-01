@@ -98,12 +98,6 @@
     },
     {
       "count": 13,
-      "evidence": "crates/cynic-eval/src/eval/dog_health.rs:1",
-      "path": "crates/cynic-eval/src/eval/dog_health.rs",
-      "terms": "dog, Dog, organ"
-    },
-    {
-      "count": 13,
       "evidence": "crates/cynic-protocol/src/dog_health.rs:1",
       "path": "crates/cynic-protocol/src/dog_health.rs",
       "terms": "dog, Dog, organ"
@@ -690,7 +684,7 @@
       "organism": 31,
       "organs": 18
     },
-    "files": 107,
+    "files": 108,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
     "occurrences": 742
   },
