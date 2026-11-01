@@ -18,6 +18,7 @@ pub(super) fn persist_success_proofs(
     observed_at_ms: u64,
     provenance: &[String],
     store: &dyn ContentAddressedEvidenceStorePort,
+    target_dir: &Path,
     artifacts_dir: &Path,
 ) -> Result<Vec<AgentEvidenceRef>, String> {
     let mut refs = Vec::new();
@@ -56,7 +57,7 @@ pub(super) fn persist_success_proofs(
             "release_binary_artifact_read_back" => serde_json::json!({
                 "schema": RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
                 "source_commit": workspace.source_commit,
-                "artifacts": release_artifacts(&workspace.workspace_root, artifacts_dir)?,
+                "artifacts": release_artifacts(target_dir, artifacts_dir)?,
             }),
             unsupported => return Err(format!("build_proof_kind_unsupported:{unsupported}")),
         };
@@ -162,13 +163,21 @@ pub(super) fn persist_execution_provenance(
     })
 }
 
-fn release_artifacts(workspace: &Path, artifacts_dir: &Path) -> Result<BTreeMap<String, String>, String> {
+fn release_artifacts(target_dir: &Path, artifacts_dir: &Path) -> Result<BTreeMap<String, String>, String> {
     let mut artifacts = BTreeMap::new();
     fs::create_dir_all(artifacts_dir).map_err(|_| "release_artifact_dir_uncreatable".to_string())?;
     for name in cynic_protocol::runtime_release_artifact_names()
         .map_err(|error| format!("release_runtime_basket_invalid:{error}"))?
     {
-        let path = workspace.join("target/release").join(&name);
+        let candidates = [
+            target_dir.join(&name),
+            target_dir.join("release").join(&name),
+            target_dir.join("debug").join(&name),
+        ];
+        let path = candidates
+            .into_iter()
+            .find(|p| p.exists())
+            .ok_or_else(|| format!("release_artifact_missing:{name}"))?;
         let metadata =
             fs::symlink_metadata(&path).map_err(|_| format!("release_artifact_missing:{name}"))?;
         if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() == 0 {
@@ -226,6 +235,7 @@ mod tests {
             1,
             &["grant:file".to_string()],
             &store,
+            std::path::Path::new("/tmp/target"),
             std::path::Path::new("/tmp/artifacts"),
         )
         .expect("grant read-back proof must be supported");

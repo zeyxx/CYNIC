@@ -255,6 +255,10 @@ async fn execute_claimed(
         persist_cancellation_proof(workload_id, after_execution.revision);
         return Ok(());
     }
+    let target_dir = match scheduler.shared_target_root.as_deref() {
+        Some(root) => root.join(prepare::profile_for_argv(&after_execution.record.envelope.action.argv)),
+        None => prepared.workspace.workspace_root.join("target"),
+    };
     let evidence_store =
         LocalContentAddressedEvidenceStore::new(control.agent_workload_state_root.join("evidence"));
     let memory_observation_unknown = matches!(
@@ -273,6 +277,7 @@ async fn execute_claimed(
                 lifecycle::current_unix_ms(),
                 &prepared.provenance,
                 &evidence_store,
+                &target_dir,
                 &control.agent_workload_state_root.join("artifacts"),
             );
             match evidence {
