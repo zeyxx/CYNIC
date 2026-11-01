@@ -181,6 +181,7 @@ pub(crate) async fn execute_claimed(
                 lifecycle::current_unix_ms(),
                 &prepared.provenance,
                 &evidence_store,
+                &target_dir,
                 &control.agent_workload_state_root.join("artifacts"),
             );
             match evidence {
