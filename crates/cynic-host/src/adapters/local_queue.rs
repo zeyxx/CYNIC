@@ -12,7 +12,7 @@ use cynic_protocol::queue::QueuePlan;
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
 use cynic_vcs::branch_graph::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph};
 use crate::domain::build_artefact::RetentionPlanner;
-use crate::domain::build_discovery::probe::parse_cargo_metadata;
+use cynic_build::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
 use crate::process_observation::capture_command;
 
