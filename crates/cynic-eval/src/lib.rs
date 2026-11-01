@@ -25,6 +25,7 @@ pub mod eval;
 pub mod evidence_projection;
 pub mod harness;
 pub mod judge_patch;
+pub mod metrics;
 pub mod judge_patch_observer;
 pub mod judgment;
 pub mod kyon;
