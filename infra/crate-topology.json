@@ -38,7 +38,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 7988
+      "loc": 8038
     },
     "cynic-build": {
       "consumers": [
@@ -101,7 +101,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 45352
+      "loc": 45269
     },
     "cynic-consensus": {
       "consumers": [
@@ -226,12 +226,13 @@
       ],
       "dev_depends_on": [
         "cynic-audit-engine",
+        "cynic-intel",
         "cynic-vcs"
       ],
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 80494
+      "loc": 80470
     },
     "cynic-inference": {
       "consumers": [
@@ -736,7 +737,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 16706
+      "loc": 15996
     }
   },
   "extraction_order": [
@@ -928,9 +929,9 @@
     "acyclic": true,
     "binaries": 4,
     "crates": 37,
-    "dev_edges": 5,
+    "dev_edges": 6,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397893,
+    "loc_total": 397126,
     "pending_disposition": 3,
     "runtime_edges": 159,
     "unjustified": 1,
