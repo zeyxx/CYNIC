@@ -10,10 +10,11 @@ pub(crate) fn reclaim_build_cache_local(
     apply: bool,
     json: bool,
 ) -> Result<(), String> {
-    use cynic_host::adapters::local_build_cache::host_build_cache_adapter;
     use cynic_build::cache::{
         load_build_cache_desired_state, reconcile_build_cache_resources,
     };
+    use cynic_build::adapters::local_build_cache::{LocalBuildCacheAdapter, ProtectedExecutable};
+    use cynic_host::adapters::live_service_paths::observe_unit_executables;
 
     let desired = load_build_cache_desired_state(
         std::path::Path::new(registry),
@@ -22,11 +23,21 @@ pub(crate) fn reclaim_build_cache_local(
         std::path::Path::new(temporary_root),
     )?;
 
+    let build_cache_adapter = LocalBuildCacheAdapter::protecting(|| {
+        observe_unit_executables()
+            .into_iter()
+            .map(|u| ProtectedExecutable {
+                name: u.unit,
+                path: u.executable,
+            })
+            .collect()
+    });
+
     let report = reconcile_build_cache_resources(
         &desired,
         apply,
-        &host_build_cache_adapter(),
-        &host_build_cache_adapter(),
+        &build_cache_adapter,
+        &build_cache_adapter,
     );
 
     if json {

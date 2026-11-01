@@ -360,7 +360,16 @@ pub fn observe_build_runner_bootstrap(
     let resource_plan =
         match load_build_cache_desired_state(registry, node_id, state_root, temporary_root) {
             Ok(desired) => {
-                let observed = crate::adapters::local_build_cache::host_build_cache_adapter().observe(&desired);
+                let adapter = cynic_build::adapters::local_build_cache::LocalBuildCacheAdapter::protecting(|| {
+                    crate::adapters::live_service_paths::observe_unit_executables()
+                        .into_iter()
+                        .map(|u| cynic_build::adapters::local_build_cache::ProtectedExecutable {
+                            name: u.unit,
+                            path: u.executable,
+                        })
+                        .collect()
+                });
+                let observed = adapter.observe(&desired);
                 let plan = reconcile_build_cache(&desired, &observed);
                 if plan.status != "satisfied" {
                     blockers.extend(plan.blockers.iter().cloned());
