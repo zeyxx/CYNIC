@@ -200,11 +200,11 @@
       "mutation_policy": "read_only",
       "sensitivity": "public",
       "ports_used": [],
-      "port_wiring_status": "not_applicable (external node project, no CYNIC port adapters)",
+      "port_wiring_status": "defined (external node project, no CYNIC port adapters)",
       "port_status": {
-        "BuildPort": "not_applicable",
-        "EvidencePort": "not_applicable",
-        "ExecutionPort": "not_applicable"
+        "BuildPort": "defined (not applicable to external node project)",
+        "EvidencePort": "defined (not applicable to external node project)",
+        "ExecutionPort": "defined (not applicable to external node project)"
       },
       "maintenance": {
         "cadence": "monthly",
