@@ -77,6 +77,17 @@ pub(crate) enum BuildArtifactCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Fetch a built artifact by its SHA-256 digest from a builder.
+    Fetch {
+        #[arg(long)]
+        builder_url: Option<String>,
+        #[arg(long)]
+        digest: String,
+        #[arg(long)]
+        output: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
