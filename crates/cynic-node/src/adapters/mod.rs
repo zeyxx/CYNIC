@@ -8,6 +8,7 @@ pub mod headscale;
 pub mod host;
 pub mod host_observation;
 pub mod http_build_workload_submission;
+pub mod http_builder_server;
 pub mod http_node_control;
 pub mod http_release_artifact_publication;
 pub mod http_runtime_artifact_transport;

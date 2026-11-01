@@ -1,4 +1,5 @@
 pub mod bootstrap;
+pub mod builder_restart;
 pub mod discovery_candidate;
 pub mod fleet_reconcile;
 pub mod fleet_truth;
