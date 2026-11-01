@@ -48,6 +48,15 @@ impl RegistryDnsResolver {
 
     /// Find a reservation by name in `network_policy.reservations`.
     fn find_reservation(&self, node_name: &str) -> Option<&Value> {
+        // Respect retired/archived/planned node status: if the reservation
+        // matches a node whose status is retired/archived/planned, do not
+        // resolve it (no ghost DNS records for decommissioned nodes).
+        if self.node_status_for(node_name)
+            .map(|status| matches!(status, "retired" | "archived" | "planned"))
+            .unwrap_or(false)
+        {
+            return None;
+        }
         self.registry
             .get("network_policy")?
             .get("reservations")?
@@ -56,11 +65,35 @@ impl RegistryDnsResolver {
             .find(|r| r.get("name").and_then(|v| v.as_str()) == Some(node_name))
     }
 
+    /// Find a node's status (if any) by matching id, name, or aliases.
+    fn node_status_for(&self, node_name: &str) -> Option<&str> {
+        self.registry
+            .get("nodes")?
+            .as_array()?
+            .iter()
+            .find(|n| {
+                n.get("id").and_then(|v| v.as_str()) == Some(node_name)
+                    || n.get("name").and_then(|v| v.as_str()) == Some(node_name)
+                    || n.get("aliases")
+                        .and_then(|v| v.as_array())
+                        .map(|aliases| {
+                            aliases.iter().any(|a| a.as_str() == Some(node_name))
+                        })
+                        .unwrap_or(false)
+            })
+            .and_then(|n| n.get("status").and_then(|v| v.as_str()))
+    }
+
     /// Find a node by name in `nodes`.
     fn find_node(&self, node_name: &str) -> Option<&Value> {
         self.registry.get("nodes")?.as_array()?.iter().find(|n| {
-            n.get("id").and_then(|v| v.as_str()) == Some(node_name)
-                || n.get("name").and_then(|v| v.as_str()) == Some(node_name)
+            let name_matches = n.get("id").and_then(|v| v.as_str()) == Some(node_name)
+                || n.get("name").and_then(|v| v.as_str()) == Some(node_name);
+            if !name_matches {
+                return false;
+            }
+            let status = n.get("status").and_then(|v| v.as_str());
+            !matches!(status, Some("retired") | Some("archived") | Some("planned"))
         })
     }
 
@@ -262,6 +295,86 @@ mod tests {
     fn service_filename_is_canonical() {
         let resolver = RegistryDnsResolver::new(test_registry());
         assert_eq!(resolver.service_filename(), "coredns-service.service");
+    }
+
+    #[test]
+    fn resolve_fqdn_retired_node_returns_none() {
+        let registry = serde_json::json!({
+            "network_policy": {
+                "canonical_service_plane": "service",
+                "planes": {
+                    "service": {
+                        "cidr": "10.10.10.0/24",
+                        "dns_zone": "service.cynic",
+                        "canonical": true
+                    }
+                },
+                "reservations": [
+                    {
+                        "name": "retired-node",
+                        "dns": ["retired-node.service.cynic"]
+                    }
+                ]
+            },
+            "nodes": [
+                {
+                    "id": "retired-node",
+                    "name": "retired-node",
+                    "status": "retired"
+                }
+            ]
+        });
+        let resolver = RegistryDnsResolver::new(registry);
+        assert_eq!(resolver.resolve_fqdn("retired-node"), None);
+    }
+
+    #[test]
+    fn resolve_fqdn_retired_node_by_alias_returns_none() {
+        let registry = serde_json::json!({
+            "network_policy": {
+                "canonical_service_plane": "service",
+                "planes": {
+                    "service": {
+                        "cidr": "10.10.10.0/24",
+                        "dns_zone": "service.cynic",
+                        "canonical": true
+                    }
+                },
+                "reservations": [
+                    {
+                        "name": "kernel",
+                        "dns": ["kernel.service.cynic"]
+                    }
+                ]
+            },
+            "nodes": [
+                {
+                    "id": "local-kernel",
+                    "name": "local-kernel",
+                    "aliases": ["kernel"],
+                    "status": "retired"
+                }
+            ]
+        });
+        let resolver = RegistryDnsResolver::new(registry);
+        assert_eq!(resolver.resolve_fqdn("kernel"), None);
+    }
+
+    #[test]
+    fn find_node_filters_retired_archived_planned() {
+        let registry = serde_json::json!({
+            "nodes": [
+                { "id": "active-node", "name": "active-node", "status": "active" },
+                { "id": "retired-node", "name": "retired-node", "status": "retired" },
+                { "id": "archived-node", "name": "archived-node", "status": "archived" },
+                { "id": "planned-node", "name": "planned-node", "status": "planned" }
+            ]
+        });
+        let resolver = RegistryDnsResolver::new(registry);
+        assert!(resolver.find_node("active-node").is_some());
+        assert!(resolver.find_node("retired-node").is_none());
+        assert!(resolver.find_node("archived-node").is_none());
+        assert!(resolver.find_node("planned-node").is_none());
     }
 
     #[test]
