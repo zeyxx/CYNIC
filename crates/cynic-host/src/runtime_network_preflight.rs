@@ -2,17 +2,32 @@ use serde::Serialize;
 
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use crate::process_observation::{CommandObservation, TcpObservation, resolve_host, tcp_probe};
-use crate::runtime_harness::conformance_context;
+use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
 
 use cynic_network::preflight::{
-    NetworkProbe, NetworkRemediationPlan, NetworkRemediationStep, ResolverBaseline,
-    RuntimeNetworkPreflightReport as NetworkRuntimeNetworkPreflightReport, parse_resolver_baseline,
+    NetworkProbe, NetworkRemediationPlan, NetworkRemediationStep, ResolverBaseline, parse_resolver_baseline,
     overall_status, plan_remediation,
 };
 
 const DEFAULT_TARGETS: &[(&str, u16)] = &[("crates.io", 443), ("static.crates.io", 443)];
 
-pub type RuntimeNetworkPreflightReport = NetworkRuntimeNetworkPreflightReport;
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RuntimeNetworkPreflightReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub mutates: bool,
+    pub context: RuntimeHarnessContext,
+    pub lifecycle_status: LifecycleStatus,
+    pub lifecycle_disposition: LifecycleDisposition,
+    pub next_boundary_kind: BoundaryKind,
+    pub next_boundary_reason: String,
+    pub next_command: Option<String>,
+    pub resolver: ResolverBaseline,
+    pub probes: Vec<NetworkProbe>,
+    pub remediation_plan: NetworkRemediationPlan,
+    pub rules: Vec<&'static str>,
+    pub next_actions: Vec<String>,
+}
 
 pub fn observe_runtime_network_preflight(targets: &[String]) -> RuntimeNetworkPreflightReport {
     observe_runtime_network_preflight_with_observer(targets, &LocalRuntimeNetworkObserver)
@@ -60,7 +75,7 @@ fn observe_runtime_network_preflight_with_observer(
         schema: "cynic.host.runtime_network_preflight.v1",
         status,
         mutates: false,
-        context: serde_json::to_value(conformance_context()).unwrap_or(serde_json::Value::Null),
+        context: conformance_context(),
         lifecycle_status,
         lifecycle_disposition,
         next_boundary_kind,
