@@ -205,7 +205,6 @@
         "cynic-cli",
         "cynic-discovery",
         "cynic-intel",
-        "cynic-mcp",
         "cynic-node"
       ],
       "depends_on": [
@@ -226,12 +225,13 @@
         "cynic-types"
       ],
       "dev_depends_on": [
-        "cynic-audit-engine"
+        "cynic-audit-engine",
+        "cynic-vcs"
       ],
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 81209
+      "loc": 80494
     },
     "cynic-inference": {
       "consumers": [
@@ -255,7 +255,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 18052
+      "loc": 18028
     },
     "cynic-intel": {
       "consumers": [
@@ -290,7 +290,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 11519
+      "loc": 11189
     },
     "cynic-lxc": {
       "consumers": [
@@ -328,7 +328,6 @@
     "cynic-mcp": {
       "consumers": [],
       "depends_on": [
-        "cynic-host",
         "cynic-process",
         "cynic-protocol"
       ],
@@ -336,7 +335,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 949
+      "loc": 1185
     },
     "cynic-network": {
       "consumers": [
@@ -532,7 +531,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 40855
+      "loc": 41075
     },
     "cynic-proxmox": {
       "consumers": [
@@ -737,7 +736,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 16451
+      "loc": 16706
     }
   },
   "extraction_order": [
@@ -757,6 +756,7 @@
     "cynic-traces",
     "cynic-consensus",
     "cynic-domain-ops",
+    "cynic-mcp",
     "cynic-network",
     "cynic-proxmox",
     "cynic-sandbox",
@@ -774,7 +774,6 @@
     "cynic-discovery",
     "cynic-inference",
     "cynic-intel",
-    "cynic-mcp",
     "cynic-market",
     "cynic-node",
     "cynic-cli"
@@ -929,11 +928,11 @@
     "acyclic": true,
     "binaries": 4,
     "crates": 37,
-    "dev_edges": 4,
+    "dev_edges": 5,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 398251,
+    "loc_total": 397893,
     "pending_disposition": 3,
-    "runtime_edges": 160,
+    "runtime_edges": 159,
     "unjustified": 1,
     "upward_edges": 1
   },

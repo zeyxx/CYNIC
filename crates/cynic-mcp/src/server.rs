@@ -108,7 +108,7 @@ impl CynicMcpServer {
                 None,
             ));
         }
-        let observation = cynic_host::mcp_runtime::observe_mcp_runtime(
+        let observation = crate::runtime::observe_mcp_runtime(
             args.binary.trim(),
             &cynic_process::LocalArgvRunner,
         );
@@ -222,38 +222,16 @@ fn api_contracts_inventory() -> serde_json::Value {
 
 fn parse_harness_kind(
     name: &str,
-) -> Result<cynic_host::runtime_harness::RuntimeHarnessKind, ErrorData> {
-    use cynic_host::runtime_harness::RuntimeHarnessKind as Kind;
-    match name {
-        "ClosedLocalLab" => Ok(Kind::ClosedLocalLab),
-        "Conformance" => Ok(Kind::Conformance),
-        "Staging" => Ok(Kind::Staging),
-        "Canary" => Ok(Kind::Canary),
-        "Production" => Ok(Kind::Production),
-        _ => Err(ErrorData::invalid_params(
-            format!("unknown harness kind: {name}"),
-            None,
-        )),
-    }
+) -> Result<cynic_protocol::deployment_tier::DeploymentTier, ErrorData> {
+    cynic_protocol::deployment_tier::DeploymentTier::parse_flexible(name)
+        .ok_or_else(|| ErrorData::invalid_params(format!("unknown harness kind: {name}"), None))
 }
 
 fn parse_proof_category(
     name: &str,
-) -> Result<cynic_host::harness_progression::ProofCategory, ErrorData> {
-    use cynic_host::harness_progression::ProofCategory as Category;
-    match name {
-        "Bootstrap" => Ok(Category::Bootstrap),
-        "Hardware" => Ok(Category::Hardware),
-        "HostConformance" => Ok(Category::HostConformance),
-        "BuildReproduction" => Ok(Category::BuildReproduction),
-        "Network" => Ok(Category::Network),
-        "TargetAttestation" => Ok(Category::TargetAttestation),
-        "RollbackIntent" => Ok(Category::RollbackIntent),
-        _ => Err(ErrorData::invalid_params(
-            format!("unknown proof category: {name}"),
-            None,
-        )),
-    }
+) -> Result<cynic_protocol::deployment_tier::ProofCategory, ErrorData> {
+    cynic_protocol::deployment_tier::ProofCategory::parse_flexible(name)
+        .ok_or_else(|| ErrorData::invalid_params(format!("unknown proof category: {name}"), None))
 }
 
 fn decide_harness_progression(
@@ -271,14 +249,14 @@ fn decide_harness_progression(
         .iter()
         .map(|name| parse_proof_category(name))
         .collect::<Result<Vec<_>, _>>()?;
-    let evidence = cynic_host::harness_progression::HarnessProgressionEvidence {
+    let evidence = cynic_protocol::deployment_tier::HarnessProgressionEvidence {
         current_kind,
         target_kind,
         satisfied,
         pending: vec![],
         unknown,
     };
-    let verdict = cynic_host::harness_progression::decide_harness_progression(&evidence);
+    let verdict = cynic_protocol::deployment_tier::decide_harness_progression(&evidence);
     serde_json::to_value(&verdict)
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))
 }

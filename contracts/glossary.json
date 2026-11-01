@@ -1,0 +1,61 @@
+{
+  "schema": "cynic.glossary.v1",
+  "status": "normative",
+  "authority": "contracts/foundation.json",
+  "purpose": "Single Source of Truth (SSOT) for CYNIC canonical vocabulary. Eliminates jargon drift, homonyms, and palimpsest naming.",
+  "terms": {
+    "DeploymentTier": {
+      "definition": "Lifecycle environment stage for deployment and validation.",
+      "canonical_values": [
+        "LocalLab",
+        "Conformance",
+        "Staging",
+        "Canary",
+        "Production"
+      ],
+      "banned_synonyms": [
+        "RuntimeHarnessKind",
+        "HarnessScope",
+        "HarnessAuthority"
+      ],
+      "rationale": "An environment tier is not a test harness. A harness is a test execution apparatus, never a target deployment stage."
+    },
+    "TestHarness": {
+      "definition": "Execution scaffold and evaluation instrumentation for measuring agents, benchmarks, models, or regression suites.",
+      "examples": [
+        "eval harness",
+        "benchmark harness",
+        "diagnostic harness"
+      ],
+      "banned_usages": [
+        "Using harness to describe production or staging environments"
+      ]
+    },
+    "Authority": {
+      "definition": "The legitimate, verifiable constituent or delegated source of decision power.",
+      "sovereign_sources": [
+        "Human Operator",
+        "Machine-signed cryptographic admission grant",
+        "Immutable normative JSON contract"
+      ],
+      "banned_usages": [
+        "Arbitrary enum levels masquerading as authority gates without signed receipts"
+      ]
+    },
+    "Grant": {
+      "definition": "A bounded, non-transferable, time-leased and workload-specific delegation of authority.",
+      "properties": [
+        "lease_fence",
+        "cancellation_generation",
+        "workload_digest",
+        "expiry"
+      ]
+    },
+    "Service": {
+      "definition": "A bounded sovereign system daemon, process, or LXC compute unit with health signals.",
+      "banned_usages": [
+        "Vague synonym for pure Rust domain modules"
+      ]
+    }
+  }
+}

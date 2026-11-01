@@ -164,36 +164,6 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-host/src/lib.rs:67",
-      "path": "crates/cynic-host/src/lib.rs",
-      "terms": "organic"
-    },
-    {
-      "count": 2,
-      "evidence": "crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:4",
-      "path": "crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs",
-      "terms": "organic"
-    },
-    {
-      "count": 10,
-      "evidence": "crates/cynic-host/src/organic_opportunity/mod.rs:1",
-      "path": "crates/cynic-host/src/organic_opportunity/mod.rs",
-      "terms": "Organic, organic"
-    },
-    {
-      "count": 1,
-      "evidence": "crates/cynic-host/src/organic_opportunity/port.rs:1",
-      "path": "crates/cynic-host/src/organic_opportunity/port.rs",
-      "terms": "organic"
-    },
-    {
-      "count": 2,
-      "evidence": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:4",
-      "path": "crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs",
-      "terms": "organic"
-    },
-    {
-      "count": 1,
       "evidence": "crates/cynic-host/src/os_health/mod.rs:4",
       "path": "crates/cynic-host/src/os_health/mod.rs",
       "terms": "dogs"
@@ -560,12 +530,6 @@
     },
     {
       "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/agent_coordination_uc.rs:273",
-      "path": "crates/cynic-node/src/usecases/agent_coordination_uc.rs",
-      "terms": "organ"
-    },
-    {
-      "count": 1,
       "evidence": "crates/cynic-node/src/watchdog.rs:2",
       "path": "crates/cynic-node/src/watchdog.rs",
       "terms": "Dog"
@@ -701,7 +665,7 @@
       "ORGANIC": 1,
       "ORGANISM": 1,
       "Organ": 10,
-      "Organic": 4,
+      "Organic": 3,
       "Organism": 3,
       "Organs": 2,
       "dog": 48,
@@ -709,14 +673,14 @@
       "genome": 1,
       "metabolic": 8,
       "metabolism": 3,
-      "organ": 36,
-      "organic": 19,
+      "organ": 35,
+      "organic": 14,
       "organism": 31,
       "organs": 18
     },
-    "files": 113,
+    "files": 107,
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "occurrences": 759
+    "occurrences": 742
   },
   "purpose": "Declared, counted, shrink-only baseline of the biological metaphors still present in the domain vocabulary. Read by audit_engine::retired_metaphor_rule (NAM-001). A file with no entry here fails the gate; an entry with no observed occurrence also fails, because paid debt left in the list hides that the list is stale.",
   "rule": {

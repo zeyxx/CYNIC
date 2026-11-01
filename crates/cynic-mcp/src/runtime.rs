@@ -1,11 +1,25 @@
+use cynic_process::ArgvRunner;
 use cynic_protocol::{
     RuntimeCompatibilityPlan, RuntimeCompatibilityStatus,
     runtime_compatibility::runtime_compatibility_actions,
 };
+use serde::Serialize;
 
-use cynic_process::ArgvRunner;
+pub const MCP_RUNTIME_OBSERVATION_SCHEMA: &str = "cynic.mcp.runtime_observation.v1";
 
-use super::types::{MCP_RUNTIME_OBSERVATION_SCHEMA, McpRuntimeObservation};
+#[derive(Debug, Clone, Serialize)]
+pub struct McpRuntimeObservation {
+    pub schema: &'static str,
+    pub status: String,
+    pub mutates: bool,
+    pub binary: String,
+    pub argv: Vec<String>,
+    pub exit_code: Option<i32>,
+    pub compatibility: Option<RuntimeCompatibilityPlan>,
+    pub required_actions: Vec<String>,
+    pub blockers: Vec<String>,
+    pub unknowns: Vec<String>,
+}
 
 /// Observe the installed MCP artifact without starting a server or opening a
 /// session. Exit code 3 is an expected incompatible-contract observation.
@@ -72,11 +86,9 @@ pub fn observe_mcp_runtime(binary: &str, runner: &dyn ArgvRunner) -> McpRuntimeO
 
 #[cfg(test)]
 mod tests {
-    use cynic_protocol::{RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityStatus};
-
-    use cynic_process::{ArgvOutput, MapArgvRunner};
-
     use super::observe_mcp_runtime;
+    use cynic_process::{ArgvOutput, MapArgvRunner};
+    use cynic_protocol::{RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityStatus};
 
     fn report(status: RuntimeCompatibilityStatus) -> String {
         serde_json::json!({
@@ -101,24 +113,26 @@ mod tests {
             responses: vec![(
                 vec!["cynic-mcp".to_string(), "--contract-json".to_string()],
                 ArgvOutput {
-                    exit_code: Some(3),
                     stdout: report(RuntimeCompatibilityStatus::Incompatible),
                     stderr: String::new(),
+                    exit_code: Some(3),
                     spawn_error: None,
                 },
             )],
         };
+
         let observed = observe_mcp_runtime("cynic-mcp", &runner);
         assert_eq!(observed.status, "blocked");
         assert!(!observed.mutates);
-        assert!(observed.blockers.is_empty());
-        assert!(observed.required_actions.contains(
-            &"publish_canonical_runtime_artifact_through_release_federation".to_string()
-        ));
+        assert_eq!(observed.exit_code, Some(3));
+        assert_eq!(
+            observed.required_actions,
+            vec!["reinstall_contract_aligned_binary".to_string()]
+        );
     }
 
     #[test]
-    fn unobservable_artifact_is_not_reclassified_as_compatible() {
+    fn unobservable_missing_binary_is_recorded_cleanly() {
         let observed = observe_mcp_runtime("missing-mcp", &MapArgvRunner::default());
         assert_eq!(observed.status, "blocked");
         assert_eq!(observed.blockers, vec!["mcp_runtime_artifact_unobservable"]);

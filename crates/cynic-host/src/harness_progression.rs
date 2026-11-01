@@ -9,6 +9,10 @@ use cynic_build::HarnessAuthority;
 use serde::Serialize;
 
 pub use crate::runtime_harness::RuntimeHarnessKind;
+pub use cynic_protocol::deployment_tier::{
+    DeploymentTier, ProofCategory as TierProofCategory,
+    TierProgressionEvidence, TierProgressionVerdict,
+};
 
 /// Required proof categories for harness progression.
 #[derive(Debug, Clone, PartialEq, Eq)]

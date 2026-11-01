@@ -5,6 +5,7 @@
 //! `infra/agent-exposure.json`; this crate owns the implementations and the
 //! stdio transport that serves them.
 
+pub mod runtime;
 pub mod server;
 
 use std::path::PathBuf;
