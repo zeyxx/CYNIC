@@ -27,6 +27,7 @@ use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, EvidenceEnvelope,
     MutationAdmission, SecurityEvidenceState, admit_build_mutation, build_evidence_envelope,
 };
+use cynic_protocol::build::{ExecRequest, ExecResponse};
 use cynic_protocol::supervision::{
     DrainDecision, DrainReceipt, SupervisorState, decide_drain, drain_blocks_admission,
 };
@@ -207,22 +208,6 @@ fn default_build_action() -> String {
     "check".to_string()
 }
 
-/// Request body for `POST /exec`.
-#[derive(Debug, Deserialize)]
-pub struct ExecRequest {
-    pub command: String,
-    #[serde(default)]
-    pub work_dir: String,
-}
-
-/// Response body for `POST /exec`.
-#[derive(Debug, Serialize)]
-pub struct ExecResponse {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-}
-
 /// Execute a shell command on the builder and return its output.
 ///
 /// SECURITY: this endpoint runs on the builder's service-plane network and
@@ -261,11 +246,13 @@ async fn exec(
     if !payload.work_dir.is_empty() {
         cmd.current_dir(&payload.work_dir);
     }
+    let started = std::time::Instant::now();
     match cmd.output().await {
         Ok(output) => Ok(Json(ExecResponse {
-            exit_code: output.status.code(),
+            exit_code: output.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            duration_ms: started.elapsed().as_millis() as u64,
         })),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1947,9 +1934,10 @@ mod tests {
     #[test]
     fn exec_response_serializes_exit_code_stdout_stderr() {
         let resp = ExecResponse {
-            exit_code: Some(0),
+            exit_code: 0,
             stdout: "ok".to_string(),
             stderr: String::new(),
+            duration_ms: 0,
         };
         let json = serde_json::to_value(&resp).unwrap();
         assert_eq!(json["exit_code"], 0);
@@ -1960,9 +1948,10 @@ mod tests {
     #[test]
     fn exec_response_serializes_nonzero_exit() {
         let resp = ExecResponse {
-            exit_code: Some(2),
+            exit_code: 2,
             stdout: String::new(),
             stderr: "error".to_string(),
+            duration_ms: 0,
         };
         let json = serde_json::to_value(&resp).unwrap();
         assert_eq!(json["exit_code"], 2);
