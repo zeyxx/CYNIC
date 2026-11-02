@@ -32,6 +32,7 @@ pub use adapters::{EncryptedFileSecretProvider, OsCredentialStoreSecretProvider,
 pub use composite::CompositeSecretProvider;
 pub use material::SecretMaterial;
 pub use ports::{SecretProviderPort, SecretStorePort, SecretUseGatePort};
+pub use ports::{CredentialBrokerPort, CredentialMaterialSinkPort, CredentialRotationAuthorityPort};
 pub use protocol::{
     SecretEntry, SecretError, SecretStatus, SecretUseExecutionReport, SecretUseHandle,
     SecretUseOutcome, SECRET_USE_EXECUTION_SCHEMA,

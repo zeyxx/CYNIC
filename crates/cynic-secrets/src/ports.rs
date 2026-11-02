@@ -11,6 +11,8 @@
 
 use crate::{SecretError, SecretReference, SecretStatus};
 
+use cynic_protocol::{CredentialLeaseDesiredState, CredentialLeaseMetadata, CredentialLeaseObservation};
+
 /// Read-only port: resolve a `SecretReference` to a secret value.
 ///
 /// Implementations must NEVER log the resolved value. Callers should
@@ -86,4 +88,43 @@ pub trait SecretUseGatePort {
         env_var: &str,
         argv: &[String],
     ) -> Result<crate::protocol::SecretUseExecutionReport, SecretError>;
+}
+
+/// Credential broker port — re-exported canonical owner (hoisted from cynic-node).
+/// Provider-neutral credential lease boundary. Implementations may use a
+/// secret store, systemd credentials, Vault, or a provider-native broker.
+/// Material is never returned through this observation port.
+pub trait CredentialBrokerPort: Send + Sync {
+    fn observe(
+        &self,
+        desired: &CredentialLeaseDesiredState,
+        now_unix_seconds: u64,
+    ) -> CredentialLeaseObservation;
+
+    fn issue(&self, desired: &CredentialLeaseDesiredState) -> Result<(), String>;
+    fn renew(&self, desired: &CredentialLeaseDesiredState) -> Result<(), String>;
+    fn revoke(&self, desired: &CredentialLeaseDesiredState, generation: u64) -> Result<(), String>;
+}
+
+/// Credential material sink port — hoisted from cynic-node.
+/// Provider-neutral sink for newly issued credential material.
+pub trait CredentialMaterialSinkPort: Send + Sync {
+    fn store(&self, secret_ref: &str, material: &[u8]) -> Result<String, String>;
+}
+
+/// Credential rotation authority port — hoisted from cynic-node.
+/// Separate provisioning authority for provider credentials.
+pub trait CredentialRotationAuthorityPort: Send + Sync {
+    fn issue(
+        &self,
+        desired: &CredentialLeaseDesiredState,
+        next_generation: u64,
+        sink: &dyn CredentialMaterialSinkPort,
+    ) -> Result<CredentialLeaseMetadata, String>;
+
+    fn revoke(
+        &self,
+        desired: &CredentialLeaseDesiredState,
+        generation: u64,
+    ) -> Result<Vec<String>, String>;
 }
