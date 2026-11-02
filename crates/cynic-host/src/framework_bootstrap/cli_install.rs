@@ -6,6 +6,8 @@ use std::{
 };
 
 use super::types::StandaloneCliInstallReport;
+use cynic_protocol::build::{STANDALONE_CLI_INSTALL_REPORT_SCHEMA, standalone_cli_install_argv};
+pub use cynic_protocol::build::is_user_local_target;
 use cynic_types::paths::CynicPaths;
 
 pub fn install_standalone_cli(
@@ -24,34 +26,13 @@ pub fn install_standalone_cli(
         .unwrap_or_else(default_cli_install_target);
     let target_display = target.display().to_string();
     let user_local = is_user_local_target(&target);
-    let command = if user_local {
-        // No root ownership: $HOME/.local/bin (or other user-writable prefix).
-        vec![
-            "install".to_string(),
-            "-m".to_string(),
-            "0755".to_string(),
-            source.display().to_string(),
-            target_display.clone(),
-        ]
-    } else {
-        vec![
-            "install".to_string(),
-            "-o".to_string(),
-            "root".to_string(),
-            "-g".to_string(),
-            "root".to_string(),
-            "-m".to_string(),
-            "0755".to_string(),
-            source.display().to_string(),
-            target_display.clone(),
-        ]
-    };
     let source_display = source.display().to_string();
+    let command = standalone_cli_install_argv(&source_display, &target_display, user_local);
 
     if !apply {
         return Ok(StandaloneCliInstallReport {
-            schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
-            status: "planned",
+            schema: STANDALONE_CLI_INSTALL_REPORT_SCHEMA.to_string(),
+            status: "planned".to_string(),
             mutates: false,
             requested_apply: false,
             source: source_display,
@@ -66,8 +47,8 @@ pub fn install_standalone_cli(
 
     if same_existing_file(&source, &target) {
         return Ok(StandaloneCliInstallReport {
-            schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
-            status: "already_installed",
+            schema: STANDALONE_CLI_INSTALL_REPORT_SCHEMA.to_string(),
+            status: "already_installed".to_string(),
             mutates: false,
             requested_apply: true,
             source: source_display,
@@ -118,8 +99,8 @@ pub fn install_standalone_cli(
         && install_output_indicates_same_file(output_stdout.as_ref(), output_stderr.as_ref())
     {
         return Ok(StandaloneCliInstallReport {
-            schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
-            status: "already_installed",
+            schema: STANDALONE_CLI_INSTALL_REPORT_SCHEMA.to_string(),
+            status: "already_installed".to_string(),
             mutates: false,
             requested_apply: true,
             source: source_display,
@@ -133,13 +114,13 @@ pub fn install_standalone_cli(
     }
 
     let status = if output.status.success() {
-        "installed"
+        "installed".to_string()
     } else {
-        "blocked"
+        "blocked".to_string()
     };
 
     Ok(StandaloneCliInstallReport {
-        schema: "cynic.framework_bootstrap.standalone_cli_install.v1",
+        schema: STANDALONE_CLI_INSTALL_REPORT_SCHEMA.to_string(),
         status,
         mutates: true,
         requested_apply: true,
@@ -160,29 +141,6 @@ fn default_cli_install_target() -> PathBuf {
     CynicPaths::binary_dir().join("cynic")
 }
 
-fn is_user_local_target(target: &Path) -> bool {
-    if let Some(home) = std::env::var_os("HOME") {
-        let home = PathBuf::from(home);
-        if target.starts_with(home.join(".local/bin")) {
-            return true;
-        }
-    }
-    if let Ok(xdg) = std::env::var("XDG_BIN_HOME")
-        && target.starts_with(PathBuf::from(xdg))
-    {
-        return true;
-    }
-    if target.starts_with("/usr/local")
-        || target.starts_with("/usr/bin")
-        || target.starts_with("/usr/sbin")
-        || target.starts_with("/bin")
-        || target.starts_with("/sbin")
-    {
-        return false;
-    }
-
-    true
-}
 
 fn discover_source_binary() -> Option<PathBuf> {
     if let Ok(source) = std::env::var("CYNIC_STANDALONE_CLI_SOURCE") {
@@ -259,13 +217,13 @@ fn same_existing_file(source: &Path, target: &Path) -> bool {
     source == target
 }
 
-fn standalone_cli_install_proof() -> Vec<&'static str> {
+fn standalone_cli_install_proof() -> Vec<String> {
     vec![
-        "installs the Rust standalone cynic binary directly",
-        "does not install a shell wrapper",
-        "does not require CYNIC_PROJECT_ROOT",
-        "does not depend on Python organs",
-        "source binary can be injected explicitly by the build surface",
+        "installs the Rust standalone cynic binary directly".to_string(),
+        "does not install a shell wrapper".to_string(),
+        "does not require CYNIC_PROJECT_ROOT".to_string(),
+        "does not depend on Python organs".to_string(),
+        "source binary can be injected explicitly by the build surface".to_string(),
     ]
 }
 
