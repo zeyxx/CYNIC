@@ -87,5 +87,3 @@ mod tests {
         assert_eq!(result.digests, vec!["mock-digest-123".to_string()]);
     }
 }
-path">
-/tmp/cynic-workspaces/agent_beam_hoist-agent-workload-ports/crates/cynic-node/src/adapters/local_external_evidence.rs
