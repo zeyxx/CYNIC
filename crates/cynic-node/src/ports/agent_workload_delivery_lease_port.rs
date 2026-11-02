@@ -1,7 +1,2 @@
-use cynic_agent::AgentWorkloadDeliveryLease;
-
-pub trait AgentWorkloadDeliveryLeasePort: Send + Sync {
-    fn read(&self, workload_id: &str) -> Result<Option<AgentWorkloadDeliveryLease>, String>;
-
-    fn persist(&self, workload_id: &str, lease: &AgentWorkloadDeliveryLease) -> Result<(), String>;
-}
+//! Agent workload delivery lease port — re-exported from canonical owner cynic-agent.
+pub use cynic_agent::workload::ports::AgentWorkloadDeliveryLeasePort;

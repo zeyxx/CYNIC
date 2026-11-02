@@ -1,7 +1,2 @@
-use cynic_agent::AgentWorkloadDelivery;
-
-pub trait AgentWorkloadCompletionReceiptPort: Send + Sync {
-    fn contains(&self, terminal_record_digest: &str) -> Result<bool, String>;
-
-    fn persist(&self, delivery: &AgentWorkloadDelivery) -> Result<(), String>;
-}
+//! Agent workload completion receipt port — re-exported from canonical owner cynic-agent.
+pub use cynic_agent::workload::ports::AgentWorkloadCompletionReceiptPort;
