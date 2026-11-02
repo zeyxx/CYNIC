@@ -13,60 +13,9 @@ use cynic_build::build::canonical_argv_from_build_action;
 use cynic_build::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
-/// Minimal argv command runner (no shell composition).
-///
-/// Mirrors the `ArgvRunner` pattern from `cynic-lifecycle::port`,
-/// kept local here so `cynic-node` does not depend on `cynic-host`.
-pub trait CommandRunner: Send + Sync {
-    fn run(&self, argv: &[&str]) -> CommandOutput;
-}
-
-/// Output of a command run through [`CommandRunner`].
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct CommandOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
-
-impl CommandOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-}
-
-/// Production runner: spawns `argv[0]` with the remaining args.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LocalCommandRunner;
-
-impl CommandRunner for LocalCommandRunner {
-    fn run(&self, argv: &[&str]) -> CommandOutput {
-        observe_argv(argv);
-        if argv.is_empty() {
-            return CommandOutput {
-                spawn_error: Some("empty argv".into()),
-                ..Default::default()
-            };
-        }
-        match std::process::Command::new(argv[0])
-            .args(&argv[1..])
-            .output()
-        {
-            Ok(o) => CommandOutput {
-                exit_code: o.status.code(),
-                stdout: String::from_utf8_lossy(&o.stdout).into_owned(),
-                stderr: String::from_utf8_lossy(&o.stderr).into_owned(),
-                spawn_error: None,
-            },
-            Err(e) => CommandOutput {
-                spawn_error: Some(e.to_string()),
-                ..Default::default()
-            },
-        }
-    }
-}
-
+/// Canonical L0 / L1 argv types re-exported under the legacy names.
+pub use cynic_process::LocalArgvRunner as LocalCommandRunner;
+pub use cynic_protocol::argv::{ArgvOutput as CommandOutput, ArgvRunner as CommandRunner};
 /// Observe mode (tranche 2): same contract as
 /// `cynic-lifecycle::port::observe_argv` — pure verdict from
 /// `cynic-protocol::argv_allow`, best-effort JSONL append, never blocks
@@ -150,7 +99,7 @@ pub struct SshBuildRunner {
     /// hold it. The gate reads the runner's free space before the clone and
     /// refuses with an explicit verdict instead.
     pub minimum_available_bytes: Option<u64>,
-    pub runner: Box<dyn CommandRunner>,
+    pub runner: Box<dyn cynic_protocol::argv::ArgvRunner>,
 }
 
 // The shared-target / sccache path helpers that used to live here are gone.
@@ -877,7 +826,8 @@ mod tests {
                     stdout: format!(
                         "{{\"schema\":\"cynic.runtime_paths.v1\",\"state_root\":\"{FAKE_STATE_ROOT}\"}}"
                     ),
-                    ..Default::default()
+                    stderr: String::new(),
+                    spawn_error: None,
                 };
             }
             script.responses.pop_front().unwrap_or_default()
@@ -888,15 +838,17 @@ mod tests {
         CommandOutput {
             exit_code: Some(0),
             stdout: stdout.to_string(),
-            ..Default::default()
+            stderr: String::new(),
+            spawn_error: None,
         }
     }
 
     fn fail(stderr: &str) -> CommandOutput {
         CommandOutput {
             exit_code: Some(1),
+            stdout: String::new(),
             stderr: stderr.to_string(),
-            ..Default::default()
+            spawn_error: None,
         }
     }
 

@@ -10,7 +10,7 @@ use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord};
 
 use crate::ports::agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort;
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
-use crate::ports::build_runner_adapter::{CommandOutput, CommandRunner};
+use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
 pub const BUILD_PULL_PLAN_SCHEMA: &str = "cynic.node.build_pull_plan.v1";
 
@@ -146,7 +146,7 @@ pub fn execute_pull_run(
     max_items: usize,
     store: &dyn AgentWorkloadStorePort,
     leases: &dyn AgentWorkloadDeliveryLeasePort,
-    runner: &dyn CommandRunner,
+    runner: &dyn ArgvRunner,
 ) -> BuildRunReport {
     let mut report = BuildRunReport {
         schema: BUILD_PULL_PLAN_SCHEMA.to_string(),
@@ -180,7 +180,7 @@ pub fn execute_pull_run(
             }
         };
         let refs: Vec<&str> = item.argv.iter().map(String::as_str).collect();
-        let out: CommandOutput = runner.run(&refs);
+        let out: ArgvOutput = runner.run(&refs);
         let mut next = durable.record.clone();
         next.state = if out.success() {
             AgentWorkloadState::Completed
@@ -515,12 +515,12 @@ mod tests {
     }
 
     struct FakeCommandRunner {
-        outputs: std::sync::Mutex<Vec<CommandOutput>>,
+        outputs: std::sync::Mutex<Vec<ArgvOutput>>,
         seen: std::sync::Mutex<Vec<Vec<String>>>,
     }
 
     impl FakeCommandRunner {
-        fn with(outputs: Vec<CommandOutput>) -> Self {
+        fn with(outputs: Vec<ArgvOutput>) -> Self {
             Self {
                 outputs: std::sync::Mutex::new(outputs.into_iter().rev().collect()),
                 seen: std::sync::Mutex::new(Vec::new()),
@@ -532,8 +532,8 @@ mod tests {
         }
     }
 
-    impl crate::ports::build_runner_adapter::CommandRunner for FakeCommandRunner {
-        fn run(&self, argv: &[&str]) -> CommandOutput {
+    impl cynic_protocol::argv::ArgvRunner for FakeCommandRunner {
+        fn run(&self, argv: &[&str]) -> ArgvOutput {
             self.seen
                 .lock()
                 .expect("record argv")
@@ -542,12 +542,17 @@ mod tests {
                 .lock()
                 .expect("pop output")
                 .pop()
-                .unwrap_or_default()
+                .unwrap_or_else(|| ArgvOutput {
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: None,
+                })
         }
     }
 
-    fn ok_output(stdout: &str) -> CommandOutput {
-        CommandOutput {
+    fn ok_output(stdout: &str) -> ArgvOutput {
+        ArgvOutput {
             exit_code: Some(0),
             stdout: stdout.to_string(),
             stderr: String::new(),
@@ -555,8 +560,8 @@ mod tests {
         }
     }
 
-    fn fail_output() -> CommandOutput {
-        CommandOutput {
+    fn fail_output() -> ArgvOutput {
+        ArgvOutput {
             exit_code: Some(1),
             stdout: String::new(),
             stderr: "error[E0432]".to_string(),
