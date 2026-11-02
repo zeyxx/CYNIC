@@ -6,9 +6,7 @@ use std::{
 };
 
 use super::types::StandaloneCliInstallReport;
-use cynic_protocol::build::{
-    STANDALONE_CLI_INSTALL_REPORT_SCHEMA, is_user_local_target, standalone_cli_install_argv,
-};
+use cynic_protocol::build::{STANDALONE_CLI_INSTALL_REPORT_SCHEMA, standalone_cli_install_argv};
 pub use cynic_protocol::build::is_user_local_target;
 use cynic_types::paths::CynicPaths;
 
