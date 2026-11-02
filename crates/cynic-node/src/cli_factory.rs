@@ -11,7 +11,7 @@ use cynic_host::registry::resolve::resolve_source_transport_uri;
 
 use crate::adapters::ssh_build_proof::SshBuildProof;
 use crate::ports::build_proof_port::BuildProofPort;
-use crate::ports::build_runner_adapter::{DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner};
+use crate::ports::build_runner_adapter::{DEFAULT_SSOT_URL, SshBuildRunner};
 
 /// Resolve the SSH target for a build trigger.
 ///
@@ -75,7 +75,7 @@ pub fn ssh_build_runner(
         },
         checkout_base: checkout_base.filter(|value| !value.trim().is_empty()),
         minimum_available_bytes,
-        runner: Box::new(LocalCommandRunner),
+        runner: Box::new(cynic_process::LocalArgvRunner),
     }
 }
 
