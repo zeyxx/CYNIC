@@ -1,0 +1,11 @@
+{
+  "name": "cynic-agent-supervisor",
+  "version": "0.2.0",
+  "description": "Hermes plugin for CYNIC agent supervision and session-scoped claim lifecycle",
+  "entry_point": "Hermes plugin loader (register(ctx))",
+  "language": "python",
+  "status": "native-plugin",
+  "origin": "CYNIC internal",
+  "owner": "Titouan",
+  "license": "private"
+}
