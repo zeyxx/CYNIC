@@ -1,15 +1,31 @@
-use std::io::Write as _;
+use std::io::{Read, Write as _};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 use cynic_protocol::argv_allow::{ArgvObservation, observe_argv_verdict};
+
+fn default_command_timeout() -> Duration {
+    std::env::var("CYNIC_HOST_PROBE_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_secs(30))
+}
 
 /// Production runner: spawns argv[0] with remaining args.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalArgvRunner;
 
 impl LocalArgvRunner {
-    /// Spawns argv[0] with remaining args, optionally changing current directory.
-    pub fn run_in_dir(&self, argv: &[&str], cwd: Option<&std::path::Path>) -> ArgvOutput {
+    /// Spawns argv[0] with remaining args, optionally changing current directory, with a timeout.
+    pub fn run_in_dir_with_timeout(
+        &self,
+        argv: &[&str],
+        cwd: Option<&Path>,
+        timeout: Duration,
+    ) -> ArgvOutput {
         observe_argv(argv);
         if argv.is_empty() {
             return ArgvOutput {
@@ -19,25 +35,111 @@ impl LocalArgvRunner {
                 spawn_error: Some("empty argv".into()),
             };
         }
-        let mut cmd = std::process::Command::new(argv[0]);
+        let mut cmd = Command::new(argv[0]);
         cmd.args(&argv[1..]);
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         if let Some(directory) = cwd.filter(|path| path.is_dir()) {
             cmd.current_dir(directory);
         }
-        match cmd.output() {
-            Ok(o) => ArgvOutput {
-                exit_code: o.status.code(),
-                stdout: String::from_utf8_lossy(&o.stdout).into_owned(),
-                stderr: String::from_utf8_lossy(&o.stderr).into_owned(),
-                spawn_error: None,
-            },
-            Err(e) => ArgvOutput {
-                exit_code: None,
-                stdout: String::new(),
-                stderr: String::new(),
-                spawn_error: Some(format!("spawn {}: {e}", argv[0])),
-            },
+
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            Err(e) => {
+                return ArgvOutput {
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: Some(format!("spawn {}: {e}", argv[0])),
+                };
+            }
+        };
+
+        let stdout = match child.stdout.take() {
+            Some(out) => out,
+            None => {
+                return ArgvOutput {
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: Some("stdout pipe missing".into()),
+                };
+            }
+        };
+        let stderr = match child.stderr.take() {
+            Some(err) => err,
+            None => {
+                return ArgvOutput {
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: Some("stderr pipe missing".into()),
+                };
+            }
+        };
+
+        let stdout_reader = std::thread::spawn(move || {
+            let mut r = stdout;
+            let mut buf = Vec::new();
+            let _ = r.read_to_end(&mut buf);
+            buf
+        });
+        let stderr_reader = std::thread::spawn(move || {
+            let mut r = stderr;
+            let mut buf = Vec::new();
+            let _ = r.read_to_end(&mut buf);
+            buf
+        });
+
+        let deadline = Instant::now() + timeout;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let stdout_bytes = stdout_reader.join().unwrap_or_default();
+                    let stderr_bytes = stderr_reader.join().unwrap_or_default();
+                    return ArgvOutput {
+                        exit_code: status.code(),
+                        stdout: String::from_utf8_lossy(&stdout_bytes).into_owned(),
+                        stderr: String::from_utf8_lossy(&stderr_bytes).into_owned(),
+                        spawn_error: None,
+                    };
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    let _ = child.kill();
+                    let stdout_bytes = stdout_reader.join().unwrap_or_default();
+                    let stderr_bytes = stderr_reader.join().unwrap_or_default();
+                    return ArgvOutput {
+                        exit_code: None,
+                        stdout: String::from_utf8_lossy(&stdout_bytes).into_owned(),
+                        stderr: String::from_utf8_lossy(&stderr_bytes).into_owned(),
+                        spawn_error: Some(format!("wait error: {e}")),
+                    };
+                }
+            }
+
+            if Instant::now() >= deadline {
+                let _ = child.kill();
+                let stdout_bytes = stdout_reader.join().unwrap_or_default();
+                let stderr_bytes = stderr_reader.join().unwrap_or_default();
+                let _ = child.wait();
+                return ArgvOutput {
+                    exit_code: None,
+                    stdout: String::from_utf8_lossy(&stdout_bytes).into_owned(),
+                    stderr: format!(
+                        "command timed out after {}ms: {}",
+                        timeout.as_millis(),
+                        String::from_utf8_lossy(&stderr_bytes).trim()
+                    ),
+                    spawn_error: Some(format!("command timed out after {}ms", timeout.as_millis())),
+                };
+            }
+            std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    /// Spawns argv[0] with remaining args, optionally changing current directory.
+    pub fn run_in_dir(&self, argv: &[&str], cwd: Option<&Path>) -> ArgvOutput {
+        self.run_in_dir_with_timeout(argv, cwd, default_command_timeout())
     }
 }
 
