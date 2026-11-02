@@ -33,6 +33,7 @@ pub use lifecycle::{
 };
 pub use observation::*;
 pub use ports::*;
+pub use ports::{NullWorkloadSigner, WorkloadAdmission, WorkloadIdentityPort, WorkloadSignerPort};
 pub use settlement::{SETTLED_PARCEL_RECEIPT_SCHEMA, SettledParcelReceipt, settle_parcel, settle_parcel_with_receipt};
 pub use types::{
     AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,

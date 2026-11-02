@@ -42,7 +42,6 @@ mod orphan_sources;
 /// wire it or delete it, do not leave it invisible.
 const QUARANTINED: &[&str] = &[
     "adapters/local_workload_signer.rs",
-    "ports/workload_signer_port.rs",
 ];
 
 #[test]
