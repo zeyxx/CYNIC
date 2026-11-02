@@ -301,7 +301,7 @@ fn upgrade_cynic_self(source: Option<&str>) -> Result<UpgradeResult, String> {
         Some(target.to_str().unwrap_or("")),
         true,
     )?;
-    let ok = matches!(report.status, "installed" | "already_installed");
+    let ok = report.status == "installed" || report.status == "already_installed";
     Ok(UpgradeResult {
         dep_id: "cynic".into(),
         attempted: true,
