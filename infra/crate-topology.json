@@ -11,8 +11,7 @@
         "cynic-eval",
         "cynic-inference",
         "cynic-market",
-        "cynic-node",
-        "cynic-pool"
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-consensus",
@@ -54,7 +53,6 @@
     "cynic-build": {
       "consumers": [
         "cynic-cli",
-        "cynic-discovery",
         "cynic-node"
       ],
       "depends_on": [
@@ -120,8 +118,7 @@
         "cynic-cli",
         "cynic-inference",
         "cynic-market",
-        "cynic-node",
-        "cynic-pool"
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-finance",
@@ -132,19 +129,6 @@
       "kind": "library",
       "layer": "L2",
       "loc": 2736
-    },
-    "cynic-discovery": {
-      "consumers": [],
-      "depends_on": [
-        "cynic-build",
-        "cynic-host",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": false,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 646
     },
     "cynic-domain-ops": {
       "consumers": [
@@ -185,8 +169,7 @@
         "cynic-consensus",
         "cynic-inference",
         "cynic-market",
-        "cynic-node",
-        "cynic-pool"
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-protocol"
@@ -212,7 +195,6 @@
     "cynic-host": {
       "consumers": [
         "cynic-cli",
-        "cynic-discovery",
         "cynic-intel",
         "cynic-node"
       ],
@@ -256,7 +238,6 @@
         "cynic-finance",
         "cynic-knowledge",
         "cynic-network",
-        "cynic-pool",
         "cynic-protocol",
         "cynic-secrets",
         "cynic-supervisor",
@@ -327,7 +308,6 @@
         "cynic-consensus",
         "cynic-finance",
         "cynic-intel",
-        "cynic-pool",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
@@ -388,7 +368,6 @@
         "cynic-network",
         "cynic-node-protocol",
         "cynic-persistence",
-        "cynic-pool",
         "cynic-process",
         "cynic-protocol",
         "cynic-proxmox",
@@ -404,7 +383,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 62483
+      "loc": 62475
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -460,23 +439,6 @@
       "layer": "L1",
       "loc": 2953
     },
-    "cynic-pool": {
-      "consumers": [
-        "cynic-inference",
-        "cynic-market",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-consensus",
-        "cynic-finance"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 789
-    },
     "cynic-process": {
       "consumers": [
         "cynic-agent",
@@ -509,7 +471,6 @@
         "cynic-build",
         "cynic-cli",
         "cynic-consensus",
-        "cynic-discovery",
         "cynic-domain-ops",
         "cynic-eval",
         "cynic-finance",
@@ -784,11 +745,9 @@
     "cynic-sqlite",
     "cynic-vcs",
     "cynic-build",
-    "cynic-pool",
     "cynic-surreal",
     "cynic-host",
     "cynic-knowledge",
-    "cynic-discovery",
     "cynic-eval",
     "cynic-intel",
     "cynic-inference",
@@ -913,14 +872,12 @@
       "cynic-agent",
       "cynic-build",
       "cynic-consensus",
-      "cynic-discovery",
       "cynic-domain-ops",
       "cynic-eval",
       "cynic-finance",
       "cynic-inference",
       "cynic-intel",
       "cynic-market",
-      "cynic-pool",
       "cynic-traces",
       "cynic-vcs"
     ],
@@ -939,13 +896,13 @@
   "measured": {
     "acyclic": true,
     "binaries": 4,
-    "crates": 38,
+    "crates": 36,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 398757,
-    "pending_disposition": 5,
-    "runtime_edges": 162,
-    "unjustified": 3,
+    "loc_total": 397314,
+    "pending_disposition": 3,
+    "runtime_edges": 153,
+    "unjustified": 2,
     "upward_edges": 0
   },
   "pending_disposition": {
@@ -953,17 +910,9 @@
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
       "reason": "measured 0 runtime, 0 dev dependents, personal anchoring domain crate"
     },
-    "cynic-discovery": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, candidate for fusion or deletion"
-    },
     "cynic-market": {
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
       "reason": "measured 0 runtime, 0 dev dependents, not a binary"
-    },
-    "cynic-pool": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, phantom [[bin]] removed 2026-10-06; library-only, candidate for deletion"
     },
     "cynic-sqlite": {
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",

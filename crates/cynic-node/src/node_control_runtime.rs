@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use crate::adapters::http_node_control::HttpNodeControlAdapter;
-use crate::adapters::http_runtime_artifact_transport::HttpRuntimeArtifactTransport;
+use crate::adapters::http_artifact_transport::HttpArtifactTransport;
 use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
 use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
 use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
@@ -140,7 +140,7 @@ pub async fn start_tasks(
             execution_mode: cynic_node_protocol::NodeExecutionMode::Runtime,
         },
     );
-    let artifact_transport = HttpRuntimeArtifactTransport::new(
+    let artifact_transport = HttpArtifactTransport::new(
         control.runtime_artifact_inbox_root.clone(),
         control.runtime_artifact_max_bytes,
         Duration::from_secs(control.runtime_artifact_timeout_secs),
