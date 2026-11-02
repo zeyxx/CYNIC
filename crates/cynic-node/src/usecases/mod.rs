@@ -14,7 +14,6 @@ pub mod build_submission_orchestrator_uc;
 pub mod build_workload_grant_uc;
 pub mod build_workload_observation_uc;
 pub mod build_workload_submission_uc;
-pub mod builder_http;
 pub mod builder_runtime;
 pub mod coordination_observation_bridge;
 pub mod coordination_posture_uc;

@@ -404,7 +404,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 62624
+      "loc": 62614
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -942,7 +942,7 @@
     "crates": 38,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 398545,
+    "loc_total": 398535,
     "pending_disposition": 5,
     "runtime_edges": 162,
     "unjustified": 3,
