@@ -389,10 +389,6 @@ fn provider_scope(provider: SupervisorProvider) -> &'static str {
     }
 }
 
-fn openrc_service_name(unit: &ServiceUnitPolicy) -> String {
-    openrc_unit_name(&unit.unit_name)
-}
-
 fn policy_source(policy: &ServicePolicy) -> String {
     let mut sources = policy
         .units
