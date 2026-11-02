@@ -81,7 +81,7 @@ impl ServiceCommandContext {
 }
 
 pub trait ServicePolicyExt {
-    pub fn contract(&self) -> SubstrateDomainContract {
+    fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
             domain: HostSubstrateDomain::Services,
             status: SurfaceStatus::Planned,
@@ -115,11 +115,11 @@ pub trait ServicePolicyExt {
         }
     }
 
-    pub fn bundle(&self) -> ServiceBundleReport {
+    fn bundle(&self) -> ServiceBundleReport {
         self.bundle_with_context(&ServiceCommandContext::from_current_runtime())
     }
 
-    pub fn bundle_with_context(&self, context: &ServiceCommandContext) -> ServiceBundleReport {
+    fn bundle_with_context(&self, context: &ServiceCommandContext) -> ServiceBundleReport {
         ServiceBundleReport {
             status: SurfaceStatus::Planned,
             files: self
@@ -135,11 +135,11 @@ pub trait ServicePolicyExt {
         }
     }
 
-    pub fn activation_plan(&self) -> ServiceActivationPlan {
+    fn activation_plan(&self) -> ServiceActivationPlan {
         self.activation_plan_with_context(&ServiceCommandContext::from_current_runtime())
     }
 
-    pub fn activation_plan_with_context(
+    fn activation_plan_with_context(
         &self,
         context: &ServiceCommandContext,
     ) -> ServiceActivationPlan {
@@ -164,11 +164,11 @@ pub trait ServicePolicyExt {
         }
     }
 
-    pub fn apply_report(&self, dry_run: bool) -> ServiceApplyReport {
+    fn apply_report(&self, dry_run: bool) -> ServiceApplyReport {
         self.apply_report_with_context(dry_run, &ServiceCommandContext::from_current_runtime())
     }
 
-    pub fn apply_report_with_context(
+    fn apply_report_with_context(
         &self,
         dry_run: bool,
         context: &ServiceCommandContext,
@@ -190,7 +190,7 @@ pub trait ServicePolicyExt {
         }
     }
 
-    pub fn status(&self, observed: &ServiceObservedState) -> ServiceStatusReport {
+    fn status(&self, observed: &ServiceObservedState) -> ServiceStatusReport {
         let mut missing_units = Vec::new();
         let mut disabled_units = Vec::new();
         let mut inactive_units = Vec::new();
@@ -292,7 +292,7 @@ pub trait ServicePolicyExt {
         commands
     }
 
-    pub fn apply_operations(&self) -> Vec<HostOperation> {
+    fn apply_operations(&self) -> Vec<HostOperation> {
         let mut operations = vec![HostOperation::EnsureDir {
             path: self.unit_dir.clone(),
             mode: MODE_0755.unix,
