@@ -21,7 +21,7 @@ pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_security_audit_uc;
 pub mod network_sync_uc;
-pub mod network_watchdog_uc;
+
 // The federated mesh cluster declares together or not at all: resolver reads the
 // declared seed, and spof_observe/task_dispatch both consume the resolver.
 // Declaring one member alone produced E0433 for a module that does exist.

@@ -23,8 +23,8 @@ pub(crate) mod registry;
 /// registry to be read differently, which is the drift this repository keeps
 /// paying for.
 pub(crate) fn declared_service_probe_specs()
--> Vec<cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec> {
-    use cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec;
+-> Vec<cynic_network::usecases::network_watchdog_uc::ServiceProbeSpec> {
+    use cynic_network::usecases::network_watchdog_uc::ServiceProbeSpec;
 
     let reg_path = crate::registry_path(None);
     let mut services = Vec::new();
