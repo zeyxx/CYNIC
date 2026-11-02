@@ -1,17 +1,4 @@
-use cynic_agent::AgentSchedulerJournalRecord;
-
-use crate::ports::agent_workspace_port::AgentWorkspacePortError;
-
-pub trait AgentSchedulerJournalPort: Send + Sync {
-    fn records(
-        &self,
-        node_id: &str,
-        scheduler_epoch: u64,
-        step_id: &str,
-    ) -> Result<Vec<AgentSchedulerJournalRecord>, AgentWorkspacePortError>;
-
-    fn persist(
-        &self,
-        record: &AgentSchedulerJournalRecord,
-    ) -> Result<AgentSchedulerJournalRecord, AgentWorkspacePortError>;
-}
+//! Agent scheduler journal port — re-exported from canonical owner cynic-agent.
+pub use cynic_agent::workload::ports::AgentSchedulerJournalPort;
+path">
+/tmp/cynic-workspaces/agent_beam_hoist-agent-workload-ports/crates/cynic-node/src/ports/agent_scheduler_port.rs
