@@ -4,7 +4,7 @@
 //! Does NOT install them — installation is a separate explicit capability action.
 
 use serde::{Deserialize, Serialize};
-use std::process::Command;
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 pub const PACKAGE_OBSERVATION_SCHEMA: &str = "cynic.sandbox.package_observation.v1";
 
@@ -47,28 +47,27 @@ impl Default for SystemPackageObserver {
 
 impl PackageObservationPort for SystemPackageObserver {
     fn observe_package(&self, name: &str) -> PackageObservation {
-        let which = Command::new("which").arg(name).output();
-        match which {
-            Ok(output) if output.status.success() => {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                let version = self.guess_version(name);
-                PackageObservation {
-                    schema: PACKAGE_OBSERVATION_SCHEMA.to_string(),
-                    name: name.to_string(),
-                    present: true,
-                    path: Some(path),
-                    version,
-                    error: None,
-                }
+        let output = LocalArgvRunner.run(&["which", name]);
+        if output.success() {
+            let path = output.stdout.trim().to_string();
+            let version = self.guess_version(name);
+            PackageObservation {
+                schema: PACKAGE_OBSERVATION_SCHEMA.to_string(),
+                name: name.to_string(),
+                present: true,
+                path: Some(path),
+                version,
+                error: None,
             }
-            _ => PackageObservation {
+        } else {
+            PackageObservation {
                 schema: PACKAGE_OBSERVATION_SCHEMA.to_string(),
                 name: name.to_string(),
                 present: false,
                 path: None,
                 version: None,
                 error: Some(format!("{} not found in PATH", name)),
-            },
+            }
         }
     }
 
@@ -89,12 +88,11 @@ impl PackageObservationPort for SystemPackageObserver {
 impl SystemPackageObserver {
     fn guess_version(&self, name: &str) -> Option<String> {
         let flag = if name == "tmux" { "-V" } else { "--version" };
-        let output = Command::new(name).arg(flag).output().ok()?;
-        if !output.status.success() {
+        let output = LocalArgvRunner.run(&[name, flag]);
+        if !output.success() {
             return None;
         }
-        let text = String::from_utf8_lossy(&output.stdout);
-        text.lines().next().map(|s| s.trim().to_string())
+        output.stdout.lines().next().map(|s| s.trim().to_string())
     }
 }
 
