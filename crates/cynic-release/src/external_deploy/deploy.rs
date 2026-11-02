@@ -12,21 +12,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Command output captured by an adapter. Mirrors the build crate's
-/// `BuildCommandOutput` without coupling to `cynic-build`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
-
-impl CommandOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-}
+pub use cynic_protocol::argv::ArgvOutput;
+pub use cynic_protocol::argv::ArgvOutput as CommandOutput;
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
