@@ -65,6 +65,7 @@ pub mod runtime_proof_http_fetcher;
 pub(crate) mod source_materialization_marker;
 pub(crate) mod source_snapshot_store;
 pub mod ssh_build_proof;
+pub mod ssh_build_runner;
 pub mod ssh_release_basket_signing;
 pub mod pqc_workload_signer;
 pub mod surrealdb;

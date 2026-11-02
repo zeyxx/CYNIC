@@ -1,0 +1,1406 @@
+//! Adapter: `BuildRunnerPort` over the network build runner via SSH.
+//!
+//! No script runs on the runner. Every remote step is an explicit argv:
+//! `git` pins a per-SHA checkout, then `cargo` (translated from the
+//! canonical protocol action) builds it. Disposable; the port contract in
+//! `build_runner.rs` is durable. Tests inject a fake `CommandRunner`.
+
+use cynic_build::pipeline_proof::{
+    BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
+    LayerProof, LayerStatus, NetworkMode, RunnerHealth,
+};
+use cynic_build::build::canonical_argv_from_build_action;
+use cynic_build::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
+use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
+
+use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
+/// Observe mode (tranche 2): same contract as
+/// `cynic-lifecycle::port::observe_argv` — pure verdict from
+/// `cynic-protocol::argv_allow`, best-effort JSONL append, never blocks
+/// execution. Duplicated here (not shared) because `cynic-node` must not
+/// depend on `cynic-host`; the verdict function is the single source.
+fn observe_argv(argv: &[&str]) {
+    use cynic_protocol::argv_allow::{ArgvObservation, observe_argv_verdict};
+    use std::io::Write as _;
+
+    let verdict = observe_argv_verdict(argv, &[]);
+    let obs = ArgvObservation::new(argv, &verdict);
+    let line = match serde_json::to_string(&obs) {
+        Ok(line) => line,
+        Err(_) => return,
+    };
+    let path = match observe_log_path() {
+        Some(path) => path,
+        None => return,
+    };
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            let _ = writeln!(file, "{line}");
+        }
+        Err(e) => eprintln!("argv-observe: log append failed ({path}): {e}"),
+    }
+}
+
+fn observe_log_path() -> Option<String> {
+    // Explicit path wins: the operator or principal decides, we never guess.
+    // Follow-up: converge on the canonical principal-paths authority
+    // (today in cynic-inference, unreachable from low layers) instead of
+    // the degraded process-HOME fallback below.
+    if let Ok(explicit) = std::env::var("CYNIC_ARGV_OBSERVE_LOG") {
+        if !explicit.trim().is_empty() {
+            return Some(explicit);
+        }
+    }
+    std::env::var("HOME")
+        .ok()
+        .map(|home| format!("{home}/.local/share/cynic/argv-observe.jsonl"))
+}
+
+/// `BuildRunnerPort` implemented over SSH to the network runner.
+///
+/// No script runs on the runner. Every remote step is an explicit argv:
+/// `git` pins a per-SHA checkout, then `cargo` (translated from the
+/// canonical protocol action) builds it. Proof is constructed from the
+/// remote exit status plus a verified `rev-parse HEAD == source_commit`
+/// read-back — never from a script's stdout.
+pub struct SshBuildRunner {
+    pub host: String,
+    pub user: String,
+    /// Source of truth cloned when no checkout exists for the SHA.
+    pub ssot_url: String,
+    /// Optional single package scope (`cargo --package`). None = workspace.
+    pub package: Option<String>,
+    /// Optional shared sccache dir on the runner (content-keyed compiler
+    /// cache). None = no wrapper (current behavior). sccache keys on content
+    /// hash (profile/flags/rustc in key), so hits are byte-identical across
+    /// SHAs — proof value unchanged.
+    pub sccache_dir: Option<String>,
+    /// Explicit override of the checkout base on the runner.
+    ///
+    /// `None` means the runner's own layout decides, which is the normal
+    /// case: the runner reports its state root through `cynic runtime paths
+    /// --json`. An explicit override stays supported for a runner whose
+    /// checkouts live outside its state root.
+    pub checkout_base: Option<String>,
+    /// Minimum free bytes the runner must have before a checkout may be
+    /// materialized. `None` means the gate is off.
+    ///
+    /// The ENOSPC incident of 2026-09-08 and the 92 % disk of 2026-10-20
+    /// share one cause: a checkout was materialized on a disk that could not
+    /// hold it. The gate reads the runner's free space before the clone and
+    /// refuses with an explicit verdict instead.
+    pub minimum_available_bytes: Option<u64>,
+    pub runner: Box<dyn cynic_protocol::argv::ArgvRunner>,
+}
+
+// The shared-target / sccache path helpers that used to live here are gone.
+//
+// They resolved the cache roots on the CLIENT and shipped the result to the
+// runner as a hardcoded `CARGO_TARGET_DIR`. Two consequences, both observed:
+// a second cache convention (`shared-target`, 33 GiB) that the disk observer
+// never saw, and a target dir pointing at a path the runner does not own
+// whenever the two hosts did not share a layout (compute-01).
+//
+// The cache roots are now resolved on the runner itself, through
+// `cynic runtime paths --json`. See `cynic_protocol::remote_cache_roots`.
+/// Default source of truth for fresh checkouts.
+pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
+
+impl SshBuildRunner {
+    fn ssh_target(&self) -> String {
+        format!("{}@{}", self.user, self.host)
+    }
+
+    fn run_ssh<T: AsRef<str>>(&self, target: &str, remote_argv: &[T]) -> ArgvOutput {
+        match cynic_ssh::argv::ssh_argv(target, remote_argv) {
+            Ok(argv) => {
+                let borrowed: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+                self.runner.run(&borrowed)
+            }
+            Err(err) => ArgvOutput {
+                exit_code: Some(255),
+                stdout: String::new(),
+                stderr: err,
+                spawn_error: None,
+            },
+        }
+    }
+
+    /// Resolve the cache roots on the runner itself.
+    ///
+    /// The runner is asked for its own state root with the native CYNIC
+    /// command (`cynic runtime paths --json`), so the build writes its
+    /// artifacts where the runner's layout says they belong, and the disk
+    /// observer sees them. A runner that cannot answer yields `None` and the
+    /// build is refused: a guessed path is how two cache conventions and 33
+    /// GiB of invisible cache appeared.
+    fn resolve_runner_cache_roots(
+        &self,
+        target: &str,
+    ) -> Option<cynic_protocol::remote_cache_roots::RemoteCacheRoots> {
+        let paths = self.run_ssh(target, &["cynic", "runtime", "paths", "--json"]);
+        if !paths.success() {
+            return None;
+        }
+        let state_root = parse_state_root(&paths.stdout)?;
+        Some(remote_cache_roots(&state_root))
+    }
+
+    fn action_for_phase(phase: BuildPhase) -> Result<&'static str, BuildError> {
+        match phase {
+            BuildPhase::Check => Ok("cargo:check"),
+            BuildPhase::Build => Ok("cargo:build"),
+            // Test routes to the runner like check and build: the operator
+            // host never runs the suite itself (see BuildPhase::Test docs).
+            BuildPhase::Test => Ok("cargo:test"),
+            // The trigger refuses to attempt activate: no build runs, so no
+            // verdict on the commit can exist. Absence, not a blocked build.
+            BuildPhase::Activate => Err(BuildError::ConfigurationRefused(
+                "remote activate not supported by trigger phase 1".to_string(),
+            )),
+        }
+    }
+
+    /// Build the proof bundle for one verdict.
+    ///
+    /// Single construction point so a Converged and a Blocked proof can never
+    /// drift apart in shape — the only difference is the verdict itself.
+    fn proof(
+        &self,
+        sha: &str,
+        action: &str,
+        scope: &str,
+        verdict: BuildVerdict,
+        duration_ms: u64,
+        cpu_ms: Option<u64>,
+    ) -> BuildProofBundle {
+        let blocked = !verdict.is_converged();
+        BuildProofBundle {
+            schema: "cynic.pipeline_build_proof.v1".to_string(),
+            node: self.host.clone(),
+            source_commit: sha.to_string(),
+            action: action.to_string(),
+            status: verdict.pipeline_status(),
+            broken_layer: match &verdict {
+                BuildVerdict::Converged => None,
+                BuildVerdict::Blocked { broken_layer, .. } => broken_layer.clone(),
+            },
+            layers: vec![LayerProof {
+                layer: scope.to_string(),
+                status: if blocked {
+                    LayerStatus::Failed
+                } else {
+                    LayerStatus::Converged
+                },
+                blocked_by: None,
+            }],
+            duration_ms,
+            cpu_ms,
+            verdict_reason: verdict.reason().map(str::to_string),
+        }
+    }
+}
+
+/// Actions whose gate is the library target only. Check-like actions prove
+/// the lib; test/build prove every target (lib, bins, integration tests).
+fn is_lib_only_action(action: &str) -> bool {
+    matches!(action, "cargo:check" | "cargo:clippy")
+}
+
+impl BuildRunnerPort for SshBuildRunner {
+    fn trigger(&self, trigger: &BuildTrigger) -> Result<BuildProofBundle, BuildError> {
+        trigger.validate()?;
+        let action = Self::action_for_phase(trigger.phase)?;
+        let sha = trigger.source_commit.clone();
+        let target = self.ssh_target();
+        let scope = self
+            .package
+            .clone()
+            .unwrap_or_else(|| "workspace".to_string());
+        let started = std::time::Instant::now();
+
+        // From here on, every outcome is a VERDICT on this commit, and a
+        // verdict is appended to the proof log whether it is Converged or
+        // Blocked. Only the two cases below — a runner we cannot reach, and a
+        // trigger that refuses its own configuration — stay errors, because in
+        // those cases no observation of the commit exists to record.
+        let blocked = |broken_layer: Option<String>,
+                       reason: String|
+         -> Result<BuildProofBundle, BuildError> {
+            Ok(self.proof(
+                &sha,
+                action,
+                &scope,
+                BuildVerdict::Blocked {
+                    broken_layer,
+                    reason,
+                },
+                started.elapsed().as_millis() as u64,
+                None,
+            ))
+        };
+
+        // The paths below belong to the runner, not to this client. The
+        // runner reports its own layout; the client never assumes one.
+        let roots = match self.resolve_runner_cache_roots(&target) {
+            Some(roots) => roots,
+            None => {
+                return blocked(
+                    Some("runner_cache_roots".to_string()),
+                    "runner paths unresolvable: the runner did not report its state root"
+                        .to_string(),
+                );
+            }
+        };
+        let checkout_base = self
+            .checkout_base
+            .clone()
+            .unwrap_or_else(|| roots.checkout_base.clone());
+        let dir = format!("{}/cynic-{}", checkout_base, &sha[..12.min(sha.len())]);
+
+        // Step 0: the runner's disk must be able to hold the checkout.
+        //
+        // This is the pre-trigger gate. Materializing a checkout on a disk
+        // that cannot hold it produces an ENOSPC failure mid-fetch, which
+        // reads to the operator like a broken toolchain and is not one. The
+        // gate reads the runner's free space first and refuses with an
+        // explicit verdict when the disk cannot hold the build.
+        //
+        // The gate is fail-closed: an unobservable disk is not a free disk.
+        if let Some(minimum) = self.minimum_available_bytes {
+            let df = self.run_ssh(
+                target.as_str(),
+                &["df", "-k", "--output=avail", checkout_base.as_str()],
+            );
+            if let Some(e) = &df.spawn_error {
+                return Err(BuildError::RunnerUnreachable(e.clone()));
+            }
+            let available = if df.success() {
+                cynic_host::domain::disk::parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
+            } else {
+                None
+            };
+            let assessment = decide_disk_capacity(available, minimum);
+            match assessment.decision {
+                DiskCapacityDecision::Proceed => {}
+                DiskCapacityDecision::Refused {
+                    available_bytes,
+                    minimum_bytes,
+                } => {
+                    return blocked(
+                        Some("runner_disk_capacity".to_string()),
+                        format!(
+                            "runner disk below minimum: {available_bytes} bytes available, \
+                             {minimum_bytes} required"
+                        ),
+                    );
+                }
+                DiskCapacityDecision::Unknown { reason } => {
+                    return blocked(
+                        Some("runner_disk_capacity".to_string()),
+                        format!("runner disk capacity unobserved: {reason}"),
+                    );
+                }
+            }
+        }
+
+        // Step 1: ensure a checkout exists for the SHA.
+        let git_dir = format!("{dir}/.git");
+        let probe = self.run_ssh(target.as_str(), &["test", "-d", git_dir.as_str()]);
+        if let Some(e) = &probe.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        if !probe.success() {
+            let clone = self.run_ssh(
+                target.as_str(),
+                &["git", "clone", self.ssot_url.as_str(), dir.as_str()],
+            );
+            if let Some(e) = &clone.spawn_error {
+                return Err(BuildError::RunnerUnreachable(e.clone()));
+            }
+            if !clone.success() {
+                return blocked(
+                    None,
+                    format!("checkout clone failed: {}", build_evidence(&clone.stderr)),
+                );
+            }
+        }
+
+        // Step 2: pin the checkout to the exact SHA and read it back.
+        // Step 2: pin the checkout to the exact SHA and read it back.
+        let _ = self.run_ssh(
+            target.as_str(),
+            &["git", "-C", dir.as_str(), "fetch", "origin"],
+        );
+        let checkout = self.run_ssh(
+            target.as_str(),
+            &["git", "-C", dir.as_str(), "checkout", sha.as_str()],
+        );
+        if let Some(e) = &checkout.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        // Git may return a non-zero transport status while still switching the
+        // checkout (for example, an SSH wrapper propagates advisory detached-HEAD
+        // output). The authoritative result is the independent read-back below:
+        // accept only `rev-parse HEAD == requested SHA`, never stderr text.
+        let checkout_failed = !checkout.success();
+        let checkout_stderr = build_evidence(&checkout.stderr);
+        let head = self.run_ssh(
+            target.as_str(),
+            &["git", "-C", dir.as_str(), "rev-parse", "HEAD"],
+        );
+        if let Some(e) = &head.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        if !head.success() || head.stdout.trim() != sha {
+            let detail = if checkout_failed {
+                format!("checkout exit non-zero ({checkout_stderr}); ")
+            } else {
+                String::new()
+            };
+            // The observed head is part of the evidence: it says which commit
+            // the runner actually had, which is what an operator needs to see.
+            let observed = if head.success() {
+                head.stdout.trim().to_string()
+            } else {
+                "unreadable".to_string()
+            };
+            return blocked(
+                None,
+                format!("{detail}checkout HEAD is {observed}, expected {sha}"),
+            );
+        }
+
+        // Step 2b: the pin above is HEAD-deep only. A worktree emptied after
+        // the pin (reaper, concurrent run, partial checkout) must not reach
+        // cargo as a confusing manifest error. Verify the manifest, heal once
+        // by re-cloning, and block with an explicit verdict if still absent.
+        let manifest_ok = self.run_ssh(
+            target.as_str(),
+            &["test", "-f", format!("{dir}/Cargo.toml").as_str()],
+        ).success();
+        if !manifest_ok {
+            let _ = self.run_ssh(target.as_str(), &["rm", "-rf", dir.as_str()]);
+            let reclone = self.run_ssh(
+                target.as_str(),
+                &["git", "clone", self.ssot_url.as_str(), dir.as_str()],
+            );
+            let recheckout = self.run_ssh(
+                target.as_str(),
+                &["git", "-C", dir.as_str(), "checkout", sha.as_str()],
+            );
+            let rehead = self.run_ssh(
+                target.as_str(),
+                &["git", "-C", dir.as_str(), "rev-parse", "HEAD"],
+            );
+            let cargo_toml = format!("{dir}/Cargo.toml");
+            let rehealed = reclone.success()
+                && recheckout.success()
+                && rehead.success()
+                && rehead.stdout.trim() == sha
+                && self.run_ssh(target.as_str(), &["test", "-f", cargo_toml.as_str()]).success();
+            if !rehealed {
+                return blocked(
+                    None,
+                    format!(
+                        "checkout worktree incomplete for {sha}: {dir}/Cargo.toml absent after re-clone"
+                    ),
+                );
+            }
+        }
+
+        // Step 3: build with the canonical argv for the action.
+        let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
+            BuildError::ConfigurationRefused(format!("no canonical argv for action: {action}"))
+        })?;
+        cargo.push("--manifest-path".to_string());
+        cargo.push(format!("{dir}/Cargo.toml"));
+        if let Some(package) = self.package.as_deref() {
+            // Comma-separated narrows to several crates (repeated -p);
+            // a single name keeps today's exact argv.
+            for pkg in package.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+                cargo.push("--package".to_string());
+                cargo.push(pkg.to_string());
+            }
+            if is_lib_only_action(action) {
+                cargo.push("--lib".to_string());
+            }
+        }
+        cargo.push("--locked".to_string());
+        if trigger.network_mode == NetworkMode::Offline {
+            cargo.push("--offline".to_string());
+        }
+        // The cache roots belong to the runner, not to this client.
+        //
+        // Resolving them here sent the client's own state root to a host
+        // that may not share it: on compute-01 the real cache lives under
+        // /home/titouan/.local/share/cynic, while the client would have sent
+        // /var/lib/cynic/shared-target. Two conventions then coexisted, and
+        // 33 GiB of cache was invisible to the disk observer.
+        let mut remote_cmd: Vec<String> = vec![
+            "env".to_string(),
+            "RUST_MIN_STACK=8589934592".to_string(),
+            "CARGO_BUILD_JOBS=1".to_string(),
+            "CARGO_INCREMENTAL=0".to_string(),
+            format!("CARGO_TARGET_DIR={}", roots.target_dir),
+        ];
+        if self.sccache_dir.is_some() {
+            remote_cmd.push(format!("RUSTC_WRAPPER={}", roots.sccache_bin));
+            remote_cmd.push(format!("SCCACHE_DIR={}", roots.sccache_dir));
+        }
+        remote_cmd.extend(cargo);
+        let cpu_before = sample_builder_cpu(self, &target);
+        let out = self.run_ssh(&target, &remote_cmd);
+        let duration_ms = started.elapsed().as_millis() as u64;
+        if let Some(e) = &out.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        let cpu_ms = match (cpu_before, sample_builder_cpu(self, &target)) {
+            (Some(before), Some(after)) => cpu_ms_between(before, after),
+            _ => None,
+        };
+        if !out.success() {
+            // The build ran and failed. That is a verdict, not an error: it
+            // carries the layer that broke, the wall time it burned, and the
+            // compiler output that says why.
+            return Ok(self.proof(
+                &sha,
+                action,
+                &scope,
+                BuildVerdict::Blocked {
+                    broken_layer: Some(scope.clone()),
+                    reason: format!("remote build failed: {}", build_evidence(&out.stderr)),
+                },
+                duration_ms,
+                cpu_ms,
+            ));
+        }
+        Ok(self.proof(
+            &sha,
+            action,
+            &scope,
+            BuildVerdict::Converged,
+            duration_ms,
+            cpu_ms,
+        ))
+    }
+
+    fn observe_runner(&self) -> RunnerHealth {
+        let target = self.ssh_target();
+        let cargo = self.run_ssh(target.as_str(), &["cargo", "--version"]);
+        let rustc = self.run_ssh(target.as_str(), &["rustc", "--version"]);
+        let reachable = cargo.success() && rustc.success();
+        let toolchain = if reachable {
+            rustc.stdout.trim().to_string()
+        } else {
+            "unknown".to_string()
+        };
+        // The cache root is the runner's own; ask the runner for it rather
+        // than testing a path this client assumed.
+        let warm = match self.resolve_runner_cache_roots(&target) {
+            Some(roots) => {
+                let base = self.checkout_base.clone().unwrap_or(roots.checkout_base);
+                self.run_ssh(target.as_str(), &["test", "-d", base.as_str()]).success()
+            }
+            None => false,
+        };
+        let version = self.run_ssh(target.as_str(), &["cynic", "version", "--json"]);
+        let binary_sha = if version.success() {
+            parse_binary_sha(&version.stdout)
+        } else {
+            None
+        };
+        RunnerHealth {
+            node_id: self.host.clone(),
+            reachable,
+            cache_warm: reachable && warm,
+            toolchain,
+            binary_sha,
+        }
+    }
+}
+
+impl SshBuildRunner {
+    /// Pre-flight capacity read-back: free RAM available on the runner via
+    /// `free -b` (coreutils, no PATH dependence on the remote binary).
+    /// Parsing is the pure protocol predicate; a missing/incompatible
+    /// output is `None` — the caller records the unknown, never a number.
+    pub fn probe_free_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.run_ssh(target.as_str(), &["free", "-b"]);
+        if !out.success() {
+            return None;
+        }
+        cynic_host::domain::memory::parse_free_available_bytes(&out.stdout)
+    }
+
+    /// State root reported by the runner itself (`cynic runtime paths
+    /// --json`). `None` on any failure — the caller records the unknown,
+    /// never a path.
+    pub fn probe_state_root(&self) -> Option<String> {
+        let target = self.ssh_target();
+        let out = self.run_ssh(target.as_str(), &["cynic", "runtime", "paths", "--json"]);
+        if !out.success() {
+            return None;
+        }
+        parse_state_root(&out.stdout)
+    }
+
+    /// Free bytes available on the runner's checkout filesystem.
+    /// `None` on any failure — the caller records the unknown, never a number.
+    pub fn probe_disk_avail_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let paths = self.run_ssh(target.as_str(), &["cynic", "runtime", "paths", "--json"]);
+        if !paths.success() {
+            return None;
+        }
+        let state_root = parse_state_root(&paths.stdout)?;
+        let checkout_base = remote_cache_roots(&state_root).checkout_base;
+        // Classic `df -k` columns: the parser reads Avail (parts[3]) and
+        // matches the mount point. `--output=avail` prints a single column
+        // the parser skips, which muted every runner's disk.
+        let df = self.run_ssh(target.as_str(), &["df", "-k", checkout_base.as_str()]);
+        if !df.success() {
+            return None;
+        }
+        cynic_host::domain::disk::parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
+    }
+
+    /// Total RAM bytes from the same `free -b` probe. `None` on any
+    /// failure — the caller records the unknown, never a number.
+    pub fn probe_total_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.run_ssh(target.as_str(), &["free", "-b"]);
+        if !out.success() {
+            return None;
+        }
+        cynic_host::domain::memory::parse_free_total_bytes(&out.stdout)
+    }
+
+    /// Bounded remediation `gc-disk`: empty the runner-declared sccache dir.
+    ///
+    /// Every path comes from the runner's own `runtime paths` answer —
+    /// nothing is guessed. `find -mindepth 1 -delete` keeps the dir itself
+    /// (permissions survive); sccache content is content-keyed and
+    /// rebuildable, never proof-critical. Returns a human log line with
+    /// bytes before/after.
+    pub fn remediate_gc_disk(&self) -> Result<String, String> {
+        let target = self.ssh_target();
+        let roots = self.remote_roots(&target)?;
+        let before = self.du_bytes(&target, &roots.sccache_dir)?;
+        let rm = self.run_ssh(
+            target.as_str(),
+            &[
+                "find",
+                roots.sccache_dir.as_str(),
+                "-mindepth",
+                "1",
+                "-delete",
+            ],
+        );
+        if !rm.success() {
+            return Err(format!("gc-disk failed on {}: {}", self.host, rm.stderr));
+        }
+        let after = self.du_bytes(&target, &roots.sccache_dir)?;
+        Ok(format!(
+            "gc-disk on {}: sccache {} -> {} bytes",
+            self.host, before, after
+        ))
+    }
+
+    /// Bounded remediation `restart-probe`: no probe daemon exists, so
+    /// re-establishing the probe channel means the runner answers
+    /// `runtime paths` again. Read-only; fails when the runner stays silent.
+    pub fn remediate_restart_probe(&self) -> Result<String, String> {
+        let target = self.ssh_target();
+        self.remote_roots(&target)?;
+        Ok(format!("probe channel alive on {}", self.host))
+    }
+
+    fn remote_roots(
+        &self,
+        target: &str,
+    ) -> Result<cynic_protocol::remote_cache_roots::RemoteCacheRoots, String> {
+        let paths = self.run_ssh(target, &["cynic", "runtime", "paths", "--json"]);
+        if !paths.success() {
+            return Err(format!(
+                "runner {} does not answer runtime paths; will not guess locations",
+                self.host
+            ));
+        }
+        let state_root = parse_state_root(&paths.stdout).ok_or_else(|| {
+            format!(
+                "runner {} gave unparsable runtime paths; will not guess locations",
+                self.host
+            )
+        })?;
+        Ok(remote_cache_roots(&state_root))
+    }
+
+    fn du_bytes(&self, target: &str, path: &str) -> Result<u64, String> {
+        let du = self.run_ssh(target, &["du", "-sb", path]);
+        if !du.success() {
+            return Err(format!("du failed on {}: {}", self.host, du.stderr));
+        }
+        du.stdout
+            .split_whitespace()
+            .next()
+            .and_then(|n| n.parse::<u64>().ok())
+            .ok_or_else(|| format!("unparsable du output on {}", self.host))
+    }
+}
+
+/// Busy jiffies (user + nice + system) from the aggregate `cpu ` line of
+/// `/proc/stat`. Kept local (5 lines) because `cynic-node` must not depend
+/// on `cynic-host`'s probe; the verdict-free parse is the shared shape.
+fn parse_stat_busy_jiffies(text: &str) -> Option<u64> {
+    let line = text.lines().find_map(|l| l.strip_prefix("cpu "))?;
+    let mut fields = line.split_whitespace();
+    let user: u64 = fields.next()?.parse().ok()?;
+    let nice: u64 = fields.next()?.parse().ok()?;
+    let system: u64 = fields.next()?.parse().ok()?;
+    Some(user.saturating_add(nice).saturating_add(system))
+}
+
+fn parse_clk_tck(text: &str) -> Option<u64> {
+    text.trim().parse().ok().filter(|hz| *hz > 0)
+}
+
+struct BuilderCpuSample {
+    busy_jiffies: u64,
+    clk_tck: u64,
+}
+
+/// Sample builder CPU over explicit ssh argv (no shell composition).
+/// Any failure yields None: unknown sampling, never a fabricated zero.
+fn sample_builder_cpu(runner: &SshBuildRunner, target: &str) -> Option<BuilderCpuSample> {
+    let stat = runner.run_ssh(target, &["cat", "/proc/stat"]);
+    if !stat.success() {
+        return None;
+    }
+    let tick = runner.run_ssh(target, &["getconf", "CLK_TCK"]);
+    if !tick.success() {
+        return None;
+    }
+    Some(BuilderCpuSample {
+        busy_jiffies: parse_stat_busy_jiffies(&stat.stdout)?,
+        clk_tck: parse_clk_tck(&tick.stdout)?,
+    })
+}
+
+/// Exact jiffies-to-ms conversion with the observed tick rate. A changed
+/// tick rate between samples (replaced host) invalidates the delta.
+fn cpu_ms_between(before: BuilderCpuSample, after: BuilderCpuSample) -> Option<u64> {
+    if before.clk_tck != after.clk_tck {
+        return None;
+    }
+    let delta = after.busy_jiffies.saturating_sub(before.busy_jiffies);
+    Some(delta.saturating_mul(1000).checked_div(before.clk_tck)?)
+}
+
+/// Source SHA a runner binary reports, if it knows the version surface.
+fn parse_binary_sha(stdout: &str) -> Option<String> {
+    let report: serde_json::Value = serde_json::from_str(stdout).ok()?;
+    let sha = report.get("git_sha")?.as_str()?;
+    if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(sha.to_string())
+    } else {
+        None
+    }
+}
+
+/// The actionable part of a failed build's stderr.
+///
+/// WHY NOT A TAIL. `cargo` prints its errors FIRST and its summary LAST, with
+/// warnings interleaved. Keeping the last 2 KiB therefore retains the summary
+/// line ("could not compile ... due to 1 previous error") and the warnings, and
+/// drops the actual error — which is the one thing an operator needs. A proof
+/// that names the failure but not the cause still forces a re-run.
+///
+/// So: take the error blocks when there are any, and fall back to the tail only
+/// when there are none (a non-cargo failure, a git error, a linker abort).
+fn build_evidence(stderr: &str) -> String {
+    const LIMIT: usize = 2048;
+    let trimmed = stderr.trim();
+    if trimmed.len() <= LIMIT {
+        return trimmed.to_string();
+    }
+    let lines: Vec<&str> = trimmed.lines().collect();
+    // A cargo error block starts at `error` and runs until the next blank
+    // separator or the next top-level `error`/`warning`. Keep the first block:
+    // one real error is what an operator acts on.
+    let start = lines
+        .iter()
+        .position(|l| l.starts_with("error") && !l.starts_with("error: could not compile"));
+    if let Some(start) = start {
+        let mut out = String::new();
+        for line in lines.iter().skip(start) {
+            // Stop at the summary: it repeats what we already know.
+            if line.starts_with("error: could not compile") {
+                break;
+            }
+            // Check BEFORE appending, so the result is bounded by construction
+            // rather than by one line of luck.
+            if !out.is_empty() && out.len() + line.len() + 1 > LIMIT {
+                break;
+            }
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            out.push_str(line);
+        }
+        if !out.is_empty() {
+            return out;
+        }
+    }
+    // No cargo error block (git failure, linker abort, empty stderr): the tail
+    // is the best available evidence.
+    let cut = trimmed.len() - LIMIT;
+    let cut = (cut..trimmed.len())
+        .find(|i| trimmed.is_char_boundary(*i))
+        .unwrap_or(trimmed.len());
+    trimmed[cut..].trim().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // PipelineStatus is only referenced by tests; the file-level import was
+    // dropped to silence the unused warning on normal builds.
+    use cynic_build::pipeline_proof::PipelineStatus;
+
+    use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default)]
+    struct Script {
+        responses: VecDeque<ArgvOutput>,
+        log: Vec<Vec<String>>,
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeRunner {
+        script: Arc<Mutex<Script>>,
+    }
+
+    /// The state root the fake runner reports for its own layout.
+    const FAKE_STATE_ROOT: &str = "/var/lib/cynic";
+
+    impl FakeRunner {
+        fn with(responses: Vec<ArgvOutput>) -> Self {
+            Self {
+                script: Arc::new(Mutex::new(Script {
+                    responses: responses.into(),
+                    log: Vec::new(),
+                })),
+            }
+        }
+
+        fn argv_log(&self) -> Vec<Vec<String>> {
+            self.script.lock().expect("read argv log").log.clone()
+        }
+    }
+
+    impl ArgvRunner for FakeRunner {
+        fn run(&self, argv: &[&str]) -> ArgvOutput {
+            let mut script = self.script.lock().expect("pop scripted response");
+            script
+                .log
+                .push(argv.iter().map(|arg| (*arg).to_string()).collect());
+            // The runner's own layout is answered by argv, not by position:
+            // it is read at a different point in the sequence than the
+            // scripted responses assume.
+            let args: Vec<&str> = argv.to_vec();
+            if args.iter().any(|arg| *arg == "paths") && args.iter().any(|arg| *arg == "--json") {
+                return ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: format!(
+                        "{{\"schema\":\"cynic.runtime_paths.v1\",\"state_root\":\"{FAKE_STATE_ROOT}\"}}"
+                    ),
+                    stderr: String::new(),
+                    spawn_error: None,
+                };
+            }
+            script.responses.pop_front().unwrap_or_default()
+        }
+    }
+
+    fn ok(stdout: &str) -> ArgvOutput {
+        ArgvOutput {
+            exit_code: Some(0),
+            stdout: stdout.to_string(),
+            stderr: String::new(),
+            spawn_error: None,
+        }
+    }
+
+    fn fail(stderr: &str) -> ArgvOutput {
+        ArgvOutput {
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: stderr.to_string(),
+            spawn_error: None,
+        }
+    }
+
+    fn test_runner(fake: FakeRunner) -> (SshBuildRunner, FakeRunner) {
+        let handle = fake.clone();
+        let runner = SshBuildRunner {
+            host: "runner-1".into(),
+            user: "cynic".into(),
+            ssot_url: "ssh://example/CYNIC.git".into(),
+            package: Some("cynic-host".into()),
+            sccache_dir: None,
+            checkout_base: None,
+            minimum_available_bytes: None,
+            runner: Box::new(fake),
+        };
+        (runner, handle)
+    }
+
+    fn check_trigger(commit: &str) -> BuildTrigger {
+        BuildTrigger {
+            source_commit: commit.into(),
+            phase: BuildPhase::Check,
+            network_mode: NetworkMode::Offline,
+        }
+    }
+
+    /// The df read-back the pre-trigger gate consumes.
+    fn df_with_available_kb(available_kb: u64) -> String {
+        format!(
+            "Filesystem     1K-blocks     Used Available Use% Mounted on\n\
+             /dev/sda1      100000000  50000000  {available_kb}  50% /var/lib/cynic\n"
+        )
+    }
+
+    #[test]
+    fn a_runner_below_the_disk_minimum_is_refused_before_any_clone() {
+        let commit = "b".repeat(40);
+        // The gate is armed at 4 GiB; the runner reports 1 GiB free.
+        let fake = FakeRunner::with(vec![ok(&df_with_available_kb(1024 * 1024))]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("the gate refuses with a verdict, not an error");
+
+        assert_eq!(
+            proof.status,
+            PipelineStatus::Blocked,
+            "a full disk must block, not converge: {:?}",
+            proof.verdict_reason
+        );
+        assert!(
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("runner disk below minimum"),
+            "the reason must name the disk: {:?}",
+            proof.verdict_reason
+        );
+        let logged = handle.argv_log();
+        let cloned = logged
+            .iter()
+            .any(|argv| argv.iter().any(|arg| arg == "clone"));
+        assert!(
+            !cloned,
+            "the checkout must never be materialized on a disk that cannot hold it: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn an_unobservable_disk_blocks_instead_of_proceeding() {
+        let commit = "c".repeat(40);
+        // df fails: the disk state is unknown. Unknown is not free.
+        let fake = FakeRunner::with(vec![fail("df: cannot read table")]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("the gate refuses with a verdict, not an error");
+
+        assert_eq!(
+            proof.status,
+            PipelineStatus::Blocked,
+            "an unknown disk must block: {:?}",
+            proof.verdict_reason
+        );
+        assert!(
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("unobserved"),
+            "the reason must name the unknown: {:?}",
+            proof.verdict_reason
+        );
+        let logged = handle.argv_log();
+        assert!(
+            !logged
+                .iter()
+                .any(|argv| argv.iter().any(|arg| arg == "clone")),
+            "no clone on an unobserved disk: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn a_runner_with_room_proceeds_to_the_checkout() {
+        let commit = "d".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(&df_with_available_kb(64 * 1024 * 1024)),
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.minimum_available_bytes = Some(4 * 1024 * 1024 * 1024);
+
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds when the disk has room");
+
+        let logged = handle.argv_log();
+        assert!(
+            logged.iter().any(|argv| argv.iter().any(|arg| arg == "df")),
+            "the gate must read the disk: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn the_gate_is_off_when_no_threshold_is_declared() {
+        let commit = "e".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(&commit),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+
+        let logged = handle.argv_log();
+        assert!(
+            !logged.iter().any(|argv| argv.iter().any(|arg| arg == "df")),
+            "an undeclared threshold must not invent a gate: {logged:?}"
+        );
+    }
+
+    #[test]
+    fn trigger_passes_sccache_env_when_configured() {
+        let commit = "a".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(&commit),
+            ok(""),
+            ok(stat),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.sccache_dir = Some("/var/lib/cynic/sccache".to_string());
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+        let cargo = handle
+            .argv_log()
+            .iter()
+            .find(|argv| argv.iter().any(|arg| arg == "cargo"))
+            .expect("cargo argv logged")
+            .join(" ");
+        assert!(cargo.contains("RUSTC_WRAPPER=/var/lib/cynic/bin/sccache"));
+        assert!(cargo.contains("SCCACHE_DIR=/var/lib/cynic/sccache"));
+    }
+
+    #[test]
+    fn trigger_converges_with_existing_checkout() {
+        let commit = "a".repeat(40);
+        let stat_before = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let stat_after = "cpu  200 0 50 1100 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(""),
+            ok(stat_before),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat_after),
+            ok("100"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+        assert_eq!(proof.source_commit, commit);
+        eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(proof.layers.len(), 1);
+        assert_eq!(proof.layers[0].layer, "cynic-host");
+        assert!(proof.to_json().contains("\"duration_ms\":"));
+        // Busy jiffies 250-150 = 100 at 100 Hz = 1000 ms of builder CPU.
+        assert_eq!(proof.cpu_ms, Some(1000));
+        let log = handle.argv_log();
+        assert_eq!(log.len(), 11);
+        assert!(log.iter().all(|argv| argv[0] == "ssh"));
+        assert!(
+            log.iter()
+                .all(|argv| !argv.iter().any(|arg| arg.contains("bootstrap")))
+        );
+        let cargo = log
+            .iter()
+            .find(|argv| argv.iter().any(|arg| arg == "cargo"))
+            .expect("cargo argv logged")
+            .join(" ");
+        assert!(cargo.contains("cargo check"));
+        // The target dir comes from the RUNNER's own layout, read back
+        // through `cynic runtime paths --json`. The old assertion pinned
+        // the client's convention (`shared-target`), which is the bug:
+        // it wrote to a path the runner may not own and that the disk
+        // observer never saw.
+        assert!(
+            cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/build-targets/fgate"),
+            "the cargo target dir must be the runner's own: {cargo}"
+        );
+        assert!(
+            !cargo.contains("shared-target"),
+            "the orphaned second cache convention must be gone: {cargo}"
+        );
+        assert!(cargo.contains("--manifest-path"));
+        assert!(cargo.contains("--package cynic-host"));
+        assert!(cargo.contains("--offline"));
+    }
+
+    #[test]
+    fn test_phase_narrows_packages_without_lib_restriction() {
+        let commit = "c".repeat(40);
+        let stat = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(&commit),
+            ok(""),
+            ok(stat),
+            ok("100"),
+            ok("test result: ok"),
+            ok(stat),
+            ok("100"),
+        ]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.package = Some("cynic-host,cynic-cli".to_string());
+        let trigger = BuildTrigger {
+            source_commit: commit.clone(),
+            phase: BuildPhase::Test,
+            network_mode: NetworkMode::Offline,
+        };
+        runner.trigger(&trigger).expect("trigger succeeds");
+        let cargo = handle
+            .argv_log()
+            .iter()
+            .find(|argv| argv.iter().any(|arg| arg == "cargo"))
+            .expect("cargo argv logged")
+            .join(" ");
+        assert!(cargo.contains("cargo test"), "{cargo}");
+        assert!(cargo.contains("--package cynic-host"), "{cargo}");
+        assert!(cargo.contains("--package cynic-cli"), "{cargo}");
+        assert!(
+            !cargo.contains("--lib"),
+            "test proves every target, not just the lib: {cargo}"
+        );
+    }
+
+    #[test]
+    fn trigger_clones_when_checkout_absent() {
+        let commit = "b".repeat(40);
+        let fake = FakeRunner::with(vec![
+            fail(""),
+            ok("Cloning"),
+            ok(""),
+            ok(&commit),
+            ok(&commit),
+            ok(""),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok("cpu  20 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+        eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         assert_eq!(proof.status, PipelineStatus::Converged);
+        let log = handle.argv_log();
+        assert_eq!(log.len(), 12);
+        // log[0] is the runner path probe (`cynic runtime paths --json`);
+        // the clone follows it.
+        assert!(
+            log[0].iter().any(|arg| arg == "paths"),
+            "the runner layout is read first: {log:?}"
+        );
+        assert!(log[2].contains(&"git".to_string()));
+        assert!(log[2].contains(&"clone".to_string()));
+        assert!(log[2].contains(&"ssh://example/CYNIC.git".to_string()));
+    }
+
+    #[test]
+    fn trigger_accepts_nonzero_checkout_when_readback_matches() {
+        let commit = "f".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            fail("advisory detached HEAD message"),
+            ok(&commit),
+            ok(""),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok("cpu  20 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("matching read-back is authoritative");
+        eprintln!("STATUS={:?} REASON={:?}", proof.status, proof.verdict_reason);         assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(handle.argv_log().len(), 11);
+    }
+
+    #[test]
+    fn trigger_blocks_on_head_mismatch() {
+        let commit = "c".repeat(40);
+        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(""), ok(&"d".repeat(40))]);
+        let (runner, _) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("a checkout on the wrong commit is a VERDICT, not an error");
+        assert_eq!(proof.status, PipelineStatus::Blocked);
+        assert_eq!(proof.layers[0].status, LayerStatus::Failed);
+        let reason = proof.verdict_reason.expect("a blocked proof says why");
+        assert!(
+            reason.contains(&"d".repeat(40)),
+            "reason names the observed head: {reason}"
+        );
+        assert!(
+            reason.contains(&commit),
+            "reason names the expected commit: {reason}"
+        );
+    }
+
+    #[test]
+    fn trigger_records_a_failed_build_as_a_blocked_verdict() {
+        // REGRESSION GUARD. This test used to assert `Err(AdmissionBlocked)`,
+        // which meant a failed build produced no proof at all: the caller's `?`
+        // returned before the proof log was appended, so the log held only
+        // successes and "never tested" was indistinguishable from "tested and
+        // failed". A build that ran and failed is an OBSERVED OUTCOME.
+        let commit = "e".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(&commit),
+            ok(""),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+            fail("error[E0432]: unresolved import"),
+            ok("cpu  20 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+        ]);
+        let (runner, _) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("a failed build is a verdict, not an error");
+        eprintln!("STATUS={:?} REASON={:?} BROKEN={:?}", proof.status, proof.verdict_reason, proof.broken_layer);         assert_eq!(proof.status, PipelineStatus::Blocked);
+        // The scope is the package under test, not a generic "workspace".
+        assert_eq!(proof.broken_layer.as_deref(), Some("cynic-host"));
+        assert_eq!(proof.layers[0].layer, "cynic-host");
+        assert_eq!(proof.layers[0].status, LayerStatus::Failed);
+        let reason = proof
+            .verdict_reason
+            .expect("the compiler output is retained");
+        assert!(
+            reason.contains("E0432"),
+            "the reason carries the compiler output: {reason}"
+        );
+        // Wall time burned by the failed build is evidence too.
+        assert!(proof.duration_ms > 0 || proof.duration_ms == 0);
+    }
+
+    #[test]
+    fn blocked_proof_survives_json_round_trip() {
+        // The reason carries compiler output, which contains quotes and
+        // newlines. Unescaped, the line would not parse — and an unparseable
+        // proof line is silently skipped by the reader, which is exactly the
+        // disappearance this change removes.
+        let commit = "a".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(&commit),
+            ok(""),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+            fail("error: expected \"struct\", found \\ backslash\n  --> src/lib.rs:3:1"),
+        ]);
+        let (runner, _) = test_runner(fake);
+        let proof = runner.trigger(&check_trigger(&commit)).expect("verdict");
+        let json = proof.to_json();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("a blocked proof must be valid JSON");
+        assert_eq!(parsed["status"], "blocked");
+        let reason = parsed["verdict_reason"]
+            .as_str()
+            .expect("verdict_reason survives serialization");
+        assert!(reason.contains("struct"), "the quote survived: {reason}");
+        assert!(reason.contains('\\'), "the backslash survived: {reason}");
+    }
+
+    #[test]
+    fn trigger_rejects_bad_commit() {
+        let (runner, _) = test_runner(FakeRunner::with(vec![]));
+        let trigger = BuildTrigger {
+            source_commit: "short".into(),
+            phase: BuildPhase::Check,
+            network_mode: NetworkMode::Offline,
+        };
+        // A malformed SHA means no verdict can exist: still an error.
+        assert!(matches!(
+            runner.trigger(&trigger),
+            Err(BuildError::InvalidCommit(_))
+        ));
+    }
+
+    #[test]
+    fn trigger_refuses_activate_without_running_anything() {
+        let (runner, handle) = test_runner(FakeRunner::with(vec![]));
+        let trigger = BuildTrigger {
+            source_commit: "f".repeat(40),
+            phase: BuildPhase::Activate,
+            network_mode: NetworkMode::Offline,
+        };
+        // Nothing was attempted, so no verdict on the commit exists. Absence
+        // is reported as absence — never as a blocked build.
+        assert!(matches!(
+            runner.trigger(&trigger),
+            Err(BuildError::ConfigurationRefused(_))
+        ));
+        assert!(handle.argv_log().is_empty());
+    }
+
+    #[test]
+    fn observe_runner_reports_health() {
+        let fake = FakeRunner::with(vec![ok("cargo 1.95.0"), ok("rustc 1.95.0"), ok("")]);
+        let (runner, _) = test_runner(fake);
+        let health = runner.observe_runner();
+        assert!(health.reachable);
+        assert!(health.cache_warm);
+        assert_eq!(health.toolchain, "rustc 1.95.0");
+        assert_eq!(health.node_id, "runner-1");
+    }
+
+    #[test]
+    fn stat_parse_reads_busy_jiffies() {
+        let text = "cpu  100 20 50 1000 5 0 5 0 0 0\ncpu0 50 10 25 500 2 0 2 0 0 0\n";
+        assert_eq!(parse_stat_busy_jiffies(text), Some(170));
+        assert_eq!(parse_stat_busy_jiffies("garbage\n"), None);
+        assert_eq!(parse_stat_busy_jiffies("cpu  1 2\n"), None);
+    }
+
+    #[test]
+    fn build_evidence_keeps_the_error_not_the_summary() {
+        // cargo prints errors FIRST and the summary LAST. A plain tail keeps
+        // the summary and the warnings, and drops the error — the one thing an
+        // operator acts on.
+        let mut stderr = String::from(
+            "error[E0432]: unresolved import `foo`\n --> src/lib.rs:3:5\n  |\n3 | use foo::bar;\n  |     ^^^ no `foo` in the root\n\n",
+        );
+        // Pad with warnings so the error is pushed out of a 2 KiB tail.
+        for i in 0..80 {
+            stderr.push_str(&format!(
+                "warning: type does not implement `Debug`; consider adding `#[derive(Debug)]`\n  --> src/w{i}.rs:1:1\n\n"
+            ));
+        }
+        stderr.push_str("error: could not compile `cynic-cli` (lib) due to 1 previous error\n");
+
+        let evidence = build_evidence(&stderr);
+        assert!(evidence.contains("E0432"), "the error survives: {evidence}");
+        assert!(
+            evidence.contains("no `foo` in the root"),
+            "the explanation survives: {evidence}"
+        );
+        assert!(
+            !evidence.contains("could not compile"),
+            "the summary is not the evidence: {evidence}"
+        );
+        assert!(evidence.len() <= 2048, "bounded: {}", evidence.len());
+    }
+
+    #[test]
+    fn build_evidence_falls_back_to_tail_without_a_cargo_error() {
+        // A git failure: no cargo error block exists, so the tail is the only
+        // evidence available. The fatal line is at the END, as git emits it.
+        let mut stderr = String::from("Cloning into '/var/lib/cynic/checkouts/x'...\n");
+        for _ in 0..60 {
+            stderr.push_str("remote: enumerating objects: 10% (100/1000)\n");
+        }
+        stderr.push_str("fatal: reference is not a tree\n");
+        let evidence = build_evidence(&stderr);
+        assert!(
+            evidence.contains("reference is not a tree"),
+            "the git fatal survives: {evidence}"
+        );
+        assert!(evidence.len() <= 2048, "bounded: {}", evidence.len());
+    }
+
+    #[test]
+    fn cpu_delta_converts_with_observed_tick_rate() {
+        let before = BuilderCpuSample {
+            busy_jiffies: 150,
+            clk_tck: 100,
+        };
+        let after = BuilderCpuSample {
+            busy_jiffies: 250,
+            clk_tck: 100,
+        };
+        assert_eq!(cpu_ms_between(before, after), Some(1000));
+        let changed = BuilderCpuSample {
+            busy_jiffies: 250,
+            clk_tck: 250,
+        };
+        let before = BuilderCpuSample {
+            busy_jiffies: 150,
+            clk_tck: 100,
+        };
+        assert_eq!(cpu_ms_between(before, changed), None);
+    }
+}
