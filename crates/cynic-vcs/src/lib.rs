@@ -5,6 +5,7 @@ pub use cynic_protocol::vcs::{
 };
 
 // Internal modules
+pub mod adapters;
 pub mod branch_graph;
 pub mod development_genesis;
 pub mod domain;
@@ -41,6 +42,7 @@ pub mod source_worktree_inventory;
 pub mod stack;
 pub mod sync;
 pub use providers::signed_exec;
+pub use adapters::*;
 
 #[cfg(test)]
 mod source_worktree_inventory_tests;
