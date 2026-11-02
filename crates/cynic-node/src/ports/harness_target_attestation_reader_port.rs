@@ -1,7 +1,2 @@
-use std::path::Path;
-
-use cynic_host::runtime_harness::RuntimeHarnessTargetAttestation;
-
-pub trait HarnessTargetAttestationReaderPort {
-    fn read_attestation(&self, path: &Path) -> Result<RuntimeHarnessTargetAttestation, String>;
-}
+//! Harness target attestation reader port — re-exported from canonical owner cynic-host.
+pub use cynic_host::runtime_harness::HarnessTargetAttestationReaderPort;
