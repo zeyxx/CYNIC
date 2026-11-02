@@ -7,8 +7,9 @@ use cynic_protocol::argv_allow::{ArgvObservation, observe_argv_verdict};
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalArgvRunner;
 
-impl ArgvRunner for LocalArgvRunner {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
+impl LocalArgvRunner {
+    /// Spawns argv[0] with remaining args, optionally changing current directory.
+    pub fn run_in_dir(&self, argv: &[&str], cwd: Option<&std::path::Path>) -> ArgvOutput {
         observe_argv(argv);
         if argv.is_empty() {
             return ArgvOutput {
@@ -18,10 +19,12 @@ impl ArgvRunner for LocalArgvRunner {
                 spawn_error: Some("empty argv".into()),
             };
         }
-        match std::process::Command::new(argv[0])
-            .args(&argv[1..])
-            .output()
-        {
+        let mut cmd = std::process::Command::new(argv[0]);
+        cmd.args(&argv[1..]);
+        if let Some(directory) = cwd.filter(|path| path.is_dir()) {
+            cmd.current_dir(directory);
+        }
+        match cmd.output() {
             Ok(o) => ArgvOutput {
                 exit_code: o.status.code(),
                 stdout: String::from_utf8_lossy(&o.stdout).into_owned(),
@@ -35,6 +38,12 @@ impl ArgvRunner for LocalArgvRunner {
                 spawn_error: Some(format!("spawn {}: {e}", argv[0])),
             },
         }
+    }
+}
+
+impl ArgvRunner for LocalArgvRunner {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        self.run_in_dir(argv, None)
     }
 }
 

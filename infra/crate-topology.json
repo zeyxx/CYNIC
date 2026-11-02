@@ -185,12 +185,14 @@
         "cynic-cli",
         "cynic-host"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "cynic-process"
+      ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1284
+      "loc": 1277
     },
     "cynic-host": {
       "consumers": [
@@ -349,7 +351,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 11546
+      "loc": 11536
     },
     "cynic-node": {
       "consumers": [
@@ -430,6 +432,7 @@
       ],
       "depends_on": [
         "cynic-network",
+        "cynic-process",
         "cynic-protocol",
         "cynic-types"
       ],
@@ -437,17 +440,19 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 2953
+      "loc": 2912
     },
     "cynic-process": {
       "consumers": [
         "cynic-agent",
         "cynic-build",
         "cynic-cli",
+        "cynic-forensics",
         "cynic-host",
         "cynic-mcp",
         "cynic-network",
         "cynic-node",
+        "cynic-pkg",
         "cynic-proxmox",
         "cynic-sandbox",
         "cynic-vcs"
@@ -461,7 +466,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 223
+      "loc": 232
     },
     "cynic-protocol": {
       "consumers": [
@@ -718,7 +723,6 @@
     }
   },
   "extraction_order": [
-    "cynic-forensics",
     "cynic-tui",
     "cynic-types",
     "cynic-protocol",
@@ -735,6 +739,7 @@
     "cynic-traces",
     "cynic-consensus",
     "cynic-domain-ops",
+    "cynic-forensics",
     "cynic-mcp",
     "cynic-network",
     "cynic-persistence",
@@ -899,9 +904,9 @@
     "crates": 36,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397314,
+    "loc_total": 397265,
     "pending_disposition": 3,
-    "runtime_edges": 153,
+    "runtime_edges": 155,
     "unjustified": 2,
     "upward_edges": 0
   },

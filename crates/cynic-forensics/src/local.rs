@@ -2,7 +2,8 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 use crate::port::{ForensicError, ForensicObservationPort};
 use crate::probe::{
@@ -32,29 +33,24 @@ impl LocalForensicAdapter {
 
     /// Read journalctl output for a given boot (`-k` for kernel only).
     fn read_journal(boot_id: &str, kernel_only: bool) -> Option<String> {
-        let mut cmd = Command::new("journalctl");
-        cmd.arg("--boot").arg(boot_id);
-        if kernel_only {
-            cmd.arg("-k");
-        }
-        let output = cmd.output().ok()?;
-        if !output.status.success() {
+        let output = if kernel_only {
+            LocalArgvRunner.run(&["journalctl", "--boot", boot_id, "-k"])
+        } else {
+            LocalArgvRunner.run(&["journalctl", "--boot", boot_id])
+        };
+        if !output.success() {
             return None;
         }
-        String::from_utf8(output.stdout).ok()
+        Some(output.stdout)
     }
 
     /// Run `systemctl --failed` and return raw output.
     fn read_systemctl_failed() -> Option<String> {
-        let output = Command::new("systemctl")
-            .arg("--failed")
-            .arg("--no-pager")
-            .output()
-            .ok()?;
-        if !output.status.success() {
+        let output = LocalArgvRunner.run(&["systemctl", "--failed", "--no-pager"]);
+        if !output.success() {
             return None;
         }
-        String::from_utf8(output.stdout).ok()
+        Some(output.stdout)
     }
 
     /// List `/var/crash/*.crash` files that are readable by the current user.
@@ -86,14 +82,11 @@ impl LocalForensicAdapter {
 
     /// Run `journalctl --list-boots` and return raw output.
     pub fn read_boot_table() -> Option<String> {
-        let output = Command::new("journalctl")
-            .arg("--list-boots")
-            .output()
-            .ok()?;
-        if !output.status.success() {
+        let output = LocalArgvRunner.run(&["journalctl", "--list-boots"]);
+        if !output.success() {
             return None;
         }
-        String::from_utf8(output.stdout).ok()
+        Some(output.stdout)
     }
 
     /// Get uptime in seconds from `/proc/uptime`.

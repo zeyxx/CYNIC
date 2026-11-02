@@ -10,8 +10,9 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-use std::process::Command;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
 use crate::discovery::NetworkDiscoveryProbePort;
 use crate::port::NetworkObservationPort;
@@ -23,26 +24,15 @@ use crate::probe::{
 use crate::telemetry::{NETWORK_TELEMETRY_SNAPSHOT_SCHEMA, NetworkTelemetrySnapshot};
 use crate::types::{NetworkReport, PhysicalInterface};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CommandCapture {
-    pub success: bool,
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-}
-
-fn capture_command(command: &str, args: &[&str]) -> Result<CommandCapture, String> {
-    let output = Command::new(command)
-        .args(args)
-        .output()
-        .map_err(|e| format!("failed to execute {command}: {e}"))?;
-
-    Ok(CommandCapture {
-        success: output.status.success(),
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-    })
+fn capture_command(command: &str, args: &[&str]) -> Result<ArgvOutput, String> {
+    let mut argv = Vec::with_capacity(args.len() + 1);
+    argv.push(command);
+    argv.extend_from_slice(args);
+    let output = LocalArgvRunner.run(&argv);
+    if let Some(err) = output.spawn_error.as_deref() {
+        return Err(err.to_string());
+    }
+    Ok(output)
 }
 
 /// Local network observation adapter.
@@ -166,7 +156,7 @@ impl LocalNetworkAdapter {
         // 2. WireGuard peers from `wg show <iface> dump`
         let iface = wg_iface.unwrap_or("wg0");
         let wireguard_peers = match capture_command("wg", &["show", iface, "dump"]) {
-            Ok(out) if out.success => parse_wireguard_telemetry(&out.stdout),
+            Ok(out) if out.success() => parse_wireguard_telemetry(&out.stdout),
             _ => BTreeMap::new(),
         };
 
@@ -193,7 +183,7 @@ impl LocalNetworkAdapter {
     /// Read live nftables ruleset on host without modifying state.
     pub fn observe_nftables_ruleset(&self) -> Result<String, String> {
         match capture_command("nft", &["list", "ruleset"]) {
-            Ok(out) if out.success => Ok(out.stdout),
+            Ok(out) if out.success() => Ok(out.stdout),
             Ok(out) => Err(out.stderr),
             Err(e) => Err(e),
         }
@@ -234,7 +224,7 @@ impl NetworkDiscoveryProbePort for LocalNetworkDiscoveryProbeAdapter {
         iface: &str,
     ) -> Result<BTreeMap<String, u64>, String> {
         match capture_command("wg", &["show", iface, "dump"]) {
-            Ok(out) if out.success => {
+            Ok(out) if out.success() => {
                 let tele = parse_wireguard_telemetry(&out.stdout);
                 let map = tele
                     .into_iter()
