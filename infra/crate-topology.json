@@ -404,7 +404,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 62614
+      "loc": 62532
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -544,7 +544,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 43439
+      "loc": 43453
     },
     "cynic-proxmox": {
       "consumers": [
@@ -753,7 +753,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 16159
+      "loc": 16463
     }
   },
   "extraction_order": [
@@ -942,7 +942,7 @@
     "crates": 38,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 398535,
+    "loc_total": 398771,
     "pending_disposition": 5,
     "runtime_edges": 162,
     "unjustified": 3,
