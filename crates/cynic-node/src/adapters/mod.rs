@@ -7,6 +7,7 @@ pub mod ed25519_build_workload_grant;
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
+pub mod http_artifact_transport;
 pub mod http_build_workload_submission;
 pub mod http_builder_server;
 pub mod http_node_control;
