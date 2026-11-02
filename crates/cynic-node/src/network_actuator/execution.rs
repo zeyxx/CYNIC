@@ -1,7 +1,6 @@
 use crate::network_actuator::CommandExecution;
-use crate::network_command_surface::{NetworkCommandInvocation, NetworkCommandSurface};
+use crate::network_command_surface::NetworkCommandSurface;
 use cynic_host::execution::{HostArgvCommand, execute_argv_commands};
-use cynic_host::runtime_layout::current_runtime_layout;
 
 pub(crate) fn run_command(command_surface: &NetworkCommandSurface) -> CommandExecution {
     let (role, argv) = match expand_command(command_surface) {
@@ -39,71 +38,15 @@ pub(crate) fn run_command(command_surface: &NetworkCommandSurface) -> CommandExe
 fn expand_command(
     command_surface: &NetworkCommandSurface,
 ) -> Result<(String, Vec<String>), CommandExecution> {
-    match &command_surface.invocation {
-        NetworkCommandInvocation::Argv { argv } => Ok((command_surface.role.clone(), argv.clone())),
-        NetworkCommandInvocation::Shell { command } => Err(CommandExecution {
+    match cynic_network::actuator::command_to_argv(command_surface) {
+        Ok(argv) => Ok((command_surface.role.clone(), argv)),
+        Err(error) => Err(CommandExecution {
             role: command_surface.role.clone(),
-            argv: vec![command.clone()],
+            argv: vec![],
             exit_code: None,
             stdout: String::new(),
-            stderr: "shell command execution is not supported by network actuator apply"
-                .to_string(),
+            stderr: error,
         }),
-        NetworkCommandInvocation::Expectation { text } => Err(CommandExecution {
-            role: command_surface.role.clone(),
-            argv: vec![text.clone()],
-            exit_code: None,
-            stdout: String::new(),
-            stderr: "expectation surfaces are not executable by network actuator apply".to_string(),
-        }),
-        NetworkCommandInvocation::PackagePresence { package, .. } => Err(CommandExecution {
-            role: command_surface.role.clone(),
-            argv: vec![package.clone()],
-            exit_code: None,
-            stdout: String::new(),
-            stderr: "package presence surfaces are not executable by network actuator apply"
-                .to_string(),
-        }),
-        NetworkCommandInvocation::InstallDir { path, policy } => Ok((
-            command_surface.role.clone(),
-            vec![
-                "install".to_string(),
-                "-d".to_string(),
-                "-o".to_string(),
-                policy.owner.user.to_string(),
-                "-g".to_string(),
-                policy.owner.group.to_string(),
-                "-m".to_string(),
-                policy.mode.octal.to_string(),
-                path.clone(),
-            ],
-        )),
-        NetworkCommandInvocation::InstallFile {
-            source,
-            target,
-            policy,
-        } => Ok((
-            command_surface.role.clone(),
-            vec![
-                "install".to_string(),
-                "-o".to_string(),
-                policy.owner.user.to_string(),
-                "-g".to_string(),
-                policy.owner.group.to_string(),
-                "-m".to_string(),
-                policy.mode.octal.to_string(),
-                source.clone(),
-                target.clone(),
-            ],
-        )),
-        NetworkCommandInvocation::ValidateSudoers { path } => Ok((
-            command_surface.role.clone(),
-            vec![
-                current_runtime_layout().visudo_bin(),
-                "-cf".to_string(),
-                path.clone(),
-            ],
-        )),
     }
 }
 
@@ -122,7 +65,7 @@ mod tests {
         let result = expand_command(&expectation_surface).unwrap_err();
 
         assert_eq!(result.role, "check");
-        assert!(result.stderr.contains("not executable"));
+        assert!(result.stderr.contains("host execution supports only argv/install/visudo surfaces"));
     }
 
     #[test]
@@ -167,7 +110,7 @@ mod tests {
         let result = expand_command(&surface).unwrap_err();
 
         assert_eq!(result.role, "package_presence");
-        assert_eq!(result.argv, vec!["coredns"]);
-        assert!(result.stderr.contains("not executable"));
+        assert_eq!(result.argv, vec![] as Vec<String>);
+        assert!(result.stderr.contains("host execution supports only argv/install/visudo surfaces"));
     }
 }
