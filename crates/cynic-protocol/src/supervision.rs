@@ -1,5 +1,15 @@
 use serde::Serialize;
 
+/// Read-only observation of a single tmux session (name/windows/attached).
+///
+/// Hoisted from `cynic-host` so both host and supervisor can share it.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct TmuxSessionObservation {
+    pub name: String,
+    pub windows: u32,
+    pub attached_clients: u32,
+}
+
 pub const SERVICE_SUPERVISOR_OBSERVATION_SCHEMA: &str = "cynic.service_supervisor_observation.v1";
 pub const SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID: &str = "service_supervisor_observation";
 

@@ -7,12 +7,7 @@ use crate::bridge;
 
 pub use cynic_ssh::{ExecutableObservation, SshHostKeyObservation, SshTargetInspectionReport};
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct TmuxSessionObservation {
-    pub name: String,
-    pub windows: u32,
-    pub attached_clients: u32,
-}
+pub use cynic_protocol::TmuxSessionObservation;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct TmuxHarnessObservation {

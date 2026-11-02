@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
-use crate::transport::TmuxSessionObservation;
+use cynic_protocol::TmuxSessionObservation;
 
 /// Schema version for session supervision evidence.
 pub const TMUX_SESSION_SUPERVISION_SCHEMA: &str = "cynic.tmux_session_supervision.v1";

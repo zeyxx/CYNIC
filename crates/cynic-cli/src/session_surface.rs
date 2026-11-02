@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_host::tmux_session_supervision::{
+use cynic_supervisor::{
     LocalTmuxSessionSupervisor, TmuxSessionSupervisionPort,
 };
 
