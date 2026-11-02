@@ -81,6 +81,7 @@ impl ServiceCommandContext {
 }
 
 pub trait ServicePolicyExt {
+    fn __as_policy(&self) -> &ServicePolicy;
     fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
             domain: HostSubstrateDomain::Services,
@@ -110,7 +111,7 @@ pub trait ServicePolicyExt {
             evidences: vec![SubstrateEvidence {
                 id: "service_policy_declared".to_string(),
                 status: SurfaceStatus::Planned,
-                detail: format!("units={}", self.units.len()),
+                detail: format!("units={}", self.__as_policy().units.len()),
             }],
         }
     }
@@ -127,7 +128,7 @@ pub trait ServicePolicyExt {
                 .iter()
                 .map(|unit| SubstrateBundleFile {
                     logical_name: self.unit_logical_name().to_string(),
-                    install_path: format!("{}/{}", self.unit_dir, self.install_unit_name(unit)),
+                    install_path: format!("{}/{}", self.__as_policy().unit_dir, self.install_unit_name(unit)),
                     mode: MODE_0644.octal.to_string(),
                 })
                 .collect(),
@@ -195,7 +196,7 @@ pub trait ServicePolicyExt {
         let mut disabled_units = Vec::new();
         let mut inactive_units = Vec::new();
 
-        for expected in &self.units {
+        for expected in &self.__as_policy().units {
             match observed
                 .units
                 .iter()
@@ -259,8 +260,8 @@ pub trait ServicePolicyExt {
             disabled_units,
             inactive_units,
             evidences: {
-                let mut names = Vec::with_capacity(self.units.len());
-                for unit in &self.units {
+                let mut names = Vec::with_capacity(self.__as_policy().units.len());
+                for unit in &self.__as_policy().units {
                     names.push(unit.unit_name.as_str());
                 }
                 vec![SubstrateEvidence {
@@ -275,17 +276,17 @@ pub trait ServicePolicyExt {
     fn install_commands(&self, context: &ServiceCommandContext) -> Vec<HostCommandSurface> {
         let mut commands = vec![install_dir_command(
             "prepare_directory",
-            self.unit_dir.clone(),
+            self.__as_policy().unit_dir.clone(),
             root_owned_path(MODE_0755),
         )];
-        if self.manager == ServiceManagerKind::Systemd {
+        if self.__as_policy().manager == ServiceManagerKind::Systemd {
             commands.push(argv_command(
                 "daemon_reload",
                 vec![context.systemctl_bin.clone(), "daemon-reload".to_string()],
             ));
         }
         commands.extend(
-            self.units
+            self.__as_policy().units
                 .iter()
                 .flat_map(|unit| self.unit_install_commands(unit, context)),
         );
@@ -294,20 +295,20 @@ pub trait ServicePolicyExt {
 
     fn apply_operations(&self) -> Vec<HostOperation> {
         let mut operations = vec![HostOperation::EnsureDir {
-            path: self.unit_dir.clone(),
+            path: self.__as_policy().unit_dir.clone(),
             mode: MODE_0755.unix,
         }];
-        if self.manager == ServiceManagerKind::Systemd {
+        if self.__as_policy().manager == ServiceManagerKind::Systemd {
             operations.push(HostOperation::ServiceManagerDaemonReload);
         }
         // Retiring comes FIRST: a stale unit that keeps running while the
         // replacement is installed is the state that hides the problem.
         operations.extend(
-            self.retired_units
+            self.__as_policy().retired_units
                 .iter()
                 .map(|unit| HostOperation::ServiceRetire { unit: unit.clone() }),
         );
-        operations.extend(self.units.iter().map(|unit| {
+        operations.extend(self.__as_policy().units.iter().map(|unit| {
             if unit.enable_on_boot {
                 HostOperation::ServiceEnableNow {
                     unit: unit.unit_name.clone(),
@@ -322,21 +323,21 @@ pub trait ServicePolicyExt {
     }
 
     fn unit_logical_name(&self) -> &'static str {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => "systemd-unit",
             ServiceManagerKind::OpenRc => "openrc-service",
         }
     }
 
     fn install_unit_name(&self, unit: &ServiceUnitPolicy) -> String {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => unit.unit_name.clone(),
             ServiceManagerKind::OpenRc => openrc_service_name(&unit.unit_name),
         }
     }
 
     fn status_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_status",
                 vec![
@@ -361,7 +362,7 @@ pub trait ServicePolicyExt {
         unit: &str,
         context: &ServiceCommandContext,
     ) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_is_enabled",
                 vec![
@@ -382,7 +383,7 @@ pub trait ServicePolicyExt {
     }
 
     fn is_active_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_is_active",
                 vec![
@@ -419,7 +420,7 @@ pub trait ServicePolicyExt {
         unit: &str,
         context: &ServiceCommandContext,
     ) -> Vec<HostCommandSurface> {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => vec![argv_command(
                 "enable_now",
                 vec![
@@ -451,7 +452,7 @@ pub trait ServicePolicyExt {
     }
 
     fn start_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "start_service",
                 vec![
@@ -472,7 +473,9 @@ pub trait ServicePolicyExt {
     }
 }
 
-impl ServicePolicyExt for ServicePolicy {}
+impl ServicePolicyExt for ServicePolicy {
+    fn __as_policy(&self) -> &ServicePolicy { self }
+}
 
 pub(crate) fn openrc_service_name(unit: &str) -> String {
     unit.strip_suffix(".service").unwrap_or(unit).to_string()
