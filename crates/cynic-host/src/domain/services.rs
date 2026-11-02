@@ -80,7 +80,7 @@ impl ServiceCommandContext {
     }
 }
 
-impl ServicePolicy {
+pub trait ServicePolicyExt {
     pub fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
             domain: HostSubstrateDomain::Services,
@@ -471,6 +471,8 @@ impl ServicePolicy {
         }
     }
 }
+
+impl ServicePolicyExt for ServicePolicy {}
 
 pub(crate) fn openrc_service_name(unit: &str) -> String {
     unit.strip_suffix(".service").unwrap_or(unit).to_string()

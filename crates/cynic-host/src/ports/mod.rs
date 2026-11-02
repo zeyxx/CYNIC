@@ -198,3 +198,4 @@ pub trait HostContractPort:
 {
     fn declared_contracts(&self) -> Vec<SubstrateDomainContract>;
 }
+use crate::domain::services::ServicePolicyExt as _;

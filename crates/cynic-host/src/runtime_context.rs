@@ -178,3 +178,4 @@ mod tests {
         assert_eq!(report.next_command, report.host_bootstrap.next_command);
     }
 }
+use crate::domain::services::ServicePolicyExt as _;

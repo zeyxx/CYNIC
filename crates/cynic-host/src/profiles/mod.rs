@@ -165,3 +165,4 @@ mod tests {
         assert!(profile.desired_services().units.is_empty());
     }
 }
+use crate::domain::services::ServicePolicyExt as _;

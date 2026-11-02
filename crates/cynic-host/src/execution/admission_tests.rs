@@ -146,3 +146,4 @@ fn unknown_deny_missing_apply_and_wrong_authority_fail_closed() {
     wrong_authority.authority = PolicyAuthority::RuntimePrincipal;
     assert!(admit_host_operation_plan(plan, admission, wrong_authority).is_err());
 }
+use crate::domain::services::ServicePolicyExt as _;

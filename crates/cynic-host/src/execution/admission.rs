@@ -353,3 +353,4 @@ fn service_policy_descriptor(
         "requires_postflight_proof": true
     })
 }
+use crate::domain::services::ServicePolicyExt as _;

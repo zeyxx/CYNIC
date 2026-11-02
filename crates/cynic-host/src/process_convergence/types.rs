@@ -72,3 +72,4 @@ pub struct ProcessConvergenceProjection {
     #[serde(default)]
     pub residual_unknowns: Vec<String>,
 }
+use crate::domain::services::ServicePolicyExt as _;

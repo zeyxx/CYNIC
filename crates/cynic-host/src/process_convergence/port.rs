@@ -11,3 +11,4 @@ pub trait ProcessConvergenceObservationPort: Send + Sync {
         policy: &ServicePolicy,
     ) -> Result<ServiceSupervisorObservation, String>;
 }
+use crate::domain::services::ServicePolicyExt as _;
