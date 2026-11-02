@@ -203,8 +203,8 @@ mod tests {
         ) -> Result<RuntimeArtifactTransferReceipt, String> {
             self.0.borrow_mut().push(source.locator.clone());
             Ok(RuntimeArtifactTransferReceipt {
-                schema: "cynic.runtime_artifact.transfer_receipt.v1",
-                status: "proved",
+                schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
+                status: "proved".to_string(),
                 source: source.clone(),
                 destination: destination.display().to_string(),
                 expected_digest: expected_digest.map(str::to_string),
