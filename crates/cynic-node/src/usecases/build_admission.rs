@@ -23,7 +23,7 @@ use cynic_agent::{
     admit_agent_workload,
 };
 
-use crate::ports::build_slice_runner::build_slice_cargo_argv;
+use cynic_build::build_slice::build_slice_cargo_argv;
 
 use crate::ports::agent_workload_store_port::{AgentWorkloadStoreError, AgentWorkloadStorePort};
 

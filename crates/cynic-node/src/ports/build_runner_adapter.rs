@@ -5,7 +5,7 @@
 //! canonical protocol action) builds it. Disposable; the port contract in
 //! `build_runner.rs` is durable. Tests inject a fake `CommandRunner`.
 
-use crate::ports::build_runner::{
+use cynic_build::pipeline_proof::{
     BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
@@ -774,7 +774,7 @@ mod tests {
     use super::*;
     // PipelineStatus is only referenced by tests; the file-level import was
     // dropped to silence the unused warning on normal builds.
-    use crate::ports::build_runner::PipelineStatus;
+    use cynic_build::pipeline_proof::PipelineStatus;
 
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
