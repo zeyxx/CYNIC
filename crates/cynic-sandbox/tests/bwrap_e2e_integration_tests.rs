@@ -2,17 +2,13 @@
 //!
 //! Executes REAL bubblewrap processes on the host to prove isolation boundaries.
 
-use cynic_process::LocalArgvRunner;
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::compute::{ComputeRequirements, ComputeSubstratePort};
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;
 use std::sync::Arc;
 
 fn has_bwrap_binary() -> bool {
-    std::process::Command::new("bwrap")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    LocalArgvRunner.run(&["bwrap", "--version"]).success()
 }
 
 #[tokio::test]

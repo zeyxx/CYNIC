@@ -455,6 +455,7 @@
         "cynic-pkg",
         "cynic-proxmox",
         "cynic-sandbox",
+        "cynic-surreal",
         "cynic-vcs"
       ],
       "depends_on": [
@@ -560,7 +561,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1398
+      "loc": 1400
     },
     "cynic-secrets": {
       "consumers": [
@@ -641,6 +642,7 @@
       "depends_on": [
         "cynic-persistence",
         "cynic-pkg",
+        "cynic-process",
         "cynic-secrets"
       ],
       "dev_dependents": [],
@@ -648,7 +650,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1680
+      "loc": 1670
     },
     "cynic-traces": {
       "consumers": [
@@ -904,9 +906,9 @@
     "crates": 36,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397265,
+    "loc_total": 397257,
     "pending_disposition": 3,
-    "runtime_edges": 155,
+    "runtime_edges": 156,
     "unjustified": 2,
     "upward_edges": 0
   },

@@ -1,18 +1,10 @@
-use std::process::Command;
+use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
 use super::port::StorageCapabilityObservationPort;
 use super::types::ProbeObservation;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalStorageCapabilityObserver;
-
-#[derive(Debug)]
-struct CommandCapture {
-    success: bool,
-    exit_code: Option<i32>,
-    stdout: String,
-    stderr: String,
-}
 
 impl StorageCapabilityObservationPort for LocalStorageCapabilityObserver {
     fn observe_cli_version(&self) -> ProbeObservation {
@@ -48,7 +40,7 @@ impl StorageCapabilityObservationPort for LocalStorageCapabilityObserver {
                 &url,
             ],
         ) {
-            Ok(output) if output.success => {
+            Ok(output) if output.success() => {
                 ProbeObservation::observed("http_health_endpoint", "healthy")
             }
             Ok(output) => ProbeObservation::unavailable(
@@ -90,22 +82,20 @@ impl StorageCapabilityObservationPort for LocalStorageCapabilityObserver {
     }
 }
 
-fn capture_command(command: &str, args: &[&str]) -> Result<CommandCapture, String> {
-    let output = Command::new(command)
-        .args(args)
-        .output()
-        .map_err(|error| error.to_string())?;
-    Ok(CommandCapture {
-        success: output.status.success(),
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-    })
+fn capture_command(command: &str, args: &[&str]) -> Result<ArgvOutput, String> {
+    let mut argv = Vec::with_capacity(args.len() + 1);
+    argv.push(command);
+    argv.extend_from_slice(args);
+    let output = LocalArgvRunner.run(&argv);
+    if let Some(error) = output.spawn_error.as_deref() {
+        return Err(error.to_string());
+    }
+    Ok(output)
 }
 
 fn command_value(source: &str, command: &str, args: &[&str]) -> ProbeObservation {
     match capture_command(command, args) {
-        Ok(output) if output.success && !output.stdout.trim().is_empty() => {
+        Ok(output) if output.success() && !output.stdout.trim().is_empty() => {
             ProbeObservation::observed(source, output.stdout.trim())
         }
         Ok(output) => {
@@ -117,7 +107,7 @@ fn command_value(source: &str, command: &str, args: &[&str]) -> ProbeObservation
 
 fn command_engine(source: &str, command: &str, args: &[&str]) -> Option<ProbeObservation> {
     let output = capture_command(command, args).ok()?;
-    if !output.success {
+    if !output.success() {
         return None;
     }
     detect_engine(&output.stdout).map(|engine| ProbeObservation::observed(source, engine))

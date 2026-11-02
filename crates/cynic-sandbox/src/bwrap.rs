@@ -8,7 +8,7 @@ use cynic_protocol::{
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 pub const BWRAP_SANDBOX_SCHEMA: &str = "cynic.sandbox.bwrap.v1";
 
@@ -173,52 +173,60 @@ pub struct LocalBwrapAdapter;
 
 impl BwrapPort for LocalBwrapAdapter {
     fn run(&self, config: &BwrapConfig, argv: &[&str]) -> Result<BwrapReport, String> {
-        let mut cmd = Command::new("bwrap");
-        cmd.arg("--die-with-parent")
-            .arg("--unshare-pid")
-            .arg("--unshare-uts")
-            .arg("--unshare-ipc");
+        let mut bwrap_argv: Vec<String> = vec![
+            "bwrap".to_string(),
+            "--die-with-parent".to_string(),
+            "--unshare-pid".to_string(),
+            "--unshare-uts".to_string(),
+            "--unshare-ipc".to_string(),
+        ];
 
         match config.network {
             BwrapNetwork::Isolated => {
-                cmd.arg("--unshare-net");
+                bwrap_argv.push("--unshare-net".to_string());
             }
             BwrapNetwork::Proxy => {
-                cmd.arg("--share-net");
+                bwrap_argv.push("--share-net".to_string());
             }
         }
 
         for (host, sandbox) in &config.ro_mounts {
             if host.exists() {
-                cmd.arg("--ro-bind").arg(host).arg(sandbox);
+                bwrap_argv.push("--ro-bind".to_string());
+                bwrap_argv.push(host.to_string_lossy().into_owned());
+                bwrap_argv.push(sandbox.to_string_lossy().into_owned());
             }
         }
 
         if config.workspace_path.exists() {
-            cmd.arg("--bind")
-                .arg(&config.workspace_path)
-                .arg(&config.workspace_path);
+            bwrap_argv.push("--bind".to_string());
+            bwrap_argv.push(config.workspace_path.to_string_lossy().into_owned());
+            bwrap_argv.push(config.workspace_path.to_string_lossy().into_owned());
         }
 
-        cmd.arg("--tmpfs")
-            .arg("/tmp")
-            .arg("--proc")
-            .arg("/proc")
-            .arg("--dev")
-            .arg("/dev");
+        bwrap_argv.push("--tmpfs".to_string());
+        bwrap_argv.push("/tmp".to_string());
+        bwrap_argv.push("--proc".to_string());
+        bwrap_argv.push("/proc".to_string());
+        bwrap_argv.push("--dev".to_string());
+        bwrap_argv.push("/dev".to_string());
 
-        cmd.args(argv);
+        for arg in argv {
+            bwrap_argv.push(arg.to_string());
+        }
 
-        let output = cmd
-            .output()
-            .map_err(|e| format!("failed to spawn bwrap: {e}"))?;
+        let str_refs: Vec<&str> = bwrap_argv.iter().map(|s| s.as_str()).collect();
+        let output = LocalArgvRunner.run(&str_refs);
+        if let Some(err) = output.spawn_error {
+            return Err(format!("failed to spawn bwrap: {err}"));
+        }
 
         Ok(BwrapReport {
             schema: BWRAP_SANDBOX_SCHEMA.to_string(),
             pid: None,
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            exit_code: output.exit_code,
+            stdout: output.stdout,
+            stderr: output.stderr,
         })
     }
 }
