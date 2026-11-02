@@ -55,7 +55,7 @@ pub(crate) fn invoice_for_commit(
     invoice_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    use cynic_node::ports::build_runner::{BuildProofBundle, invoice_from_proofs};
+    use cynic_build::pipeline_proof::{BuildProofBundle, invoice_from_proofs};
 
     let log_path = match proof_log {
         Some(explicit) => explicit.to_string(),
