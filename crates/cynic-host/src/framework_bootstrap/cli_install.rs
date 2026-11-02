@@ -2,10 +2,10 @@ use std::{
     fs,
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 use super::types::StandaloneCliInstallReport;
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::build::{STANDALONE_CLI_INSTALL_REPORT_SCHEMA, standalone_cli_install_argv};
 pub use cynic_protocol::build::is_user_local_target;
 use cynic_types::paths::CynicPaths;
@@ -70,32 +70,13 @@ pub fn install_standalone_cli(
         })?;
     }
 
-    let source_str = source
-        .to_str()
-        .ok_or_else(|| format!("source path is not valid utf-8: {}", source.display()))?;
-    let output = if user_local {
-        Command::new("install")
-            .args(["-m", "0755", source_str, &target_display])
-            .output()
-    } else {
-        Command::new("install")
-            .args([
-                "-o",
-                "root",
-                "-g",
-                "root",
-                "-m",
-                "0755",
-                source_str,
-                &target_display,
-            ])
-            .output()
-    }
-    .map_err(|error| format!("failed to execute install: {error}"))?;
+    let runner = LocalArgvRunner;
+    let argv_refs: Vec<&str> = command.iter().map(String::as_str).collect();
+    let output = runner.run(&argv_refs);
 
-    let output_stdout = String::from_utf8_lossy(&output.stdout);
-    let output_stderr = String::from_utf8_lossy(&output.stderr);
-    if !output.status.success()
+    let output_stdout = output.stdout.clone();
+    let output_stderr = output.stderr.clone();
+    if output.exit_code != Some(0)
         && install_output_indicates_same_file(output_stdout.as_ref(), output_stderr.as_ref())
     {
         return Ok(StandaloneCliInstallReport {
@@ -113,7 +94,7 @@ pub fn install_standalone_cli(
         });
     }
 
-    let status = if output.status.success() {
+    let status = if output.exit_code == Some(0) {
         "installed".to_string()
     } else {
         "blocked".to_string()
@@ -127,9 +108,9 @@ pub fn install_standalone_cli(
         source: source_display,
         target: target_display,
         command,
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        exit_code: output.exit_code,
+        stdout: output_stdout.trim().to_string(),
+        stderr: output_stderr.trim().to_string(),
         proof: standalone_cli_install_proof(),
     })
 }
