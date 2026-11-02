@@ -359,6 +359,56 @@ impl RuntimeHarnessKind {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HarnessTargetAttestationRequest {
+    pub target_id: String,
+    pub provider: String,
+    pub transport: String,
+    pub transport_target: String,
+    pub expected_network_boundary: String,
+}
+
+pub trait HarnessTargetAttestationPort {
+    fn attest_target(
+        &self,
+        context: &RuntimeHarnessContext,
+        request: &HarnessTargetAttestationRequest,
+    ) -> Result<RuntimeHarnessTargetAttestation, String>;
+}
+
+pub trait HarnessTargetAttestationReaderPort {
+    fn read_attestation(&self, path: &std::path::Path) -> Result<RuntimeHarnessTargetAttestation, String>;
+}
+
+pub struct LocalHarnessTargetAttestationReader;
+
+#[derive(serde::Deserialize)]
+struct AttestationEnvelope {
+    attestation: RuntimeHarnessTargetAttestation,
+}
+
+impl HarnessTargetAttestationReaderPort for LocalHarnessTargetAttestationReader {
+    fn read_attestation(&self, path: &std::path::Path) -> Result<RuntimeHarnessTargetAttestation, String> {
+        let bytes = std::fs::read(path).map_err(|error| {
+            format!(
+                "failed to read harness target attestation {}: {error}",
+                path.display()
+            )
+        })?;
+        if let Ok(attestation) = serde_json::from_slice(&bytes) {
+            return Ok(attestation);
+        }
+        serde_json::from_slice::<AttestationEnvelope>(&bytes)
+            .map(|envelope| envelope.attestation)
+            .map_err(|error| {
+                format!(
+                    "invalid harness target attestation JSON {}: {error}",
+                    path.display()
+                )
+            })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -368,6 +418,7 @@ mod tests {
         observe_build_runner_route, runtime_harness_catalog,
         validate_runtime_harness_target_attestation,
         validate_runtime_harness_target_attestation_at,
+        HarnessTargetAttestationReaderPort, LocalHarnessTargetAttestationReader,
     };
     use cynic_protocol::build::BuildRunnerObservation;
     use cynic_protocol::build::{
@@ -687,5 +738,62 @@ mod tests {
                 .residual_unknowns
                 .contains(&"build_runner_seed_unproved_or_stale".to_string())
         );
+    }
+
+    #[test]
+    fn reads_direct_attestation_json() {
+        let temp = tempfile::NamedTempFile::new().expect("tempfile");
+        std::fs::write(
+            temp.path(),
+            serde_json::to_vec(&attestation()).expect("serialize"),
+        )
+        .expect("write");
+
+        let loaded = LocalHarnessTargetAttestationReader
+            .read_attestation(temp.path())
+            .expect("attestation");
+
+        assert_eq!(loaded.target_id, "lab-kernel");
+    }
+
+    #[test]
+    fn reads_attestation_report_envelope() {
+        let temp = tempfile::NamedTempFile::new().expect("tempfile");
+        let envelope = serde_json::json!({
+            "schema": "cynic.network.harness_target_attestation.v1",
+            "status": "attested",
+            "attestation": attestation(),
+        });
+        std::fs::write(
+            temp.path(),
+            serde_json::to_vec(&envelope).expect("serialize"),
+        )
+        .expect("write");
+
+        let loaded = LocalHarnessTargetAttestationReader
+            .read_attestation(temp.path())
+            .expect("attestation");
+
+        assert_eq!(loaded.transport, "qemu-guest-agent");
+    }
+
+    fn attestation() -> RuntimeHarnessTargetAttestation {
+        RuntimeHarnessTargetAttestation {
+            schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
+            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            observed_at_unix_ms: 1,
+            expires_at_unix_ms: u64::MAX,
+            target_id: "lab-kernel".to_string(),
+            provider: "qemu-libvirt".to_string(),
+            transport: "qemu-guest-agent".to_string(),
+            transport_target: "lab-kernel".to_string(),
+            declared_isolation_boundary: closed_local_lab_context().isolation_boundary.to_string(),
+            observed_target_boundary: "libvirt-network:cynic-lab-isolated".to_string(),
+            target_identity_verified: true,
+            transport_verified: true,
+            isolated_network_verified: true,
+            operator_host_network_unchanged: true,
+            proof_refs: vec!["sha256:test:proof".to_string()],
+        }
     }
 }
