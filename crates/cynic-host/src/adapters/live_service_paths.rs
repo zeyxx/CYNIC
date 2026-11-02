@@ -78,11 +78,9 @@ fn exec_start_paths(unit_content: &str) -> Vec<PathBuf> {
             continue;
         };
         for token in rest.split_whitespace() {
-            if token.starts_with('-') {
-                continue;
-            }
-            if token.starts_with('/') {
-                paths.push(PathBuf::from(token));
+            let executable = token.strip_prefix('-').unwrap_or(token);
+            if executable.starts_with('/') {
+                paths.push(PathBuf::from(executable));
                 break;
             }
         }
