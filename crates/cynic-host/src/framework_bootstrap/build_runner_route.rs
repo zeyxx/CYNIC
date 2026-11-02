@@ -16,7 +16,7 @@ use cynic_protocol::{
 
 use crate::ssh_trust::SshTrustVerification;
 
-use super::build_runner::BootstrapBuildProof;
+use cynic_protocol::build::BootstrapBuildProof;
 
 pub fn reconcile_build_runner_route_from_read_backs(
     desired: &BuildRunnerRouteDesiredState,
