@@ -59,7 +59,7 @@ pub async fn execute_source_repository_bootstrap(
     };
     let runner = LocalArgvRunner;
     let adapter = LocalSourceRepositoryBootstrap::new(&runner, &state_root_path, "git", "id");
-    let before = match adapter.observe(&(&layout).into(), &request) {
+    let before = match adapter.observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request) {
         Ok(observation) => observation,
         Err(failure) => {
             return emit_error(format!(
@@ -217,7 +217,7 @@ pub async fn execute_source_repository_bootstrap(
         }
     }
     let after = if mutation_required {
-        if let Err(failure) = adapter.apply(&(&layout).into(), &request) {
+        if let Err(failure) = adapter.apply(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request) {
             let _ = coordination.release(&guard).await;
             let mut result = report(
                 SourceRepositoryBootstrapStatus::Unknown,
@@ -234,7 +234,7 @@ pub async fn execute_source_repository_bootstrap(
             ));
             return emit_report(result);
         }
-        match adapter.observe(&(&layout).into(), &request) {
+        match adapter.observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request) {
             Ok(observation) => observation,
             Err(failure) => {
                 let _ = coordination.release(&guard).await;

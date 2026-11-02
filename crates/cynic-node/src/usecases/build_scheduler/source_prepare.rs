@@ -79,7 +79,7 @@ fn prepare_live_git_source<R: ArgvRunner>(
         "id",
     );
     let before = adapter
-        .observe(&(&layout).into(), &request)
+        .observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request)
         .map_err(|error| error.code)?;
     match reconcile_source_repository_bootstrap(&request, &before) {
         SourceRepositoryBootstrapDecision::Converged => {}
@@ -89,10 +89,10 @@ fn prepare_live_git_source<R: ArgvRunner>(
                 return Err("build_scheduler_cancelled_before_source_sync".to_string());
             }
             adapter
-                .apply(&(&layout).into(), &request)
+                .apply(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request)
                 .map_err(|error| error.code)?;
             let after = adapter
-                .observe(&(&layout).into(), &request)
+                .observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request)
                 .map_err(|error| error.code)?;
             if !matches!(
                 reconcile_source_repository_bootstrap(&request, &after),
