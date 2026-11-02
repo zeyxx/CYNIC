@@ -11,7 +11,6 @@ use crate::config::Config;
 use crate::domain::runtime_federation::RuntimeFederationConfig;
 use crate::domain::supervision::ExitReason;
 use crate::ports::runtime_federation_port::{RuntimeFederationFactory, RuntimeFederationPort};
-use crate::supervise;
 use crate::verify;
 
 /// Run one full lifecycle: wait_healthy -> register -> watch.
@@ -22,7 +21,7 @@ pub(crate) async fn run_lifecycle(
     cfg: &Config,
     child: &mut Box<dyn ChildWrapper>,
     shutdown: &CancellationToken,
-    backoff: &mut supervise::Backoff,
+    backoff: &mut cynic_supervisor::Backoff,
     config_rx: &mut tokio::sync::watch::Receiver<()>,
     federation_factory: &impl RuntimeFederationFactory,
     federation_config: RuntimeFederationConfig,
