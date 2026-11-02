@@ -439,25 +439,6 @@ mod tests {
     }
 }
 
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, time::Duration};
-
-use cynic_build::{
-    RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA, RuntimeReleasePublicationManifest,
-    SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA, SignedReleaseBasketReadBack,
-    validate_signed_release_basket_read_back,
-};
-use cynic_protocol::{
-    RuntimeArtifactSource, RuntimeArtifactTransportKind, canonical_json_bytes, digest_json,
-};
-use reqwest::{Body, Client, Url};
-use sha2::{Digest, Sha256};
-use tokio_util::io::ReaderStream;
-
-use crate::ports::release_publication_port::{
-    DetachedReleaseSignature, PackagedReleaseBasket, ReleaseArtifactPublicationPort,
-    ReleasePublicationFuture, ReleasePublicationTargets,
-};
-
 
 impl HttpArtifactTransport {
     pub fn new_release(
