@@ -5,11 +5,11 @@ use cynic_protocol::{RuntimeSeedAction, RuntimeSeedPlan, RuntimeSeedRequest};
 use serde::Serialize;
 
 use crate::ports::{
-    runtime_artifact_transport_port::{
-        ArtifactTransferReceipt, RuntimeArtifactTransportPort,
-    },
+    runtime_artifact_transport_port::RuntimeArtifactTransportPort,
     runtime_seed_actuation_port::RuntimeSeedActuationPort,
 };
+
+use cynic_protocol::artifact_transport::ArtifactTransferReceipt;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeArtifactDeploymentReport {

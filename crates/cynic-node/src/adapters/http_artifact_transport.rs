@@ -18,9 +18,8 @@ use reqwest::{Body, Client, Url};
 use tokio_util::io::ReaderStream;
 use sha2::{Digest, Sha256};
 
-use crate::ports::runtime_artifact_transport_port::{
-    ArtifactTransferReceipt, RuntimeArtifactTransportPort,
-};
+use crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransportPort;
+use cynic_protocol::artifact_transport::ArtifactTransferReceipt;
 use crate::ports::release_publication_port::{
     DetachedReleaseSignature, PackagedReleaseBasket, ReleaseArtifactPublicationPort,
     ReleasePublicationFuture, ReleasePublicationTargets,
