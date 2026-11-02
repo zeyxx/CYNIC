@@ -148,3 +148,127 @@ pub fn execute_network_watchdog(
         executed_at_unix_ms: now_unix_ms,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::HandshakeState;
+    use crate::NotificationOutboxStorePort;
+    use crate::PeerHandshakePort;
+    use crate::PeerHandshakeStatus;
+    use crate::WireguardHandshakeObservation;
+    use crate::PEER_HANDSHAKE_SCHEMA;
+    use cynic_protocol::NotificationOutboxEntry;
+    use std::sync::Mutex;
+
+    struct MockWgObserver {
+        stale: usize,
+        dead: usize,
+    }
+
+    impl PeerHandshakePort for MockWgObserver {
+        fn observe(
+            &self,
+            interface: &str,
+            _stale_s: u64,
+            _dead_s: u64,
+        ) -> WireguardHandshakeObservation {
+            let mut peers = Vec::new();
+            if self.dead > 0 {
+                peers.push(PeerHandshakeStatus {
+                    public_key_prefix: "deadpeer123".to_string(),
+                    last_handshake_unix_s: 0,
+                    age_s: 300,
+                    state: HandshakeState::Dead,
+                });
+            }
+            WireguardHandshakeObservation {
+                schema: PEER_HANDSHAKE_SCHEMA,
+                interface: interface.to_string(),
+                observed_at_unix_s: 1788267750,
+                peers,
+                stale_count: self.stale,
+                dead_count: self.dead,
+                ok_count: 3,
+                unknown_count: 0,
+            }
+        }
+    }
+
+    struct MockNotificationOutboxStore {
+        entries: Mutex<Vec<NotificationOutboxEntry>>,
+    }
+
+    impl Default for MockNotificationOutboxStore {
+        fn default() -> Self {
+            Self {
+                entries: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl NotificationOutboxStorePort for MockNotificationOutboxStore {
+        fn enqueue(&self, entry: NotificationOutboxEntry) -> Result<(), String> {
+            self.entries.lock().unwrap().push(entry);
+            Ok(())
+        }
+
+        fn list_pending(&self) -> Result<Vec<NotificationOutboxEntry>, String> {
+            Ok(self.entries.lock().unwrap().clone())
+        }
+
+        fn mark_delivered(&self, _notification_id: &str, _receipt: &str) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn mark_failed(&self, _notification_id: &str, _reason: &str) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn execute_network_watchdog_healthy_enqueues_zero_alerts() {
+        let wg = MockWgObserver { stale: 0, dead: 0 };
+        let store = MockNotificationOutboxStore::default();
+        let report = execute_network_watchdog(
+            "wg0",
+            &wg,
+            &[],
+            None,
+            None,
+            None,
+            vec![],
+            &store,
+            1788267750000,
+        )
+        .unwrap();
+
+        assert_eq!(report.status, "ok");
+        assert_eq!(report.alerts_enqueued_count, 0);
+        assert!(store.list_pending().unwrap().is_empty());
+    }
+
+    #[test]
+    fn execute_network_watchdog_dead_peer_enqueues_alert() {
+        let wg = MockWgObserver { stale: 0, dead: 1 };
+        let store = MockNotificationOutboxStore::default();
+        let report = execute_network_watchdog(
+            "wg0",
+            &wg,
+            &[],
+            None,
+            None,
+            None,
+            vec![],
+            &store,
+            1788267750000,
+        )
+        .unwrap();
+
+        assert_eq!(report.status, "critical");
+        assert_eq!(report.alerts_enqueued_count, 1);
+        let pending = store.list_pending().unwrap();
+        assert_eq!(pending.len(), 1);
+        assert!(pending[0].summary.contains("WireGuard"));
+    }
+}

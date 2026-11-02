@@ -29,7 +29,7 @@
 
 use std::process::ExitCode;
 
-use cynic_node::usecases::network_watchdog_uc::execute_network_watchdog;
+use cynic_network::usecases::network_watchdog_uc::execute_network_watchdog;
 use cynic_node::usecases::notification_outbox_uc::{
     DesktopNotificationTransport, HttpTelegramNotificationTransport,
     InMemoryNotificationOutboxStore, MultiChannelNotificationTransport,

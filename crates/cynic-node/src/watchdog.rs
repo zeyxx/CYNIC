@@ -13,7 +13,7 @@ use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::WatchdogConfig;
-use crate::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_watchdog};
+use cynic_network::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_watchdog};
 use crate::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use crate::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 use crate::{config, shutdown::install_signal_handler};
