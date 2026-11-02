@@ -14,56 +14,10 @@ use crate::clock::now_unix_ms;
 use cynic_process::ArgvRunner;
 use cynic_types::paths::CynicPaths;
 
-pub const BUILD_RUNNER_BOOTSTRAP_PLAN_SCHEMA: &str = "cynic.build_runner.bootstrap_plan.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildRunnerBootstrapRequest {
-    pub node_id: String,
-    pub source_commit: String,
-    pub source_bundle_digest: String,
-    pub target_phase: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildRunnerBootstrapPlan {
-    pub schema: String,
-    pub status: String,
-    pub node_id: String,
-    pub source_commit: String,
-    pub source_bundle_digest: String,
-    pub target_phase: String,
-    pub mutates: bool,
-    pub blockers: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildRunnerBootstrapExecutionPlan {
-    pub workspace: String,
-    pub argv: Vec<Vec<String>>,
-    pub rollback_intent: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildRunnerBootstrapBuildPlan {
-    pub workspace: String,
-    pub receipt_path: String,
-    pub artifact_path: String,
-    pub argv: Vec<String>,
-    pub rollback_intent: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BootstrapBuildProof {
-    pub schema: String,
-    pub status: String,
-    pub proved_at_unix_ms: u64,
-    pub source_commit: String,
-    pub source_bundle_digest: String,
-    pub artifact_path: String,
-    pub artifact_digest: Option<String>,
-    pub evidence_refs: Vec<String>,
-    pub blockers: Vec<String>,
-}
+pub use cynic_protocol::build::{
+    BUILD_RUNNER_BOOTSTRAP_PLAN_SCHEMA, BootstrapBuildProof, BuildRunnerBootstrapBuildPlan,
+    BuildRunnerBootstrapExecutionPlan, BuildRunnerBootstrapPlan, BuildRunnerBootstrapRequest,
+};
 
 pub fn build_runner_bootstrap_execution_plan(
     plan: &BuildRunnerBootstrapPlan,
