@@ -49,3 +49,4 @@ pub mod storage_provider_port;
 pub mod system_probe_port;
 pub mod target_discovery_port;
 pub mod workload_identity_port;
+pub mod workload_signer_port;
