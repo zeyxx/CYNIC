@@ -13,9 +13,7 @@ use cynic_build::build::canonical_argv_from_build_action;
 use cynic_build::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
-/// Canonical L0 / L1 argv types re-exported under the legacy names.
-pub use cynic_process::LocalArgvRunner as LocalCommandRunner;
-pub use cynic_protocol::argv::{ArgvOutput as CommandOutput, ArgvRunner as CommandRunner};
+use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 /// Observe mode (tranche 2): same contract as
 /// `cynic-lifecycle::port::observe_argv` — pure verdict from
 /// `cynic-protocol::argv_allow`, best-effort JSONL append, never blocks
@@ -120,13 +118,13 @@ impl SshBuildRunner {
         format!("{}@{}", self.user, self.host)
     }
 
-    fn run_ssh<T: AsRef<str>>(&self, target: &str, remote_argv: &[T]) -> CommandOutput {
+    fn run_ssh<T: AsRef<str>>(&self, target: &str, remote_argv: &[T]) -> ArgvOutput {
         match cynic_ssh::argv::ssh_argv(target, remote_argv) {
             Ok(argv) => {
                 let borrowed: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
                 self.runner.run(&borrowed)
             }
-            Err(err) => CommandOutput {
+            Err(err) => ArgvOutput {
                 exit_code: Some(255),
                 stdout: String::new(),
                 stderr: err,
@@ -783,7 +781,7 @@ mod tests {
 
     #[derive(Default)]
     struct Script {
-        responses: VecDeque<CommandOutput>,
+        responses: VecDeque<ArgvOutput>,
         log: Vec<Vec<String>>,
     }
 
@@ -796,7 +794,7 @@ mod tests {
     const FAKE_STATE_ROOT: &str = "/var/lib/cynic";
 
     impl FakeRunner {
-        fn with(responses: Vec<CommandOutput>) -> Self {
+        fn with(responses: Vec<ArgvOutput>) -> Self {
             Self {
                 script: Arc::new(Mutex::new(Script {
                     responses: responses.into(),
@@ -810,8 +808,8 @@ mod tests {
         }
     }
 
-    impl CommandRunner for FakeRunner {
-        fn run(&self, argv: &[&str]) -> CommandOutput {
+    impl ArgvRunner for FakeRunner {
+        fn run(&self, argv: &[&str]) -> ArgvOutput {
             let mut script = self.script.lock().expect("pop scripted response");
             script
                 .log
@@ -821,7 +819,7 @@ mod tests {
             // scripted responses assume.
             let args: Vec<&str> = argv.to_vec();
             if args.iter().any(|arg| *arg == "paths") && args.iter().any(|arg| *arg == "--json") {
-                return CommandOutput {
+                return ArgvOutput {
                     exit_code: Some(0),
                     stdout: format!(
                         "{{\"schema\":\"cynic.runtime_paths.v1\",\"state_root\":\"{FAKE_STATE_ROOT}\"}}"
@@ -834,8 +832,8 @@ mod tests {
         }
     }
 
-    fn ok(stdout: &str) -> CommandOutput {
-        CommandOutput {
+    fn ok(stdout: &str) -> ArgvOutput {
+        ArgvOutput {
             exit_code: Some(0),
             stdout: stdout.to_string(),
             stderr: String::new(),
@@ -843,8 +841,8 @@ mod tests {
         }
     }
 
-    fn fail(stderr: &str) -> CommandOutput {
-        CommandOutput {
+    fn fail(stderr: &str) -> ArgvOutput {
+        ArgvOutput {
             exit_code: Some(1),
             stdout: String::new(),
             stderr: stderr.to_string(),

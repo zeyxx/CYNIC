@@ -101,13 +101,13 @@ impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_release::artifact_publication::PublicationTarget;
+    use cynic_release::artifact_publication::ArtifactPublicationTarget;
     use cynic_process::{ArgvOutput, MapArgvRunner};
 
     fn request() -> ArtifactPublicationRequest {
         ArtifactPublicationRequest {
             proof_sha: "abc123".to_string(),
-            target: PublicationTarget {
+            target: ArtifactPublicationTarget {
                 node: "synapse".to_string(),
                 endpoint: "cynic@10.10.10.119".to_string(),
                 protocol: TransportProtocol::Ssh,

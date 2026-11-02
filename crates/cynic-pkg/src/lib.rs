@@ -21,7 +21,7 @@ pub mod upstream_probe;
 
 pub use authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
 pub use execution::{
-    EcosystemPackageExecutionPort, LocalEcosystemPackageExecution, PackageCommandOutput,
+    EcosystemPackageExecutionPort, LocalEcosystemPackageExecution,
 };
 pub use integration::*;
 pub use layout::{

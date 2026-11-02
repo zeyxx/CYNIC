@@ -385,7 +385,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 62475
+      "loc": 62473
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -454,6 +454,7 @@
         "cynic-node",
         "cynic-pkg",
         "cynic-proxmox",
+        "cynic-release",
         "cynic-sandbox",
         "cynic-surreal",
         "cynic-vcs"
@@ -539,13 +540,14 @@
         "cynic-node"
       ],
       "depends_on": [
+        "cynic-process",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 5552
+      "loc": 5504
     },
     "cynic-sandbox": {
       "consumers": [
@@ -734,7 +736,6 @@
     "cynic-lxc",
     "cynic-node-protocol",
     "cynic-process",
-    "cynic-release",
     "cynic-secrets",
     "cynic-ssh",
     "cynic-supervisor",
@@ -746,6 +747,7 @@
     "cynic-network",
     "cynic-persistence",
     "cynic-proxmox",
+    "cynic-release",
     "cynic-sandbox",
     "cynic-agent",
     "cynic-pkg",
@@ -906,9 +908,9 @@
     "crates": 36,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397257,
+    "loc_total": 397207,
     "pending_disposition": 3,
-    "runtime_edges": 156,
+    "runtime_edges": 157,
     "unjustified": 2,
     "upward_edges": 0
   },

@@ -8,4 +8,4 @@ pub mod release_gate_adapter;
 pub mod release_relay_adapter;
 pub mod secret_lint;
 
-pub use deploy_local::{LocalDeployAdapter, LocalDeploy, LocalDeploymentAdapter, LocalDeployPortAdapter, LocalDeployer};
+pub use deploy_local::LocalDeployAdapter;
