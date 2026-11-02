@@ -3,72 +3,27 @@
 //! Spawns processes via std::process::Command. Implements cynic-release's
 //! external_deploy::DeployPort.
 
-use std::process::Command;
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 use crate::external_deploy::{
-    CommandOutput, DeployKind, DeployPort, DeployRequest, DeployResult, DeployOutput,
+    ArgvOutput, DeployKind, DeployPort, DeployRequest, DeployResult, DeployOutput,
 };
 
-fn run_local_command_str(command: &str) -> CommandOutput {
+fn run_local_command_str(command: &str) -> ArgvOutput {
     let parts: Vec<&str> = command.split_whitespace().collect();
-    if parts.is_empty() {
-        return CommandOutput {
-            exit_code: None,
-            stdout: String::new(),
-            stderr: "empty command".to_string(),
-            spawn_error: Some("empty command".to_string()),
-        };
-    }
-    let mut cmd = Command::new(parts[0]);
-    cmd.args(&parts[1..]);
-    match cmd.output() {
-        Ok(output) => CommandOutput {
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            spawn_error: None,
-        },
-        Err(e) => CommandOutput {
-            exit_code: None,
-            stdout: String::new(),
-            stderr: format!("spawn error: {e}"),
-            spawn_error: Some(e.to_string()),
-        },
-    }
+    LocalArgvRunner.run(&parts)
 }
 
-fn run_local_argv(argv: &[String]) -> CommandOutput {
-    if argv.is_empty() {
-        return CommandOutput {
-            exit_code: None,
-            stdout: String::new(),
-            stderr: "empty command".to_string(),
-            spawn_error: Some("empty command".to_string()),
-        };
-    }
-    let mut cmd = Command::new(&argv[0]);
-    cmd.args(&argv[1..]);
-    match cmd.output() {
-        Ok(output) => CommandOutput {
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            spawn_error: None,
-        },
-        Err(e) => CommandOutput {
-            exit_code: None,
-            stdout: String::new(),
-            stderr: format!("spawn error: {e}"),
-            spawn_error: Some(e.to_string()),
-        },
-    }
+fn run_local_argv(argv: &[String]) -> ArgvOutput {
+    let parts: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+    LocalArgvRunner.run(&parts)
 }
 
 fn build_deploy_result(
     kind: DeployKind,
     request: &DeployRequest,
     artifact_ref: String,
-    output: CommandOutput,
+    output: ArgvOutput,
 ) -> DeployResult {
     let success = output.success();
     let error = if success {
@@ -91,7 +46,7 @@ fn build_deploy_result(
         target_host_id: request.target_host_id.clone(),
         artifact_ref,
         success,
-        output: Some(DeployOutput::from_command_output(&output)),
+        output: Some(DeployOutput::from_argv_output(&output)),
         error,
     }
 }
@@ -127,8 +82,3 @@ impl DeployPort for LocalDeployAdapter {
         build_deploy_result(DeployKind::HealthCheck, request, request.artifact_ref.clone(), output)
     }
 }
-
-pub type LocalDeploy = LocalDeployAdapter;
-pub type LocalDeploymentAdapter = LocalDeployAdapter;
-pub type LocalDeployPortAdapter = LocalDeployAdapter;
-pub type LocalDeployer = LocalDeployAdapter;

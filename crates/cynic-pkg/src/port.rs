@@ -168,8 +168,8 @@ mod tests {
             &self,
             _argv: &[String],
             _cwd: Option<&std::path::Path>,
-        ) -> crate::execution::PackageCommandOutput {
-            crate::execution::PackageCommandOutput {
+        ) -> cynic_protocol::argv::ArgvOutput {
+            cynic_protocol::argv::ArgvOutput {
                 exit_code: Some(0),
                 stdout: "verified".to_string(),
                 stderr: String::new(),

@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
+cynic-process = { path = "../cynic-process" }
 cynic-protocol = { path = "../cynic-protocol" }
 hex.workspace = true
 regex = "1"

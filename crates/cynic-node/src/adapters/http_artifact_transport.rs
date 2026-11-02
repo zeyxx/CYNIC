@@ -19,7 +19,7 @@ use tokio_util::io::ReaderStream;
 use sha2::{Digest, Sha256};
 
 use crate::ports::runtime_artifact_transport_port::{
-    RuntimeArtifactTransferReceipt, RuntimeArtifactTransportPort,
+    ArtifactTransferReceipt, RuntimeArtifactTransportPort,
 };
 use crate::ports::release_publication_port::{
     DetachedReleaseSignature, PackagedReleaseBasket, ReleaseArtifactPublicationPort,
@@ -111,7 +111,7 @@ impl HttpArtifactTransport {
         expected_digest: Option<&str>,
         digest: String,
         bytes_written: u64,
-    ) -> Result<RuntimeArtifactTransferReceipt, String> {
+    ) -> Result<ArtifactTransferReceipt, String> {
         if expected_digest.is_some_and(|expected| expected != digest) {
             cleanup_temporary(temporary);
             return Err("runtime_artifact_digest_read_back_mismatch".to_string());
@@ -147,7 +147,7 @@ impl HttpArtifactTransport {
         source: &RuntimeArtifactSource,
         destination: &Path,
         expected_digest: Option<&str>,
-    ) -> Result<RuntimeArtifactTransferReceipt, String> {
+    ) -> Result<ArtifactTransferReceipt, String> {
         let source_path = Path::new(&source.locator);
         let metadata = fs::symlink_metadata(source_path)
             .map_err(|error| format!("runtime_artifact_source_unobservable:{error}"))?;
@@ -211,7 +211,7 @@ impl RuntimeArtifactTransportPort for HttpArtifactTransport {
         source: &RuntimeArtifactSource,
         destination: &Path,
         expected_digest: Option<&str>,
-    ) -> Result<RuntimeArtifactTransferReceipt, String> {
+    ) -> Result<ArtifactTransferReceipt, String> {
         if source.transport == RuntimeArtifactTransportKind::LocalFile {
             return self.stage_local(source, destination, expected_digest);
         }
@@ -344,8 +344,8 @@ fn receipt(
     observed_digest: String,
     bytes_written: u64,
     mutates: bool,
-) -> RuntimeArtifactTransferReceipt {
-    RuntimeArtifactTransferReceipt {
+) -> ArtifactTransferReceipt {
+    ArtifactTransferReceipt {
         schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
         status: "proved".to_string(),
         source: source.clone(),

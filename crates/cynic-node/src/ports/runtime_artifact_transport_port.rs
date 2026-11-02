@@ -2,7 +2,7 @@ use std::path::Path;
 
 use cynic_protocol::RuntimeArtifactSource;
 
-pub use cynic_protocol::artifact_transport::ArtifactTransferReceipt as RuntimeArtifactTransferReceipt;
+pub use cynic_protocol::artifact_transport::ArtifactTransferReceipt;
 
 pub trait RuntimeArtifactTransportPort {
     async fn stage(
@@ -10,5 +10,5 @@ pub trait RuntimeArtifactTransportPort {
         source: &RuntimeArtifactSource,
         destination: &Path,
         expected_digest: Option<&str>,
-    ) -> Result<RuntimeArtifactTransferReceipt, String>;
+    ) -> Result<ArtifactTransferReceipt, String>;
 }

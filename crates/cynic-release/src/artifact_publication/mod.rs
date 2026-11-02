@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 pub use cynic_protocol::artifact_release::TransportProtocol;
 pub use cynic_protocol::artifact_release::ArtifactPublicationTarget;
-pub use cynic_protocol::artifact_release::ArtifactPublicationTarget as PublicationTarget;
 
 /// A request to publish a built artefact to one target.
 ///
@@ -21,7 +20,7 @@ pub use cynic_protocol::artifact_release::ArtifactPublicationTarget as Publicati
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactPublicationRequest {
     pub proof_sha: String,
-    pub target: PublicationTarget,
+    pub target: ArtifactPublicationTarget,
     pub artefact_name: String,
     pub local_path: String,
 }
@@ -55,7 +54,7 @@ pub fn select_transport(
     protocol_str: &str,
     http_target: &str,
     ssh_target: &str,
-) -> PublicationTarget {
+) -> ArtifactPublicationTarget {
     let protocol: TransportProtocol = protocol_str
         .parse::<TransportProtocol>()
         .unwrap_or_default();
@@ -63,7 +62,7 @@ pub fn select_transport(
         TransportProtocol::Ssh => ssh_target,
         _ => http_target,
     };
-    PublicationTarget {
+    ArtifactPublicationTarget {
         node: http_target.to_owned(),
         endpoint: target.to_owned(),
         protocol,
@@ -99,7 +98,7 @@ mod tests {
     fn request_serializes_provenance_chain() {
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
-            target: PublicationTarget {
+            target: ArtifactPublicationTarget {
                 node: "synapse".into(),
                 endpoint: "10.10.10.119".into(),
                 protocol: TransportProtocol::HttpPut,

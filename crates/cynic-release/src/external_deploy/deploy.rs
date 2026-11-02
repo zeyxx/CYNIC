@@ -13,7 +13,6 @@
 use serde::{Deserialize, Serialize};
 
 pub use cynic_protocol::argv::ArgvOutput;
-pub use cynic_protocol::argv::ArgvOutput as CommandOutput;
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -116,12 +115,16 @@ pub struct DeployOutput {
 }
 
 impl DeployOutput {
-    pub fn from_command_output(output: &CommandOutput) -> Self {
+    pub fn from_argv_output(output: &ArgvOutput) -> Self {
         Self {
             stdout: output.stdout.clone(),
             stderr: output.stderr.clone(),
             exit_code: output.exit_code,
         }
+    }
+
+    pub fn from_command_output(output: &ArgvOutput) -> Self {
+        Self::from_argv_output(output)
     }
 
     pub fn success(&self) -> bool {

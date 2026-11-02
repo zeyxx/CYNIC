@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::ports::{
     runtime_artifact_transport_port::{
-        RuntimeArtifactTransferReceipt, RuntimeArtifactTransportPort,
+        ArtifactTransferReceipt, RuntimeArtifactTransportPort,
     },
     runtime_seed_actuation_port::RuntimeSeedActuationPort,
 };
@@ -17,7 +17,7 @@ pub struct RuntimeArtifactDeploymentReport {
     pub status: &'static str,
     pub release_id: String,
     pub mutates: bool,
-    pub transfers: Vec<RuntimeArtifactTransferReceipt>,
+    pub transfers: Vec<ArtifactTransferReceipt>,
     pub activation: Option<RuntimeSeedApplyReport>,
     pub evidence_refs: Vec<String>,
     pub blockers: Vec<String>,
@@ -154,7 +154,7 @@ where
 fn report(
     request: &RuntimeSeedRequest,
     mutates: bool,
-    transfers: Vec<RuntimeArtifactTransferReceipt>,
+    transfers: Vec<ArtifactTransferReceipt>,
     activation: Option<RuntimeSeedApplyReport>,
     mut evidence_refs: Vec<String>,
     blockers: Vec<String>,
@@ -200,9 +200,9 @@ mod tests {
             source: &RuntimeArtifactSource,
             destination: &Path,
             expected_digest: Option<&str>,
-        ) -> Result<RuntimeArtifactTransferReceipt, String> {
+        ) -> Result<ArtifactTransferReceipt, String> {
             self.0.borrow_mut().push(source.locator.clone());
-            Ok(RuntimeArtifactTransferReceipt {
+            Ok(ArtifactTransferReceipt {
                 schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
                 status: "proved".to_string(),
                 source: source.clone(),
