@@ -358,10 +358,10 @@ mod tests {
     #[test]
     fn registry_access_for_authority_class_beats_legacy_endpoint_override() {
         let mut policy = sample();
-        let capability = policy.capability("builder-stage-file").expect("exists");
         policy
             .default_endpoint_overrides
             .insert("cynic-builder".to_string(), "stale-policy-target".to_string());
+        let capability = policy.capability("builder-stage-file").expect("exists");
         let registry_view = BTreeMap::from([
             (
                 "cynic-builder".to_string(),
