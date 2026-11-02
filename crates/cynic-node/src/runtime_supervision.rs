@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::config_watch;
 use crate::domain::supervision::ExitReason;
 use crate::ports::runtime_federation_port::RuntimeFederationFactory;
-use crate::supervise;
+use cynic_supervisor;
 
 mod lifecycle;
 
@@ -72,7 +72,7 @@ where
     let mut state = NodeState {
         needs_spawn: true,
         child: None,
-        backoff: supervise::Backoff::from_config(&cfg.restart),
+        backoff: cynic_supervisor::Backoff::from_config(&cfg.restart),
         dog_id: None,
     };
 
@@ -158,7 +158,7 @@ enum LoopAction {
 struct NodeState {
     needs_spawn: bool,
     child: Option<Box<dyn ChildWrapper>>,
-    backoff: supervise::Backoff,
+    backoff: cynic_supervisor::Backoff,
     dog_id: Option<String>,
 }
 
@@ -220,7 +220,7 @@ async fn handle_exit_reason(
 
 async fn stop_child(child: &mut Option<Box<dyn ChildWrapper>>, cfg: &Config) {
     if let Some(c) = child.as_mut() {
-        let _ = supervise::graceful_stop(c, cfg.process.stop_timeout_secs).await;
+        let _ = cynic_supervisor::graceful_stop(c, cfg.process.stop_timeout_secs).await;
     }
 }
 
@@ -236,7 +236,7 @@ async fn spawn_backend(cfg: &Config) -> std::io::Result<Box<dyn ChildWrapper>> {
         max_delay_secs: cfg.restart.max_delay_secs,
         min_uptime_secs: cfg.restart.min_uptime_secs,
     };
-    supervise::spawn_with_retries(
+    cynic_supervisor::spawn_with_retries(
         &cfg.process.command,
         cfg.process.working_dir.as_deref(),
         &cfg.process.env,

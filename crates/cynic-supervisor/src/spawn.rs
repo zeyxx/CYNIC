@@ -10,6 +10,9 @@
 use std::{collections::HashMap, ffi::OsStr, io};
 
 use process_wrap::tokio::{ChildWrapper, CommandWrap};
+use tokio::time::sleep;
+
+use cynic_protocol::supervision::{RestartDecision, decide_restart};
 
 /// Spawn a CYNIC-owned child process in its own group (where supported).
 pub fn spawn_backend(
@@ -48,6 +51,34 @@ pub fn spawn_backend(
     cmd.spawn()
 }
 
+/// Try to spawn the backend under a declared restart policy.
+pub async fn spawn_with_retries(
+    command: &[impl AsRef<OsStr>],
+    working_dir: Option<&str>,
+    env: &HashMap<String, String>,
+    policy: &cynic_protocol::supervision::RestartPolicy,
+) -> io::Result<Box<dyn ChildWrapper>> {
+    use std::time::Duration;
+    let mut last_err = io::Error::other("no attempts made");
+    let mut attempt: u32 = 0;
+    loop {
+        match spawn_backend(command, working_dir, env) {
+            Ok(child) => return Ok(child),
+            Err(e) => {
+                last_err = e;
+                match decide_restart(policy, attempt, 0, true) {
+                    RestartDecision::Restart { delay_secs } => {
+                        attempt = attempt.saturating_add(1);
+                        sleep(Duration::from_secs(delay_secs)).await;
+                    }
+                    RestartDecision::GiveUp { .. } => break,
+                    RestartDecision::NoRestart => break,
+                }
+            }
+        }
+    }
+    Err(last_err)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

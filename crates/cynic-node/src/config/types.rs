@@ -267,6 +267,21 @@ pub(crate) struct RestartConfig {
     pub(crate) min_uptime_secs: u64,
 }
 
+impl cynic_supervisor::RestartConfigLike for RestartConfig {
+    fn max_attempts(&self) -> u32 {
+        self.max_attempts
+    }
+    fn initial_delay_secs(&self) -> u64 {
+        self.initial_delay_secs
+    }
+    fn max_delay_secs(&self) -> u64 {
+        self.max_delay_secs
+    }
+    fn min_uptime_secs(&self) -> u64 {
+        self.min_uptime_secs
+    }
+}
+
 impl Default for RestartConfig {
     fn default() -> Self {
         Self {
