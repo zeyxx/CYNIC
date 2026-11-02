@@ -24,7 +24,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 9758
+      "loc": 9829
     },
     "cynic-anchoring": {
       "consumers": [],
@@ -386,7 +386,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 61249
+      "loc": 61178
     },
     "cynic-node-protocol": {
       "consumers": [

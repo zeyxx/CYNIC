@@ -2,6 +2,8 @@ pub mod admission;
 pub mod delivery;
 pub mod durability;
 pub mod lifecycle;
+pub mod observation;
+pub mod ports;
 pub mod settlement;
 mod shared;
 pub mod types;
@@ -29,6 +31,8 @@ pub use lifecycle::{
     finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
     request_agent_workload_cancellation,
 };
+pub use observation::*;
+pub use ports::*;
 pub use settlement::{SETTLED_PARCEL_RECEIPT_SCHEMA, SettledParcelReceipt, settle_parcel, settle_parcel_with_receipt};
 pub use types::{
     AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
