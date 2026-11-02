@@ -502,4 +502,17 @@ mod tests {
                 .contains(&"build_source_transport_contains_credentials".to_string())
         );
     }
+
+    #[test]
+    fn build_request_preserves_package_and_filter_across_wire_round_trip() {
+        let mut wire = serde_json::to_value(request(true)).expect("serialize request");
+        wire["package"] = serde_json::json!("cynic-build");
+        wire["filter"] = serde_json::json!("issue_626_scope_request_round_trip");
+
+        let decoded: BuildAgentRequest = serde_json::from_value(wire).expect("decode request");
+        let read_back = serde_json::to_value(decoded).expect("serialize read-back");
+
+        assert_eq!(read_back["package"], "cynic-build");
+        assert_eq!(read_back["filter"], "issue_626_scope_request_round_trip");
+    }
 }
