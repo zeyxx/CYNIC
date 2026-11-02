@@ -123,7 +123,7 @@ pub trait ServicePolicyExt {
     fn bundle_with_context(&self, context: &ServiceCommandContext) -> ServiceBundleReport {
         ServiceBundleReport {
             status: SurfaceStatus::Planned,
-            files: self
+            files: self.__as_policy()
                 .units
                 .iter()
                 .map(|unit| SubstrateBundleFile {
@@ -146,13 +146,13 @@ pub trait ServicePolicyExt {
     ) -> ServiceActivationPlan {
         ServiceActivationPlan {
             status: SurfaceStatus::Planned,
-            preflight: self
+            preflight: self.__as_policy()
                 .units
                 .iter()
                 .map(|unit| self.status_command(&unit.unit_name, context))
                 .collect(),
             install_commands: self.install_commands(context),
-            postflight: self
+            postflight: self.__as_policy()
                 .units
                 .iter()
                 .flat_map(|unit| {
@@ -178,7 +178,7 @@ pub trait ServicePolicyExt {
             status: SurfaceStatus::Planned,
             dry_run,
             commands: self.install_commands(context),
-            proofs_required: self
+            proofs_required: self.__as_policy()
                 .units
                 .iter()
                 .flat_map(|unit| {
