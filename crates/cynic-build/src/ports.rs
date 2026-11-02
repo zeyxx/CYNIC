@@ -5,6 +5,9 @@
 //! crates provide fakes. No type in this file performs I/O.
 
 use std::path::Path;
+use std::path::PathBuf;
+
+use crate::SignedBuildWorkloadGrant;
 
 /// Port for executing build commands (dependency inversion).
 pub trait BuildRunner: Send + Sync {
@@ -64,4 +67,58 @@ pub trait FilesystemPort: Send + Sync {
 pub trait IdentityPort: Send + Sync {
     fn uid(&self) -> u32;
     fn pid(&self) -> u32;
+}
+
+
+/// Port for signing build workload grants.
+pub trait BuildWorkloadGrantSignerPort: Send + Sync {
+    fn authority_key_id(&self) -> &str;
+    fn sign(&self, payload: &[u8]) -> Result<String, String>;
+}
+
+/// Port for verifying build workload grants.
+pub trait BuildWorkloadGrantVerifierPort: Send + Sync {
+    fn verify(
+        &self,
+        authority_key_id: &str,
+        payload: &[u8],
+        signature_hex: &str,
+    ) -> Result<(), String>;
+}
+
+/// Error returned by build workload grant store operations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildWorkloadGrantStoreError {
+    pub code: String,
+    pub detail: String,
+}
+
+impl BuildWorkloadGrantStoreError {
+    pub fn new(code: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            detail: detail.into(),
+        }
+    }
+}
+
+/// A persisted build workload grant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistedBuildWorkloadGrant {
+    pub grant: SignedBuildWorkloadGrant,
+    pub evidence_ref: String,
+    pub path: PathBuf,
+}
+
+/// Port for storing and retrieving build workload grants.
+pub trait BuildWorkloadGrantStorePort: Send + Sync {
+    fn latest(
+        &self,
+        workload_id: &str,
+    ) -> Result<Option<PersistedBuildWorkloadGrant>, BuildWorkloadGrantStoreError>;
+
+    fn persist(
+        &self,
+        grant: &SignedBuildWorkloadGrant,
+    ) -> Result<PersistedBuildWorkloadGrant, BuildWorkloadGrantStoreError>;
 }
