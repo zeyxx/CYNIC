@@ -8,6 +8,9 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use crate::SignedBuildWorkloadGrant;
+use crate::build_proof::{BuildProofReport, BuildProofRequest};
+
+use async_trait::async_trait;
 
 /// Port for executing build commands (dependency inversion).
 pub trait BuildRunner: Send + Sync {
@@ -121,4 +124,11 @@ pub trait BuildWorkloadGrantStorePort: Send + Sync {
         &self,
         grant: &SignedBuildWorkloadGrant,
     ) -> Result<PersistedBuildWorkloadGrant, BuildWorkloadGrantStoreError>;
+}
+
+#[async_trait]
+pub trait BuildProofPort: Send + Sync {
+    async fn prove(&self, request: &BuildProofRequest) -> Result<BuildProofReport, String>;
+
+    fn node_id(&self) -> &str;
 }
