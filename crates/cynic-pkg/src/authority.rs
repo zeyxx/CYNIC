@@ -1,6 +1,6 @@
 //! Principal authority observation port and local command adapter.
 
-use std::process::Command;
+use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 pub trait PrincipalAuthorityPort: Send + Sync {
     fn current_username(&self) -> Option<String>;
@@ -17,19 +17,16 @@ impl PrincipalAuthorityPort for LocalPrincipalAuthority {
         {
             return Some(user);
         }
-        let output = Command::new("id").args(["-un"]).output().ok()?;
-        if !output.status.success() {
+        let output = LocalArgvRunner.run(&["id", "-un"]);
+        if !output.success() {
             return None;
         }
-        let user = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let user = output.stdout.trim().to_string();
         (!user.is_empty()).then_some(user)
     }
 
     fn can_run_as(&self, user: &str) -> Option<bool> {
-        Command::new("sudo")
-            .args(["-n", "-u", user, "--", "true"])
-            .output()
-            .ok()
-            .map(|output| output.status.success())
+        let output = LocalArgvRunner.run(&["sudo", "-n", "-u", user, "--", "true"]);
+        Some(output.success())
     }
 }

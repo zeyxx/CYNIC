@@ -7,6 +7,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+cynic-process = { path = "../cynic-process" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
