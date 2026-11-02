@@ -420,8 +420,8 @@ fn sandbox_mode_for(
     scheduler: &BuildSchedulerConfig,
     workspace_root: &std::path::Path,
     argv: &[String],
-) -> Result<crate::ports::build_scheduler_port::BuildSandboxMode, String> {
-    use crate::ports::build_scheduler_port::BuildSandboxMode;
+) -> Result<cynic_sandbox::cargo::BuildSandboxMode, String> {
+    use cynic_sandbox::cargo::BuildSandboxMode;
     use cynic_sandbox::cargo::CargoSandboxSpec;
     if !scheduler.sandbox_bwrap {
         return Ok(BuildSandboxMode::Off);
