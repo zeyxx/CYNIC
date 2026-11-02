@@ -293,28 +293,20 @@ use uuid::Uuid;
     /// empty evidence) that Forgejo pushes could never admit.
     #[test]
     fn webhook_request_passes_canonical_admission_and_composition() {
-        let payload = ForgejoPayload {
-            before: String::new(),
-            after: "a".repeat(40),
-            reref: Some(ForgejoRef {
-                id: "refs/heads/main".to_string(),
-            }),
-            pusher: Some(ForgejoAuthor {
-                name: "zeyxx".to_string(),
-                email: "zeyxx@invalid".to_string(),
-            }),
-            commits: vec![],
+        let event = cynic_protocol::vcs::VcsPushEvent {
+            provider: "forgejo".to_string(),
+            commit_sha: "a".repeat(40),
+            ref_name: "refs/heads/main".to_string(),
+            pusher: "zeyxx".to_string(),
+            repository: Some("cynic".to_string()),
+            pushed_at_unix_ms: None,
         };
-        let commit_sha = payload.after.clone();
+        let commit_sha = event.commit_sha.clone();
         let config_repo = crate::config::default_build_repository_id();
         let request = BuildAgentRequest {
             schema: cynic_build::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id: format!("forgejo-{}", Uuid::new_v4()),
-            requested_by: payload
-                .pusher
-                .as_ref()
-                .map(|p| p.name.clone())
-                .unwrap_or_else(|| "forgejo".into()),
+            requested_by: event.pusher.clone(),
             source_commit: commit_sha.clone(),
             branch: None,
             source: BuildSourceReference {
@@ -333,7 +325,7 @@ use uuid::Uuid;
             mutation_authorized: true,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             release_publication: None,
-            evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
+            evidence_refs: vec![format!("forgejo:{}@{}", event.ref_name, commit_sha)],
         };
 
         let admission = cynic_build::admit_build_agent_request(&request);
