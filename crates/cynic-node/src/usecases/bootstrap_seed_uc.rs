@@ -94,7 +94,7 @@ pub fn bootstrap_seed_execution_requests(
                 working_directory: working_directory.to_path_buf(),
                 environment: BTreeMap::new(),
                 timeout,
-                sandbox: crate::ports::build_scheduler_port::BuildSandboxMode::Off,
+                sandbox: cynic_sandbox::cargo::BuildSandboxMode::Off,
             })
             .collect()),
         BootstrapSeedExecutionDecision::Blocked { blockers } => Err(blockers.clone()),
@@ -367,7 +367,7 @@ mod tests {
                     working_directory: std::path::PathBuf::from("/tmp/seed"),
                     environment: Default::default(),
                     timeout: std::time::Duration::from_secs(60),
-                    sandbox: crate::ports::build_scheduler_port::BuildSandboxMode::Off,
+                    sandbox: cynic_sandbox::cargo::BuildSandboxMode::Off,
                 },
             )
             .collect();
@@ -413,7 +413,7 @@ mod tests {
                     working_directory: std::path::PathBuf::from("/tmp/seed"),
                     environment: Default::default(),
                     timeout: std::time::Duration::from_secs(60),
-                    sandbox: crate::ports::build_scheduler_port::BuildSandboxMode::Off,
+                    sandbox: cynic_sandbox::cargo::BuildSandboxMode::Off,
                 },
             )
             .collect();
@@ -447,7 +447,7 @@ mod tests {
                     working_directory: std::path::PathBuf::from("/tmp/seed"),
                     environment: Default::default(),
                     timeout: std::time::Duration::from_secs(60),
-                    sandbox: crate::ports::build_scheduler_port::BuildSandboxMode::Off,
+                    sandbox: cynic_sandbox::cargo::BuildSandboxMode::Off,
                 },
             )
             .collect();

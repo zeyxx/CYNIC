@@ -1,5 +1,5 @@
 use crate::domain::mesh::MeshTopology;
-use crate::ports::mesh_port::MeshAdapter;
+use cynic_network::MeshAdapter;
 use cynic_host::process_observation::capture_command;
 use cynic_host::runtime_layout::current_runtime_layout;
 use std::error::Error;

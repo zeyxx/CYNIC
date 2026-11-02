@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::domain::mesh::PeerIdentity;
-use crate::ports::mesh_port::MeshStateProvider;
+use cynic_network::MeshStateProvider;
 use crate::ports::ssot_port::SSoTPort;
 use reqwest::Client;
 use serde::Deserialize;

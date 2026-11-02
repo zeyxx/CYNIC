@@ -521,7 +521,7 @@ use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SC
             _destination: &Path,
             _expected_digest: Option<&str>,
         ) -> Result<
-            crate::ports::runtime_artifact_transport_port::ArtifactTransferReceipt,
+            cynic_protocol::artifact_transport::ArtifactTransferReceipt,
             String,
         > {
             panic!("converged and absent desired-state tests must not stage artifacts")
@@ -589,11 +589,11 @@ use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SC
             destination: &Path,
             expected_digest: Option<&str>,
         ) -> Result<
-            crate::ports::runtime_artifact_transport_port::ArtifactTransferReceipt,
+            cynic_protocol::artifact_transport::ArtifactTransferReceipt,
             String,
         > {
             Ok(
-                crate::ports::runtime_artifact_transport_port::ArtifactTransferReceipt {
+                cynic_protocol::artifact_transport::ArtifactTransferReceipt {
                     schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
                     status: "proved".to_string(),
                     source: source.clone(),
