@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use crate::repo_access::RepoAccessStatusReport;
-use crate::{SourceMaterializationObservation, SourceMaterializationRequest};
+use crate::{SourceMaterializationObservation, SourceMaterializationRequest, SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapRequest};
 use cynic_protocol::{LeaseGuard, LeaseVerification, RuntimeProofBundle};
 
 /// Port for repository access status observation.
@@ -149,4 +149,49 @@ pub trait SourceRepositoryProofCommitPort {
     ) -> Result<String, SourceRepositoryProofCommitError>;
 
     async fn release(&self, guard: &LeaseGuard) -> Result<(), SourceRepositoryProofCommitError>;
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceRepositoryLayout {
+    pub repository_root: std::path::PathBuf,
+    pub required_principal: String,
+}
+
+impl SourceRepositoryLayout {
+    pub fn new(repository_root: impl Into<std::path::PathBuf>, required_principal: impl Into<String>) -> Self {
+        Self {
+            repository_root: repository_root.into(),
+            required_principal: required_principal.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceRepositoryBootstrapPortError {
+    pub code: String,
+    pub message: String,
+}
+
+impl SourceRepositoryBootstrapPortError {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
+}
+
+pub trait SourceRepositoryBootstrapPort: Send + Sync {
+    fn observe(
+        &self,
+        layout: &SourceRepositoryLayout,
+        request: &SourceRepositoryBootstrapRequest,
+    ) -> Result<SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapPortError>;
+
+    fn apply(
+        &self,
+        layout: &SourceRepositoryLayout,
+        request: &SourceRepositoryBootstrapRequest,
+    ) -> Result<(), SourceRepositoryBootstrapPortError>;
 }

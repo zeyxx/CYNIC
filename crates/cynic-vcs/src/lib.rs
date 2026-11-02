@@ -65,7 +65,7 @@ pub use git_topology::*;
 pub use git_topology_observer::*;
 pub use parse::*;
 pub use ports::*;
-pub use ports::{SourceMaterializationPort, SourceMaterializationPortError, SourceRepositoryProofCommitError, SourceRepositoryProofCommitPort, SourceSnapshotAcquisitionPort};
+pub use ports::{SourceMaterializationPort, SourceMaterializationPortError, SourceRepositoryBootstrapPort, SourceRepositoryBootstrapPortError, SourceRepositoryLayout, SourceRepositoryProofCommitError, SourceRepositoryProofCommitPort, SourceSnapshotAcquisitionPort};
 pub use publication::*;
 pub use registry_binding::*;
 pub use repo_access::*;
