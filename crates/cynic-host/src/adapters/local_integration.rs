@@ -269,7 +269,21 @@ impl<'a> LocalIntegrationObservationAdapter<'a> {
             .filter(|value| !value.trim().is_empty())
             .and_then(|value| base_url(&value))
             .or_else(|| {
-                None
+                let root = self.project_root.as_deref()?;
+                let raw = std::fs::read_to_string(root.join("infra/repo-remotes.json")).ok()?;
+                let document: Value = serde_json::from_str(&raw).ok()?;
+                let remote =
+                    document.get("remotes")?.as_array()?.iter().find(|remote| {
+                        remote.get("id").and_then(Value::as_str) == Some("forgejo")
+                    })?;
+                let service_ref: crate::service_catalog::ServiceRef =
+                    serde_json::from_value(remote.get("admin_service_ref")?.clone()).ok()?;
+                crate::service_catalog::resolve_service_ref(
+                    &root.join("infra/registry.json"),
+                    &service_ref,
+                )
+                .ok()
+                .map(|resolved| resolved.endpoint)
             })
     }
 }
