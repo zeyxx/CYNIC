@@ -136,5 +136,3 @@ pub trait AgentWorkloadStorePort: Send + Sync {
         body: &serde_json::Value,
     ) -> Result<(), AgentWorkloadStoreError>;
 }
-path">
-/tmp/cynic-workspaces/agent_beam_hoist-agent-workload-ports/crates/cynic-agent/src/workload/ports.rs
