@@ -79,7 +79,7 @@ fn prepare_live_git_source<R: ArgvRunner>(
         "id",
     );
     let before = adapter
-        .observe(&layout, &request)
+        .observe(&(&layout).into(), &request)
         .map_err(|error| error.code)?;
     match reconcile_source_repository_bootstrap(&request, &before) {
         SourceRepositoryBootstrapDecision::Converged => {}
@@ -89,10 +89,10 @@ fn prepare_live_git_source<R: ArgvRunner>(
                 return Err("build_scheduler_cancelled_before_source_sync".to_string());
             }
             adapter
-                .apply(&layout, &request)
+                .apply(&(&layout).into(), &request)
                 .map_err(|error| error.code)?;
             let after = adapter
-                .observe(&layout, &request)
+                .observe(&(&layout).into(), &request)
                 .map_err(|error| error.code)?;
             if !matches!(
                 reconcile_source_repository_bootstrap(&request, &after),

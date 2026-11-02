@@ -1,32 +1,11 @@
-use cynic_vcs::{SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapRequest};
+//! Source repository bootstrap port — re-exported from canonical owner cynic-vcs.
+pub use cynic_vcs::ports::{SourceRepositoryBootstrapPort, SourceRepositoryBootstrapPortError, SourceRepositoryLayout};
 
-use crate::ports::agent_workspace_port::AgentWorkspaceLayout;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourceRepositoryBootstrapPortError {
-    pub code: String,
-    pub message: String,
-}
-
-impl SourceRepositoryBootstrapPortError {
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+impl From<&crate::ports::agent_workspace_port::AgentWorkspaceLayout> for SourceRepositoryLayout {
+    fn from(layout: &crate::ports::agent_workspace_port::AgentWorkspaceLayout) -> Self {
         Self {
-            code: code.into(),
-            message: message.into(),
+            repository_root: layout.repository_root.clone(),
+            required_principal: layout.required_principal.clone(),
         }
     }
-}
-
-pub trait SourceRepositoryBootstrapPort: Send + Sync {
-    fn observe(
-        &self,
-        layout: &AgentWorkspaceLayout,
-        request: &SourceRepositoryBootstrapRequest,
-    ) -> Result<SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapPortError>;
-
-    fn apply(
-        &self,
-        layout: &AgentWorkspaceLayout,
-        request: &SourceRepositoryBootstrapRequest,
-    ) -> Result<(), SourceRepositoryBootstrapPortError>;
 }

@@ -59,7 +59,7 @@ pub async fn execute_source_repository_bootstrap(
     };
     let runner = LocalArgvRunner;
     let adapter = LocalSourceRepositoryBootstrap::new(&runner, &state_root_path, "git", "id");
-    let before = match adapter.observe(&layout, &request) {
+    let before = match adapter.observe(&(&layout).into(), &request) {
         Ok(observation) => observation,
         Err(failure) => {
             return emit_error(format!(
@@ -217,7 +217,7 @@ pub async fn execute_source_repository_bootstrap(
         }
     }
     let after = if mutation_required {
-        if let Err(failure) = adapter.apply(&layout, &request) {
+        if let Err(failure) = adapter.apply(&(&layout).into(), &request) {
             let _ = coordination.release(&guard).await;
             let mut result = report(
                 SourceRepositoryBootstrapStatus::Unknown,
@@ -234,7 +234,7 @@ pub async fn execute_source_repository_bootstrap(
             ));
             return emit_report(result);
         }
-        match adapter.observe(&layout, &request) {
+        match adapter.observe(&(&layout).into(), &request) {
             Ok(observation) => observation,
             Err(failure) => {
                 let _ = coordination.release(&guard).await;
