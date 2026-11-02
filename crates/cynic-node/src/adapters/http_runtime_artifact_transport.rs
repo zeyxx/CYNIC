@@ -114,7 +114,7 @@ impl HttpRuntimeArtifactTransport {
             true,
         );
         if let Err(error) = directory_sync {
-            receipt.status = "unknown";
+            receipt.status = "unknown".to_string();
             receipt.blockers.push(error);
         }
         Ok(receipt)
@@ -324,8 +324,8 @@ fn receipt(
     mutates: bool,
 ) -> RuntimeArtifactTransferReceipt {
     RuntimeArtifactTransferReceipt {
-        schema: "cynic.runtime_artifact.transfer_receipt.v1",
-        status: "proved",
+        schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
+        status: "proved".to_string(),
         source: source.clone(),
         destination: destination.display().to_string(),
         expected_digest: expected_digest.map(str::to_string),

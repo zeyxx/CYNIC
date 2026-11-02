@@ -594,8 +594,8 @@ use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SC
         > {
             Ok(
                 crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransferReceipt {
-                    schema: "cynic.runtime_artifact.transfer_receipt.v1",
-                    status: "proved",
+                    schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
+                    status: "proved".to_string(),
                     source: source.clone(),
                     destination: destination.display().to_string(),
                     expected_digest: expected_digest.map(str::to_string),

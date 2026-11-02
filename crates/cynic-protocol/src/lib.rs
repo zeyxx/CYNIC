@@ -20,6 +20,7 @@ pub mod argv;
 pub mod argv_allow;
 pub mod command_registry;
 pub mod artifact_release;
+pub mod artifact_transport;
 pub mod audit;
 pub mod autoresearch;
 pub mod autoresearch_port;
