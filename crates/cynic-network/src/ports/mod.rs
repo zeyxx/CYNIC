@@ -1,6 +1,8 @@
 pub mod port;
 
 pub use port::NetworkObservationPort;
+pub mod mesh_coordination;
+pub use mesh_coordination::*;
 
 pub use crate::topology::discovery::NetworkDiscoveryProbePort;
 pub use crate::freebox::{FreeboxPort, FreeboxProbePort};
