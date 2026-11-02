@@ -214,6 +214,7 @@
         "cynic-sandbox",
         "cynic-secrets",
         "cynic-ssh",
+        "cynic-supervisor",
         "cynic-surreal",
         "cynic-types"
       ],
@@ -226,7 +227,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 75912
+      "loc": 75387
     },
     "cynic-inference": {
       "consumers": [
@@ -456,6 +457,7 @@
         "cynic-proxmox",
         "cynic-release",
         "cynic-sandbox",
+        "cynic-supervisor",
         "cynic-surreal",
         "cynic-vcs"
       ],
@@ -512,7 +514,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 43511
+      "loc": 43560
     },
     "cynic-proxmox": {
       "consumers": [
@@ -622,17 +624,19 @@
     "cynic-supervisor": {
       "consumers": [
         "cynic-cli",
+        "cynic-host",
         "cynic-inference",
         "cynic-node"
       ],
       "depends_on": [
+        "cynic-process",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 2010
+      "loc": 2516
     },
     "cynic-surreal": {
       "consumers": [
@@ -738,7 +742,6 @@
     "cynic-process",
     "cynic-secrets",
     "cynic-ssh",
-    "cynic-supervisor",
     "cynic-traces",
     "cynic-consensus",
     "cynic-domain-ops",
@@ -749,6 +752,7 @@
     "cynic-proxmox",
     "cynic-release",
     "cynic-sandbox",
+    "cynic-supervisor",
     "cynic-agent",
     "cynic-pkg",
     "cynic-sqlite",
@@ -908,9 +912,9 @@
     "crates": 36,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397169,
+    "loc_total": 397199,
     "pending_disposition": 3,
-    "runtime_edges": 157,
+    "runtime_edges": 159,
     "unjustified": 2,
     "upward_edges": 0
   },
