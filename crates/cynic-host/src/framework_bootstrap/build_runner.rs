@@ -19,40 +19,7 @@ pub use cynic_protocol::build::{
     BuildRunnerBootstrapExecutionPlan, BuildRunnerBootstrapPlan, BuildRunnerBootstrapRequest,
 };
 
-pub fn build_runner_bootstrap_execution_plan(
-    plan: &BuildRunnerBootstrapPlan,
-    workspace: &Path,
-    source_bundle: &Path,
-) -> Option<BuildRunnerBootstrapExecutionPlan> {
-    if plan.status != "planned" || plan.target_phase == "preflight" {
-        return None;
-    }
-    let workspace = workspace.display().to_string();
-    Some(BuildRunnerBootstrapExecutionPlan {
-        argv: vec![
-            vec![
-                "git".to_string(),
-                "-C".to_string(),
-                workspace.clone(),
-                "fetch".to_string(),
-                source_bundle.display().to_string(),
-                plan.source_commit.clone(),
-            ],
-            vec![
-                "git".to_string(),
-                "-C".to_string(),
-                workspace.clone(),
-                "checkout".to_string(),
-                "--detach".to_string(),
-                plan.source_commit.clone(),
-            ],
-        ],
-        workspace,
-        rollback_intent:
-            "leave prior checkout recoverable through git reflog; do not activate runtime artifacts"
-                .to_string(),
-    })
-}
+pub use cynic_protocol::build::{build_runner_bootstrap_build_plan, build_runner_bootstrap_execution_plan};
 
 pub fn apply_build_runner_bootstrap(
     execution: &BuildRunnerBootstrapExecutionPlan,
@@ -80,30 +47,6 @@ pub fn apply_build_runner_bootstrap(
         return Err("build_runner_bootstrap_source_registry_read_back_failed".to_string());
     }
     Ok(format!("git-commit:{}", expected_commit))
-}
-
-/// The target directory is inside the detached workspace: source and artifact
-/// read-back cannot fall through to the invoker's mutable worktree.
-pub fn build_runner_bootstrap_build_plan(
-    workspace: &Path,
-    receipt_path: &Path,
-) -> BuildRunnerBootstrapBuildPlan {
-    let target_dir = workspace.join(".cynic-target");
-    BuildRunnerBootstrapBuildPlan {
-        workspace: workspace.display().to_string(),
-        receipt_path: receipt_path.display().to_string(),
-        artifact_path: target_dir.join("debug/cynic-host-exec").display().to_string(),
-        argv: vec![
-            "env".to_string(),
-            format!("CARGO_TARGET_DIR={}", target_dir.display()),
-            format!("CYNIC_BUILD_BOOTSTRAP_RECEIPT={}", receipt_path.display()),
-            "make".to_string(),
-            "-C".to_string(),
-            workspace.display().to_string(),
-            "build-host-exec".to_string(),
-        ],
-        rollback_intent: "retain the immutable source checkout and failed target directory for inspection; do not activate the artifact".to_string(),
-    }
 }
 
 pub fn apply_build_runner_bootstrap_build(
