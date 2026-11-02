@@ -61,7 +61,7 @@ pub(super) async fn publish(
         config.signature_namespace.clone(),
         config.max_bytes,
     )?;
-    let artifact_store = HttpReleaseArtifactPublication::new(
+    let artifact_store = HttpReleaseArtifactPublication::new_release(
         &config.artifact_base_url,
         &config.authentication_kind,
         config.credential_path.clone(),
