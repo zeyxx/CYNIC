@@ -2,11 +2,9 @@ use crate::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::process::{Command, Output, Stdio};
-use std::time::{Duration, Instant};
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command as TokioCommand;
 
+use cynic_process::LocalArgvRunner;
+pub use cynic_protocol::argv::ArgvOutput;
 pub use cynic_network::preflight::{CommandObservation, TcpObservation};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +13,17 @@ pub struct CommandCapture {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+}
+
+impl From<ArgvOutput> for CommandCapture {
+    fn from(output: ArgvOutput) -> Self {
+        Self {
+            success: output.success(),
+            exit_code: output.exit_code,
+            stdout: output.stdout.trim().to_string(),
+            stderr: output.stderr.trim().to_string(),
+        }
+    }
 }
 
 fn command_observation(
@@ -42,86 +51,14 @@ pub fn capture_command_in_dir(
     args: &[&str],
     current_dir: Option<&Path>,
 ) -> Result<CommandCapture, String> {
-    use std::io::Read;
-
-    let mut process = Command::new(command);
-    process.args(args);
-    process.stdout(Stdio::piped()).stderr(Stdio::piped());
-    if let Some(dir) = current_dir {
-        process.current_dir(dir);
+    let mut argv: Vec<&str> = Vec::with_capacity(args.len() + 1);
+    argv.push(command);
+    argv.extend_from_slice(args);
+    let output = LocalArgvRunner.run_in_dir(&argv, current_dir);
+    if let Some(err) = output.spawn_error {
+        return Err(err);
     }
-
-    let mut child = process.spawn().map_err(|error| error.to_string())?;
-    let deadline = Instant::now() + command_timeout();
-
-    let stdout = child.stdout.take().ok_or("stdout pipe missing")?;
-    let stderr = child.stderr.take().ok_or("stderr pipe missing")?;
-
-    let stdout_reader = std::thread::spawn(move || {
-        let mut r = stdout;
-        let mut buf = Vec::new();
-        let _ = r.read_to_end(&mut buf);
-        buf
-    });
-    let stderr_reader = std::thread::spawn(move || {
-        let mut r = stderr;
-        let mut buf = Vec::new();
-        let _ = r.read_to_end(&mut buf);
-        buf
-    });
-
-    loop {
-        if child
-            .try_wait()
-            .map_err(|error| error.to_string())?
-            .is_some()
-        {
-            let stdout_bytes = stdout_reader.join().unwrap_or_default();
-            let stderr_bytes = stderr_reader.join().unwrap_or_default();
-            let output = child.wait_with_output().ok();
-            let exit_code = output.as_ref().and_then(|o| o.status.code());
-            return Ok(CommandCapture {
-                success: output.as_ref().map(|o| o.status.success()).unwrap_or(false),
-                exit_code,
-                stdout: String::from_utf8_lossy(&stdout_bytes).trim().to_string(),
-                stderr: String::from_utf8_lossy(&stderr_bytes).trim().to_string(),
-            });
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let stdout_bytes = stdout_reader.join().unwrap_or_default();
-            let stderr_bytes = stderr_reader.join().unwrap_or_default();
-            let _ = child.wait();
-            return Ok(CommandCapture {
-                success: false,
-                exit_code: None,
-                stdout: String::from_utf8_lossy(&stdout_bytes).trim().to_string(),
-                stderr: format!(
-                    "command timed out after {}ms: {}",
-                    command_timeout().as_millis(),
-                    String::from_utf8_lossy(&stderr_bytes).trim()
-                ),
-            });
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
-
-fn command_timeout() -> Duration {
-    std::env::var("CYNIC_HOST_PROBE_TIMEOUT_MS")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .map(Duration::from_millis)
-        .unwrap_or_else(|| Duration::from_secs(30))
-}
-
-fn timeout_stderr_suffix(stderr: &[u8]) -> String {
-    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
-    if stderr.is_empty() {
-        String::new()
-    } else {
-        format!("; stderr={stderr}")
-    }
+    Ok(CommandCapture::from(output))
 }
 
 #[cfg(unix)]
@@ -130,7 +67,7 @@ pub fn reexec_current_process_with_env(extra_env: &BTreeMap<String, String>) -> 
 
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let mut cmd = Command::new(&exe);
+    let mut cmd = std::process::Command::new(&exe);
     cmd.args(&args);
     for (key, value) in extra_env {
         cmd.env(key, value);
@@ -147,44 +84,11 @@ pub fn reexec_current_process_with_env(
 }
 
 pub fn capture_argv(argv: &[String]) -> Result<CommandCapture, String> {
-    let (command, args) = argv
+    let str_refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+    let (command, args) = str_refs
         .split_first()
         .ok_or_else(|| "empty argv cannot be executed".to_string())?;
-    let args_ref = args.iter().map(String::as_str).collect::<Vec<_>>();
-    capture_command(command, &args_ref)
-}
-
-pub async fn capture_command_with_stdin(
-    command: &str,
-    args: &[&str],
-    stdin_payload: &str,
-) -> Result<CommandCapture, String> {
-    let mut child = TokioCommand::new(command)
-        .args(args)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|error| error.to_string())?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(stdin_payload.as_bytes())
-            .await
-            .map_err(|error| error.to_string())?;
-    }
-
-    let output = child
-        .wait_with_output()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    Ok(CommandCapture {
-        success: output.status.success(),
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-    })
+    capture_command(command, args)
 }
 
 pub fn command_json(command: &str, args: &[&str]) -> CommandObservation {
@@ -216,7 +120,7 @@ pub fn command_exit_success(command: &str, args: &[&str]) -> Option<bool> {
         .map(|output| output.success)
 }
 
-pub fn successful_stdout(output: std::io::Result<Output>) -> Option<String> {
+pub fn successful_stdout(output: std::io::Result<std::process::Output>) -> Option<String> {
     output.ok().and_then(|output| {
         if output.status.success() {
             let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
