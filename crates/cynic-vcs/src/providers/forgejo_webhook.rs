@@ -126,9 +126,313 @@ pub fn handle_forgejo_payload(
     }
 }
 
+use serde_json::Value;
+
+/// Parse a Forgejo push webhook JSON body into the canonical `VcsPushEvent`.
+pub fn parse_forgejo_push(body: &[u8]) -> Result<cynic_protocol::vcs::VcsPushEvent, String> {
+    let value: Value = serde_json::from_slice(body).map_err(|e| format!("invalid JSON: {e}"))?;
+
+    // commit_sha: validated 40 hex chars.
+    let commit_sha = extract_commit_sha(&value).ok_or_else(|| "missing commit sha".to_string())?;
+    if !validate_source_commit(&commit_sha) {
+        return Err(format!(
+            "invalid commit SHA: expected 40 hex chars, got {}",
+            commit_sha.len()
+        ));
+    }
+
+    let ref_name = extract_ref_name(&value).unwrap_or_default();
+    let pusher = extract_pusher(&value).unwrap_or_else(|| "forgejo".to_string());
+    let repository = extract_repository(&value);
+    let pushed_at_unix_ms = extract_pushed_at(&value);
+
+    Ok(cynic_protocol::vcs::VcsPushEvent {
+        provider: "forgejo".to_string(),
+        commit_sha,
+        ref_name,
+        pusher,
+        repository,
+        pushed_at_unix_ms,
+    })
+}
+
+fn as_str(v: &Value) -> Option<String> {
+    match v {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+fn extract_commit_sha(v: &Value) -> Option<String> {
+    // after
+    if let Some(s) = v.get("after").and_then(as_str) {
+        let s = s.trim().to_string();
+        if !s.is_empty() {
+            return Some(s);
+        }
+    }
+    // reref / ref object with id
+    for key in ["reref", "ref"] {
+        if let Some(obj) = v.get(key) {
+            if let Some(id) = obj.get("id").and_then(as_str) {
+                let id = id.trim().to_string();
+                if !id.is_empty() && validate_source_commit(&id) {
+                    return Some(id);
+                }
+            }
+            // if "ref" is actually a sha string? handle below
+        }
+    }
+    // head_commit
+    if let Some(hc) = v.get("head_commit") {
+        if let Some(id) = hc.get("id").or_else(|| hc.get("sha")).and_then(as_str) {
+            let id = id.trim().to_string();
+            if !id.is_empty() {
+                return Some(id);
+            }
+        }
+    }
+    // pull_request head
+    if let Some(pr) = v.get("pull_request") {
+        if let Some(head) = pr.get("head") {
+            if let Some(sha) = head.get("sha").and_then(as_str) {
+                let sha = sha.trim().to_string();
+                if !sha.is_empty() {
+                    return Some(sha);
+                }
+            }
+        }
+    }
+    // commits last
+    if let Some(commits) = v.get("commits").and_then(|c| c.as_array()) {
+        if let Some(last) = commits.last() {
+            if let Some(id) = last.get("id").or_else(|| last.get("sha")).and_then(as_str) {
+                let id = id.trim().to_string();
+                if !id.is_empty() {
+                    return Some(id);
+                }
+            }
+        }
+    }
+    // direct fields
+    for key in ["commit_sha", "source_commit", "sha"] {
+        if let Some(s) = v.get(key).and_then(as_str) {
+            let s = s.trim().to_string();
+            if !s.is_empty() {
+                return Some(s);
+            }
+        }
+    }
+    None
+}
+
+fn extract_ref_name(v: &Value) -> Option<String> {
+    // direct
+    for key in ["ref_name", "branch_ref", "refname"] {
+        if let Some(s) = v.get(key).and_then(as_str) {
+            if !s.is_empty() {
+                return Some(s);
+            }
+        }
+    }
+    // ref string
+    if let Some(Value::String(s)) = v.get("ref") {
+        if !s.is_empty() {
+            return Some(s.clone());
+        }
+    }
+    // reref/ref object id (only if not a commit sha)
+    for key in ["reref", "ref"] {
+        if let Some(obj) = v.get(key) {
+            if let Some(id) = obj.get("id").and_then(as_str) {
+                if !id.is_empty() && !validate_source_commit(&id) {
+                    return Some(id);
+                }
+            }
+        }
+    }
+    // branch
+    if let Some(s) = v.get("branch").and_then(as_str) {
+        if !s.is_empty() {
+            return Some(s);
+        }
+    }
+    None
+}
+
+fn extract_pusher(v: &Value) -> Option<String> {
+    if let Some(p) = v.get("pusher") {
+        match p {
+            Value::String(s) => {
+                if !s.is_empty() {
+                    return Some(s.clone());
+                }
+            }
+            Value::Object(_) => {
+                for key in ["login", "name", "username", "full_name"] {
+                    if let Some(s) = p.get(key).and_then(as_str) {
+                        if !s.is_empty() {
+                            return Some(s);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(s) = v.get("pusher_name").and_then(as_str) {
+        if !s.is_empty() {
+            return Some(s);
+        }
+    }
+    if let Some(sender) = v.get("sender") {
+        for key in ["login", "name", "username"] {
+            if let Some(s) = sender.get(key).and_then(as_str) {
+                if !s.is_empty() {
+                    return Some(s);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_repository(v: &Value) -> Option<String> {
+    if let Some(repo) = v.get("repository") {
+        match repo {
+            Value::String(s) => {
+                if !s.is_empty() {
+                    return Some(s.clone());
+                }
+            }
+            Value::Object(_) => {
+                for key in ["full_name", "name", "path", "id"] {
+                    if let Some(s) = repo.get(key).and_then(as_str) {
+                        if !s.is_empty() {
+                            return Some(s);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(s) = v.get("repository_name").and_then(as_str) {
+        if !s.is_empty() {
+            return Some(s);
+        }
+    }
+    None
+}
+
+fn parse_u64_value(val: &Value, key_hint_ms: bool) -> Option<u64> {
+    match val {
+        Value::Number(n) => n.as_u64().map(|n| {
+            if key_hint_ms {
+                n
+            } else if n < 1_000_000_000_000 {
+                n * 1000
+            } else {
+                n
+            }
+        }),
+        Value::String(s) => {
+            let s = s.trim();
+            if let Ok(n) = s.parse::<u64>() {
+                Some(if key_hint_ms || n >= 1_000_000_000_000 {
+                    n
+                } else {
+                    n * 1000
+                })
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn extract_pushed_at(v: &Value) -> Option<u64> {
+    // direct ms
+    for key in ["pushed_at_unix_ms", "pushed_at_ms", "timestamp_ms"] {
+        if let Some(val) = v.get(key) {
+            if let Some(n) = parse_u64_value(val, true) {
+                return Some(n);
+            }
+        }
+    }
+    // seconds-ish
+    for key in ["pushed_at", "timestamp", "pushed_at_unix", "created_at"] {
+        if let Some(val) = v.get(key) {
+            if let Some(n) = parse_u64_value(val, false) {
+                return Some(n);
+            }
+        }
+    }
+    // commits last timestamp
+    if let Some(commits) = v.get("commits").and_then(|c| c.as_array()) {
+        if let Some(last) = commits.last() {
+            for key in ["pushed_at_unix_ms", "pushed_at_ms", "timestamp_ms"] {
+                if let Some(val) = last.get(key) {
+                    if let Some(n) = parse_u64_value(val, true) {
+                        return Some(n);
+                    }
+                }
+            }
+            for key in ["pushed_at", "timestamp", "created_at"] {
+                if let Some(val) = last.get(key) {
+                    if let Some(n) = parse_u64_value(val, false) {
+                        return Some(n);
+                    }
+                }
+            }
+        }
+    }
+    // head_commit
+    if let Some(hc) = v.get("head_commit") {
+        for key in ["pushed_at_unix_ms", "pushed_at_ms", "timestamp_ms", "pushed_at", "timestamp"] {
+            if let Some(val) = hc.get(key) {
+                let ms = key.ends_with("_ms") || key == "pushed_at_unix_ms";
+                if let Some(n) = parse_u64_value(val, ms) {
+                    return Some(n);
+                }
+            }
+        }
+    }
+    None
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_forgejo_push_basic() {
+        let body = br#"{"ref":"refs/heads/main","after":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","pusher":{"login":"zeyxx"},"repository":{"full_name":"owner/cynic"},"pushed_at_unix_ms":12345}"#;
+        let event = parse_forgejo_push(body).unwrap();
+        assert_eq!(event.provider, "forgejo");
+        assert_eq!(event.commit_sha, "a".repeat(40));
+        assert_eq!(event.ref_name, "refs/heads/main");
+        assert_eq!(event.pusher, "zeyxx");
+        assert_eq!(event.repository, Some("owner/cynic".to_string()));
+        assert_eq!(event.pushed_at_unix_ms, Some(12345));
+    }
+
+    #[test]
+    fn parse_forgejo_push_invalid_sha() {
+        let body = br#"{"ref":"refs/heads/main","after":"short","pusher":"zeyxx"}"#;
+        assert!(parse_forgejo_push(body).is_err());
+    }
+
+    #[test]
+    fn parse_forgejo_push_string_pusher_repo() {
+        let body = br#"{"ref":"refs/heads/main","after":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","pusher":"alice","repository":"cynic","pushed_at":5}"#;
+        let event = parse_forgejo_push(body).unwrap();
+        assert_eq!(event.pusher, "alice");
+        assert_eq!(event.repository, Some("cynic".to_string()));
+        // 5 seconds -> 5000 ms
+        assert_eq!(event.pushed_at_unix_ms, Some(5000));
+    }
 
     #[test]
     fn extract_commit_from_push() {

@@ -99,38 +99,6 @@ struct AppState {
     drain: Arc<Mutex<SupervisorState>>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ForgejoPayload {
-    #[serde(default)]
-    pub before: String,
-    #[serde(default)]
-    pub after: String,
-    #[serde(default)]
-    pub reref: Option<ForgejoRef>,
-    #[serde(default)]
-    pub pusher: Option<ForgejoAuthor>,
-    #[serde(default)]
-    pub commits: Vec<ForgejoCommit>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ForgejoRef {
-    pub id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ForgejoAuthor {
-    pub name: String,
-    pub email: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ForgejoCommit {
-    pub id: String,
-    pub message: String,
-    pub timestamp: Option<String>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct AcceptanceProof {
     pub schema: &'static str,
@@ -1267,20 +1235,6 @@ fn forgejo_workload_id(commit_sha: &str) -> String {
     format!("forgejo-{}", &commit_sha[..12])
 }
 
-/// Best-effort ref name for push provenance evidence (`reref.id`, else the
-/// branch-ish part of `ref`, else "unknown-ref"). Evidence names what was
-/// pushed; it never fabricates a digest.
-fn reref_name(payload: &ForgejoPayload) -> String {
-    if let Some(reref) = &payload.reref {
-        return reref.id.clone();
-    }
-    payload
-        .commits
-        .last()
-        .map(|_| "push".to_string())
-        .unwrap_or_else(|| "unknown-ref".to_string())
-}
-
 async fn webhook_forgejo(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1308,30 +1262,10 @@ async fn webhook_forgejo(
     // callers learn nothing about drain state beyond 401.
     drain_gate(&state)?;
 
-    let payload: ForgejoPayload = serde_json::from_slice(&body)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("invalid JSON: {e}")))?;
+    let event = cynic_vcs::providers::forgejo_webhook::parse_forgejo_push(&body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    let commit_sha = if !payload.after.is_empty() {
-        payload.after.clone()
-    } else if let Some(reref) = &payload.reref {
-        reref.id.clone()
-    } else {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "missing commit sha (after or reref.id)".into(),
-        ));
-    };
-
-    // Validate commit SHA format (40 hex chars for SHA-1)
-    if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            format!(
-                "invalid commit SHA: expected 40 hex chars, got {}",
-                commit_sha.len()
-            ),
-        ));
-    }
+    let commit_sha = event.commit_sha.clone();
 
     // Canonical admission gate — build mutation requires:
     // - A valid citizenship record
@@ -1341,11 +1275,7 @@ async fn webhook_forgejo(
     let desired_role = BUILD_RUNNER_ROLE;
     let citizen = AgentCitizenshipRecord {
         schema: AGENT_CITIZENSHIP_SCHEMA,
-        agent_id: payload
-            .pusher
-            .as_ref()
-            .map(|p| p.name.clone())
-            .unwrap_or_else(|| "forgejo".into()),
+        agent_id: event.pusher.clone(),
         scope: AgentScope::Crate,
         budgets: AgentBudgets {
             actions: 100,
@@ -1381,11 +1311,7 @@ async fn webhook_forgejo(
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: request_id.clone(),
-        requested_by: payload
-            .pusher
-            .as_ref()
-            .map(|p| p.name.clone())
-            .unwrap_or_else(|| "forgejo".into()),
+        requested_by: event.pusher.clone(),
         source_commit: commit_sha.clone(),
         branch: None,
         source: BuildSourceReference {
@@ -1405,7 +1331,7 @@ async fn webhook_forgejo(
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
         release_publication: None,
         // Push provenance is the minimal admission evidence: ref + commit.
-        evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
+        evidence_refs: vec![format!("forgejo:{}@{}", event.ref_name, commit_sha)],
     };
 
     let mut envelope = compose_build_agent_workload(
