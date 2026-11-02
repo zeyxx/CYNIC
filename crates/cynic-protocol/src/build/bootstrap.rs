@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::path::PathBuf;
 
 use crate::digest_json;
 use crate::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
@@ -348,6 +349,73 @@ pub fn build_runner_bootstrap_build_plan(
             "build-host-exec".to_string(),
         ],
         rollback_intent: "retain the immutable source checkout and failed target directory for inspection; do not activate the artifact".to_string(),
+    }
+}
+
+
+pub const STANDALONE_CLI_INSTALL_REPORT_SCHEMA: &str =
+    "cynic.framework_bootstrap.standalone_cli_install.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StandaloneCliInstallReport {
+    pub schema: String,
+    pub status: String,
+    pub mutates: bool,
+    pub requested_apply: bool,
+    pub source: String,
+    pub target: String,
+    pub command: Vec<String>,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub proof: Vec<String>,
+}
+
+pub fn is_user_local_target(target: &Path) -> bool {
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        if target.starts_with(home.join(".local/bin")) {
+            return true;
+        }
+    }
+    if let Ok(xdg) = std::env::var("XDG_BIN_HOME")
+        && target.starts_with(PathBuf::from(xdg))
+    {
+        return true;
+    }
+    if target.starts_with("/usr/local")
+        || target.starts_with("/usr/bin")
+        || target.starts_with("/usr/sbin")
+        || target.starts_with("/bin")
+        || target.starts_with("/sbin")
+    {
+        return false;
+    }
+
+    true
+}
+
+pub fn standalone_cli_install_argv(source: &str, target: &str, user_local: bool) -> Vec<String> {
+    if user_local {
+        vec![
+            "install".to_string(),
+            "-m".to_string(),
+            "0755".to_string(),
+            source.to_string(),
+            target.to_string(),
+        ]
+    } else {
+        vec![
+            "install".to_string(),
+            "-o".to_string(),
+            "root".to_string(),
+            "-g".to_string(),
+            "root".to_string(),
+            "-m".to_string(),
+            "0755".to_string(),
+            source.to_string(),
+            target.to_string(),
+        ]
     }
 }
 

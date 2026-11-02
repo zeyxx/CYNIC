@@ -46,17 +46,4 @@ pub struct FrameworkSeedEnrollment {
     pub admission_status: &'static str,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct StandaloneCliInstallReport {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub mutates: bool,
-    pub requested_apply: bool,
-    pub source: String,
-    pub target: String,
-    pub command: Vec<String>,
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub proof: Vec<&'static str>,
-}
+pub use cynic_protocol::build::StandaloneCliInstallReport;
