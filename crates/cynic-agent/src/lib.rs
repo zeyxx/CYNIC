@@ -4,6 +4,7 @@
 //! and merge agents. Also absorbs the former `cynic-workload` bounded
 //! context (workload, workspace, scheduler, skill, capability).
 
+pub mod adapters;
 pub mod runtime;
 pub mod capability;
 pub mod cleanup;
@@ -17,6 +18,7 @@ pub mod traits;
 pub mod workload;
 pub mod workspace;
 
+pub use adapters::*;
 pub use capability::*;
 pub use cleanup::CleanupAgent;
 pub use coordination::*;
