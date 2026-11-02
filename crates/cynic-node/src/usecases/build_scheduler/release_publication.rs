@@ -16,7 +16,7 @@ use cynic_agent::AgentWorkloadEnvelope;
 
 use crate::{
     adapters::{
-        http_release_artifact_publication::HttpReleaseArtifactPublication,
+        http_artifact_transport::HttpArtifactTransport,
         local_release_basket_packaging::LocalReleaseBasketPackaging,
         ssh_release_basket_signing::SshReleaseBasketSigning,
     },
@@ -61,7 +61,7 @@ pub(super) async fn publish(
         config.signature_namespace.clone(),
         config.max_bytes,
     )?;
-    let artifact_store = HttpReleaseArtifactPublication::new_release(
+    let artifact_store = HttpArtifactTransport::new_release(
         &config.artifact_base_url,
         &config.authentication_kind,
         config.credential_path.clone(),

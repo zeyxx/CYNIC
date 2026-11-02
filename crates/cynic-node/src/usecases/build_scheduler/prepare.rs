@@ -13,7 +13,7 @@ use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 use crate::{
     adapters::{
         ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner,
-        http_runtime_artifact_transport::HttpRuntimeArtifactTransport,
+        http_artifact_transport::HttpArtifactTransport,
         local_agent_workload_store::LocalAgentWorkloadStore,
         local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
         local_build_workspace::LocalBuildWorkspace,
@@ -89,7 +89,7 @@ pub(super) async fn prepare(
 
     let runner = LocalArgvRunner;
     let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
-    let artifact_transport = HttpRuntimeArtifactTransport::new(
+    let artifact_transport = HttpArtifactTransport::new(
         snapshot_root,
         control.runtime_artifact_max_bytes,
         Duration::from_secs(control.runtime_artifact_timeout_secs),
