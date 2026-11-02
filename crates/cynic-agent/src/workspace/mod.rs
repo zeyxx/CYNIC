@@ -1,11 +1,15 @@
 pub mod workspace;
 pub mod workspace_checks;
+pub mod ports;
+pub mod local_observer;
 pub mod workspace_claim;
 pub mod workspace_lifecycle;
 pub mod workspace_types;
 
 pub use workspace::reconcile_agent_workspace;
 pub use workspace_checks::{agent_workspace_target, zones_overlap};
+pub use ports::*;
+pub use local_observer::LocalAgentWorkspaceObserver;
 pub use workspace_claim::{admit_agent_workspace_claim, workspace_claim_admission_matches};
 pub use workspace_lifecycle::{
     AGENT_WORKSPACE_LIFECYCLE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA,
