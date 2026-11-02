@@ -6,11 +6,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use cynic_protocol::build_discovery::{
     BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
 };
-use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
+use cynic_protocol::branch_graph::{
+    enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph, BRANCH_GRAPH_SCHEMA,
+    BranchGraph,
+};
 use cynic_protocol::queue::QueuePlan;
 
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
-use cynic_vcs::branch_graph::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph};
 use crate::domain::build_artefact::RetentionPlanner;
 use cynic_protocol::cargo_metadata::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
