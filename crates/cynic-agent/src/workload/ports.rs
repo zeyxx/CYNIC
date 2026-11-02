@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use super::delivery::AgentWorkloadDelivery;
 
 use crate::{
     AgentSchedulerJournalRecord,
