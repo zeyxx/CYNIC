@@ -8,6 +8,8 @@
 use std::path::Path;
 
 use crate::repo_access::RepoAccessStatusReport;
+use crate::{SourceMaterializationObservation, SourceMaterializationRequest};
+use cynic_protocol::{LeaseGuard, LeaseVerification, RuntimeProofBundle};
 
 /// Port for repository access status observation.
 ///
@@ -76,4 +78,75 @@ pub struct EndpointObservation {
     pub resolution_status: String,
     pub resolved_addresses: Vec<String>,
     pub tcp_reachability_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceMaterializationPortError {
+    pub code: String,
+    pub message: String,
+}
+
+impl SourceMaterializationPortError {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
+}
+
+pub trait SourceSnapshotAcquisitionPort: Send + Sync {
+    fn acquire(
+        &self,
+        snapshot_digest: &str,
+        snapshot_format: &str,
+    ) -> Result<(), SourceMaterializationPortError>;
+}
+
+pub trait SourceMaterializationPort: Send + Sync {
+    fn observe(
+        &self,
+        request: &SourceMaterializationRequest,
+    ) -> Result<SourceMaterializationObservation, SourceMaterializationPortError>;
+
+    fn materialize(
+        &self,
+        request: &SourceMaterializationRequest,
+    ) -> Result<(), SourceMaterializationPortError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceRepositoryProofCommitError {
+    pub code: String,
+    pub message: String,
+}
+
+impl SourceRepositoryProofCommitError {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
+}
+
+pub trait SourceRepositoryProofCommitPort {
+    async fn claim(
+        &self,
+        agent_id: &str,
+        target: &str,
+    ) -> Result<LeaseGuard, SourceRepositoryProofCommitError>;
+
+    async fn verify(
+        &self,
+        guard: &LeaseGuard,
+    ) -> Result<LeaseVerification, SourceRepositoryProofCommitError>;
+
+    async fn finalize(
+        &self,
+        guard: &LeaseGuard,
+        bundle: &RuntimeProofBundle,
+    ) -> Result<String, SourceRepositoryProofCommitError>;
+
+    async fn release(&self, guard: &LeaseGuard) -> Result<(), SourceRepositoryProofCommitError>;
 }
