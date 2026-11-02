@@ -356,6 +356,53 @@ mod tests {
     }
 
     #[test]
+    fn registry_access_for_authority_class_beats_legacy_endpoint_override() {
+        let mut policy = sample();
+        let capability = policy.capability("builder-stage-file").expect("exists");
+        policy
+            .default_endpoint_overrides
+            .insert("cynic-builder".to_string(), "stale-policy-target".to_string());
+        let registry_view = BTreeMap::from([
+            (
+                "cynic-builder".to_string(),
+                "cynic-builder-ssh".to_string(),
+            ),
+            (
+                "cynic-builder::runtime_machine_identity".to_string(),
+                "cynic-builder-build".to_string(),
+            ),
+        ]);
+
+        assert_eq!(
+            policy
+                .resolve_endpoint(capability, &registry_view)
+                .expect("registered access resolves"),
+            "cynic-builder-build"
+        );
+    }
+
+    #[test]
+    fn missing_registered_authority_access_does_not_fall_back_to_default_target() {
+        let policy = sample();
+        let capability = policy.capability("builder-stage-file").expect("exists");
+        let registry_view = BTreeMap::from([
+            (
+                "cynic-builder".to_string(),
+                "cynic-builder-ssh".to_string(),
+            ),
+            (
+                "cynic-builder::human_admin_bootstrap".to_string(),
+                "cynic-builder-ssh".to_string(),
+            ),
+        ]);
+
+        let error = policy
+            .resolve_endpoint(capability, &registry_view)
+            .expect_err("missing machine access must block");
+        assert!(error.0.contains("authority"), "unexpected error: {error}");
+    }
+
+    #[test]
     fn branch_kind_rejects_unsafe_values() {
         let policy = sample();
         let capability = policy.capability("builder-push-branch").expect("exists");
