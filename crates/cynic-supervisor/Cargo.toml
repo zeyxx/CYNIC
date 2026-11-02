@@ -10,6 +10,7 @@ description = "Bounded OS effects for CYNIC-owned child processes: group-aware s
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 tokio.workspace = true
+tokio-util = "0.7"
 process-wrap = { version = "9.1", features = ["tokio1"] }
 libc.workspace = true
 serde.workspace = true
