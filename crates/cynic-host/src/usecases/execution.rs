@@ -353,3 +353,4 @@ fn executed_result(result: HostCommandResult) -> ExecutedHostCommandResult {
         stderr: result.stderr,
     }
 }
+use crate::domain::services::ServicePolicyExt as _;

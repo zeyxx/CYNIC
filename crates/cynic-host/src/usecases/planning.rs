@@ -190,3 +190,4 @@ pub fn build_host_apply_report_with_resolution_and_context(
             .apply_report_with_context(dry_run, &command_context.services),
     }
 }
+use crate::domain::services::ServicePolicyExt as _;

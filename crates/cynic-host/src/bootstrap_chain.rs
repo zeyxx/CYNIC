@@ -391,3 +391,4 @@ mod tests {
         assert!(!report.next_boundary_reason.is_empty());
     }
 }
+use crate::domain::services::ServicePolicyExt as _;

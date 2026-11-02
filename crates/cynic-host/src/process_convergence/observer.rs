@@ -20,3 +20,4 @@ impl ProcessConvergenceObservationPort for LocalProcessConvergenceObserver {
         Ok(observe_service_supervisor(subject_id.to_string(), policy))
     }
 }
+use crate::domain::services::ServicePolicyExt as _;

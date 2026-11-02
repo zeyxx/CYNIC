@@ -958,3 +958,4 @@ fn valid_service_authorization(observed: &super::HostObservationReports) -> Exec
         service_apply_satisfied_preconditions(observed),
     )
 }
+use crate::domain::services::ServicePolicyExt as _;

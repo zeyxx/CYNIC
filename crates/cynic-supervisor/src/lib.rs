@@ -8,6 +8,7 @@
 pub mod backoff;
 pub mod parent;
 pub mod session;
+pub mod service;
 pub mod spawn;
 pub mod stop;
 pub mod watch;
@@ -18,6 +19,7 @@ pub use parent::{
     run_role,
 };
 pub use session::*;
+pub use service::*;
 pub use spawn::{spawn_backend, spawn_with_retries};
 pub use stop::graceful_stop;
 pub use watch::{WatchConfig, WatchPollState, WatchRunOutcome, watch_once, watch_role};

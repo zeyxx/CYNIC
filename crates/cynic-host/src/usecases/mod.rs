@@ -116,3 +116,4 @@ pub fn observe_host_with_resolution(
 
 #[cfg(test)]
 mod tests;
+use crate::domain::services::ServicePolicyExt as _;

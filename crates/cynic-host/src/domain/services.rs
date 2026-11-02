@@ -10,51 +10,7 @@ use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
 use crate::runtime_layout::current_runtime_layout;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ServiceManagerKind {
-    Systemd,
-    OpenRc,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ServiceUnitPolicy {
-    #[serde(default)]
-    pub service_id: String,
-    pub unit_name: String,
-    pub enable_on_boot: bool,
-    pub restart_mode: String,
-    #[serde(default)]
-    pub source: String,
-    #[serde(default)]
-    pub health_port: Option<u16>,
-    #[serde(default)]
-    pub process_name: Option<String>,
-    #[serde(default)]
-    pub supervisor_provider: Option<String>,
-    #[serde(default)]
-    pub health_kind: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ServicePolicy {
-    pub manager: ServiceManagerKind,
-    pub unit_dir: String,
-    pub units: Vec<ServiceUnitPolicy>,
-    /// Units this host must NOT run.
-    ///
-    /// A unit lands here when it was installed from a superseded source
-    /// and a corrected one replaced it. The policy has no way to express
-    /// "stop running this" for a unit it does not declare, so the stale
-    /// copy kept starting at every boot. Measured: a soak unit
-    /// installed from a duplicated repository path executed a Cargo-cache
-    /// binary that did not know its verb, and failed at every boot while
-    /// the corrected copy ran in the user scope.
-    ///
-    /// The retire operation is bounded by this list: a unit that is not
-    /// named here is never disabled, stopped or removed.
-    #[serde(default)]
-    pub retired_units: Vec<String>,
-}
+pub use cynic_protocol::service_policy::{ServiceManagerKind, ServiceUnitPolicy, ServicePolicy};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceStatusReport {
@@ -124,8 +80,9 @@ impl ServiceCommandContext {
     }
 }
 
-impl ServicePolicy {
-    pub fn contract(&self) -> SubstrateDomainContract {
+pub trait ServicePolicyExt {
+    fn __as_policy(&self) -> &ServicePolicy;
+    fn contract(&self) -> SubstrateDomainContract {
         SubstrateDomainContract {
             domain: HostSubstrateDomain::Services,
             status: SurfaceStatus::Planned,
@@ -154,24 +111,24 @@ impl ServicePolicy {
             evidences: vec![SubstrateEvidence {
                 id: "service_policy_declared".to_string(),
                 status: SurfaceStatus::Planned,
-                detail: format!("units={}", self.units.len()),
+                detail: format!("units={}", self.__as_policy().units.len()),
             }],
         }
     }
 
-    pub fn bundle(&self) -> ServiceBundleReport {
+    fn bundle(&self) -> ServiceBundleReport {
         self.bundle_with_context(&ServiceCommandContext::from_current_runtime())
     }
 
-    pub fn bundle_with_context(&self, context: &ServiceCommandContext) -> ServiceBundleReport {
+    fn bundle_with_context(&self, context: &ServiceCommandContext) -> ServiceBundleReport {
         ServiceBundleReport {
             status: SurfaceStatus::Planned,
-            files: self
+            files: self.__as_policy()
                 .units
                 .iter()
                 .map(|unit| SubstrateBundleFile {
                     logical_name: self.unit_logical_name().to_string(),
-                    install_path: format!("{}/{}", self.unit_dir, self.install_unit_name(unit)),
+                    install_path: format!("{}/{}", self.__as_policy().unit_dir, self.install_unit_name(unit)),
                     mode: MODE_0644.octal.to_string(),
                 })
                 .collect(),
@@ -179,23 +136,23 @@ impl ServicePolicy {
         }
     }
 
-    pub fn activation_plan(&self) -> ServiceActivationPlan {
+    fn activation_plan(&self) -> ServiceActivationPlan {
         self.activation_plan_with_context(&ServiceCommandContext::from_current_runtime())
     }
 
-    pub fn activation_plan_with_context(
+    fn activation_plan_with_context(
         &self,
         context: &ServiceCommandContext,
     ) -> ServiceActivationPlan {
         ServiceActivationPlan {
             status: SurfaceStatus::Planned,
-            preflight: self
+            preflight: self.__as_policy()
                 .units
                 .iter()
                 .map(|unit| self.status_command(&unit.unit_name, context))
                 .collect(),
             install_commands: self.install_commands(context),
-            postflight: self
+            postflight: self.__as_policy()
                 .units
                 .iter()
                 .flat_map(|unit| {
@@ -208,11 +165,11 @@ impl ServicePolicy {
         }
     }
 
-    pub fn apply_report(&self, dry_run: bool) -> ServiceApplyReport {
+    fn apply_report(&self, dry_run: bool) -> ServiceApplyReport {
         self.apply_report_with_context(dry_run, &ServiceCommandContext::from_current_runtime())
     }
 
-    pub fn apply_report_with_context(
+    fn apply_report_with_context(
         &self,
         dry_run: bool,
         context: &ServiceCommandContext,
@@ -221,7 +178,7 @@ impl ServicePolicy {
             status: SurfaceStatus::Planned,
             dry_run,
             commands: self.install_commands(context),
-            proofs_required: self
+            proofs_required: self.__as_policy()
                 .units
                 .iter()
                 .flat_map(|unit| {
@@ -234,12 +191,12 @@ impl ServicePolicy {
         }
     }
 
-    pub fn status(&self, observed: &ServiceObservedState) -> ServiceStatusReport {
+    fn status(&self, observed: &ServiceObservedState) -> ServiceStatusReport {
         let mut missing_units = Vec::new();
         let mut disabled_units = Vec::new();
         let mut inactive_units = Vec::new();
 
-        for expected in &self.units {
+        for expected in &self.__as_policy().units {
             match observed
                 .units
                 .iter()
@@ -303,8 +260,8 @@ impl ServicePolicy {
             disabled_units,
             inactive_units,
             evidences: {
-                let mut names = Vec::with_capacity(self.units.len());
-                for unit in &self.units {
+                let mut names = Vec::with_capacity(self.__as_policy().units.len());
+                for unit in &self.__as_policy().units {
                     names.push(unit.unit_name.as_str());
                 }
                 vec![SubstrateEvidence {
@@ -319,39 +276,39 @@ impl ServicePolicy {
     fn install_commands(&self, context: &ServiceCommandContext) -> Vec<HostCommandSurface> {
         let mut commands = vec![install_dir_command(
             "prepare_directory",
-            self.unit_dir.clone(),
+            self.__as_policy().unit_dir.clone(),
             root_owned_path(MODE_0755),
         )];
-        if self.manager == ServiceManagerKind::Systemd {
+        if self.__as_policy().manager == ServiceManagerKind::Systemd {
             commands.push(argv_command(
                 "daemon_reload",
                 vec![context.systemctl_bin.clone(), "daemon-reload".to_string()],
             ));
         }
         commands.extend(
-            self.units
+            self.__as_policy().units
                 .iter()
                 .flat_map(|unit| self.unit_install_commands(unit, context)),
         );
         commands
     }
 
-    pub fn apply_operations(&self) -> Vec<HostOperation> {
+    fn apply_operations(&self) -> Vec<HostOperation> {
         let mut operations = vec![HostOperation::EnsureDir {
-            path: self.unit_dir.clone(),
+            path: self.__as_policy().unit_dir.clone(),
             mode: MODE_0755.unix,
         }];
-        if self.manager == ServiceManagerKind::Systemd {
+        if self.__as_policy().manager == ServiceManagerKind::Systemd {
             operations.push(HostOperation::ServiceManagerDaemonReload);
         }
         // Retiring comes FIRST: a stale unit that keeps running while the
         // replacement is installed is the state that hides the problem.
         operations.extend(
-            self.retired_units
+            self.__as_policy().retired_units
                 .iter()
                 .map(|unit| HostOperation::ServiceRetire { unit: unit.clone() }),
         );
-        operations.extend(self.units.iter().map(|unit| {
+        operations.extend(self.__as_policy().units.iter().map(|unit| {
             if unit.enable_on_boot {
                 HostOperation::ServiceEnableNow {
                     unit: unit.unit_name.clone(),
@@ -366,21 +323,21 @@ impl ServicePolicy {
     }
 
     fn unit_logical_name(&self) -> &'static str {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => "systemd-unit",
             ServiceManagerKind::OpenRc => "openrc-service",
         }
     }
 
     fn install_unit_name(&self, unit: &ServiceUnitPolicy) -> String {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => unit.unit_name.clone(),
             ServiceManagerKind::OpenRc => openrc_service_name(&unit.unit_name),
         }
     }
 
     fn status_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_status",
                 vec![
@@ -405,7 +362,7 @@ impl ServicePolicy {
         unit: &str,
         context: &ServiceCommandContext,
     ) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_is_enabled",
                 vec![
@@ -426,7 +383,7 @@ impl ServicePolicy {
     }
 
     fn is_active_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "service_is_active",
                 vec![
@@ -463,7 +420,7 @@ impl ServicePolicy {
         unit: &str,
         context: &ServiceCommandContext,
     ) -> Vec<HostCommandSurface> {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => vec![argv_command(
                 "enable_now",
                 vec![
@@ -495,7 +452,7 @@ impl ServicePolicy {
     }
 
     fn start_command(&self, unit: &str, context: &ServiceCommandContext) -> HostCommandSurface {
-        match self.manager {
+        match self.__as_policy().manager {
             ServiceManagerKind::Systemd => argv_command(
                 "start_service",
                 vec![
@@ -514,6 +471,10 @@ impl ServicePolicy {
             ),
         }
     }
+}
+
+impl ServicePolicyExt for ServicePolicy {
+    fn __as_policy(&self) -> &ServicePolicy { self }
 }
 
 pub(crate) fn openrc_service_name(unit: &str) -> String {
