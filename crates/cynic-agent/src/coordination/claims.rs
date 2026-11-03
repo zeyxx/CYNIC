@@ -11,7 +11,10 @@ use serde_json::Value;
 
 use crate::coordination::admission::{local_claim_active, local_scope_of};
 use crate::coordination::local_store::{append_claim_event, load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc};
-use crate::coordination::types::{AgentClaimReport, AgentReleaseReport, AgentScopeReport, AGENT_SCOPE_REPORT_SCHEMA};
+use crate::coordination::types::{
+    AgentClaimReport, AgentReleaseReport, AgentScopeReport, AGENT_CLAIM_REPORT_SCHEMA,
+    AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
+};
 
 /// Claim a scope in the local (no kernel) path.
 ///

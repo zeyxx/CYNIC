@@ -24,7 +24,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 11749
+            "loc": 11752
         },
         "cynic-anchoring": {
             "consumers": [],
@@ -916,7 +916,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 397575,
+        "loc_total": 397578,
         "pending_disposition": 3,
         "runtime_edges": 161,
         "unjustified": 2,
