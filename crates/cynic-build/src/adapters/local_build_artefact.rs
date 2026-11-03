@@ -125,12 +125,18 @@ impl LocalBuildArtefactAdapter {
             })
             .collect();
 
+        let pressure_signal = PressureSignal {
+            use_pct: pressure.use_pct,
+            avail_bytes: pressure.avail_bytes,
+            is_pressured: pressure.is_pressured,
+        };
+
         Ok(RetentionObservation {
             schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
             timestamp,
             items,
             total_reclaimable_bytes: 0,
-            pressure: Some(pressure),
+            pressure: Some(pressure_signal),
         })
     }
 }
