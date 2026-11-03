@@ -1,7 +1,6 @@
 pub mod agent_session;
 pub mod metrics;
 pub mod bootstrap;
-pub mod build_artefact;
 pub mod cpu;
 pub mod disk;
 pub mod ecosystem_package;
@@ -17,7 +16,6 @@ pub mod pool_eligibility;
 pub mod pool_metrics;
 pub mod privilege;
 pub mod process;
-pub mod queue;
 pub mod services;
 pub mod trajectory_entropy;
 pub mod shared;

@@ -16,9 +16,10 @@ use cynic_build::ports::{
     BuildWorkloadGrantSignerPort, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort,
     ReleaseBasketSigningPort,
 };
+use cynic_build::adapters::LocalBuildArtefactAdapter;
 use cynic_host::adapters::{
-    cpu_usage_meter::CpuUsageMeter, local_build_artefact::LocalBuildArtefactAdapter,
-    local_capacity::LocalCapacityAdapter, local_evidence_store::LocalContentAddressedEvidenceStore,
+    cpu_usage_meter::CpuUsageMeter, local_capacity::LocalCapacityAdapter,
+    local_evidence_store::LocalContentAddressedEvidenceStore,
 };
 use cynic_build::ports::LoadPolicy;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;

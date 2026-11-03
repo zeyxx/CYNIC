@@ -19,6 +19,10 @@ pub mod agent_execution_runtime_observer;
 pub mod ssh_build_runner;
 pub mod local_build_workspace;
 pub mod tokio_build_execution;
+pub mod http_artifact_transport;
+pub mod live_service_paths;
+pub mod local_build_artefact;
+pub mod local_queue;
 
 pub use build_evidence::{
     CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
@@ -30,6 +34,9 @@ pub use local_build_workspace::LocalBuildWorkspace;
 pub use tokio_build_execution::TokioBuildExecution;
 
 pub use http::{HttpDeployAdapter, HttpExternalBuildAdapter};
+pub use http_artifact_transport::HttpArtifactTransport;
+pub use local_build_artefact::LocalBuildArtefactAdapter;
+pub use local_queue::LocalQueueAdapter;
 pub use local::{LocalExternalBuildAdapter};
 pub use local_build_cache::LocalBuildCacheAdapter;
 pub use local_grant_store::LocalBuildWorkloadGrantStore;

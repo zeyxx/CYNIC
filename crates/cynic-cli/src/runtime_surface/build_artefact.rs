@@ -4,8 +4,8 @@
 
 use std::process::ExitCode;
 
-use cynic_host::adapters::local_build_artefact::LocalBuildArtefactAdapter;
-use cynic_host::domain::build_artefact::{RetentionExecutor, RetentionObserver, RetentionPlanner};
+use cynic_build::adapters::LocalBuildArtefactAdapter;
+use cynic_build::build_artefact::{RetentionExecutor, RetentionObserver, RetentionPlanner};
 use cynic_protocol::retention::RetentionPolicy;
 
 use crate::emit_json;
