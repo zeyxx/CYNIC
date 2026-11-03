@@ -203,6 +203,14 @@ authority.check: secret.literals ## Read-only local validation of machine-readab
 		fi
 	done
 
+.PHONY: topology
+topology: ## Automatically synchronize infra/crate-topology.json with workspace manifests
+	@python3 scripts/sync-topology.py
+
+.PHONY: topology.check
+topology.check: ## Verify infra/crate-topology.json is fresh
+	@python3 scripts/sync-topology.py --check
+
 .PHONY: audit-crate
 audit-crate: ## Native crate audit (the honest name of what `check` runs)
 	@echo "==> cynic audit crate (native, 100% Rust)"
