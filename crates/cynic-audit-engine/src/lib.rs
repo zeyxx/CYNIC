@@ -1,35 +1,34 @@
 mod artefact_rule;
+mod debt_pattern_rule;
+mod module_inversion_rule;
+mod runtime_divergence;
+pub mod branch_audit;
 pub mod debt_ledger;
 pub mod growth;
 pub mod history;
-mod module_inversion_rule;
-mod debt_pattern_rule;
-pub mod branch_audit;
-pub mod node_host_audit; pub mod path_rules;
+pub mod node_host_audit;
+pub mod path_rules;
 pub mod ports;
 pub mod prose_citation_rule;
 pub mod retired_metaphor_rule;
-pub mod topology;
-pub mod topology_generate;
 pub mod rules;
-mod runtime_divergence;
 pub mod runtime_path_literal_rule;
 pub mod scanner;
+pub mod topology;
+pub mod topology_generate;
 
 use std::path::Path;
-
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
 use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
-use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::debt_pattern_rule::DebtPatternRule;
+use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::prose_citation_rule::CodeCitesProseRule;
 use self::retired_metaphor_rule::RetiredMetaphorRule;
-use self::topology::CrateTopologyRule;
 use self::rules::{
-    AuditRule, HotspotThresholdRule, HostProbeLeakRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
-    PathSanitationRule,
+    AuditRule, HostProbeLeakRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule,
+    OwnershipRule, PathSanitationRule,
 };
 use self::runtime_divergence::RuntimeDivergenceRule;
 use self::runtime_path_literal_rule::RuntimePathLiteralRule;
@@ -43,9 +42,7 @@ pub use debt_ledger::reconcile_debt_ledger;
 /// observation instead of against whichever host happens to run the test. A
 /// security check that can only be exercised by breaking the real machine is one
 /// nobody exercises.
-pub fn evaluate_runtime_divergence(
-    index: &WorkspaceSourceIndex,
-) -> Vec<cynic_protocol::AuditViolation> {
+pub fn evaluate_runtime_divergence(index: &WorkspaceSourceIndex) -> Vec<cynic_protocol::AuditViolation> {
     use self::runtime_divergence::AuditRule as _;
     self::runtime_divergence::RuntimeDivergenceRule.evaluate(index)
 }
@@ -58,13 +55,13 @@ pub fn evaluate_runtime_divergence(
 /// category, so one critical finding would mark every sibling rule as failed and
 /// silently deflate the maturity score.
 fn rule_id_of(code: &str) -> &str {
-    let mut segments = code.splitn(3, '-');
-    let scope = segments.next().unwrap_or_default();
-    let number = segments.next().unwrap_or_default();
-    if scope.is_empty() || number.is_empty() {
-        return code;
+    let mut s = code.splitn(3, '-');
+    match (s.next(), s.next()) {
+        (Some(sc), Some(num)) if !sc.is_empty() && !num.is_empty() => {
+            code.get(..sc.len() + 1 + num.len()).unwrap_or(code)
+        }
+        _ => code,
     }
-    code.get(..scope.len() + 1 + number.len()).unwrap_or(code)
 }
 
 pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
