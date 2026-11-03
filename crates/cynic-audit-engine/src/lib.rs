@@ -26,6 +26,7 @@ use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::prose_citation_rule::CodeCitesProseRule;
 use self::retired_metaphor_rule::RetiredMetaphorRule;
+use self::topology::CrateTopologyRule;
 use self::rules::{
     AuditRule, HostProbeLeakRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule,
     OwnershipRule, PathSanitationRule,
@@ -49,11 +50,8 @@ pub fn evaluate_runtime_divergence(index: &WorkspaceSourceIndex) -> Vec<cynic_pr
 
 /// Recover the rule id that produced a violation code.
 ///
-/// Codes are `<RULE_ID>-<DETAIL>` where the rule id is itself two dash-separated
-/// segments (`SEC-001-ABSOLUTE-PATH` → `SEC-001`). Matching pass/fail on
-/// `category` instead of rule id is wrong: several rules legitimately share a
-/// category, so one critical finding would mark every sibling rule as failed and
-/// silently deflate the maturity score.
+/// Codes are `<RULE_ID>-<DETAIL>` (`SEC-001-ABSOLUTE-PATH` → `SEC-001`).
+/// Matching pass/fail on `category` instead of rule id is wrong.
 fn rule_id_of(code: &str) -> &str {
     let mut s = code.splitn(3, '-');
     match (s.next(), s.next()) {
