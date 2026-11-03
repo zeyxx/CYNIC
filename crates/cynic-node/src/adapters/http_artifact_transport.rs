@@ -698,7 +698,7 @@ impl ReleaseArtifactPublicationPort for HttpArtifactTransport {
 }
 
 #[cfg(test)]
-mod tests {
+mod publication_tests {
     use super::*;
 
     #[test]

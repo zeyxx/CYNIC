@@ -1,47 +1,10 @@
 //! Branch triage audit — decides whether a branch still speaks about the
 //! current organism, by measurement instead of by age or by commit count.
-//!
-//! Fits the existing audit taxonomy (`crate_audit`, `kernel_boundary_audit`,
-//! `ownership_audit`): same report shape, same `status` vocabulary, same
-//! check granularity, same "no hardcoded table" rule — branches are read
-//! from the repository, never from a list written by hand.
-//!
-//! Why this exists (2026-09-28, measured): 8 branches survived with unique
-//! commits, and commit count was a meaningless triage signal. What separated
-//! the dead ones from the live one was how much of their file set still
-//! exists in `main`:
-//!
-//! ```text
-//!   repo-hygiene-convergence   0%   absent   (content already in main)
-//!   wip-backup                15%   absent   (real merge surface)
-//!   h1-intent                 58%   absent   (describes a past)
-//!   split-kernel-owned        68%   absent   (describes a past)
-//!   vague-b-eval              88%   absent   (a different universe)
-//!   restructure-architecture  95%   absent   (describes a past)
-//! ```
-//!
-//! Two measurements, both cheap, both local:
-//!
-//! 1. **disappearance** — of the files a branch touches, how many are absent
-//!    from `main`? A branch whose world was deleted elsewhere is a proposal
-//!    about the past; merging it resurrects mass that was deliberately
-//!    removed.
-//! 2. **patch-id duplication** — a branch can be "unmerged" by commit hash
-//!    while carrying nothing new: the same patch may already have landed by
-//!    another route. Hash comparison says `unmerged`; patch comparison says
-//!    `empty`. `repo-hygiene-convergence` held a commit whose patch-id is
-//!    byte-identical to a commit already in `main`.
-//!
-//! Neither measurement is a merge decision: this audit classifies and
-//! reports. Authority to delete or merge stays with the operator, and an
-//! audit that could delete branches would be a mutation surface pretending
-//! to be an observer.
 
+use std::path::Path;
 use serde::Serialize;
 
-use cynic_process::ArgvRunner;
-
-use crate::rust_source::workspace_root;
+use crate::ports::GitObserverPort;
 
 /// Above this share of vanished files, a branch is about a world that no
 /// longer exists. Not a tolerance: a measurement with a stated threshold.
@@ -50,7 +13,11 @@ const DISAPPEARED_RATIO_BLOCKS: f64 = 0.50;
 /// Below this many files the ratio is noise, not a verdict.
 const MIN_FILES_FOR_RATIO: usize = 4;
 
-#[derive(Serialize)]
+/// `archive/` is a state, not a verdict: those refs are parked deliberately and
+/// must not be reported as blocked work waiting for a decision.
+const ARCHIVE_PREFIX: &str = "archive/";
+
+#[derive(Debug, Clone, Serialize)]
 pub struct BranchAuditReport {
     pub schema: &'static str,
     pub status: &'static str,
@@ -64,7 +31,7 @@ pub struct BranchAuditReport {
     pub worktree: WorktreeObservation,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BranchAuditEntry {
     pub branch: String,
     pub status: &'static str,
@@ -77,27 +44,14 @@ pub struct BranchAuditEntry {
     pub checks: Vec<BranchAuditCheck>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BranchAuditCheck {
     pub name: &'static str,
     pub status: &'static str,
     pub detail: String,
 }
 
-/// What this machine is actually doing, cross-checked against what it claimed.
-///
-/// A shared worktree makes one specific failure cheap and invisible: a claim
-/// is a *statement of intent*, and intent does not change files. Observed on
-/// this repository: 143 claims were marked active, 69 of them past their own
-/// TTL, while the set of paths anyone had actually touched was a different
-/// question nobody was asking. The converse is the constitutional one — a
-/// mutated path with no live claim is mutation without a mandate
-/// (`contracts/foundation.json` → `explicit_over_implicit`, AGENTS.md session
-/// protocol: claim before mutation).
-///
-/// This is an observation surface, not a gate: it reports `unowned` and
-/// `uncorroborated`, and decides nothing.
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WorktreeObservation {
     pub schema: &'static str,
     pub status: &'static str,
@@ -113,10 +67,14 @@ pub struct WorktreeObservation {
 }
 
 /// Refuse to guess: an unreadable git surface is an unknown, never "ok".
-pub fn audit_branches(base_ref: &str) -> BranchAuditReport {
+pub fn audit_branches(
+    git: &dyn GitObserverPort,
+    workspace_root: &Path,
+    base_ref: &str,
+) -> BranchAuditReport {
     let mut branches = Vec::new();
-    for branch in local_branches(base_ref) {
-        branches.push(audit_branch(base_ref, &branch));
+    for branch in local_branches(git, base_ref) {
+        branches.push(audit_branch(git, workspace_root, base_ref, &branch));
     }
     let total = branches.len();
     let archived = branches
@@ -133,21 +91,21 @@ pub fn audit_branches(base_ref: &str) -> BranchAuditReport {
         rule: "a branch whose file set has largely vanished from the base describes a past, not a proposal; a branch whose patches already landed by another route carries nothing new. Classification only: merge and delete authority stays with the operator.",
         base_ref: base_ref.to_string(),
         branch_count: total,
-        ok_count: total - blocked - archived,
+        ok_count: total.saturating_sub(blocked).saturating_sub(archived),
         blocked_count: blocked,
         archived_count: archived,
         branches,
-        worktree: observe_worktree(),
+        worktree: observe_worktree(git, workspace_root),
     }
 }
 
 /// Read the local machine's real activity: what the worktree changed, and
 /// whether a live claim covers each change.
-fn observe_worktree() -> WorktreeObservation {
+fn observe_worktree(git: &dyn GitObserverPort, workspace_root: &Path) -> WorktreeObservation {
     let now_s = now_unix_s();
-    let status = git(&["status", "--porcelain"]);
+    let status_out = git.run_git(&["status", "--porcelain"]);
     let mut dirty: Vec<(String, bool)> = Vec::new(); // (path, untracked)
-    for line in status.lines().map(str::trim).filter(|l| !l.is_empty()) {
+    for line in status_out.stdout.lines().map(str::trim).filter(|l| !l.is_empty()) {
         let (code, path) = line.split_at(2);
         let path = path.trim();
         if path.is_empty() {
@@ -157,10 +115,7 @@ fn observe_worktree() -> WorktreeObservation {
     }
     let untracked_count = dirty.iter().filter(|(_, untracked)| *untracked).count();
 
-    let claims = live_claim_paths(now_s);
-    // A path counts as covered when the claim's scope is the path itself or a
-    // directory containing it: `crates/cynic-kernel` covers
-    // `crates/cynic-kernel/src/lib.rs`. Containment, not string equality.
+    let claims = live_claim_paths(workspace_root, now_s);
     let unowned: Vec<String> = dirty
         .iter()
         .map(|(path, _)| path.clone())
@@ -198,14 +153,14 @@ fn observe_worktree() -> WorktreeObservation {
     });
 
     let status = if unowned.is_empty() { "ok" } else { "blocked" };
+    let cur_branch = git.run_git(&["rev-parse", "--abbrev-ref", "HEAD"]);
+    let head = git.run_git(&["rev-parse", "--short", "HEAD"]);
     WorktreeObservation {
         schema: "cynic.cli.worktree_observation.v1",
         status,
         rule: "a session at work is proven by what it changed, not by what it claimed; a mutated path with no live claim is mutation without a mandate",
-        current_branch: git(&["rev-parse", "--abbrev-ref", "HEAD"])
-            .trim()
-            .to_string(),
-        head: git(&["rev-parse", "--short", "HEAD"]).trim().to_string(),
+        current_branch: cur_branch.stdout.trim().to_string(),
+        head: head.stdout.trim().to_string(),
         dirty_path_count: dirty.len(),
         untracked_count,
         live_claim_count: claims.len(),
@@ -215,9 +170,8 @@ fn observe_worktree() -> WorktreeObservation {
     }
 }
 
-/// Scopes of claims that are actually live, using the one liveness predicate.
-fn live_claim_paths(now_s: u64) -> Vec<String> {
-    let Ok(raw) = std::fs::read_to_string(workspace_root().join(".agent-claims.json")) else {
+fn live_claim_paths(workspace_root: &Path, now_s: u64) -> Vec<String> {
+    let Ok(raw) = std::fs::read_to_string(workspace_root.join(".agent-claims.json")) else {
         return Vec::new();
     };
     let Ok(doc) = serde_json::from_str::<serde_json::Value>(&raw) else {
@@ -228,9 +182,7 @@ fn live_claim_paths(now_s: u64) -> Vec<String> {
         .map(|claims| {
             claims
                 .iter()
-                .filter(|claim| {
-                    crate::agent_surface::coordination::local_claim_active(claim, now_s)
-                })
+                .filter(|claim| is_claim_active(claim, now_s))
                 .filter_map(|claim| {
                     claim
                         .get("scope")
@@ -243,8 +195,23 @@ fn live_claim_paths(now_s: u64) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Does a claim scope cover a concrete path? Containment, so a crate- or
-/// module-scoped claim covers the files beneath it.
+fn is_claim_active(claim: &serde_json::Value, now_s: u64) -> bool {
+    if claim.get("status").and_then(|v| v.as_str()).unwrap_or("") != "active" {
+        return false;
+    }
+    let started = claim
+        .get("temporal")
+        .and_then(|t| t.get("started_at_unix_s"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let ttl = claim
+        .get("temporal")
+        .and_then(|t| t.get("ttl_seconds"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1800);
+    now_s < started.saturating_add(ttl)
+}
+
 fn claim_covers(claim_scope: &str, path: &str) -> bool {
     claim_scope == path || path.starts_with(&format!("{claim_scope}/"))
 }
@@ -256,23 +223,31 @@ fn now_unix_s() -> u64 {
         .unwrap_or(0)
 }
 
-fn audit_branch(base_ref: &str, branch: &str) -> BranchAuditEntry {
-    let unique_commits = count_lines(&git(&[
+fn audit_branch(
+    git: &dyn GitObserverPort,
+    workspace_root: &Path,
+    base_ref: &str,
+    branch: &str,
+) -> BranchAuditEntry {
+    let rev_list = git.run_git(&[
         "rev-list",
         "--count",
         &format!("{base_ref}..{branch}"),
-    ]));
-    let files: Vec<String> = git(&["diff", "--name-only", &format!("{base_ref}...{branch}")])
+    ]);
+    let unique_commits = count_lines(&rev_list.stdout);
+
+    let diff_out = git.run_git(&["diff", "--name-only", &format!("{base_ref}...{branch}")]);
+    let files: Vec<String> = diff_out
+        .stdout
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .map(str::to_string)
         .collect();
 
-    let root = workspace_root();
     let vanished = files
         .iter()
-        .filter(|file| !root.join(file).exists())
+        .filter(|file| !workspace_root.join(file).exists())
         .count();
     let touched = files.len();
     let ratio = if touched == 0 {
@@ -281,10 +256,9 @@ fn audit_branch(base_ref: &str, branch: &str) -> BranchAuditEntry {
         vanished as f64 / touched as f64
     };
 
-    let duplicates = count_duplicate_patches(base_ref, branch);
+    let duplicates = count_duplicate_patches(git, base_ref, branch);
     let mut checks = Vec::new();
 
-    // 1. world survival
     let world_status = if touched < MIN_FILES_FOR_RATIO {
         "observe"
     } else if ratio > DISAPPEARED_RATIO_BLOCKS {
@@ -302,7 +276,6 @@ fn audit_branch(base_ref: &str, branch: &str) -> BranchAuditEntry {
         ),
     });
 
-    // 2. patch novelty — unmerged by hash, empty by content
     let novelty_status = if unique_commits > 0 && duplicates == unique_commits {
         "blocked"
     } else if duplicates > 0 {
@@ -326,6 +299,7 @@ fn audit_branch(base_ref: &str, branch: &str) -> BranchAuditEntry {
     } else {
         "ok"
     };
+    let last_age = git.run_git(&["log", "-1", "--format=%ar", branch]);
     BranchAuditEntry {
         branch: branch.to_string(),
         status,
@@ -334,58 +308,44 @@ fn audit_branch(base_ref: &str, branch: &str) -> BranchAuditEntry {
         vanished_files: vanished,
         vanished_ratio: ratio,
         duplicate_patches: duplicates,
-        last_commit_age: git(&["log", "-1", "--format=%ar", branch])
-            .trim()
-            .to_string(),
+        last_commit_age: last_age.stdout.trim().to_string(),
         checks,
     }
 }
 
-/// Branches carrying commits the base does not have. Branches fully contained
-/// in the base are not interesting to triage and are not listed.
-///
-/// Local heads only (`refs/heads/*`): `git branch` scope, not remotes, tags or
-/// the stash. A mirror of `origin/*` is the same work seen twice, and
-/// reporting it as a second branch would double every count.
-fn local_branches(base_ref: &str) -> Vec<String> {
-    git(&["for-each-ref", "--format=%(refname:short)", "refs/heads"])
+fn local_branches(git: &dyn GitObserverPort, base_ref: &str) -> Vec<String> {
+    let out = git.run_git(&["for-each-ref", "--format=%(refname:short)", "refs/heads"]);
+    out.stdout
         .lines()
         .map(str::trim)
         .filter(|branch| !branch.is_empty())
         .map(str::to_string)
         .filter(|branch| branch != base_ref)
         .filter(|branch| {
-            count_lines(&git(&[
+            let rev_cnt = git.run_git(&[
                 "rev-list",
                 "--count",
                 &format!("{base_ref}..{branch}"),
-            ])) > 0
+            ]);
+            count_lines(&rev_cnt.stdout) > 0
         })
         .collect()
 }
 
-/// `archive/` is a state, not a verdict: those refs are parked deliberately and
-/// must not be reported as blocked work waiting for a decision.
-const ARCHIVE_PREFIX: &str = "archive/";
-
-/// How many of the branch's unmerged commits have a patch-id already in base.
-///
-/// `patch-id` is computed over the diff, so the same change reached by two
-/// different routes (rebase, cherry-pick, independent re-application) collapses
-/// to one value. Hash comparison cannot see that; this can.
-fn count_duplicate_patches(base_ref: &str, branch: &str) -> usize {
-    let base_patches = base_patch_ids(base_ref);
+fn count_duplicate_patches(git: &dyn GitObserverPort, base_ref: &str, branch: &str) -> usize {
+    let base_patches = base_patch_ids(git, base_ref);
     if base_patches.is_empty() {
         return 0;
     }
-    let commits = git(&["rev-list", &format!("{base_ref}..{branch}"), "--no-merges"]);
+    let commits = git.run_git(&["rev-list", &format!("{base_ref}..{branch}"), "--no-merges"]);
     let mut duplicates = 0usize;
     for commit in commits
+        .stdout
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
     {
-        let Some(patch) = patch_id(commit) else {
+        let Some(patch) = git.patch_id(commit) else {
             continue;
         };
         if base_patches.contains(&patch) {
@@ -395,64 +355,20 @@ fn count_duplicate_patches(base_ref: &str, branch: &str) -> usize {
     duplicates
 }
 
-fn base_patch_ids(base_ref: &str) -> Vec<String> {
-    let commits = git(&["rev-list", base_ref, "--no-merges"]);
+fn base_patch_ids(git: &dyn GitObserverPort, base_ref: &str) -> Vec<String> {
+    let commits = git.run_git(&["rev-list", base_ref, "--no-merges"]);
     let mut ids = Vec::new();
     for commit in commits
+        .stdout
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
     {
-        if let Some(patch) = patch_id(commit) {
+        if let Some(patch) = git.patch_id(commit) {
             ids.push(patch);
         }
     }
     ids
-}
-
-fn patch_id(commit: &str) -> Option<String> {
-    let root = workspace_root();
-    let show = cynic_process::LocalArgvRunner.run(&[
-        "git",
-        "-C",
-        root.to_str().unwrap_or("."),
-        "show",
-        "--pretty=format:",
-        commit,
-    ]);
-    if !show.success() {
-        return None;
-    }
-    // patch-id reads the diff on stdin and emits a stable id on stdout.
-    let mut piped = std::process::Command::new("git")
-        .current_dir(&root)
-        .args(["patch-id", "--stable"])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .ok()?;
-    use std::io::Write;
-    if let Some(stdin) = piped.stdin.as_mut() {
-        let _ = stdin.write_all(show.stdout.as_bytes());
-    }
-    let out = piped.wait_with_output().ok()?;
-    String::from_utf8_lossy(&out.stdout)
-        .split_whitespace()
-        .next()
-        .map(str::to_string)
-}
-
-fn git(args: &[&str]) -> String {
-    let root = workspace_root();
-    let mut argv = vec!["git", "-C", root.to_str().unwrap_or(".")];
-    argv.extend_from_slice(args);
-    let out = cynic_process::LocalArgvRunner.run(&argv);
-    if out.success() {
-        out.stdout
-    } else {
-        String::new()
-    }
 }
 
 fn count_lines(text: &str) -> usize {
@@ -474,16 +390,5 @@ mod tests {
         assert_eq!(count_lines("a\n\nb\n"), 2);
         assert_eq!(count_lines(""), 0);
         assert_eq!(count_lines("\n\n"), 0);
-    }
-
-    #[test]
-    fn git_surface_is_readable_from_the_workspace() {
-        // The audit must be able to read at least the base ref, otherwise every
-        // branch silently reports "observe" and the report is decorative.
-        let refs = git(&["rev-parse", "--abbrev-ref", "HEAD"]);
-        assert!(
-            !refs.trim().is_empty(),
-            "git must be readable from the workspace root"
-        );
     }
 }

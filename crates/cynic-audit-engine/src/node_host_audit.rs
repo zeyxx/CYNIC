@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-// git invoked directly via std::process::Command
 use serde::Serialize;
 
 const NODE_ROOT: &str = "crates/cynic-node";
@@ -82,20 +81,23 @@ pub struct InferredError {
     correction: &'static str,
 }
 
-pub fn build_node_host_audit(max_commits: usize) -> Result<NodeHostAudit, String> {
+pub fn build_node_host_audit(
+    git_observer: &dyn crate::ports::GitObserverPort,
+    max_commits: usize,
+) -> Result<NodeHostAudit, String> {
     let root = std::env::current_dir().map_err(|error| error.to_string())?;
     let mut modules = Vec::new();
     for path in discover_source_files(&root, NODE_ROOT)? {
-        modules.push(classify_module(&root, &path)?);
+        modules.push(classify_module(git_observer, &root, &path)?);
     }
     for path in discover_source_files(&root, HOST_ROOT)? {
-        modules.push(classify_module(&root, &path)?);
+        modules.push(classify_module(git_observer, &root, &path)?);
     }
     modules.sort_by(|left, right| left.path.cmp(&right.path));
 
     let boundary_violations = boundary_violations(&modules);
     let summary = summary(&modules, boundary_violations.len());
-    let git = git_audit(&root, max_commits);
+    let git = git_audit(git_observer, max_commits);
     let inferred_errors = infer_errors(&modules, &boundary_violations, &git);
 
     Ok(NodeHostAudit {
@@ -150,7 +152,11 @@ fn is_source_path(root: &Path, path: &Path) -> bool {
         && !relative.contains("/target/")
 }
 
-fn classify_module(root: &Path, path: &Path) -> Result<ModuleAudit, String> {
+fn classify_module(
+    observer: &dyn crate::ports::GitObserverPort,
+    root: &Path,
+    path: &Path,
+) -> Result<ModuleAudit, String> {
     let relative = relative_path(root, path);
     let content = fs::read_to_string(path).unwrap_or_default();
     let signals = signals(&relative, &content);
@@ -165,7 +171,7 @@ fn classify_module(root: &Path, path: &Path) -> Result<ModuleAudit, String> {
         owner_expected,
         owner_actual,
         layer,
-        git_status: git_status_for(root, &relative),
+        git_status: git_status_for(observer, &relative),
         line_count: content.lines().count(),
         action,
         risk,
@@ -429,12 +435,12 @@ fn increment(values: &mut BTreeMap<String, usize>, key: &str) {
     *values.entry(key.to_string()).or_insert(0) += 1;
 }
 
-fn git_audit(root: &Path, max_commits: usize) -> GitAudit {
-    let worktree_summary = git_command(root, &["status", "--short", "--", NODE_ROOT, HOST_ROOT]);
-    let diff_stat = git_command(root, &["diff", "--stat", "--", NODE_ROOT, HOST_ROOT]);
+fn git_audit(observer: &dyn crate::ports::GitObserverPort, max_commits: usize) -> GitAudit {
+    let worktree_summary = git_command(observer, &["status", "--short", "--", NODE_ROOT, HOST_ROOT]);
+    let diff_stat = git_command(observer, &["diff", "--stat", "--", NODE_ROOT, HOST_ROOT]);
     let max_count = format!("--max-count={max_commits}");
     let history = git_command(
-        root,
+        observer,
         &[
             "log",
             "--oneline",
@@ -453,22 +459,13 @@ fn git_audit(root: &Path, max_commits: usize) -> GitAudit {
     }
 }
 
-fn git_command(root: &Path, args: &[&str]) -> GitCommandSummary {
-    let mut cmd = std::process::Command::new("git");
-    cmd.args(args).current_dir(root);
-    match cmd.output() {
-        Ok(output) => GitCommandSummary {
-            command: format!("git {}", args.join(" ")),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        },
-        Err(err) => GitCommandSummary {
-            command: format!("git {}", args.join(" ")),
-            exit_code: None,
-            stdout: String::new(),
-            stderr: err.to_string(),
-        },
+fn git_command(observer: &dyn crate::ports::GitObserverPort, args: &[&str]) -> GitCommandSummary {
+    let output = observer.run_git(args);
+    GitCommandSummary {
+        command: format!("git {}", args.join(" ")),
+        exit_code: output.exit_code,
+        stdout: output.stdout,
+        stderr: output.stderr,
     }
 }
 
@@ -547,8 +544,8 @@ fn infer_errors(
     errors
 }
 
-fn git_status_for(root: &Path, relative: &str) -> String {
-    let status = git_command(root, &["status", "--short", "--", relative]);
+fn git_status_for(observer: &dyn crate::ports::GitObserverPort, relative: &str) -> String {
+    let status = git_command(observer, &["status", "--short", "--", relative]);
     status
         .stdout
         .lines()

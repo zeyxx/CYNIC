@@ -5,6 +5,7 @@ use clap::Subcommand;
 
 use crate::{crate_audit, emit_json, external_audit, fail};
 use cynic_audit_engine::node_host_audit;
+use crate::git_observer::LocalGitObserver;
 use cynic_process::ArgvRunner;
 
 pub(crate) mod growth;
@@ -24,7 +25,9 @@ pub(crate) enum AuditNodeCommand {
 pub(crate) fn execute_audit_node(command: &AuditNodeCommand) -> ExitCode {
     match command {
         AuditNodeCommand::Host { json, max_commits } => {
-            match node_host_audit::build_node_host_audit(*max_commits) {
+            let root = crate::rust_source::workspace_root();
+            let observer = LocalGitObserver::new(&root);
+            match node_host_audit::build_node_host_audit(&observer, *max_commits) {
                 Ok(report) => {
                     if *json {
                         emit_json(&report, false)
@@ -431,7 +434,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             // Deliberately NOT part of `audit all`: a branch being parked is a
             // normal repository state, not a defect of the build. Folding it
             // into the gate would make `make check` red for the wrong reason.
-            let report = crate::branch_audit::audit_branches(base);
+            let root = crate::rust_source::workspace_root();
+            let observer = LocalGitObserver::new(&root);
+            let report = cynic_audit_engine::branch_audit::audit_branches(&observer, &root, base);
             let blocked = report.status != "ok";
             emit_json(&report, blocked);
             if blocked {
@@ -475,7 +480,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
         AuditCommand::All { json } => {
             let crate_report = crate_audit::audit_core_crates();
             let secret_obs = cynic_release::adapters::secret_lint::scan_for_secrets(Path::new("."));
-            let node_audit = node_host_audit::build_node_host_audit(80).ok();
+            let root = crate::rust_source::workspace_root();
+            let observer = LocalGitObserver::new(&root);
+            let node_audit = node_host_audit::build_node_host_audit(&observer, 80).ok();
 
             // The audit engine is the workspace-wide rule set: every default
             // rule over every crate, with the declared debt ledger applied.

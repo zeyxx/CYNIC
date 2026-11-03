@@ -13,7 +13,7 @@ pub mod agent_surface;
 pub mod audit_surface;
 pub mod collaborator_surface;
 pub mod fleet_surface;
-pub mod branch_audit;
+pub mod git_observer;
 pub mod branch_graph_surface;
 pub mod build_discovery_surface;
 pub mod build_proof_log;

@@ -192,8 +192,9 @@ mod tests {
 
     use super::*;
 
-    struct Transport(RefCell<Vec<String>>);
+    struct Transport(std::sync::Mutex<Vec<String>>);
 
+    #[async_trait::async_trait]
     impl RuntimeArtifactTransportPort for Transport {
         async fn stage(
             &self,
@@ -201,7 +202,7 @@ mod tests {
             destination: &Path,
             expected_digest: Option<&str>,
         ) -> Result<ArtifactTransferReceipt, String> {
-            self.0.borrow_mut().push(source.locator.clone());
+            self.0.lock().unwrap().push(source.locator.clone());
             Ok(ArtifactTransferReceipt {
                 schema: "cynic.runtime_artifact.transfer_receipt.v1".to_string(),
                 status: "proved".to_string(),
@@ -324,7 +325,7 @@ mod tests {
             evidence_refs: Vec::new(),
             rollback_intent: "restore previous".to_string(),
         };
-        let transport = Transport(RefCell::new(Vec::new()));
+        let transport = Transport(std::sync::Mutex::new(Vec::new()));
 
         let report =
             reconcile_runtime_artifact_deployment(&request, &plan, &transport, &Actuation).await;
