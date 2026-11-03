@@ -23,7 +23,6 @@ use crate::framework_bootstrap::build_runner::{
     write_bootstrap_admission_receipt, write_bootstrap_build_proof,
 };
 use crate::one_shot_authority::{LocalOneShotCapabilityAuthority, OneShotCapabilityAuthorityPort};
-use crate::toolchain::ToolchainLifecycle;
 use cynic_process::{ArgvRunner, LocalArgvRunner};
 
 use super::{args, io};
@@ -63,20 +62,8 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
     let workspace = controlled_workspace(&state_root, &binding.capability.capability_id)?;
     let runner = LocalArgvRunner;
     initialize_workspace(&workspace, &runner)?;
-    // Toolchain lifecycle: observe -> reconcile -> bounded argv action (rustup override)
-    // BEFORE cargo check, per CYNIC §3 (dynamic detection before specialization).
-    let lifecycle =
-        ToolchainLifecycle::new(crate::toolchain::observe::LocalToolchainObserver::new(
-            crate::toolchain::specs::ToolchainRegistry::default(),
-        ));
-    let toolchain_crate_name = binding.node_subject.clone();
-    let seed_path = Path::new("infra/rust-toolchain.json");
-    let history_path = crate::toolchain::specs::ToolchainProofHistory::path(&toolchain_crate_name);
-    let _tc_report = match lifecycle.run(&toolchain_crate_name, &seed_path, &history_path, &runner)
-    {
-        Ok(report) => Some(report),
-        Err(_) => None,
-    };
+    // The toolchain lifecycle module is hoisted to cynic_build::toolchain
+    // (build plane, L2); the host-exec bootstrap flow does not own it.
     let request = BuildRunnerBootstrapRequest {
         node_id: binding.node_subject.clone(),
         source_commit: binding.source_commit.clone(),
