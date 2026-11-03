@@ -238,6 +238,10 @@ pub async fn run_loop(
                 r.max_bytes,
             ) {
                 Ok(s) => Some(s),
+                Err(e) => {
+                    tracing::error!(error = %e, "release basket signing creation failed");
+                    None
+                }
             },
             None => None,
         },
