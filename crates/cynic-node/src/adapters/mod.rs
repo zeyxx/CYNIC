@@ -28,7 +28,6 @@ pub mod local_agent_workspace_observer;
 pub mod local_agent_workspace_provision;
 pub mod local_bootstrap_seed_receipt_store;
 pub mod local_build_workload_grant_store;
-pub mod local_build_workspace;
 pub mod local_credential_material_sink;
 pub mod local_external_evidence;
 pub mod local_harness_target_attestation_reader;
