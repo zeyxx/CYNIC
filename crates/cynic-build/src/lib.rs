@@ -49,7 +49,7 @@ pub mod runner;
 pub mod runtime_release;
 pub mod types;
 
-pub use adapters::{CurlBuildLeaseVerificationAdapter, HttpDeployAdapter, HttpExternalBuildAdapter, JsonBuildRunnerObservationAdapter, MemFilesystem, NodeBuildLeaseVerificationAdapter, OsIdentity, SshBuildRunnerObservationAdapter, StdFilesystem};
+pub use adapters::{CurlBuildLeaseVerificationAdapter, HttpDeployAdapter, HttpExternalBuildAdapter, JsonBuildRunnerObservationAdapter, LocalReleaseBasketPackaging, MemFilesystem, NodeBuildLeaseVerificationAdapter, OsIdentity, SshBuildRunnerObservationAdapter, SshReleaseBasketSigning, StdFilesystem};
 pub use build::*;
 pub use cache::*;
 pub use build_artefact::*;
@@ -74,7 +74,7 @@ pub use place::*;
 pub use harness::*;
 pub use harness_authority::*;
 pub use pipeline_proof::*;
-pub use ports::{BuildCommandOutput, BuildRunner, FilesystemPort, IdentityPort};
+pub use ports::{BuildCommandOutput, BuildRunner, DetachedReleaseSignature, FilesystemPort, IdentityPort, PackagedReleaseBasket, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort, ReleasePublicationError, ReleasePublicationFuture, ReleasePublicationResult, ReleasePublicationTargets};
 pub use release_publication::*;
 pub use runner::{install_artifact, run_build};
 pub use runtime_release::*;

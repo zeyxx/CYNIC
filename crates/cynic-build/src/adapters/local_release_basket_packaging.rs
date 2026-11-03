@@ -6,11 +6,11 @@ use std::{
     process::Command,
 };
 
-use cynic_build::SignedReleaseBasketPlan;
+use crate::SignedReleaseBasketPlan;
 use cynic_protocol::{RUNTIME_SEED_BUNDLE_MARKER_FILE, canonical_json_bytes};
 use sha2::{Digest, Sha256};
 
-use crate::ports::release_publication_port::{
+use crate::ports::{
     PackagedReleaseBasket, ReleaseBasketPackagingPort, ReleasePublicationFuture,
 };
 
@@ -190,7 +190,7 @@ fn regular_file(path: &Path, kind: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn digest_file(path: &Path, max_bytes: u64) -> Result<(String, u64), String> {
+pub fn digest_file(path: &Path, max_bytes: u64) -> Result<(String, u64), String> {
     regular_file(path, "release_publication_file")?;
     let mut input = fs::File::open(path)
         .map_err(|error| format!("release_publication_file_open_failed:{error}"))?;

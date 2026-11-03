@@ -11,6 +11,8 @@ pub mod local_grant_store;
 pub mod mem_fs;
 pub mod os_identity;
 pub mod std_fs;
+pub mod local_release_basket_packaging;
+pub mod ssh_release_basket_signing;
 
 pub use build_evidence::{
     CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
@@ -23,6 +25,8 @@ pub use local_grant_store::LocalBuildWorkloadGrantStore;
 pub use mem_fs::MemFilesystem;
 pub use os_identity::OsIdentity;
 pub use std_fs::StdFilesystem;
+pub use local_release_basket_packaging::*;
+pub use ssh_release_basket_signing::*;
 
 pub mod build_discovery;
 pub use build_discovery::{LocalBuildDiscoveryAdapter, RemoteBuildDiscoveryAdapter};

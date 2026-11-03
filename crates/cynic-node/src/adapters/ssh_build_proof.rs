@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use std::process::Command;
 use std::time::Instant;
 
-use crate::ports::build_proof_port::BuildProofPort;
+use cynic_build::ports::BuildProofPort;
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};

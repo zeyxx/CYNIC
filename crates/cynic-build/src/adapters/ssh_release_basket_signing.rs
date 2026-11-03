@@ -2,7 +2,7 @@ use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, process::Command};
 
 use crate::{
     adapters::local_release_basket_packaging::digest_file,
-    ports::release_publication_port::{
+    ports::{
         DetachedReleaseSignature, PackagedReleaseBasket, ReleaseBasketSigningPort,
         ReleasePublicationFuture,
     },

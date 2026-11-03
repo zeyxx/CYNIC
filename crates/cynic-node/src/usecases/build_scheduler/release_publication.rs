@@ -17,15 +17,16 @@ use cynic_agent::AgentWorkloadEnvelope;
 use crate::{
     adapters::{
         http_artifact_transport::HttpArtifactTransport,
-        local_release_basket_packaging::LocalReleaseBasketPackaging,
-        ssh_release_basket_signing::SshReleaseBasketSigning,
     },
     config::ReleasePublicationConfig,
     ports::{
         build_scheduler_port::BuildWorkspaceReadBack,
-        release_publication_port::{
-            ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort,
-        },
+    },
+};
+use cynic_build::{
+    LocalReleaseBasketPackaging, SshReleaseBasketSigning,
+    ports::{
+        ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort,
     },
 };
 
@@ -49,7 +50,7 @@ pub(super) async fn publish(
         .release_publication
         .ok_or_else(|| "release_publication_intent_missing".to_string())?;
     let config = config.ok_or_else(|| "release_publication_config_unavailable".to_string())?;
-    let registry_digest = crate::adapters::local_release_basket_packaging::digest_file(
+    let registry_digest = cynic_build::adapters::local_release_basket_packaging::digest_file(
         &workspace.workspace_root.join("infra/registry.json"),
         config.max_bytes,
     )?
