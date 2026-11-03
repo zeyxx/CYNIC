@@ -669,8 +669,15 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
-    use crate::usecases::build_admission::admit_build_check;
+    use cynic_agent::{
+        AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
+        AgentWorkloadEnvelope, AgentWorkloadRecord,
+    };
+    use cynic_protocol::{
+        AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
+        ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
+        PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
+    };
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -683,6 +690,132 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("cynic-queue-{}-{id}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("create queue store dir");
         LocalAgentWorkloadStore::new(&dir)
+    }
+
+    fn admit_build_check(
+        source_commit: &str,
+        package: &str,
+        _runner_ref: &str,
+        node_id: &str,
+        agent_id: &str,
+        committed_at_ms: u64,
+        store: &dyn AgentWorkloadStorePort,
+    ) -> Result<DurableAgentWorkloadRecord, Vec<String>> {
+        let short = source_commit.chars().take(12).collect::<String>();
+        let workload_id = format!("build-{short}-{package}");
+        let idempotency_key = format!("build:{source_commit}:{package}:check");
+        let action = AgentBoundedAction {
+            argv: vec!["cargo".into(), "check".into()],
+            working_directory: None,
+            input_digest: None,
+            mutates: false,
+            requires_privilege: false,
+            stop_condition: "stop on first non-zero exit".into(),
+            rollback_intent: "discard isolated checkout".into(),
+        };
+        let plan_digest = cynic_protocol::digest_json(&action)
+            .map_err(|error| vec![format!("build_test_action_digest_failed:{error}")])?;
+        let required_proof = RequiredProof {
+            gate: "canonical_gate_report".into(),
+            subject: source_commit.into(),
+        };
+        let mutation = MutationContract {
+            kind: "repository_validation".into(),
+            scope: PolicyScope {
+                domain: "build".into(),
+                target: source_commit.into(),
+            },
+            mutates: false,
+            requires_privilege: false,
+            requires_explicit_apply: false,
+            required_authority: PolicyAuthority::RuntimePrincipal,
+            preconditions: vec!["source_commit_observed".into()],
+            rollback_intent: "discard isolated checkout".into(),
+            expected_proofs: vec![required_proof.clone()],
+        };
+        let envelope = AgentWorkloadEnvelope {
+            schema: AGENT_WORKLOAD_ENVELOPE_SCHEMA.into(),
+            workload_id: workload_id.clone(),
+            idempotency_key: idempotency_key.clone(),
+            plan_digest: plan_digest.clone(),
+            mandate_binding: None,
+            source_commit: Some(source_commit.into()),
+            branch: None,
+            input: None,
+            action,
+            delegation: AgentDelegationEnvelope {
+                schema: cynic_protocol::AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
+                delegation_id: format!("delegation-{workload_id}"),
+                node_id: node_id.into(),
+                agent_id: agent_id.into(),
+                parent_agent_id: None,
+                depth: 0,
+                objective: "run canonical check".into(),
+                authority_snapshot: AgentEvidenceRef {
+                    kind: "authority_snapshot".into(),
+                    subject: workload_id.clone(),
+                    digest: format!("sha256:{}", "e".repeat(64)),
+                    lineage: None,
+                },
+                context_refs: Vec::new(),
+                capabilities: vec![AgentCapabilityGrant {
+                    id: "repository_validation".into(),
+                    mutates: false,
+                }],
+                budget: AgentBudget {
+                    context_tokens: 1_000,
+                    actions: 10,
+                    children: 0,
+                    wall_time_ms: 1_800_000,
+                    cpu_ms: None,
+                },
+                expected_proofs: vec!["canonical_gate_report".into()],
+            },
+            parent_delegation: None,
+            policy_admission: PolicyAdmissionReport::new(
+                PolicySetRef {
+                    id: "build.validation".into(),
+                    version: "v1".into(),
+                    digest: format!("sha256:{}", "c".repeat(64)),
+                },
+                PolicyIntentRef {
+                    id: idempotency_key,
+                    kind: "repository_validation".into(),
+                    actor: agent_id.into(),
+                    subject: source_commit.into(),
+                    digest: format!("sha256:{}", "d".repeat(64)),
+                    plan_digest,
+                },
+                mutation,
+                PolicyDecision::Allow {
+                    required_authority: PolicyAuthority::RuntimePrincipal,
+                    required_proofs: vec![required_proof],
+                },
+            ),
+            execution_authorization: ExecutionAuthorization::new(
+                agent_id,
+                PolicyAuthority::RuntimePrincipal,
+                false,
+                vec!["source_commit_observed".into()],
+            ),
+            resource_budget: None,
+        };
+        if !admit_agent_workload(&envelope).admitted() {
+            return Err(vec![format!("build_test_admission_denied:{workload_id}")]);
+        }
+        let record = AgentWorkloadRecord {
+            schema: AGENT_WORKLOAD_RECORD_SCHEMA.into(),
+            envelope,
+            state: AgentWorkloadState::Dispatched,
+            claim: None,
+            last_fencing_token: 0,
+            cancellation_generation: 0,
+            consumed_actions: 0,
+            completion: None,
+        };
+        store
+            .compare_and_swap(&workload_id, None, &record, committed_at_ms)
+            .map_err(|error| vec![format!("{}:{}", error.code, error.detail)])
     }
 
     #[test]
@@ -821,35 +954,16 @@ mod tests {
 
     /// T3 (T4): a Saturated load tier must refuse admission. The gate is the
     /// pure `admit_claim_under_capacity` decision over the assessment
-    /// produced by `cynic_host::capacity::assess_load_tier`.
+    /// produced by the capacity observation port.
     #[test]
     fn saturated_tier_skips_claim() {
-        let policy = LoadPolicy::with_legacy_defaults("test-node");
-
-        // CPU 92% > saturation threshold (85%) ⇒ Saturated. Both reports are
-        // required: with memory unmeasured, assess_load_tier stays prudent
-        // (Normal + unknowns) — Saturated is never asserted on half evidence.
-        let cpu_saturated = assess_load_tier(
-            Some(&fabricated_cpu_report(92.0)),
-            Some(&fabricated_memory_report(28, 4)),
-            &policy,
-        );
-        assert_eq!(cpu_saturated.state, LoadTier::Saturated);
+        let saturated = CapacityAssessment {
+            state: LoadTier::Saturated,
+            residual_unknowns: Vec::new(),
+        };
         assert!(
-            !admit_claim_under_capacity(&cpu_saturated),
+            !admit_claim_under_capacity(&saturated),
             "saturated host must refuse claims this tick"
-        );
-
-        // Memory 26/28 GiB (92.8%) > saturation threshold (90%) ⇒ Saturated.
-        let mem_saturated = assess_load_tier(
-            Some(&fabricated_cpu_report(5.0)),
-            Some(&fabricated_memory_report(28, 26)),
-            &policy,
-        );
-        assert_eq!(mem_saturated.state, LoadTier::Saturated);
-        assert!(
-            !admit_claim_under_capacity(&mem_saturated),
-            "memory-saturated host must refuse claims this tick"
         );
     }
 
@@ -858,32 +972,28 @@ mod tests {
     /// refuses on unmeasured capacity.
     #[test]
     fn admit_claim_under_capacity_admits_standard_tiers_and_unknowns() {
-        let policy = LoadPolicy::with_legacy_defaults("test-node");
-
-        let headroom = assess_load_tier(
-            Some(&fabricated_cpu_report(5.0)),
-            Some(&fabricated_memory_report(28, 4)),
-            &policy,
-        );
-        assert_eq!(headroom.state, LoadTier::Headroom);
+        let headroom = CapacityAssessment {
+            state: LoadTier::Headroom,
+            residual_unknowns: Vec::new(),
+        };
         assert!(
             admit_claim_under_capacity(&headroom),
             "headroom host must admit claims"
         );
 
-        let normal = assess_load_tier(
-            Some(&fabricated_cpu_report(50.0)),
-            Some(&fabricated_memory_report(28, 10)),
-            &policy,
-        );
-        assert_eq!(normal.state, LoadTier::Normal);
+        let normal = CapacityAssessment {
+            state: LoadTier::Normal,
+            residual_unknowns: Vec::new(),
+        };
         assert!(
             admit_claim_under_capacity(&normal),
             "normal host must admit claims"
         );
 
-        let unmeasured = assess_load_tier(None, None, &policy);
-        assert_eq!(unmeasured.state, LoadTier::Normal);
+        let unmeasured = CapacityAssessment {
+            state: LoadTier::Normal,
+            residual_unknowns: vec!["cpu_report_missing".into(), "memory_report_missing".into()],
+        };
         assert!(
             !unmeasured.residual_unknowns.is_empty(),
             "unmeasured assessment must carry explicit unknowns"
@@ -1009,103 +1119,18 @@ mod tests {
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
     }
 
-    /// Fabricated CPU report with a known utilisation, mirroring the
-    /// constructor pattern used by `cynic_host::capacity` tests.
-    fn fabricated_cpu_report(util_pct: f64) -> cynic_host::host_substrate::cpu::CpuReport {
-        cynic_host::host_substrate::cpu::CpuReport {
-            schema: "cynic.host_cpu_report.v1".to_string(),
-            timestamp: "test".to_string(),
-            physical: cynic_host::host_substrate::cpu::CpuPhysical {
-                model_name: "test".to_string(),
-                logical_cpus: 16,
-                cores: Some(8),
-                sockets: Some(1),
-                max_bogomips_or_hz: None,
-            },
-            volume: cynic_host::host_substrate::cpu::CpuVolume {
-                governor: None,
-                isolated_mask: None,
-                online_cpus: 16,
-                possible_cpus: 16,
-            },
-            usage: cynic_host::host_substrate::cpu::CpuUsage {
-                user: 0,
-                system: 0,
-                idle: 0,
-                iowait: 0,
-                softirq: 0,
-                steal: 0,
-                util_pct: Some(util_pct),
-            },
-            pressure: None,
-            residual_unknowns: Vec::new(),
-        }
-    }
-
-    /// Fabricated memory report from total/used GiB, mirroring the
-    /// constructor pattern used by `cynic_host::capacity` tests.
-    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_host::host_substrate::memory::MemoryReport {
-        cynic_host::host_substrate::memory::MemoryReport {
-            schema: "cynic.host_memory_report.v1".to_string(),
-            timestamp: "test".to_string(),
-            physical: cynic_host::host_substrate::memory::MemoryUsage {
-                total_bytes: total_gb * 1024 * 1024 * 1024,
-                free_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
-                available_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
-                used_bytes: used_gb * 1024 * 1024 * 1024,
-                reclaimable_bytes: 0,
-            },
-            volume: cynic_host::host_substrate::memory::MemoryVolume {
-                page_size_bytes: 4096,
-                swappiness: None,
-                hugepages_reserved: None,
-                hugepage_size_bytes: None,
-            },
-            swap: cynic_host::host_substrate::memory::MemoryUsage {
-                total_bytes: 0,
-                free_bytes: 0,
-                available_bytes: 0,
-                used_bytes: 0,
-                reclaimable_bytes: 0,
-            },
-            pressure: None,
-            meminfo_headline: None,
-            residual_unknowns: Vec::new(),
-        }
-    }
-
     fn scheduler_configs() -> (
         crate::build_scheduler::config::NodeControlConfig,
         crate::build_scheduler::config::BuildSchedulerConfig,
     ) {
         use std::path::PathBuf;
         let control = crate::build_scheduler::config::NodeControlConfig {
-            kernel_url: String::new(),
             node_id: "node-1".to_string(),
             signing_key_path: PathBuf::from("/tmp/x"),
-            enrollment_request_path: PathBuf::from("/tmp/x"),
-            enrollment_grant_path: PathBuf::from("/tmp/x"),
-            enrollment_authority_public_key_path: PathBuf::from("/tmp/x"),
-            enrollment_token_path: PathBuf::from("/tmp/x"),
-            enrollment_seed_id: String::new(),
-            enrollment_role: String::new(),
             agent_workload_state_root: PathBuf::from("/tmp/x"),
-            runtime_artifact_inbox_root: PathBuf::from("/tmp/x"),
             runtime_artifact_max_bytes: 0,
             runtime_artifact_timeout_secs: 0,
-            enrollment_requested_capabilities: Vec::new(),
-            enrollment_request_ttl_secs: 0,
-            enrollment_renewal_window_secs: 0,
-            interval_secs: 0,
-            timeout_secs: 0,
-            workload_delivery_lease_ttl_secs: 0,
-            observed_capabilities: Vec::new(),
-            observed_services: Vec::new(),
-            registry_path: PathBuf::from("/tmp/x"),
             build_scheduler: None,
-            builder_listen_addr: "127.0.0.1:1".parse().expect("addr"),
-            workspace_root: PathBuf::from("/tmp/x"),
-            membership_interval_secs: 0,
         };
         let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),

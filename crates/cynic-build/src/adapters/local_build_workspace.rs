@@ -218,7 +218,6 @@ fn error(code: &str) -> AgentWorkspacePortError {
 mod tests {
     use super::*;
     use cynic_process::LocalArgvRunner;
-    use crate::ports::agent_workspace_port::AgentWorkspaceLayout;
 
     fn git(args: &[&str], dir: &std::path::Path) -> bool {
         std::process::Command::new("git")

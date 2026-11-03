@@ -831,7 +831,10 @@ mod tests {
                     spawn_error: None,
                 };
             }
-            script.responses.pop_front().unwrap_or_default()
+            script
+                .responses
+                .pop_front()
+                .unwrap_or_else(|| ArgvOutput::not_attempted("no scripted response"))
         }
     }
 
