@@ -1,15 +1,15 @@
 mod lifecycle;
 mod prepare;
-mod release_publication;
+pub mod release_publication;
 mod source_prepare;
 
 use std::time::{Duration, Instant};
 
-use cynic_build::{
+use crate::{
     QueuedCandidate, canonical_build_action_from_argv, evidence, plan_build_queue,
 };
-use cynic_build::adapters::TokioBuildExecution;
-use cynic_build::ports::{
+use crate::adapters::TokioBuildExecution;
+use crate::ports::{
     BuildExecutionError, BuildExecutionPort, CapacityAssessment, CapacityAssessmentPort,
     CpuMeterPort, LoadPolicy, LoadTier, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
 };
@@ -20,8 +20,8 @@ use cynic_agent::{
 };
 use cynic_agent::adapters::local_workload_store::LocalAgentWorkloadStore;
 use cynic_agent::workload::ports::AgentWorkloadStorePort;
-use cynic_build::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
-use cynic_build::ports::recompute_layout_digest;
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::ports::recompute_layout_digest;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_sandbox::cargo::BuildSandboxMode;
 use tokio_util::sync::CancellationToken;
@@ -1028,11 +1028,11 @@ mod tests {
     }
 
     fn scheduler_configs() -> (
-        cynic_build::build_scheduler::config::NodeControlConfig,
-        cynic_build::build_scheduler::config::BuildSchedulerConfig,
+        crate::build_scheduler::config::NodeControlConfig,
+        crate::build_scheduler::config::BuildSchedulerConfig,
     ) {
         use std::path::PathBuf;
-        let control = cynic_build::build_scheduler::config::NodeControlConfig {
+        let control = crate::build_scheduler::config::NodeControlConfig {
             kernel_url: String::new(),
             node_id: "node-1".to_string(),
             signing_key_path: PathBuf::from("/tmp/x"),
@@ -1060,7 +1060,7 @@ mod tests {
             workspace_root: PathBuf::from("/tmp/x"),
             membership_interval_secs: 0,
         };
-        let scheduler = cynic_build::build_scheduler::config::BuildSchedulerConfig {
+        let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
             repository_id: String::new(),
             transport_uri: None,

@@ -5,25 +5,25 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use cynic_build::build_source_reference_from_workload;
-use cynic_build::ports::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack};
+use crate::build_source_reference_from_workload;
+use crate::ports::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack};
 use cynic_process::LocalArgvRunner;
 use cynic_protocol::{LeaseGuard, digest_json};
 use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 
-use cynic_build::adapters::LocalBuildWorkspace;
-use cynic_build::profile_for_argv;
+use crate::adapters::LocalBuildWorkspace;
+use crate::profile_for_argv;
 use cynic_agent::adapters::local_workload_store::LocalAgentWorkloadStore;
 use cynic_agent::workload::ports::AgentWorkloadStorePort;
 use cynic_agent::workspace::ports::{AgentWorkspaceLayout, AgentWorkspacePortError};
-use cynic_build::adapters::LocalBuildWorkloadGrantStore;
-use cynic_build::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
-use cynic_build::build_scheduler::grant::issue_signed_build_workload_grant;
-use cynic_build::ports::{
+use crate::adapters::LocalBuildWorkloadGrantStore;
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::build_scheduler::grant::issue_signed_build_workload_grant;
+use crate::ports::{
     BuildWorkloadGrantStorePort, BuildWorkloadGrantSignerPort, CapacityAssessmentPort,
     CpuMeterPort, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
 };
-use cynic_build::ports::recompute_layout_digest;
+use crate::ports::recompute_layout_digest;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_vcs::ports::{
     SourceMaterializationPort, SourceRepositoryBootstrapPort, SourceRepositoryLayout,
@@ -583,7 +583,7 @@ mod tests {
     #[test]
     fn execution_env_has_cargo_target_dir_when_shared_target_root_configured() {
         let root = PathBuf::from("/var/lib/cynic/build-targets");
-        let scheduler = cynic_build::build_scheduler::config::BuildSchedulerConfig {
+        let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             shared_target_root: Some(root.clone()),
             ..scheduler_config()
         };
@@ -604,7 +604,7 @@ mod tests {
     #[test]
     fn execution_env_falls_back_to_unscoped_target_dir_when_checkout_name_unusable() {
         let root = PathBuf::from("/var/lib/cynic/build-targets");
-        let scheduler = cynic_build::build_scheduler::config::BuildSchedulerConfig {
+        let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             shared_target_root: Some(root.clone()),
             ..scheduler_config()
         };
@@ -804,8 +804,8 @@ mod tests {
         );
     }
 
-    fn scheduler_config() -> cynic_build::build_scheduler::config::BuildSchedulerConfig {
-        cynic_build::build_scheduler::config::BuildSchedulerConfig {
+    fn scheduler_config() -> crate::build_scheduler::config::BuildSchedulerConfig {
+        crate::build_scheduler::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
             repository_id: String::new(),
             transport_uri: None,

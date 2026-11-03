@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_build::{BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference};
+use crate::{BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference};
 use cynic_process::ArgvRunner;
 use cynic_vcs::{
     SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
@@ -19,8 +19,8 @@ use cynic_vcs::ports::{
 };
 
 use cynic_agent::workspace::ports::AgentWorkspaceLayout;
-use cynic_build::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
-use cynic_build::ports::RuntimeArtifactTransportPort;
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::ports::RuntimeArtifactTransportPort;
 use cynic_vcs::ports::{
     SourceMaterializationPort, SourceRepositoryBootstrapPort, SourceRepositoryLayout,
 };
@@ -114,7 +114,7 @@ async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     source: &BuildSourceReference,
-    snapshot: &cynic_build::BuildSourceSnapshotReference,
+    snapshot: &crate::BuildSourceSnapshotReference,
     workload_id: &str,
     mut layout: AgentWorkspaceLayout,
     runner: &R,

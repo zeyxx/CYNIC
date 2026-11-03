@@ -227,7 +227,7 @@ fn safe_identifier(value: &str) -> bool {
 mod tests {
     use std::collections::BTreeMap;
 
-    use cynic_build::{
+    use crate::{
         BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
         SIGNED_RELEASE_BASKET_REQUEST_SCHEMA, SignedReleaseBasketRequest,
         plan_signed_release_basket,

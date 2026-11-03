@@ -1,4 +1,4 @@
-use cynic_build::{
+use crate::{
     LocalReleaseBasketPackaging, SshReleaseBasketSigning,
     RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
     RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA, RuntimeReleasePublicationManifest,
@@ -11,7 +11,7 @@ use cynic_build::{
 };
 use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope, evidence_store_port::ContentAddressedEvidenceStorePort};
 use cynic_agent::AgentWorkloadEnvelope;
-use cynic_build::build_scheduler::config::ReleasePublicationConfig;
+use crate::build_scheduler::config::ReleasePublicationConfig;
 
 pub(super) async fn publish(
     node_id: &str,
@@ -26,7 +26,7 @@ pub(super) async fn publish(
     signing: &dyn ReleaseBasketSigningPort,
     artifact_store: &dyn ReleaseArtifactPublicationPort,
 ) -> Result<Option<AgentEvidenceRef>, String> {
-    if cynic_build::canonical_build_action_from_argv(&envelope.action.argv)
+    if crate::canonical_build_action_from_argv(&envelope.action.argv)
         != Some("cargo:build-release")
     {
         return Ok(None);
@@ -36,7 +36,7 @@ pub(super) async fn publish(
         .release_publication
         .ok_or_else(|| "release_publication_intent_missing".to_string())?;
     let config = config.ok_or_else(|| "release_publication_config_unavailable".to_string())?;
-    let registry_digest = cynic_build::adapters::local_release_basket_packaging::digest_file(
+    let registry_digest = crate::adapters::local_release_basket_packaging::digest_file(
         &workspace.workspace_root.join("infra/registry.json"),
         config.max_bytes,
     )?
@@ -66,7 +66,7 @@ pub(super) async fn publish_with_ports<P, S, A>(
     workspace: &BuildWorkspaceReadBack,
     evidence_refs: &[AgentEvidenceRef],
     registry_digest: String,
-    publication_intent: cynic_build::BuildReleasePublicationIntent,
+    publication_intent: crate::BuildReleasePublicationIntent,
     observed_at_ms: u64,
     provenance: &[String],
     evidence_store: &dyn ContentAddressedEvidenceStorePort,

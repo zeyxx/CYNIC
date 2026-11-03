@@ -5,12 +5,12 @@
 
 use cynic_agent::DurableAgentWorkloadRecord;
 
-use cynic_build::{
+use crate::{
     BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
     SignedBuildWorkloadGrant, build_workload_grant_signing_bytes, derive_build_workload_grant,
     validate_signed_build_workload_grant,
 };
-use cynic_build::ports::BuildWorkloadGrantSignerPort;
+use crate::ports::BuildWorkloadGrantSignerPort;
 
 /// Issue a signed build workload grant for a durable record.
 pub fn issue_signed_build_workload_grant(

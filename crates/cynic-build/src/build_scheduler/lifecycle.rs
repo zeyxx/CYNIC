@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 use cynic_agent::adapters::local_workload_store::LocalAgentWorkloadStore;
 use cynic_agent::workload::ports::AgentWorkloadStorePort;
-use cynic_build::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
 
 pub(super) fn claim_if_available(
     control: &NodeControlConfig,
