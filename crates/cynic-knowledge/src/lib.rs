@@ -37,6 +37,7 @@ pub use domain::{
     INTERACTIONS_GRAPH_SCHEMA_V1, SYNTHESIS_PROMPT_SCHEMA_V1, UNCOVERED_REJECTION_TOKEN,
     WORKSPACE_GEOMETRY_SCHEMA_V1,
     check_claims, check_freshness, epoch_seconds, parse_count, ClaimCheck, ClaimCheckOutcome, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
+    hybrid_retrieve, simd_top_k_dense,
 };
 
 use std::path::Path;
