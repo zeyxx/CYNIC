@@ -305,7 +305,9 @@ pub(crate) fn execute_host_audit(json: bool, max_commits: usize) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    match cynic_audit_engine::node_host_audit::build_node_host_audit(max_commits) {
+    let root = crate::rust_source::workspace_root();
+    let observer = crate::git_observer::LocalGitObserver::new(&root);
+    match cynic_audit_engine::node_host_audit::build_node_host_audit(&observer, max_commits) {
         Ok(report) => crate::emit_json(&report, false),
         Err(error) => crate::fail(error),
     }
