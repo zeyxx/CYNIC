@@ -1,16 +1,14 @@
 //! Local queue observation — composes branch_graph + discovery + gc
-//! via in-process commands and pure `build_queue_plan`.
+//! via cynic-vcs, cynic-build discovery, and retention adapters.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::build_discovery::{
     BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, HostTriple, Toolchain,
 };
-use cynic_protocol::branch_graph::{
-    enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph, BRANCH_GRAPH_SCHEMA,
-    BranchGraph,
-};
 use cynic_protocol::queue::QueuePlan;
+use cynic_vcs::branch_graph::{BranchGraphObservationPort, LocalBranchGraphAdapter};
 
 use crate::adapters::build_discovery::LocalBuildDiscoveryAdapter;
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
@@ -18,28 +16,13 @@ use crate::build_artefact::RetentionPlanner;
 use crate::build_queue::build_queue_plan;
 use crate::domain::build_discovery::port::BuildDiscoveryObservationPort;
 
-pub struct CaptureOutput {
-    pub success: bool,
-    pub stdout: String,
-}
-
-fn capture_command(bin: &str, args: &[&str]) -> Result<CaptureOutput, String> {
-    let mut cmd = std::process::Command::new(bin);
-    cmd.args(args);
-    let output = cmd.output().map_err(|e| format!("exec error: {e}"))?;
-    Ok(CaptureOutput {
-        success: output.status.success(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-    })
-}
-
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalQueueAdapter;
 
 impl LocalQueueAdapter {
     pub fn observe(&self) -> Result<QueuePlan, String> {
         let mut unknowns: Vec<String> = Vec::new();
-        let bg = match observe_branch_graph_local() {
+        let bg = match LocalBranchGraphAdapter.observe() {
             Ok(bg) => bg,
             Err(e) => {
                 unknowns.push(format!("branch_graph_fallback:{e}"));
@@ -103,38 +86,3 @@ fn now_secs() -> u64 {
         .unwrap_or_default()
         .as_secs()
 }
-
-fn observe_branch_graph_local() -> Result<BranchGraph, String> {
-    let root_commit = capture_command("git", &["rev-parse", "HEAD"])
-        .map_err(|e| format!("git rev-parse failed: {e}"))?
-        .stdout
-        .trim()
-        .to_string();
-
-    let refs_raw = capture_command(
-        "git",
-        &[
-            "for-each-ref",
-            "--format=%(refname)|%(objectname)|%(committerdate:raw)|%(upstream:short)",
-            "refs/heads/",
-        ],
-    )
-    .map_err(|e| format!("git for-each-ref failed: {e}"))?
-    .stdout;
-
-    let log_raw = capture_command("git", &["log", "--all", "--pretty=format:%H %P"])
-        .map_err(|e| format!("git log graph failed: {e}"))?
-        .stdout;
-
-    let parent_map = parse_git_log_graph(&log_raw);
-    let mut nodes = parse_git_for_each_ref(&refs_raw, "main");
-    enrich_with_parents(&mut nodes, &parent_map);
-
-    Ok(BranchGraph {
-        schema: BRANCH_GRAPH_SCHEMA.to_string(),
-        root: "main".to_string(),
-        root_commit,
-        nodes,
-    })
-}
-
