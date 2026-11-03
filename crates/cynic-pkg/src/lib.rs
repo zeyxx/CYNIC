@@ -12,12 +12,17 @@ pub mod layout;
 pub mod port;
 pub mod probe;
 pub mod providers;
+pub mod pins;
 pub mod python_cli_policy;
 pub mod python_tooling;
 pub mod registry;
+pub mod specs;
 pub mod tooling_authority;
 pub mod types;
 pub mod upstream_probe;
+
+pub use pins::{PinEntry, PinsFile, load_pins, resolve_pins_path};
+pub use specs::{DepSpec, UpgradeMode, VersionFrom, specs};
 
 pub use authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
 pub use execution::{

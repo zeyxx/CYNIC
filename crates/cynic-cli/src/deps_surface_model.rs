@@ -2,31 +2,8 @@ use cynic_pkg::{
     InstallPrincipalKind, ObservedPythonTooling, ProviderChannel, PythonInstallProvenance,
     ToolingAuthorityFamily, ToolingInstallProvenance,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct PinsFile {
-    pub(crate) pins: Vec<PinEntry>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub(crate) struct PinEntry {
-    pub(crate) id: String,
-    #[serde(default)]
-    pub(crate) min_version: Option<String>,
-    #[serde(default)]
-    pub(crate) min_build: Option<u64>,
-    #[serde(default)]
-    pub(crate) desired_build: Option<u64>,
-    #[serde(default)]
-    pub(crate) min_capability: Option<String>,
-    #[serde(default)]
-    pub(crate) commit: Option<String>,
-    #[serde(default)]
-    pub(crate) required: Option<bool>,
-    #[serde(default)]
-    pub(crate) notes: Option<String>,
-}
+pub(crate) use cynic_pkg::{DepSpec, PinEntry, PinsFile, UpgradeMode, VersionFrom};
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub(crate) struct DepWatch {
@@ -186,38 +163,6 @@ pub(crate) struct FrictionlessHints {
     pub(crate) daily_check: &'static str,
     pub(crate) model_start: &'static str,
     pub(crate) pins_edit: &'static str,
-}
-
-pub(crate) struct DepSpec {
-    pub(crate) id: &'static str,
-    pub(crate) role: &'static str,
-    pub(crate) category: &'static str,
-    pub(crate) tier: &'static str,
-    pub(crate) bins: &'static [&'static str],
-    pub(crate) version_args: &'static [&'static str],
-    pub(crate) version_from: VersionFrom,
-    pub(crate) upstream: Option<&'static str>,
-    pub(crate) tooling_authority_family: Option<ToolingAuthorityFamily>,
-    pub(crate) python_distribution: Option<&'static str>,
-    pub(crate) expected_tooling_provenance: Option<ToolingInstallProvenance>,
-    pub(crate) expected_python_provenance: Option<PythonInstallProvenance>,
-    pub(crate) check_hint: &'static str,
-    pub(crate) update_hint: &'static str,
-    pub(crate) update_commands: &'static [&'static str],
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum UpgradeMode {
-    Scripted,
-    External,
-    DistroManaged,
-}
-
-pub(crate) enum VersionFrom {
-    StdoutFirstLine,
-    JsonField(&'static str),
-    HelpPresence,
 }
 
 #[derive(Debug, Serialize)]
