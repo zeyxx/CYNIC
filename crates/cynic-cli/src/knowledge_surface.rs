@@ -943,44 +943,7 @@ fn check_published_surface_freshness(path: &std::path::Path, hours: u64) -> Exit
 }
 
 /// Accelerated dense vector search using `cynic_persistence::SimdVectorAdapter` with contiguous SIMD cosine buffer.
-pub fn simd_top_k_dense<'a>(
-    query: &[f32],
-    chunks: &'a [cynic_knowledge::DocumentChunk],
-    vectors: &[cynic_knowledge::ChunkVector],
-    k: usize,
-) -> Vec<cynic_knowledge::DenseHit<'a>> {
-    if query.is_empty() || chunks.is_empty() || vectors.is_empty() {
-        return Vec::new();
-    }
-
-    let simd_adapter = cynic_knowledge::SimdVectorAdapter::new(query.len());
-    let vector_tuples: Vec<(&str, &[f32])> = vectors
-        .iter()
-        .map(|v| (v.chunk_id.as_str(), v.vector.as_slice()))
-        .collect();
-
-    if simd_adapter.insert_batch(&vector_tuples).is_err() {
-        return cynic_knowledge::top_k_dense(query, chunks, vectors, k);
-    }
-
-    let nearest = match simd_adapter.search_nearest(query, k, -1.0) {
-        Ok(hits) => hits,
-        Err(_) => return cynic_knowledge::top_k_dense(query, chunks, vectors, k),
-    };
-
-    let chunk_map: std::collections::HashMap<&str, &'a cynic_knowledge::DocumentChunk> =
-        chunks.iter().map(|c| (c.chunk_id.as_str(), c)).collect();
-
-    nearest
-        .into_iter()
-        .filter_map(|(id, similarity)| {
-            chunk_map.get(id.as_str()).map(|&chunk| cynic_knowledge::DenseHit {
-                chunk,
-                similarity: similarity as f64,
-            })
-        })
-        .collect()
-}
+pub use cynic_knowledge::{hybrid_retrieve, simd_top_k_dense};
 
 /// Resolve the cache path according to CynicPaths authority.
 pub fn resolve_knowledge_cache_path() -> PathBuf {
@@ -1087,35 +1050,7 @@ pub fn retrieve_dense_corpus_and_query(
     })
 }
 
-/// Hybrid retrieval combining sparse BM25 and dense SIMD cosine search via RRF.
-pub fn hybrid_retrieve<'a>(
-    query: &str,
-    limit: usize,
-    index: &'a cynic_knowledge::LexicalIndex,
-    dense_triple: &'a Option<(
-        Vec<cynic_knowledge::DocumentChunk>,
-        Vec<cynic_knowledge::ChunkVector>,
-        Vec<f32>,
-    )>,
-) -> Vec<cynic_knowledge::SearchHit<'a>> {
-    match dense_triple {
-        Some((dense_chunks, dense_vectors, dense_query)) => {
-            let dense = simd_top_k_dense(dense_query, dense_chunks, dense_vectors, 20);
-            let sparse = index.search(query, 20);
-            let mut fused = cynic_knowledge::fuse_reciprocal_ranks(
-                &sparse,
-                &dense,
-                cynic_knowledge::DEFAULT_RRF_K,
-            );
-            fused.truncate(limit);
-            fused
-        }
-        None => index.search(query, limit),
-    }
-}
-
 fn find_repo_root(start: &std::path::Path) -> Option<PathBuf> {
-    let mut current = start.to_path_buf();
     loop {
         if current.join(".git").exists() || current.join("Cargo.toml").exists() {
             return Some(current);

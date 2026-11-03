@@ -111,7 +111,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 44693
+      "loc": 44626
     },
     "cynic-consensus": {
       "consumers": [
@@ -286,7 +286,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 11492
+      "loc": 11559
     },
     "cynic-lxc": {
       "consumers": [
