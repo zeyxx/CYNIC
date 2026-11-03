@@ -1,1 +1,0 @@
-pub use cynic_vcs::adapters::local_source_materialization::*;

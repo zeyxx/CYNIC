@@ -5,7 +5,7 @@ use cynic_protocol::{
 };
 use serde::de::DeserializeOwned;
 
-use crate::ports::source_repository_proof_commit_port::{
+use cynic_vcs::ports::{
     SourceRepositoryProofCommitError, SourceRepositoryProofCommitPort,
 };
 
