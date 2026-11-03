@@ -8,7 +8,7 @@ use crate::deps_surface_pins::load_pins;
 use crate::deps_surface_plan::build_plan;
 use crate::deps_surface_render::print_upgrade_human;
 use crate::deps_surface_report::build_deps_report;
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     apply_for_dep, has_auto_handler, resolve_principal_install_layout,
 };
 use cynic_types::paths::CynicPaths;

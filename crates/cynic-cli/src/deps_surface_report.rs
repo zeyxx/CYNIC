@@ -3,7 +3,7 @@ use crate::deps_surface_model::{
 };
 use crate::deps_surface_probe::probe_and_evaluate;
 use crate::deps_surface_specs::specs;
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     PrincipalInstallLayout, RunAs, ToolingAuthorityFamily, ToolingInstallProvenance,
     observe_python_tooling, python_cli_policy, resolve_principal_install_layout,
 };

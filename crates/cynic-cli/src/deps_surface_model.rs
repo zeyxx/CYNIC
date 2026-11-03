@@ -1,4 +1,4 @@
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     InstallPrincipalKind, ObservedPythonTooling, ProviderChannel, PythonInstallProvenance,
     ToolingAuthorityFamily, ToolingInstallProvenance,
 };
