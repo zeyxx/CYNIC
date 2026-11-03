@@ -78,7 +78,10 @@ cynic-demo.html
 /evidence/
 /references/
 /data_system/
-/scripts/
+/scripts/*
+!/scripts/audit_churn.py
+!/scripts/audit_hardcode.py
+!/scripts/sync-topology.py
 /.agent-claims.json
 *.jsonl
 *.tmp
