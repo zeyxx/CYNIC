@@ -594,7 +594,7 @@ impl HttpArtifactTransport {
 
 impl ReleaseArtifactPublicationPort for HttpArtifactTransport {
     fn targets(&self, release_id: &str) -> Result<ReleasePublicationTargets, String> {
-        if !cynic_build::valid_release_publication_id(release_id) {
+        if !crate::valid_release_publication_id(release_id) {
             return Err("release_publication_release_id_invalid".to_string());
         }
         let source = |suffix: &str| -> Result<RuntimeArtifactSource, String> {
