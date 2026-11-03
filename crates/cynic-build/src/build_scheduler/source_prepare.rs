@@ -37,8 +37,6 @@ pub(super) async fn prepare_build_source<R: ArgvRunner, T: RuntimeArtifactTransp
     runner: &R,
     artifact_transport: &T,
     cancellation: &tokio_util::sync::CancellationToken,
-    source_materialization: &dyn SourceMaterializationPort,
-    source_bootstrap: &dyn SourceRepositoryBootstrapPort,
 ) -> Result<(AgentWorkspaceLayout, Vec<String>), String> {
     if source.schema != BUILD_SOURCE_REFERENCE_SCHEMA {
         return Err("build_source_reference_schema_mismatch".to_string());
@@ -76,7 +74,12 @@ fn prepare_live_git_source<R: ArgvRunner>(
         source: source.transport_uri.clone(),
         revision: source.revision.clone(),
     };
-    let adapter = source_bootstrap;
+    let adapter = LocalSourceRepositoryBootstrap::new(
+        runner,
+        &control.agent_workload_state_root,
+        "git",
+        "id",
+    );
     let before = adapter
         .observe(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request)
         .map_err(|error| error.code)?;
@@ -139,7 +142,13 @@ async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>
         return Err("build_source_snapshot_format_unsupported".to_string());
     }
     let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
-    let adapter = source_materialization;
+    let adapter = LocalSourceMaterialization::new(
+        runner,
+        &control.agent_workload_state_root,
+        snapshot_root.clone(),
+        &control.node_id,
+        "build_runner",
+    );
     let mut provenance = vec![snapshot.digest.clone(), snapshot.authority_ref.clone()];
     let mut observed = adapter.observe(&request).map_err(|error| error.code)?;
     let initial = plan_source_materialization(&request, &observed, now_unix_ms());
