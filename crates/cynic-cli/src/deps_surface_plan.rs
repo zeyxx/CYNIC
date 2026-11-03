@@ -1,7 +1,7 @@
 use crate::deps_surface_model::{DepsPlanReport, DepsReport, FrictionlessHints, PlanAction};
 use cynic_pkg::{
-    ProviderChannel, channel_auto_applicable, has_auto_handler, plan_for_dep,
-    resolve_principal_install_layout,
+    ProviderChannel, action_priority, channel_auto_applicable, has_auto_handler, needs_upgrade,
+    plan_for_dep, reason_for_dep, resolve_principal_install_layout,
 };
 
 pub(crate) fn build_plan(deps: &DepsReport, observed_at_unix_ms: u64) -> DepsPlanReport {
@@ -10,45 +10,27 @@ pub(crate) fn build_plan(deps: &DepsReport, observed_at_unix_ms: u64) -> DepsPla
     let mut priority = 10u32;
 
     for dep in &deps.deps {
-        let needs = matches!(dep.status.as_str(), "missing" | "stale" | "desired_upgrade")
-            || dep.install_authority_status == "noncanonical";
-        if !needs {
+        if !needs_upgrade(dep.id, dep.status.as_str(), dep.install_authority_status.as_str()) {
             continue;
         }
 
-        let action_priority = if dep.tier == "required" {
-            priority
-        } else if dep.tier == "recommended" {
-            priority + 100
-        } else {
-            priority + 200
-        };
+        let action_priority = action_priority(dep.tier, priority);
         priority += 1;
 
-        let reason = match dep.status.as_str() {
-            "missing" => format!("{} missing from PATH / principal bin", dep.id),
-            "stale" => format!(
-                "{} below pin ({:?})",
-                dep.id,
-                dep.pin.as_ref().and_then(|pin| {
-                    pin.min_version
-                        .clone()
-                        .or_else(|| pin.min_build.map(|build| build.to_string()))
-                })
-            ),
-            "desired_upgrade" => format!(
-                "{} at minimum but below desired (e.g. newer GGUF support)",
-                dep.id
-            ),
-            _other if dep.install_authority_status == "noncanonical" => format!(
-                "{} tooling authority is noncanonical ({:?} observed, {:?} expected)",
-                dep.id, dep.tooling_install_provenance, dep.expected_tooling_install_provenance
-            ),
-            other => other.to_string(),
-        };
+        let reason = reason_for_dep(
+            dep.id,
+            dep.status.as_str(),
+            dep.install_authority_status.as_str(),
+            dep
+                .pin
+                .as_ref()
+                .and_then(|pin| pin.min_version.clone())
+                .or_else(|| dep.pin.as_ref().and_then(|pin| pin.min_build.map(|b| b.to_string()))),
+            dep.tooling_install_provenance.as_ref(),
+            dep.expected_tooling_install_provenance.as_ref(),
+        );
 
-        let (commands, auto_applicable) = if let Some(plan) = plan_for_dep(dep.id, &reason, &layout)
-        {
+        let (commands, auto_applicable) = if let Some(plan) = plan_for_dep(dep.id, &reason, &layout) {
             (plan.summary_commands, plan.auto_applicable)
         } else {
             let auto = channel_auto_applicable(dep.channel)

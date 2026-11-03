@@ -1,25 +1,31 @@
 use crate::deps_surface_model::{
-    DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, VersionFrom,
+    DepEntry, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView,
 };
 use cynic_pkg::{
-    EcosystemPackageExecutionPort, InstallPrincipalKind, LocalEcosystemPackageExecution,
-    PrincipalInstallLayout, ProviderChannel, observe_python_install_authority,
-    observe_tooling_authority, plan_for_dep, provider_spec, python_cli_policy, resolve_binary,
+    EcosystemPackageExecutionPort, LocalEcosystemPackageExecution, ProviderChannel,
+    observe_python_install_authority, observe_tooling_authority, plan_for_dep, python_cli_policy,
+    resolve_binary,
+};
+use cynic_pkg::evaluate::{
+    channel_for_dep, cmp_loose_version, evaluate_status, extract_build_number,
+    format_python_provenance, mode_from_channel, parse_version_triple, principal_for_dep,
+    python_cli_can_auto_apply, python_cli_normalizable_now, python_cli_requires_runtime_principal,
+    python_cli_requires_uv, python_cli_uv_in_runtime_layout,
 };
 
 pub(crate) fn probe_and_evaluate(
-    spec: &DepSpec,
+    spec: &cynic_pkg::specs::DepSpec,
     pin: Option<&PinEntry>,
-    layout: &PrincipalInstallLayout,
+    layout: &cynic_pkg::types::PrincipalInstallLayout,
 ) -> DepEntry {
     let executor = LocalEcosystemPackageExecution;
     probe_and_evaluate_with_executor(spec, pin, layout, &executor)
 }
 
 fn probe_and_evaluate_with_executor(
-    spec: &DepSpec,
+    spec: &cynic_pkg::specs::DepSpec,
     pin: Option<&PinEntry>,
-    layout: &PrincipalInstallLayout,
+    layout: &cynic_pkg::types::PrincipalInstallLayout,
     executor: &dyn EcosystemPackageExecutionPort,
 ) -> DepEntry {
     let channel = channel_for_dep(spec.id);
@@ -60,14 +66,9 @@ fn probe_and_evaluate_with_executor(
     });
 
     let Some(path) = path else {
-        let optional = pin
-            .map(|entry| entry.required == Some(false))
-            .unwrap_or(false);
-        let python_install_authority = observe_python_install_authority(
-            spec.python_distribution,
-            None,
-            spec.expected_python_provenance,
-        );
+        let optional = pin.map(|entry| entry.required == Some(false)).unwrap_or(false);
+        let python_install_authority =
+            observe_python_install_authority(spec.python_distribution, None, spec.expected_python_provenance);
         return DepEntry {
             id: spec.id,
             role: spec.role,
@@ -96,10 +97,7 @@ fn probe_and_evaluate_with_executor(
                     update_authority_note: policy.update_authority_note.to_string(),
                     normalizable_now: python_cli_normalizable_now(layout, policy.dep_id),
                     requires_uv: python_cli_requires_uv(policy.dep_id),
-                    requires_runtime_principal: python_cli_requires_runtime_principal(
-                        layout,
-                        policy.dep_id,
-                    ),
+                    requires_runtime_principal: python_cli_requires_runtime_principal(layout, policy.dep_id),
                     can_auto_apply: python_cli_can_auto_apply(layout, policy.dep_id),
                 }
             }),
@@ -161,10 +159,7 @@ fn probe_and_evaluate_with_executor(
                 update_authority_note: policy.update_authority_note.to_string(),
                 normalizable_now: python_cli_normalizable_now(layout, policy.dep_id),
                 requires_uv: python_cli_requires_uv(policy.dep_id),
-                requires_runtime_principal: python_cli_requires_runtime_principal(
-                    layout,
-                    policy.dep_id,
-                ),
+                requires_runtime_principal: python_cli_requires_runtime_principal(layout, policy.dep_id),
                 can_auto_apply: python_cli_can_auto_apply(layout, policy.dep_id),
             }
         }),
@@ -173,196 +168,8 @@ fn probe_and_evaluate_with_executor(
     }
 }
 
-fn python_cli_normalizable_now(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
-    if !python_cli_requires_uv(dep_id) {
-        return false;
-    }
-    if !python_cli_uv_in_runtime_layout(layout) {
-        return false;
-    }
-    if python_cli_requires_runtime_principal(layout, dep_id) {
-        return layout.writable;
-    }
-    true
-}
-
-fn python_cli_uv_in_runtime_layout(layout: &PrincipalInstallLayout) -> bool {
-    let uv = resolve_binary("uv", layout);
-    uv.path.is_some() && uv.under_principal
-}
-
-fn python_cli_requires_uv(dep_id: &str) -> bool {
-    python_cli_policy(dep_id)
-        .map(|policy| policy.canonical_update_argv.first() == Some(&"uv"))
-        .unwrap_or(false)
-}
-
-fn python_cli_requires_runtime_principal(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
-    python_cli_policy(dep_id)
-        .map(|policy| {
-            plan_for_dep(dep_id, "policy-check", layout)
-                .map(|plan| {
-                    plan.steps.iter().any(|step| step.as_principal)
-                        || matches!(plan.principal, InstallPrincipalKind::RuntimeUser)
-                })
-                .unwrap_or(false)
-                || policy.dep_id == "huggingface-cli"
-        })
-        .unwrap_or(false)
-}
-
-fn python_cli_can_auto_apply(layout: &PrincipalInstallLayout, dep_id: &str) -> bool {
-    python_cli_policy(dep_id)
-        .and_then(|_| plan_for_dep(dep_id, "policy-check", layout))
-        .map(|plan| plan.auto_applicable)
-        .unwrap_or(false)
-}
-
-fn format_python_provenance(
-    provenance: cynic_pkg::PythonInstallProvenance,
-) -> String {
-    match provenance {
-        cynic_pkg::PythonInstallProvenance::UvTool => "uv_tool",
-        cynic_pkg::PythonInstallProvenance::UvVenv => "uv_venv",
-        cynic_pkg::PythonInstallProvenance::VirtualEnv => "virtual_env",
-        cynic_pkg::PythonInstallProvenance::Pipx => "pipx",
-        cynic_pkg::PythonInstallProvenance::PipUserSite => {
-            "pip_user_site"
-        }
-        cynic_pkg::PythonInstallProvenance::SystemPython => {
-            "system_python"
-        }
-        cynic_pkg::PythonInstallProvenance::Unknown => "unknown",
-    }
-    .to_string()
-}
-
-fn mode_from_channel(channel: ProviderChannel) -> crate::deps_surface_model::UpgradeMode {
-    match channel {
-        ProviderChannel::Scripted => crate::deps_surface_model::UpgradeMode::Scripted,
-        ProviderChannel::External => crate::deps_surface_model::UpgradeMode::External,
-        ProviderChannel::DistroManaged => crate::deps_surface_model::UpgradeMode::DistroManaged,
-    }
-}
-
-fn channel_for_dep(id: &str) -> ProviderChannel {
-    provider_spec(id)
-        .map(|spec| spec.channel)
-        .unwrap_or(ProviderChannel::External)
-}
-
-fn principal_for_dep(id: &str) -> InstallPrincipalKind {
-    provider_spec(id)
-        .map(|spec| spec.principal)
-        .unwrap_or(InstallPrincipalKind::OperatorLocal)
-}
-
-fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> String {
-    let Some(pin) = pin else {
-        return if version.is_some() {
-            "observed".into()
-        } else {
-            "unknown".into()
-        };
-    };
-
-    if let Some(capability) = &pin.min_capability {
-        return match version {
-            Some(value) if value.contains(capability) || value.contains("inference-start") => {
-                "ok".into()
-            }
-            Some(_) => "stale".into(),
-            None => "unknown".into(),
-        };
-    }
-
-    if let Some(want) = &pin.commit {
-        return match version {
-            Some(value) if value.contains(want.as_str()) => "ok".into(),
-            Some(_) => "stale".into(),
-            None => "unknown".into(),
-        };
-    }
-
-    if let Some(min_build) = pin.min_build {
-        let Some(value) = version else {
-            return "unknown".into();
-        };
-        let Some(observed_build) = extract_build_number(value) else {
-            return "unknown".into();
-        };
-        if observed_build < min_build {
-            return "stale".into();
-        }
-        if let Some(desired_build) = pin.desired_build {
-            if observed_build < desired_build {
-                return "desired_upgrade".into();
-            }
-        }
-        return "ok".into();
-    }
-
-    if let Some(min_version) = &pin.min_version {
-        let Some(value) = version else {
-            return "unknown".into();
-        };
-        return match cmp_loose_version(value, min_version) {
-            Some(std::cmp::Ordering::Less) => "stale".into(),
-            Some(_) => "ok".into(),
-            None => "unknown".into(),
-        };
-    }
-
-    let _ = id;
-    if version.is_some() {
-        "ok".into()
-    } else {
-        "observed".into()
-    }
-}
-
-fn extract_build_number(s: &str) -> Option<u64> {
-    for part in s.split(|c: char| !c.is_ascii_digit()) {
-        if part.len() >= 3 && part.len() <= 6 {
-            if let Ok(value) = part.parse::<u64>() {
-                if value >= 100 {
-                    return Some(value);
-                }
-            }
-        }
-    }
-    None
-}
-
-fn cmp_loose_version(observed: &str, min: &str) -> Option<std::cmp::Ordering> {
-    let observed = parse_version_triple(observed)?;
-    let min = parse_version_triple(min)?;
-    Some(observed.cmp(&min))
-}
-
-fn parse_version_triple(s: &str) -> Option<(u64, u64, u64)> {
-    let bytes = s.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i].is_ascii_digit() {
-            let start = i;
-            while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b'.') {
-                i += 1;
-            }
-            let slice = &s[start..i];
-            let mut parts = slice.split('.').filter_map(|part| part.parse::<u64>().ok());
-            let major = parts.next()?;
-            let minor = parts.next().unwrap_or(0);
-            let patch = parts.next().unwrap_or(0);
-            return Some((major, minor, patch));
-        }
-        i += 1;
-    }
-    None
-}
-
 fn read_version(
-    spec: &DepSpec,
+    spec: &cynic_pkg::specs::DepSpec,
     path: &str,
     executor: &dyn EcosystemPackageExecutionPort,
 ) -> Option<String> {
@@ -374,7 +181,7 @@ fn read_version(
         return None;
     }
     let version = match spec.version_from {
-        VersionFrom::HelpPresence => {
+        cynic_pkg::specs::VersionFrom::HelpPresence => {
             let stdout = output.stdout.as_str();
             if stdout.contains("inference-start") {
                 Some("cynic-cli+inference-start".into())
@@ -384,7 +191,7 @@ fn read_version(
                 Some("present".into())
             }
         }
-        VersionFrom::StdoutFirstLine => {
+        cynic_pkg::specs::VersionFrom::StdoutFirstLine => {
             let line = output
                 .stdout
                 .lines()
@@ -398,7 +205,7 @@ fn read_version(
                 Some(line.chars().take(120).collect())
             }
         }
-        VersionFrom::JsonField(field) => serde_json::from_str::<serde_json::Value>(&output.stdout)
+        cynic_pkg::specs::VersionFrom::JsonField(field) => serde_json::from_str::<serde_json::Value>(&output.stdout)
             .ok()
             .and_then(|value| value.get(field)?.as_str().map(|s| s.to_string()))
             .or_else(|| {
@@ -422,54 +229,4 @@ fn read_version(
         }
     }
     version
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        PrincipalInstallLayout, python_cli_normalizable_now, python_cli_uv_in_runtime_layout,
-    };
-    use cynic_pkg::InstallPrincipalKind;
-    use std::fs::File;
-    use std::path::PathBuf;
-
-    fn runtime_layout(home: PathBuf, writable: bool) -> PrincipalInstallLayout {
-        PrincipalInstallLayout {
-            principal: InstallPrincipalKind::RuntimeUser,
-            runtime_user: "cynic".into(),
-            home_dir: home.clone(),
-            bin_dir: home.join(".local/bin"),
-            src_dir: home.join(".local/share/cynic/src"),
-            share_dir: home.join(".local/share/cynic"),
-            run_as: cynic_pkg::RunAs::Current,
-            writable,
-            notes: vec![],
-        }
-    }
-
-    #[test]
-    fn python_cli_uv_in_runtime_layout_checks_principal_uv_binary() {
-        let home = std::env::temp_dir().join("cynic-test-uv-runtime-home-1");
-        let _ = std::fs::remove_dir_all(&home);
-        let layout = runtime_layout(home.clone(), true);
-        std::fs::create_dir_all(&layout.bin_dir).unwrap();
-        assert!(!python_cli_uv_in_runtime_layout(&layout));
-        File::create(layout.bin_dir.join("uv")).unwrap();
-        assert!(python_cli_uv_in_runtime_layout(&layout));
-        let _ = std::fs::remove_dir_all(&home);
-    }
-
-    #[test]
-    fn python_cli_normalizable_now_for_hermes_requires_writable_and_runtime_uv() {
-        let home = std::env::temp_dir().join("cynic-test-uv-runtime-home-2");
-        let _ = std::fs::remove_dir_all(&home);
-        let mut layout = runtime_layout(home.clone(), true);
-        std::fs::create_dir_all(&layout.bin_dir).unwrap();
-        File::create(layout.bin_dir.join("uv")).unwrap();
-        assert!(python_cli_normalizable_now(&layout, "hermes-agent"));
-
-        layout.writable = false;
-        assert!(!python_cli_normalizable_now(&layout, "hermes-agent"));
-        let _ = std::fs::remove_dir_all(&home);
-    }
 }

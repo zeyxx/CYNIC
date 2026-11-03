@@ -21,6 +21,12 @@ pub mod tooling_authority;
 pub mod types;
 pub mod upstream_probe;
 
+pub mod evaluate;
+pub mod plan;
+
+pub use evaluate::{channel_for_dep, cmp_loose_version, extract_build_number, format_python_provenance, mode_from_channel, parse_version_triple, principal_for_dep, python_cli_can_auto_apply, python_cli_normalizable_now, python_cli_requires_runtime_principal, python_cli_requires_uv, evaluate_status};
+pub use plan::{action_priority, needs_upgrade, reason_for_dep};
+
 pub use pins::{PinEntry, PinsFile, load_pins, resolve_pins_path};
 pub use specs::{DepSpec, UpgradeMode, VersionFrom, specs};
 
