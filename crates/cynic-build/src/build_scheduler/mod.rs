@@ -30,7 +30,19 @@ use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_sandbox::cargo::BuildSandboxMode;
 use tokio_util::sync::CancellationToken;
 
-pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
+pub async fn build_run_loop(
+    control: NodeControlConfig,
+    shutdown: CancellationToken,
+    capacity: &dyn CapacityAssessmentPort,
+    cpu: &dyn CpuMeterPort,
+    evidence: &dyn ContentAddressedEvidenceStorePort,
+    layout: &dyn WorkspaceLayoutResolver,
+    signer: &dyn BuildWorkloadGrantSignerPort,
+    artifact_transport: &dyn RuntimeArtifactTransportPort,
+    packaging: &dyn ReleaseBasketPackagingPort,
+    release_signing: &dyn ReleaseBasketSigningPort,
+    release_store: &dyn ReleaseArtifactPublicationPort,
+) {
     let Some(scheduler) = control.build_scheduler.clone() else {
         return;
     };
@@ -41,7 +53,7 @@ pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
     );
     let interval = Duration::from_secs(scheduler.interval_secs);
     loop {
-        if let Err(error) = run_iteration(&control, &scheduler, &store, &shutdown).await {
+        if let Err(error) = run_iteration(&control, &scheduler, &store, &shutdown, &capacity, &cpu, &evidence, &layout, &signer, &artifact_transport, &packaging, &release_signing, &release_store).await {
             tracing::warn!(%error, "build scheduler iteration blocked");
         }
         tokio::select! {
@@ -74,7 +86,7 @@ pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) 
 /// Pure capacity gate for admission: admit a claim unless the assessment
 /// is `Saturated`. Unknown measurements (Normal + residual unknowns)
 /// proceed — the policy default never refuses on unmeasured capacity.
-fn admit_claim_under_capacity(assessment: &CapacityAssessmentV1) -> bool {
+fn admit_claim_under_capacity(assessment: &CapacityAssessment) -> bool {
     assessment.state != LoadTier::Saturated
 }
 
@@ -108,6 +120,9 @@ async fn run_iteration(
     layout: &dyn WorkspaceLayoutResolver,
     signer: &dyn BuildWorkloadGrantSignerPort,
     artifact_transport: &dyn RuntimeArtifactTransportPort,
+    packaging: &dyn ReleaseBasketPackagingPort,
+    release_signing: &dyn ReleaseBasketSigningPort,
+    release_store: &dyn ReleaseArtifactPublicationPort,
 ) -> Result<(), String> {
     // Capacity gate at admission (T4): measure once per tick. A Saturated host
     // skips claiming entirely — records stay queued; refusal is per-iteration

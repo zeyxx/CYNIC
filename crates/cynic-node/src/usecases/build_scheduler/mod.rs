@@ -10,7 +10,7 @@ use std::time::Duration;
 use cynic_build::build_scheduler::{
     BuildArtefactReclaimer, BuildSchedulerConfig, CapacityAssessment, CapacityAssessmentPort,
     CpuMeterPort, NodeControlConfig, ReleasePublicationConfig, RuntimeArtifactTransportPort,
-    WorkspaceLayoutResolver, release_publication::publish_with_ports, run_loop as build_run_loop,
+    WorkspaceLayoutResolver, build_run_loop, release_publication::publish_with_ports,
 };
 use cynic_build::ports::{
     BuildWorkloadGrantSignerPort, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort,
