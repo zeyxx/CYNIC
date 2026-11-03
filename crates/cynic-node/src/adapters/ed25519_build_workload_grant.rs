@@ -113,6 +113,10 @@ impl BuildWorkloadGrantSignerPort for Ed25519BuildWorkloadGrantSigner {
     fn sign(&self, payload: &[u8]) -> Result<String, String> {
         Ok(hex::encode(self.signing_key.sign(payload).to_bytes()))
     }
+
+    fn persist_public_key(&self, path: &Path) -> Result<(), String> {
+        self.persist_public_key(path)
+    }
 }
 
 #[derive(Debug, Clone)]

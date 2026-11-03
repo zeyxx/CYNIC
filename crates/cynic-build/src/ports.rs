@@ -77,6 +77,10 @@ pub trait IdentityPort: Send + Sync {
 pub trait BuildWorkloadGrantSignerPort: Send + Sync {
     fn authority_key_id(&self) -> &str;
     fn sign(&self, payload: &[u8]) -> Result<String, String>;
+    fn persist_public_key(&self, path: &std::path::Path) -> Result<(), String> {
+        let _ = path;
+        Ok(())
+    }
 }
 
 /// Port for verifying build workload grants.

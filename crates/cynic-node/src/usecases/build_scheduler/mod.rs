@@ -275,6 +275,7 @@ pub async fn run_loop(
         &packaging,
         &release_signing,
         &release_store,
+        &reclaimer,
     )
     .await;
 }

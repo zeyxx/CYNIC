@@ -100,7 +100,7 @@ pub(super) async fn prepare(
         &claimed.record.envelope.workload_id,
         layout,
         &runner,
-        &artifact_transport,
+        artifact_transport,
         cancellation,
     )
     .await?;
@@ -121,7 +121,7 @@ pub(super) async fn prepare(
         &consumed,
         &control.node_id,
         action_now_ms / 1_000,
-        &signer,
+        signer,
     )
     .map_err(|blockers| blockers.join(","))?;
     let grant_store = LocalBuildWorkloadGrantStore::new(

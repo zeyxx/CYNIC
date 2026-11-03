@@ -45,6 +45,7 @@ pub async fn build_run_loop(
     packaging: &dyn ReleaseBasketPackagingPort,
     release_signing: &dyn ReleaseBasketSigningPort,
     release_store: &dyn ReleaseArtifactPublicationPort,
+    reclaimer: &dyn BuildArtefactReclaimer,
 ) {
     let Some(scheduler) = control.build_scheduler.clone() else {
         return;
@@ -56,7 +57,24 @@ pub async fn build_run_loop(
     );
     let interval = Duration::from_secs(scheduler.interval_secs);
     loop {
-        if let Err(error) = run_iteration(&control, &scheduler, &store, &shutdown, &capacity, &cpu, &evidence, &layout, &signer, &artifact_transport, &packaging, &release_signing, &release_store).await {
+        if let Err(error) = run_iteration(
+            &control,
+            &scheduler,
+            &store,
+            &shutdown,
+            capacity,
+            cpu,
+            evidence,
+            layout,
+            signer,
+            artifact_transport,
+            packaging,
+            release_signing,
+            release_store,
+            reclaimer,
+        )
+        .await
+        {
             tracing::warn!(%error, "build scheduler iteration blocked");
         }
         tokio::select! {
@@ -126,6 +144,7 @@ async fn run_iteration(
     packaging: &dyn ReleaseBasketPackagingPort,
     release_signing: &dyn ReleaseBasketSigningPort,
     release_store: &dyn ReleaseArtifactPublicationPort,
+    reclaimer: &dyn BuildArtefactReclaimer,
 ) -> Result<(), String> {
     // Capacity gate at admission (T4): measure once per tick. A Saturated host
     // skips claiming entirely — records stay queued; refusal is per-iteration
@@ -188,6 +207,7 @@ async fn run_iteration(
             packaging,
             release_signing,
             release_store,
+            reclaimer,
         )
         .await?;
     }
@@ -210,6 +230,7 @@ async fn execute_claimed(
     packaging: &dyn ReleaseBasketPackagingPort,
     release_signing: &dyn ReleaseBasketSigningPort,
     release_store: &dyn ReleaseArtifactPublicationPort,
+    reclaimer: &dyn BuildArtefactReclaimer,
 ) -> Result<(), String> {
     let guard = claimed
         .record
@@ -258,6 +279,10 @@ async fn execute_claimed(
         &claimed,
         &guard,
         &execution_cancel,
+        layout,
+        signer,
+        artifact_transport,
+        reclaimer,
     )
     .await
     {
@@ -315,7 +340,7 @@ async fn execute_claimed(
                 &after_execution.record.envelope.action.argv,
                 lifecycle::current_unix_ms(),
                 &prepared.provenance,
-                &evidence_store,
+                evidence_store,
                 &target_dir,
                 &CynicPaths::build_artifacts_dir(&control.agent_workload_state_root),
             );
@@ -335,7 +360,7 @@ async fn execute_claimed(
                         &after_execution.record.envelope.action.argv,
                         lifecycle::current_unix_ms(),
                         prepared.provenance.clone(),
-                        &evidence_store,
+                        evidence_store,
                     ) {
                         Ok(reference) => {
                             evidence_refs.push(reference);
@@ -347,7 +372,7 @@ async fn execute_claimed(
                                 scheduler.release_publication.as_ref().unwrap(),
                                 lifecycle::current_unix_ms(),
                                 &prepared.provenance,
-                                &evidence_store,
+                                evidence_store,
                                 packaging,
                                 release_signing,
                                 release_store,
@@ -402,7 +427,7 @@ async fn execute_claimed(
                 &read_back,
                 lifecycle::current_unix_ms(),
                 prepared.provenance,
-                &evidence_store,
+                evidence_store,
             )
             .ok()
             .into_iter()

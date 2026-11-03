@@ -37,7 +37,6 @@ pub(super) async fn publish(
     let publication_intent = request
         .release_publication
         .ok_or_else(|| "release_publication_intent_missing".to_string())?;
-    let config = config.ok_or_else(|| "release_publication_config_unavailable".to_string())?;
     let registry_digest = crate::adapters::local_release_basket_packaging::digest_file(
         &workspace.workspace_root.join("infra/registry.json"),
         config.max_bytes,
@@ -77,9 +76,9 @@ pub async fn publish_with_ports<P, S, A>(
     artifact_store: &A,
 ) -> Result<AgentEvidenceRef, String>
 where
-    P: ReleaseBasketPackagingPort,
-    S: ReleaseBasketSigningPort,
-    A: ReleaseArtifactPublicationPort,
+    P: ReleaseBasketPackagingPort + ?Sized,
+    S: ReleaseBasketSigningPort + ?Sized,
+    A: ReleaseArtifactPublicationPort + ?Sized,
 {
     let build_proof_ref = evidence_refs
         .iter()
