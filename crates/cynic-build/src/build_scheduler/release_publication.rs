@@ -1,42 +1,30 @@
-use cynic_build::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
-
-use std::{collections::BTreeMap, time::Duration};
-
 use cynic_build::{
+    LocalReleaseBasketPackaging, SshReleaseBasketSigning,
+    RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA,
     RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA, RuntimeReleasePublicationManifest,
     SIGNED_RELEASE_BASKET_REQUEST_SCHEMA, SignedReleaseBasketRequest,
     build_agent_request_from_workload, plan_signed_release_basket,
-};
-use cynic_host::{
-    adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
-    ports::evidence_store::ContentAddressedEvidenceStorePort,
-};
-use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope};
-use cynic_agent::AgentWorkloadEnvelope;
-
-use crate::{
-    adapters::{
-        http_artifact_transport::HttpArtifactTransport,
-    },
-    config::ReleasePublicationConfig,
-};
-use cynic_build::ports::BuildWorkspaceReadBack;
-use cynic_build::{
-    LocalReleaseBasketPackaging, SshReleaseBasketSigning,
     ports::{
-        ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort,
+        BuildWorkspaceReadBack, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort,
+        ReleaseBasketSigningPort,
     },
 };
+use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope, evidence_store_port::ContentAddressedEvidenceStorePort};
+use cynic_agent::AgentWorkloadEnvelope;
+use cynic_build::build_scheduler::config::ReleasePublicationConfig;
 
 pub(super) async fn publish(
     node_id: &str,
     envelope: &AgentWorkloadEnvelope,
     workspace: &BuildWorkspaceReadBack,
     evidence_refs: &[AgentEvidenceRef],
-    config: Option<&ReleasePublicationConfig>,
+    config: &ReleasePublicationConfig,
     observed_at_ms: u64,
     provenance: &[String],
-    evidence_store: &LocalContentAddressedEvidenceStore,
+    evidence_store: &dyn ContentAddressedEvidenceStorePort,
+    packaging: &dyn ReleaseBasketPackagingPort,
+    signing: &dyn ReleaseBasketSigningPort,
+    artifact_store: &dyn ReleaseArtifactPublicationPort,
 ) -> Result<Option<AgentEvidenceRef>, String> {
     if cynic_build::canonical_build_action_from_argv(&envelope.action.argv)
         != Some("cargo:build-release")
@@ -53,20 +41,6 @@ pub(super) async fn publish(
         config.max_bytes,
     )?
     .0;
-    let packaging = LocalReleaseBasketPackaging::new(config.work_root.clone(), config.max_bytes)?;
-    let signing = SshReleaseBasketSigning::new(
-        config.signing_key_path.clone(),
-        config.signer_identity.clone(),
-        config.signature_namespace.clone(),
-        config.max_bytes,
-    )?;
-    let artifact_store = HttpArtifactTransport::new_release(
-        &config.artifact_base_url,
-        &config.authentication_kind,
-        config.credential_path.clone(),
-        config.max_bytes,
-        Duration::from_secs(config.timeout_secs),
-    )?;
     publish_with_ports(
         node_id,
         envelope,
@@ -77,16 +51,16 @@ pub(super) async fn publish(
         observed_at_ms,
         provenance,
         evidence_store,
-        &packaging,
-        &signing,
-        &artifact_store,
+        packaging,
+        signing,
+        artifact_store,
     )
     .await
     .map(Some)
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn publish_with_ports<P, S, A>(
+pub(super) async fn publish_with_ports<P, S, A>(
     node_id: &str,
     envelope: &AgentWorkloadEnvelope,
     workspace: &BuildWorkspaceReadBack,

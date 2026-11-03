@@ -64,13 +64,14 @@
                 "cynic-release",
                 "cynic-sandbox",
                 "cynic-ssh",
-                "cynic-types"
+                "cynic-types",
+                "cynic-vcs"
             ],
             "dev_depends_on": [],
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 20796
+            "loc": 24009
         },
         "cynic-cli": {
             "consumers": [],
@@ -387,7 +388,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L3",
-            "loc": 54890
+            "loc": 51741
         },
         "cynic-node-protocol": {
             "consumers": [
@@ -713,6 +714,7 @@
         },
         "cynic-vcs": {
             "consumers": [
+                "cynic-build",
                 "cynic-cli",
                 "cynic-node"
             ],
@@ -914,9 +916,9 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 397212,
+        "loc_total": 397276,
         "pending_disposition": 3,
-        "runtime_edges": 160,
+        "runtime_edges": 161,
         "unjustified": 2,
         "upward_edges": 0
     },
