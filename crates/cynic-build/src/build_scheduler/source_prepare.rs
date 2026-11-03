@@ -21,12 +21,6 @@ use cynic_vcs::ports::{
 use cynic_agent::workspace::ports::AgentWorkspaceLayout;
 use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
 use crate::ports::RuntimeArtifactTransportPort;
-use cynic_vcs::ports::{
-    SourceMaterializationPort, SourceRepositoryBootstrapPort, SourceRepositoryLayout,
-};
-use cynic_vcs::adapters::{
-    LocalSourceMaterialization, LocalSourceRepositoryBootstrap, source_snapshot_store::snapshot_path,
-};
 
 pub(super) async fn prepare_build_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>(
     control: &NodeControlConfig,

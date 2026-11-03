@@ -294,8 +294,6 @@ pub trait BuildExecutionPort: Send + Sync {
 
 // --- Additional build-scheduler ports ---
 
-use cynic_protocol::RuntimeArtifactSource;
-
 /// Port for staging runtime artifacts (e.g. source snapshots).
 #[async_trait::async_trait]
 pub trait RuntimeArtifactTransportPort: Send + Sync {
