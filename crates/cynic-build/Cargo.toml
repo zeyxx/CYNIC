@@ -31,7 +31,7 @@ libc = "0.2"
 async-trait.workspace = true
 tempfile = "3.17"
 tokio.workspace = true
-tokio-util = { version = "0.7", features = ["sync"] }
+tokio-util = { version = "0.7", features = ["rt"] }
 
 [dev-dependencies]
 serde_json = { workspace = true }
