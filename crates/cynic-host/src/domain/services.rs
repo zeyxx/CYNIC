@@ -484,8 +484,8 @@ pub(crate) fn openrc_service_name(unit: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        ServiceCommandContext, ServiceManagerKind, ServicePolicy, ServiceUnitPolicy,
-        openrc_service_name,
+        ServiceCommandContext, ServiceManagerKind, ServicePolicy, ServicePolicyExt,
+        ServiceUnitPolicy, openrc_service_name,
     };
     use crate::command_surface::render_command;
 
