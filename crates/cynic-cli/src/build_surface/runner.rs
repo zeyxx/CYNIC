@@ -329,28 +329,115 @@ fn run_one_proof(
         &builder_url,
         wait,
     )?;
-    // Map the HTTP response into a clean structured BuildProofReport.
-    let status_str = proof
-        .get("completion")
-        .and_then(|c| c.get("status"))
-        .and_then(|s| s.as_str())
-        .or_else(|| proof.get("state").and_then(|s| s.as_str()))
+    // Project only observed execution metadata. A lifecycle completion without
+    // the action, runner, duration, and execution evidence is not convergence.
+    let completion = proof.get("completion");
+    let status_str = completion
+        .and_then(|value| value.get("status"))
+        .and_then(|value| value.as_str())
+        .or_else(|| proof.get("state").and_then(|value| value.as_str()))
         .unwrap_or("");
-    let node_id = proof
-        .get("node")
-        .and_then(|n| n.as_str())
-        .or_else(|| proof.get("node_id").and_then(|n| n.as_str()))
-        .unwrap_or("builder")
+    let argv = proof
+        .pointer("/envelope/action/argv")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let node_id = completion
+        .and_then(|value| value.get("node_id"))
+        .and_then(|value| value.as_str())
+        .or_else(|| proof.pointer("/envelope/delegation/node_id").and_then(|v| v.as_str()))
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_default()
         .to_string();
-    let status = if status_str == "completed" {
-        cynic_build::build_proof::BuildProofStatus::Converged
-    } else if status_str.is_empty() {
-        cynic_build::build_proof::BuildProofStatus::Unreachable {
-            detail: "empty builder response".to_string(),
+    let wall_time_ms = completion
+        .and_then(|value| value.pointer("/consumed_budget/wall_time_ms"))
+        .and_then(|value| value.as_u64());
+    let elapsed_secs = wall_time_ms
+        .map(|millis| millis.saturating_add(999) / 1_000)
+        .unwrap_or_default();
+    let unknowns = completion
+        .and_then(|value| value.get("unknowns"))
+        .and_then(|value| value.as_array());
+    let execution_evidence_present = completion
+        .and_then(|value| value.get("evidence_refs"))
+        .and_then(|value| value.as_array())
+        .is_some_and(|references| {
+            references.iter().any(|reference| {
+                reference.get("kind").and_then(|value| value.as_str())
+                    == Some("build_execution_provenance")
+                    && reference
+                        .get("digest")
+                        .and_then(|value| value.as_str())
+                        .is_some_and(|digest| !digest.is_empty())
+            })
+        });
+    let mut missing = Vec::new();
+    if proof.pointer("/envelope/source_commit").and_then(|value| value.as_str())
+        != Some(commit)
+    {
+        missing.push("source commit read-back mismatch".to_string());
+    }
+    if argv.is_empty() {
+        missing.push("executed argv missing".to_string());
+    }
+    if node_id.is_empty() {
+        missing.push("runner identity missing".to_string());
+    }
+    if wall_time_ms.is_none_or(|millis| millis == 0) {
+        missing.push("measured wall time missing".to_string());
+    }
+    if unknowns.is_none() {
+        missing.push("completion unknowns missing".to_string());
+    } else if let Some(items) = unknowns.filter(|items| !items.is_empty()) {
+        let details = items
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>();
+        missing.push(format!("completion has unknowns: {}", details.join("; ")));
+    }
+    if !execution_evidence_present {
+        missing.push("build execution provenance missing".to_string());
+    }
+    if let Some(package) = package.as_deref() {
+        let package_observed = argv.windows(2).any(|pair| {
+            matches!(pair[0].as_str(), "--package" | "-p") && pair[1] == package
+        });
+        if !package_observed {
+            missing.push(format!("requested package scope not present in argv: {package}"));
         }
-    } else {
-        cynic_build::build_proof::BuildProofStatus::Failed {
-            detail: format!("builder status: {status_str}"),
+    }
+    if let BuildProofPhase::Test { filter: Some(filter) } = &request.phase {
+        if !argv.iter().any(|argument| argument == filter) {
+            missing.push(format!("requested test filter not present in argv: {filter}"));
+        }
+    }
+    let status = match status_str {
+        "completed" if unknowns.is_some_and(|items| items.is_empty()) && missing.is_empty() => {
+            cynic_build::build_proof::BuildProofStatus::Converged
+        }
+        "completed" => cynic_build::build_proof::BuildProofStatus::Unreachable {
+            detail: format!("incomplete terminal execution evidence: {}", missing.join("; ")),
+        },
+        "" => cynic_build::build_proof::BuildProofStatus::Unreachable {
+            detail: "empty builder response".to_string(),
+        },
+        other => {
+            let details = unknowns
+                .into_iter()
+                .flatten()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>();
+            let detail = if details.is_empty() {
+                format!("builder status: {other}")
+            } else {
+                format!("builder status: {other}; {}", details.join("; "))
+            };
+            cynic_build::build_proof::BuildProofStatus::Failed { detail }
         }
     };
     let report = cynic_build::build_proof::BuildProofReport {
@@ -359,11 +446,15 @@ fn run_one_proof(
         package: package.clone(),
         phase: phase.to_string(),
         status,
-        argv: Vec::new(),
+        argv,
         node_id,
-        elapsed_secs: 0,
-        tests_passed: None,
-        tests_failed: None,
+        elapsed_secs,
+        tests_passed: completion
+            .and_then(|value| value.get("tests_passed"))
+            .and_then(|value| value.as_u64()),
+        tests_failed: completion
+            .and_then(|value| value.get("tests_failed"))
+            .and_then(|value| value.as_u64()),
     };
     Ok(report)
 }
@@ -637,7 +728,11 @@ mod tests {
             "status": "completed",
             "node_id": "builder-test",
             "unknowns": [],
-            "evidence_refs": [{"kind": "build_execution_provenance"}],
+            "evidence_refs": [{
+                "kind": "build_execution_provenance",
+                "subject": "workload-test",
+                "digest": "sha256:execution-proof"
+            }],
             "consumed_budget": {"wall_time_ms": 4200}
         }));
         let (builder_url, server) = with_local_builder(proof);
@@ -687,5 +782,39 @@ mod tests {
             report.status,
             cynic_build::build_proof::BuildProofStatus::Unreachable { .. }
         ));
+    }
+
+    #[test]
+    fn omitted_requested_package_is_not_reported_as_converged() {
+        let proof = proof_response(serde_json::json!({
+            "status": "completed",
+            "node_id": "builder-test",
+            "unknowns": [],
+            "evidence_refs": [{
+                "kind": "build_execution_provenance",
+                "subject": "workload-test",
+                "digest": "sha256:execution-proof"
+            }],
+            "consumed_budget": {"wall_time_ms": 4200}
+        }));
+        let (builder_url, server) = with_local_builder(proof);
+
+        let report = run_one_proof(
+            &"a".repeat(40),
+            Some("cynic-cli".to_string()),
+            "check",
+            None,
+            Some(&builder_url),
+            "test-agent",
+        )
+        .expect("terminal response should be reported");
+        server.join().expect("builder server");
+
+        assert!(matches!(
+            report.status,
+            cynic_build::build_proof::BuildProofStatus::Unreachable { .. }
+        ));
+        assert_eq!(report.argv, ["cargo", "check"]);
+        assert_eq!(report.elapsed_secs, 5);
     }
 }
