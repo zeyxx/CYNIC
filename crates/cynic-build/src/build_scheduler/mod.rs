@@ -1,5 +1,5 @@
-mod config;
-mod grant;
+pub mod config;
+pub mod grant;
 mod lifecycle;
 mod prepare;
 pub mod release_publication;
