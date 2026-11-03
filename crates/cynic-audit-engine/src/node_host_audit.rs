@@ -88,10 +88,10 @@ pub fn build_node_host_audit(
     let root = std::env::current_dir().map_err(|error| error.to_string())?;
     let mut modules = Vec::new();
     for path in discover_source_files(&root, NODE_ROOT)? {
-        modules.push(classify_module(&root, &path)?);
+        modules.push(classify_module(git_observer, &root, &path)?);
     }
     for path in discover_source_files(&root, HOST_ROOT)? {
-        modules.push(classify_module(&root, &path)?);
+        modules.push(classify_module(git_observer, &root, &path)?);
     }
     modules.sort_by(|left, right| left.path.cmp(&right.path));
 
@@ -152,7 +152,11 @@ fn is_source_path(root: &Path, path: &Path) -> bool {
         && !relative.contains("/target/")
 }
 
-fn classify_module(root: &Path, path: &Path) -> Result<ModuleAudit, String> {
+fn classify_module(
+    observer: &dyn crate::ports::GitObserverPort,
+    root: &Path,
+    path: &Path,
+) -> Result<ModuleAudit, String> {
     let relative = relative_path(root, path);
     let content = fs::read_to_string(path).unwrap_or_default();
     let signals = signals(&relative, &content);
@@ -167,7 +171,7 @@ fn classify_module(root: &Path, path: &Path) -> Result<ModuleAudit, String> {
         owner_expected,
         owner_actual,
         layer,
-        git_status: git_status_for(root, &relative),
+        git_status: git_status_for(observer, &relative),
         line_count: content.lines().count(),
         action,
         risk,
@@ -540,8 +544,8 @@ fn infer_errors(
     errors
 }
 
-fn git_status_for(root: &Path, relative: &str) -> String {
-    let status = git_command(root, &["status", "--short", "--", relative]);
+fn git_status_for(observer: &dyn crate::ports::GitObserverPort, relative: &str) -> String {
+    let status = git_command(observer, &["status", "--short", "--", relative]);
     status
         .stdout
         .lines()
