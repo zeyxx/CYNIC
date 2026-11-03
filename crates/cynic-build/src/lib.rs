@@ -72,8 +72,9 @@ pub use build_scheduler::grant::issue_signed_build_workload_grant;
 pub use build_scheduler::release_publication::publish_with_ports;
 pub use ports::{
     BuildArtefactReclaimer, CapacityAssessment, CapacityAssessmentPort, CpuMeterPort, CpuSample,
-    LoadPolicy, LoadTier, ReleasePublicationConfig, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
+    LoadPolicy, LoadTier, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
 };
+pub use build_scheduler::config::ReleasePublicationConfig;
 pub use builder_client::*;
 pub use builder_rbac::*;
 pub use collision_counter::*;
