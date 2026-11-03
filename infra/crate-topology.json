@@ -57,7 +57,6 @@
             ],
             "depends_on": [
                 "cynic-agent",
-                "cynic-host",
                 "cynic-network",
                 "cynic-node-protocol",
                 "cynic-process",
@@ -71,7 +70,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 20490
+            "loc": 20527
         },
         "cynic-cli": {
             "consumers": [],
@@ -198,7 +197,6 @@
         },
         "cynic-host": {
             "consumers": [
-                "cynic-build",
                 "cynic-cli",
                 "cynic-intel",
                 "cynic-node"
@@ -761,10 +759,10 @@
         "cynic-pkg",
         "cynic-sqlite",
         "cynic-vcs",
+        "cynic-build",
         "cynic-surreal",
         "cynic-host",
         "cynic-knowledge",
-        "cynic-build",
         "cynic-eval",
         "cynic-intel",
         "cynic-inference",
@@ -916,9 +914,9 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 397169,
+        "loc_total": 397206,
         "pending_disposition": 3,
-        "runtime_edges": 161,
+        "runtime_edges": 160,
         "unjustified": 2,
         "upward_edges": 0
     },

@@ -18,10 +18,10 @@ use cynic_types::paths::CynicPaths;
 use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
 use tokio_util::sync::CancellationToken;
 
+use cynic_build::adapters::TokioBuildExecution;
 use crate::{
     adapters::{
         local_agent_workload_store::LocalAgentWorkloadStore,
-        cynic_build::adapters::TokioBuildExecution,
     },
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{

@@ -79,6 +79,8 @@ pub fn decide_disk_capacity(
 ///
 /// A missing or unparsable line yields `None`: an unknown disk is not a
 /// measured disk.
+pub use parse_df_available_bytes as parse_df_available_bytes_for_path;
+
 pub fn parse_df_available_bytes(df_output: &str, query_path: &str) -> Option<u64> {
     let mut fallback: Option<u64> = None;
     for line in df_output.lines().skip(1) {
