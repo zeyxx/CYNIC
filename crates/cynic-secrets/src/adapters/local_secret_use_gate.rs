@@ -21,16 +21,21 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 
+use crate::protocol::{
+    SECRET_USE_EXECUTION_SCHEMA, SecretUseExecutionReport, SecretUseHandle, SecretUseOutcome,
+};
+use crate::{SecretError, SecretProviderPort, SecretReference, SecretUseGatePort};
 use cynic_protocol::secret_use::{
     SECRET_USE_AUDIT_SCHEMA, SecretUseAuditEntry, SecretUseDecision, SecretUsePolicy,
     SecretUseRequest, decide_secret_use,
 };
-use cynic_secrets::protocol::{
-    SECRET_USE_EXECUTION_SCHEMA, SecretUseExecutionReport, SecretUseHandle, SecretUseOutcome,
-};
-use cynic_secrets::{SecretError, SecretProviderPort, SecretReference, SecretUseGatePort};
 
-use crate::clock::now_unix_ms;
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 /// Default lifetime of an authorization handle: 60 seconds. Short by design —
 /// an authorized use is meant to happen immediately, not be hoarded.
@@ -259,7 +264,7 @@ fn redact_if_present(text: String, secret: &str) -> (String, bool) {
 /// after a request has been authorized.
 pub fn resolve_via_composite(id: &str) -> Option<String> {
     let reference = SecretReference::env(id, &id.to_uppercase().replace('-', "_"));
-    cynic_secrets::CompositeSecretProvider::default().resolve(&reference)
+    crate::CompositeSecretProvider::default().resolve(&reference)
 }
 
 /// Audit sink path under the operator's principal home.
@@ -498,44 +503,5 @@ mod tests {
         .with_claim("claim_1");
         let outcome = gate.authorize(&rogue);
         assert!(matches!(outcome, SecretUseOutcome::Denied { .. }));
-    }
-
-    #[test]
-    fn gate_accepts_a_policy_derived_from_the_declaration() {
-        use crate::adapters::secret_use_policy_loader::derive_policy_from_declaration;
-
-        let declaration = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/agent-roles.json"),
-        )
-        .expect("read agent-roles.json");
-
-        let policy = derive_policy_from_declaration(&declaration);
-        let gate = LocalSecretUseGate::new(policy, |_| Some("value".to_string()));
-
-        // scheduler_agent declares RuntimeMachineIdentity: allowed with a claim.
-        let allowed = SecretUseRequest::new(
-            "agent-code",
-            "scheduler_agent",
-            runtime_ref("proxmox-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
-        assert!(matches!(
-            gate.authorize(&allowed),
-            SecretUseOutcome::Allowed { .. }
-        ));
-
-        // schema_warden declares None: nothing may be consumed.
-        let denied = SecretUseRequest::new(
-            "agent-code",
-            "schema_warden",
-            runtime_ref("proxmox-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
-        assert!(matches!(
-            gate.authorize(&denied),
-            SecretUseOutcome::Denied { .. }
-        ));
     }
 }

@@ -29,6 +29,10 @@ pub use cynic_protocol::secret_reference::{
 pub use cynic_protocol::secret_use as secret_use;
 // Re-export the port traits and concrete providers from this crate.
 pub use adapters::{EncryptedFileSecretProvider, OsCredentialStoreSecretProvider, ProcessEnvironmentSecretProvider};
+pub use adapters::{
+    DEFAULT_HANDLE_TTL_MS, DEFAULT_INJECTION_ENV_VAR, LocalSecretUseGate, default_audit_path,
+    resolve_via_composite,
+};
 pub use composite::CompositeSecretProvider;
 pub use material::SecretMaterial;
 pub use ports::{SecretProviderPort, SecretStorePort, SecretUseGatePort};

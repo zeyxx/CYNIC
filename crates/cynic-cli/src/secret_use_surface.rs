@@ -32,7 +32,6 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use cynic_host::adapters::local_secret_use_gate::{default_audit_path, resolve_via_composite};
 use cynic_host::adapters::secret_use_policy_loader::{
     load_policy_from_file, resolve_declaration_path,
 };
@@ -40,6 +39,7 @@ use cynic_protocol::secret_reference::{SecretClass, SecretProvider, SecretRefere
 use cynic_protocol::secret_use::{SecretUsePurpose, SecretUseRequest};
 use cynic_secrets::ports::SecretUseGatePort;
 use cynic_secrets::protocol::{SecretUseExecutionReport, SecretUseOutcome};
+use cynic_secrets::{LocalSecretUseGate, default_audit_path, resolve_via_composite};
 use serde::Serialize;
 
 use crate::{emit_json, fail};
@@ -151,10 +151,7 @@ pub(crate) fn execute_use(
 
     // The resolver is the composite provider (env -> principal file -> OS store).
     // It is only ever called by `execute_with_secret`, after an Allowed verdict.
-    let gate = cynic_host::adapters::local_secret_use_gate::LocalSecretUseGate::new(
-        policy,
-        resolve_via_composite,
-    );
+    let gate = LocalSecretUseGate::new(policy, resolve_via_composite);
 
     let reference = SecretReference {
         id: id.to_string(),

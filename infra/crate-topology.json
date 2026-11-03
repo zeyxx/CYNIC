@@ -111,7 +111,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 44629
+      "loc": 44626
     },
     "cynic-consensus": {
       "consumers": [
@@ -228,7 +228,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 75034
+      "loc": 74492
     },
     "cynic-inference": {
       "consumers": [
@@ -592,7 +592,7 @@
       "justified": true,
       "kind": "library",
       "layer": "cross_cutting",
-      "loc": 2035
+      "loc": 2551
     },
     "cynic-sqlite": {
       "consumers": [],
@@ -914,7 +914,7 @@
     "crates": 36,
     "dev_edges": 7,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397165,
+    "loc_total": 397136,
     "pending_disposition": 3,
     "runtime_edges": 160,
     "unjustified": 2,
