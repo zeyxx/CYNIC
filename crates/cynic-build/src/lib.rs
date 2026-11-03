@@ -67,11 +67,12 @@ pub use build_reliability::*;
 pub use build_runner_harness::*;
 pub use build_slice::*;
 pub use build_workflow::*;
-pub use build_scheduler::{
-    BuildArtefactReclaimer, BuildSchedulerConfig, CapacityAssessment, CapacityAssessmentPort,
-    CpuMeterPort, CpuSample, LoadPolicy, LoadTier, NodeControlConfig, ReleasePublicationConfig,
-    RuntimeArtifactTransportPort, WorkspaceLayoutResolver, grant::issue_signed_build_workload_grant,
-    release_publication::publish_with_ports,
+pub use build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+pub use build_scheduler::grant::issue_signed_build_workload_grant;
+pub use build_scheduler::release_publication::publish_with_ports;
+pub use ports::{
+    BuildArtefactReclaimer, CapacityAssessment, CapacityAssessmentPort, CpuMeterPort, CpuSample,
+    LoadPolicy, LoadTier, ReleasePublicationConfig, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
 };
 pub use builder_client::*;
 pub use builder_rbac::*;
