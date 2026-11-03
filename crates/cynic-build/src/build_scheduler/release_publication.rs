@@ -60,7 +60,7 @@ pub(super) async fn publish(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn publish_with_ports<P, S, A>(
+pub async fn publish_with_ports<P, S, A>(
     node_id: &str,
     envelope: &AgentWorkloadEnvelope,
     workspace: &BuildWorkspaceReadBack,
