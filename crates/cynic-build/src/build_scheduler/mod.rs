@@ -28,6 +28,7 @@ use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
 use crate::ports::recompute_layout_digest;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_sandbox::cargo::BuildSandboxMode;
+use tracing::{error, info, warn};
 use tokio_util::sync::CancellationToken;
 
 pub async fn build_run_loop(
