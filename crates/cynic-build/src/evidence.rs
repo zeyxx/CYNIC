@@ -1,14 +1,23 @@
-use cynic_build::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
-
 use std::{collections::BTreeMap, fs, path::Path};
 
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope};
 use sha2::{Digest, Sha256};
 
-use cynic_build::ports::{BuildExecutionReadBack, BuildWorkspaceReadBack};
+use crate::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
+use crate::ports::{BuildExecutionReadBack, BuildWorkspaceReadBack};
 
-pub(super) fn persist_success_proofs(
+/// Derive the cargo profile name from argv: `release` when `--release` is
+/// present, `debug` otherwise. Pure.
+pub fn profile_for_argv(argv: &[String]) -> &'static str {
+    if argv.iter().any(|arg| arg == "--release") {
+        "release"
+    } else {
+        "debug"
+    }
+}
+
+pub fn persist_success_proofs(
     node_id: &str,
     workload_id: &str,
     expected_proofs: &[String],
@@ -79,7 +88,7 @@ pub(super) fn persist_success_proofs(
     Ok(refs)
 }
 
-pub(super) fn persist_execution_failure(
+pub fn persist_execution_failure(
     node_id: &str,
     workload_id: &str,
     execution: &BuildExecutionReadBack,
@@ -107,7 +116,7 @@ pub(super) fn persist_execution_failure(
 /// workload's terminal transition. The terminal durable record retains this
 /// reference, so it forms a content-addressed local history while kernel PoH
 /// is unavailable; the `promotion` value prevents it being mistaken for one.
-pub(super) fn persist_execution_provenance(
+pub fn persist_execution_provenance(
     node_id: &str,
     workload_id: &str,
     repository_id: &str,
@@ -228,7 +237,7 @@ mod tests {
         let refs = persist_success_proofs(
             "node-1",
             "workload-1",
-            &[cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            &[crate::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             &workspace,
             &execution,
             &["cargo".to_string(), "check".to_string()],
@@ -240,7 +249,7 @@ mod tests {
         )
         .expect("grant read-back proof must be supported");
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].kind, cynic_build::BUILD_GRANT_READ_BACK_PROOF);
+        assert_eq!(refs[0].kind, crate::BUILD_GRANT_READ_BACK_PROOF);
         assert_eq!(refs[0].subject, "workload-1");
         assert!(!refs[0].digest.is_empty());
         assert_eq!(store.0.lock().unwrap().len(), 1);
@@ -248,5 +257,11 @@ mod tests {
             store.0.lock().unwrap()[0]["grant_provenance"][0],
             "grant:file"
         );
+    }
+
+    #[test]
+    fn profile_for_argv_derives_profile() {
+        assert_eq!(profile_for_argv(&["cargo".into(), "check".into()]), "debug");
+        assert_eq!(profile_for_argv(&["cargo".into(), "build".into(), "--release".into()]), "release");
     }
 }

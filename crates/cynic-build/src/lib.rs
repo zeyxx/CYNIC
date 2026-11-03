@@ -34,6 +34,7 @@ pub mod builder_rbac;
 pub mod builder_pool;
 pub mod collision_counter;
 pub mod compressor;
+pub mod evidence;
 pub mod external_build;
 #[deprecated(note = "use cynic_build::external_build directly")]
 pub mod external_build_uc;
@@ -69,6 +70,7 @@ pub use builder_client::*;
 pub use builder_rbac::*;
 pub use collision_counter::*;
 pub use compressor::*;
+pub use evidence::*;
 pub use external_build::*;
 pub use external_build_uc::*;
 pub use place::*;

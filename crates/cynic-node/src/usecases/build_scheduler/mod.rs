@@ -1,4 +1,3 @@
-mod evidence;
 mod lifecycle;
 mod prepare;
 mod release_publication;
@@ -6,7 +5,7 @@ mod source_prepare;
 
 use std::time::{Duration, Instant};
 
-use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
+use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, evidence, plan_build_queue};
 use cynic_build::ports::{BuildExecutionError, BuildExecutionPort};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
@@ -259,7 +258,7 @@ async fn execute_claimed(
     let target_dir = CynicPaths::scoped_build_target_dir(
         scheduler.shared_target_root.as_deref(),
         &prepared.workspace.workspace_root,
-        prepare::profile_for_argv(&after_execution.record.envelope.action.argv),
+        evidence::profile_for_argv(&after_execution.record.envelope.action.argv),
     );
     let evidence_store =
         LocalContentAddressedEvidenceStore::new(control.agent_workload_state_root.join("evidence"));

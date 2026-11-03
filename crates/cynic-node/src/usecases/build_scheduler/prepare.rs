@@ -12,6 +12,7 @@ use cynic_protocol::{LeaseGuard, digest_json};
 use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 
 use cynic_build::adapters::LocalBuildWorkspace;
+use cynic_build::profile_for_argv;
 use crate::{
     adapters::{
         ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner,
@@ -260,16 +261,6 @@ pub(super) fn build_execution_env(
         }
     }
     env
-}
-
-/// Derive the cargo profile name from argv: `release` when `--release` is
-/// present, `debug` otherwise. Pure.
-pub(crate) fn profile_for_argv(argv: &[String]) -> &'static str {
-    if argv.iter().any(|arg| arg == "--release") {
-        "release"
-    } else {
-        "debug"
-    }
 }
 
 /// Prepare the stable workspace path for a build: ensure the parent
