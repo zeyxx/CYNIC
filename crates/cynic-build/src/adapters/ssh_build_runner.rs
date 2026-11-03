@@ -5,12 +5,15 @@
 //! canonical protocol action) builds it. Disposable; the port contract in
 //! `build_runner.rs` is durable. Tests inject a fake `CommandRunner`.
 
-use cynic_build::pipeline_proof::{
+use crate::pipeline_proof::{
     BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
-use cynic_build::build::canonical_argv_from_build_action;
-use cynic_build::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
+use crate::build::canonical_argv_from_build_action;
+use crate::build_disk_capacity::{
+    DiskCapacityDecision, decide_disk_capacity, parse_df_available_bytes_for_path,
+};
+use crate::build_memory_capacity::{parse_free_available_bytes, parse_free_total_bytes};
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
 use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
@@ -283,7 +286,7 @@ impl BuildRunnerPort for SshBuildRunner {
                 return Err(BuildError::RunnerUnreachable(e.clone()));
             }
             let available = if df.success() {
-                cynic_host::domain::disk::parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
+                parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
             } else {
                 None
             };
@@ -538,7 +541,7 @@ impl SshBuildRunner {
         if !out.success() {
             return None;
         }
-        cynic_host::domain::memory::parse_free_available_bytes(&out.stdout)
+        parse_free_available_bytes(&out.stdout)
     }
 
     /// State root reported by the runner itself (`cynic runtime paths
@@ -570,7 +573,7 @@ impl SshBuildRunner {
         if !df.success() {
             return None;
         }
-        cynic_host::domain::disk::parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
+        parse_df_available_bytes_for_path(&df.stdout, &checkout_base)
     }
 
     /// Total RAM bytes from the same `free -b` probe. `None` on any
@@ -581,7 +584,7 @@ impl SshBuildRunner {
         if !out.success() {
             return None;
         }
-        cynic_host::domain::memory::parse_free_total_bytes(&out.stdout)
+        parse_free_total_bytes(&out.stdout)
     }
 
     /// Bounded remediation `gc-disk`: empty the runner-declared sccache dir.
@@ -774,7 +777,7 @@ mod tests {
     use super::*;
     // PipelineStatus is only referenced by tests; the file-level import was
     // dropped to silence the unused warning on normal builds.
-    use cynic_build::pipeline_proof::PipelineStatus;
+    use crate::pipeline_proof::PipelineStatus;
 
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};

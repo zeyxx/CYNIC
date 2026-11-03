@@ -11,13 +11,13 @@ use cynic_process::LocalArgvRunner;
 use cynic_protocol::{LeaseGuard, digest_json};
 use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 
+use cynic_build::adapters::LocalBuildWorkspace;
 use crate::{
     adapters::{
         ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner,
         http_artifact_transport::HttpArtifactTransport,
         local_agent_workload_store::LocalAgentWorkloadStore,
         local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
-        local_build_workspace::LocalBuildWorkspace,
         registry::{RegistryAgentWorkspaceLayoutAdapter, recompute_layout_digest},
     },
     config::{BuildSchedulerConfig, NodeControlConfig},

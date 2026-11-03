@@ -48,6 +48,38 @@ pub const DEFAULT_UNIT_RSS_BYTES: u64 = 512 * 1024 * 1024;
 /// keeps the estimate on the safe side of the OOM killer.
 pub const DEFAULT_RESERVED_BYTES: u64 = 1024 * 1024 * 1024;
 
+/// Parse `free -b` (bytes) output into available bytes.
+pub fn parse_free_available_bytes(text: &str) -> Option<u64> {
+    for line in text.lines() {
+        if line.starts_with("Mem:") {
+            let cols: Vec<u64> = line
+                .split_whitespace()
+                .filter_map(|s| s.parse::<u64>().ok())
+                .collect();
+            if cols.len() >= 6 {
+                return Some(cols[5]);
+            }
+        }
+    }
+    None
+}
+
+/// Parse `free -b` (bytes) output into total bytes.
+pub fn parse_free_total_bytes(text: &str) -> Option<u64> {
+    for line in text.lines() {
+        if line.starts_with("Mem:") {
+            let cols: Vec<u64> = line
+                .split_whitespace()
+                .filter_map(|s| s.parse::<u64>().ok())
+                .collect();
+            if !cols.is_empty() {
+                return Some(cols[0]);
+            }
+        }
+    }
+    None
+}
+
 /// Outcome of the pre-build memory gate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -2,11 +2,9 @@ use std::{fs, path::Path};
 
 use cynic_process::ArgvRunner;
 
-use cynic_build::ports::{BuildWorkspacePort, BuildWorkspaceReadBack};
+use crate::ports::{BuildWorkspacePort, BuildWorkspaceReadBack};
 
-use crate::ports::{
-    agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspacePortError},
-};
+use cynic_agent::workspace::ports::{AgentWorkspaceLayout, AgentWorkspacePortError};
 
 #[derive(Debug)]
 pub struct LocalBuildWorkspace<'a, R> {
