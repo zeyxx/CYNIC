@@ -2,14 +2,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use cynic_host::process_observation::capture_command_in_dir;
+// git invoked directly via std::process::Command
 use serde::Serialize;
 
 const NODE_ROOT: &str = "crates/cynic-node";
 const HOST_ROOT: &str = "crates/cynic-host";
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NodeHostAudit {
+pub struct NodeHostAudit {
     schema: &'static str,
     scope: Vec<&'static str>,
     git: GitAudit,
@@ -20,7 +20,7 @@ pub(crate) struct NodeHostAudit {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct GitAudit {
+pub struct GitAudit {
     worktree_summary: GitCommandSummary,
     diff_stat: GitCommandSummary,
     recent_history: Vec<GitHistoryEntry>,
@@ -28,7 +28,7 @@ struct GitAudit {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct GitCommandSummary {
+pub struct GitCommandSummary {
     command: String,
     exit_code: Option<i32>,
     stdout: String,
@@ -36,13 +36,13 @@ struct GitCommandSummary {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct GitHistoryEntry {
+pub struct GitHistoryEntry {
     commit: String,
     subject: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct AuditSummary {
+pub struct AuditSummary {
     file_count: usize,
     by_owner: BTreeMap<String, usize>,
     by_layer: BTreeMap<String, usize>,
@@ -52,7 +52,7 @@ struct AuditSummary {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct ModuleAudit {
+pub struct ModuleAudit {
     path: String,
     owner_expected: &'static str,
     owner_actual: &'static str,
@@ -65,7 +65,7 @@ struct ModuleAudit {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct BoundaryViolation {
+pub struct BoundaryViolation {
     path: String,
     kind: &'static str,
     current_owner: &'static str,
@@ -75,14 +75,14 @@ struct BoundaryViolation {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct InferredError {
+pub struct InferredError {
     kind: &'static str,
     evidence: Vec<String>,
     consequence: &'static str,
     correction: &'static str,
 }
 
-pub(crate) fn build_node_host_audit(max_commits: usize) -> Result<NodeHostAudit, String> {
+pub fn build_node_host_audit(max_commits: usize) -> Result<NodeHostAudit, String> {
     let root = std::env::current_dir().map_err(|error| error.to_string())?;
     let mut modules = Vec::new();
     for path in discover_source_files(&root, NODE_ROOT)? {
@@ -454,18 +454,20 @@ fn git_audit(root: &Path, max_commits: usize) -> GitAudit {
 }
 
 fn git_command(root: &Path, args: &[&str]) -> GitCommandSummary {
-    match capture_command_in_dir("git", args, Some(root)) {
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(args).current_dir(root);
+    match cmd.output() {
         Ok(output) => GitCommandSummary {
             command: format!("git {}", args.join(" ")),
-            exit_code: output.exit_code,
-            stdout: output.stdout,
-            stderr: output.stderr,
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         },
-        Err(error) => GitCommandSummary {
+        Err(err) => GitCommandSummary {
             command: format!("git {}", args.join(" ")),
             exit_code: None,
             stdout: String::new(),
-            stderr: error,
+            stderr: err.to_string(),
         },
     }
 }

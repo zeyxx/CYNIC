@@ -3,7 +3,8 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 
-use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
+use crate::{crate_audit, emit_json, external_audit, fail};
+use cynic_audit_engine::node_host_audit;
 use cynic_process::ArgvRunner;
 
 pub(crate) mod growth;

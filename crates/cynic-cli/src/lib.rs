@@ -63,7 +63,6 @@ pub mod mcp_surface;
 pub mod network_audit;
 pub mod network_notify_surface;
 pub mod network_surface;
-pub mod node_host_audit;
 pub mod node_surface;
 pub mod operator_doctor;
 pub mod operator_errors;

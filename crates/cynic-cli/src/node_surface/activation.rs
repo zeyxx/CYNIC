@@ -305,7 +305,7 @@ pub(crate) fn execute_host_audit(json: bool, max_commits: usize) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    match crate::node_host_audit::build_node_host_audit(max_commits) {
+    match cynic_audit_engine::node_host_audit::build_node_host_audit(max_commits) {
         Ok(report) => crate::emit_json(&report, false),
         Err(error) => crate::fail(error),
     }

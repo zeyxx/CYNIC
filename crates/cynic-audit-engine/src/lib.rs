@@ -4,7 +4,7 @@ pub mod growth;
 pub mod history;
 mod module_inversion_rule;
 mod debt_pattern_rule;
-pub mod path_rules;
+pub mod node_host_audit; pub mod path_rules;
 pub mod prose_citation_rule;
 pub mod retired_metaphor_rule;
 pub mod topology;
