@@ -6,7 +6,7 @@ use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope};
 use sha2::{Digest, Sha256};
 
-use crate::ports::build_scheduler_port::{BuildExecutionReadBack, BuildWorkspaceReadBack};
+use cynic_build::ports::{BuildExecutionReadBack, BuildWorkspaceReadBack};
 
 pub(super) fn persist_success_proofs(
     node_id: &str,

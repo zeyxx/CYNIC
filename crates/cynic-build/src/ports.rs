@@ -221,3 +221,73 @@ impl std::fmt::Display for ReleasePublicationError {
 impl std::error::Error for ReleasePublicationError {}
 
 pub type ReleasePublicationResult<T> = Result<T, ReleasePublicationError>;
+
+// --- Hoisted from cynic-node: build scheduler ports ---
+
+use std::collections::BTreeMap;
+use std::time::Duration;
+
+use tokio_util::sync::CancellationToken;
+
+use cynic_agent::{AgentWorkspaceLayout, AgentWorkspacePortError};
+use cynic_sandbox::cargo::BuildSandboxMode;
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct BuildWorkspaceReadBack {
+    pub workspace_root: PathBuf,
+    pub source_commit: String,
+    pub created: bool,
+}
+
+pub trait BuildWorkspacePort: Send + Sync {
+    fn prepare(
+        &self,
+        layout: &AgentWorkspaceLayout,
+        source_commit: &str,
+    ) -> Result<BuildWorkspaceReadBack, AgentWorkspacePortError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildExecutionRequest {
+    pub argv: Vec<String>,
+    pub working_directory: PathBuf,
+    pub environment: BTreeMap<String, String>,
+    pub timeout: Duration,
+    /// Isolation mode. `Off` runs the admitted argv as a bare subprocess;
+    /// `Bwrap` confines it with Bubblewrap and fails closed when the
+    /// helper is unavailable.
+    pub sandbox: BuildSandboxMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct BuildExecutionReadBack {
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    /// Peak resident memory observed for the child process, in bytes.
+    /// None means the process memory could not be observed.
+    #[serde(default)]
+    pub peak_memory_bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuildExecutionError {
+    Invalid(String),
+    Spawn(String),
+    Timeout,
+    Cancelled,
+}
+
+pub trait BuildExecutionPort: Send + Sync {
+    fn execute<'a>(
+        &'a self,
+        request: &'a BuildExecutionRequest,
+        cancellation: &'a CancellationToken,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<BuildExecutionReadBack, BuildExecutionError>>
+                + Send
+                + 'a,
+        >,
+    >;
+}

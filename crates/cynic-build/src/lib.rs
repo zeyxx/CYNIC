@@ -74,7 +74,7 @@ pub use place::*;
 pub use harness::*;
 pub use harness_authority::*;
 pub use pipeline_proof::*;
-pub use ports::{BuildCommandOutput, BuildRunner, DetachedReleaseSignature, FilesystemPort, IdentityPort, PackagedReleaseBasket, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort, ReleasePublicationError, ReleasePublicationFuture, ReleasePublicationResult, ReleasePublicationTargets};
+pub use ports::{BuildCommandOutput, BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest, BuildRunner, BuildWorkspacePort, BuildWorkspaceReadBack, DetachedReleaseSignature, FilesystemPort, IdentityPort, PackagedReleaseBasket, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort, ReleasePublicationError, ReleasePublicationFuture, ReleasePublicationResult, ReleasePublicationTargets};
 pub use release_publication::*;
 pub use runner::{install_artifact, run_build};
 pub use runtime_release::*;

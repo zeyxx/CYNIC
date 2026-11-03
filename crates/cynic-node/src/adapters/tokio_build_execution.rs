@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use tokio::process::Command;
 
-use crate::ports::build_scheduler_port::{
+use cynic_build::ports::{
     BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
 };
 use cynic_sandbox::cargo::{BuildSandboxMode, build_cargo_sandbox_argv};
