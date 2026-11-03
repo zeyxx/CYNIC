@@ -1,946 +1,948 @@
 {
-  "corrections": [
-    "cynic-pool declares [[bin]] src/main.rs behind required-features=[cli]; it is a binary, not an unjustified library.",
-    "cynic-zeroclaw-solana declares [[bin]] zeroclaw-solana-demo at src/bin/demo.rs, an autodiscovered target; it is a binary, not an unjustified library."
-  ],
-  "crates": {
-    "cynic-agent": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-eval",
-        "cynic-inference",
-        "cynic-market",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-consensus",
-        "cynic-finance",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 11253
+    "corrections": [
+        "cynic-pool declares [[bin]] src/main.rs behind required-features=[cli]; it is a binary, not an unjustified library.",
+        "cynic-zeroclaw-solana declares [[bin]] zeroclaw-solana-demo at src/bin/demo.rs, an autodiscovered target; it is a binary, not an unjustified library."
+    ],
+    "crates": {
+        "cynic-agent": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-eval",
+                "cynic-inference",
+                "cynic-market",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-consensus",
+                "cynic-finance",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 11253
+        },
+        "cynic-anchoring": {
+            "consumers": [],
+            "depends_on": [
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": false,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 669
+        },
+        "cynic-audit-engine": {
+            "consumers": [
+                "cynic-cli"
+            ],
+            "depends_on": [
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 8724
+        },
+        "cynic-build": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-agent",
+                "cynic-host",
+                "cynic-network",
+                "cynic-node-protocol",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-release",
+                "cynic-sandbox",
+                "cynic-ssh",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 20490
+        },
+        "cynic-cli": {
+            "consumers": [],
+            "depends_on": [
+                "cynic-agent",
+                "cynic-audit-engine",
+                "cynic-build",
+                "cynic-consensus",
+                "cynic-domain-ops",
+                "cynic-eval",
+                "cynic-forensics",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-intel",
+                "cynic-knowledge",
+                "cynic-network",
+                "cynic-node",
+                "cynic-node-protocol",
+                "cynic-persistence",
+                "cynic-pkg",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-proxmox",
+                "cynic-release",
+                "cynic-sandbox",
+                "cynic-secrets",
+                "cynic-ssh",
+                "cynic-supervisor",
+                "cynic-surreal",
+                "cynic-traces",
+                "cynic-tui",
+                "cynic-types",
+                "cynic-vcs"
+            ],
+            "dev_depends_on": [
+                "cynic-types"
+            ],
+            "justified": true,
+            "kind": "binary",
+            "layer": "L4",
+            "loc": 44629
+        },
+        "cynic-consensus": {
+            "consumers": [
+                "cynic-agent",
+                "cynic-cli",
+                "cynic-inference",
+                "cynic-market",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-finance",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 2736
+        },
+        "cynic-domain-ops": {
+            "consumers": [
+                "cynic-cli"
+            ],
+            "depends_on": [
+                "cynic-protocol",
+                "cynic-secrets"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 5201
+        },
+        "cynic-eval": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-inference"
+            ],
+            "depends_on": [
+                "cynic-agent",
+                "cynic-knowledge",
+                "cynic-protocol",
+                "cynic-secrets",
+                "cynic-traces",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 9616
+        },
+        "cynic-finance": {
+            "consumers": [
+                "cynic-agent",
+                "cynic-consensus",
+                "cynic-inference",
+                "cynic-market",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 2465
+        },
+        "cynic-forensics": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-host"
+            ],
+            "depends_on": [
+                "cynic-process"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 1277
+        },
+        "cynic-host": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-intel",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-forensics",
+                "cynic-lxc",
+                "cynic-network",
+                "cynic-node-protocol",
+                "cynic-persistence",
+                "cynic-pkg",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-proxmox",
+                "cynic-release",
+                "cynic-sandbox",
+                "cynic-secrets",
+                "cynic-ssh",
+                "cynic-supervisor",
+                "cynic-surreal",
+                "cynic-types"
+            ],
+            "dev_depends_on": [
+                "cynic-audit-engine",
+                "cynic-build",
+                "cynic-intel",
+                "cynic-vcs"
+            ],
+            "justified": true,
+            "kind": "binary",
+            "layer": "L1",
+            "loc": 75034
+        },
+        "cynic-inference": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-agent",
+                "cynic-consensus",
+                "cynic-eval",
+                "cynic-finance",
+                "cynic-knowledge",
+                "cynic-network",
+                "cynic-protocol",
+                "cynic-secrets",
+                "cynic-supervisor",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 18052
+        },
+        "cynic-intel": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-market",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-host",
+                "cynic-network",
+                "cynic-protocol",
+                "cynic-secrets"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 12004
+        },
+        "cynic-knowledge": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-eval",
+                "cynic-inference"
+            ],
+            "depends_on": [
+                "cynic-persistence",
+                "cynic-surreal",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 11554
+        },
+        "cynic-lxc": {
+            "consumers": [
+                "cynic-host",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-protocol",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 1284
+        },
+        "cynic-market": {
+            "consumers": [
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-agent",
+                "cynic-consensus",
+                "cynic-finance",
+                "cynic-intel",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 1260
+        },
+        "cynic-mcp": {
+            "consumers": [],
+            "depends_on": [
+                "cynic-process",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "binary",
+            "layer": "L4",
+            "loc": 1185
+        },
+        "cynic-network": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-intel",
+                "cynic-node",
+                "cynic-pkg",
+                "cynic-vcs"
+            ],
+            "depends_on": [
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-secrets",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 11886
+        },
+        "cynic-node": {
+            "consumers": [
+                "cynic-cli"
+            ],
+            "depends_on": [
+                "cynic-agent",
+                "cynic-build",
+                "cynic-consensus",
+                "cynic-finance",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-intel",
+                "cynic-lxc",
+                "cynic-market",
+                "cynic-network",
+                "cynic-node-protocol",
+                "cynic-persistence",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-proxmox",
+                "cynic-release",
+                "cynic-sandbox",
+                "cynic-secrets",
+                "cynic-ssh",
+                "cynic-supervisor",
+                "cynic-types",
+                "cynic-vcs"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "binary",
+            "layer": "L3",
+            "loc": 55153
+        },
+        "cynic-node-protocol": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-host",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L0",
+            "loc": 6340
+        },
+        "cynic-persistence": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-host",
+                "cynic-knowledge",
+                "cynic-node",
+                "cynic-sqlite",
+                "cynic-surreal"
+            ],
+            "dependents": [],
+            "depends_on": [
+                "cynic-protocol",
+                "cynic-secrets"
+            ],
+            "dev_dependents": [],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 2927
+        },
+        "cynic-pkg": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-host",
+                "cynic-surreal"
+            ],
+            "depends_on": [
+                "cynic-network",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 2912
+        },
+        "cynic-process": {
+            "consumers": [
+                "cynic-agent",
+                "cynic-build",
+                "cynic-cli",
+                "cynic-forensics",
+                "cynic-host",
+                "cynic-mcp",
+                "cynic-network",
+                "cynic-node",
+                "cynic-pkg",
+                "cynic-proxmox",
+                "cynic-release",
+                "cynic-sandbox",
+                "cynic-supervisor",
+                "cynic-surreal",
+                "cynic-vcs"
+            ],
+            "depends_on": [
+                "cynic-protocol"
+            ],
+            "description": "OS process spawning and in-memory test runner",
+            "dev_depends_on": [],
+            "domain": "process",
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 334
+        },
+        "cynic-protocol": {
+            "consumers": [
+                "cynic-agent",
+                "cynic-anchoring",
+                "cynic-audit-engine",
+                "cynic-build",
+                "cynic-cli",
+                "cynic-consensus",
+                "cynic-domain-ops",
+                "cynic-eval",
+                "cynic-finance",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-intel",
+                "cynic-lxc",
+                "cynic-market",
+                "cynic-mcp",
+                "cynic-network",
+                "cynic-node",
+                "cynic-node-protocol",
+                "cynic-persistence",
+                "cynic-pkg",
+                "cynic-process",
+                "cynic-proxmox",
+                "cynic-release",
+                "cynic-sandbox",
+                "cynic-secrets",
+                "cynic-sqlite",
+                "cynic-ssh",
+                "cynic-supervisor",
+                "cynic-traces",
+                "cynic-vcs"
+            ],
+            "depends_on": [
+                "cynic-types"
+            ],
+            "dev_depends_on": [
+                "cynic-types"
+            ],
+            "justified": true,
+            "kind": "library",
+            "layer": "L0",
+            "loc": 43847
+        },
+        "cynic-proxmox": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-host",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-secrets",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 5649
+        },
+        "cynic-release": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-host",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-process",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 5504
+        },
+        "cynic-sandbox": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-host",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-process",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 1400
+        },
+        "cynic-secrets": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-domain-ops",
+                "cynic-eval",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-intel",
+                "cynic-network",
+                "cynic-node",
+                "cynic-persistence",
+                "cynic-proxmox",
+                "cynic-surreal",
+                "cynic-vcs"
+            ],
+            "depends_on": [
+                "cynic-protocol",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "cross_cutting",
+            "loc": 2035
+        },
+        "cynic-sqlite": {
+            "consumers": [],
+            "depends_on": [
+                "cynic-persistence",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": false,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 1255
+        },
+        "cynic-ssh": {
+            "consumers": [
+                "cynic-build",
+                "cynic-cli",
+                "cynic-host",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-protocol",
+                "cynic-types"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 1544
+        },
+        "cynic-supervisor": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-process",
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 2511
+        },
+        "cynic-surreal": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-host",
+                "cynic-knowledge"
+            ],
+            "dependents": [],
+            "depends_on": [
+                "cynic-persistence",
+                "cynic-pkg",
+                "cynic-process",
+                "cynic-secrets"
+            ],
+            "dev_dependents": [],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L1",
+            "loc": 1670
+        },
+        "cynic-traces": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-eval"
+            ],
+            "depends_on": [
+                "cynic-protocol"
+            ],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 5381
+        },
+        "cynic-tui": {
+            "consumers": [
+                "cynic-cli"
+            ],
+            "depends_on": [],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L4",
+            "loc": 468
+        },
+        "cynic-types": {
+            "consumers": [
+                "cynic-agent",
+                "cynic-build",
+                "cynic-cli",
+                "cynic-eval",
+                "cynic-host",
+                "cynic-inference",
+                "cynic-knowledge",
+                "cynic-lxc",
+                "cynic-network",
+                "cynic-node",
+                "cynic-pkg",
+                "cynic-protocol",
+                "cynic-proxmox",
+                "cynic-secrets",
+                "cynic-ssh",
+                "cynic-vcs"
+            ],
+            "depends_on": [],
+            "dev_depends_on": [],
+            "justified": true,
+            "kind": "library",
+            "layer": "L0",
+            "loc": 1121
+        },
+        "cynic-vcs": {
+            "consumers": [
+                "cynic-cli",
+                "cynic-node"
+            ],
+            "depends_on": [
+                "cynic-network",
+                "cynic-process",
+                "cynic-protocol",
+                "cynic-secrets",
+                "cynic-types"
+            ],
+            "dev_depends_on": [
+                "cynic-process"
+            ],
+            "justified": true,
+            "kind": "library",
+            "layer": "L2",
+            "loc": 17799
+        }
     },
-    "cynic-anchoring": {
-      "consumers": [],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": false,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 669
-    },
-    "cynic-audit-engine": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 8724
-    },
-    "cynic-build": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-network",
-        "cynic-node-protocol",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-release",
-        "cynic-sandbox",
-        "cynic-ssh",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 18252
-    },
-    "cynic-cli": {
-      "consumers": [],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-audit-engine",
-        "cynic-build",
-        "cynic-consensus",
-        "cynic-domain-ops",
-        "cynic-eval",
-        "cynic-forensics",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-intel",
-        "cynic-knowledge",
-        "cynic-network",
-        "cynic-node",
-        "cynic-node-protocol",
-        "cynic-persistence",
-        "cynic-pkg",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-proxmox",
-        "cynic-release",
-        "cynic-sandbox",
-        "cynic-secrets",
-        "cynic-ssh",
-        "cynic-supervisor",
-        "cynic-surreal",
-        "cynic-traces",
+    "extraction_order": [
         "cynic-tui",
         "cynic-types",
-        "cynic-vcs"
-      ],
-      "dev_depends_on": [
-        "cynic-types"
-      ],
-      "justified": true,
-      "kind": "binary",
-      "layer": "L4",
-      "loc": 44629
-    },
-    "cynic-consensus": {
-      "consumers": [
-        "cynic-agent",
-        "cynic-cli",
-        "cynic-inference",
-        "cynic-market",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-finance",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 2736
-    },
-    "cynic-domain-ops": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
         "cynic-protocol",
-        "cynic-secrets"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 5201
-    },
-    "cynic-eval": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-inference"
-      ],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-knowledge",
-        "cynic-protocol",
-        "cynic-secrets",
-        "cynic-traces",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 9616
-    },
-    "cynic-finance": {
-      "consumers": [
-        "cynic-agent",
-        "cynic-consensus",
-        "cynic-inference",
-        "cynic-market",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 2465
-    },
-    "cynic-forensics": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host"
-      ],
-      "depends_on": [
-        "cynic-process"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 1277
-    },
-    "cynic-host": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-intel",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-forensics",
-        "cynic-lxc",
-        "cynic-network",
-        "cynic-node-protocol",
-        "cynic-persistence",
-        "cynic-pkg",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-proxmox",
-        "cynic-release",
-        "cynic-sandbox",
-        "cynic-secrets",
-        "cynic-ssh",
-        "cynic-supervisor",
-        "cynic-surreal",
-        "cynic-types"
-      ],
-      "dev_depends_on": [
-        "cynic-audit-engine",
-        "cynic-build",
-        "cynic-intel",
-        "cynic-vcs"
-      ],
-      "justified": true,
-      "kind": "binary",
-      "layer": "L1",
-      "loc": 75034
-    },
-    "cynic-inference": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-consensus",
-        "cynic-eval",
-        "cynic-finance",
-        "cynic-knowledge",
-        "cynic-network",
-        "cynic-protocol",
-        "cynic-secrets",
-        "cynic-supervisor",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 18052
-    },
-    "cynic-intel": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-market",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-host",
-        "cynic-network",
-        "cynic-protocol",
-        "cynic-secrets"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 12004
-    },
-    "cynic-knowledge": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-eval",
-        "cynic-inference"
-      ],
-      "depends_on": [
-        "cynic-persistence",
-        "cynic-surreal",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 11554
-    },
-    "cynic-lxc": {
-      "consumers": [
-        "cynic-host",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-protocol",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 1284
-    },
-    "cynic-market": {
-      "consumers": [
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-consensus",
-        "cynic-finance",
-        "cynic-intel",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 1260
-    },
-    "cynic-mcp": {
-      "consumers": [],
-      "depends_on": [
-        "cynic-process",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "binary",
-      "layer": "L4",
-      "loc": 1185
-    },
-    "cynic-network": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-intel",
-        "cynic-node",
-        "cynic-pkg",
-        "cynic-vcs"
-      ],
-      "depends_on": [
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-secrets",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 11886
-    },
-    "cynic-node": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-agent",
-        "cynic-build",
-        "cynic-consensus",
-        "cynic-finance",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-intel",
-        "cynic-lxc",
-        "cynic-market",
-        "cynic-network",
-        "cynic-node-protocol",
-        "cynic-persistence",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-proxmox",
-        "cynic-release",
-        "cynic-sandbox",
-        "cynic-secrets",
-        "cynic-ssh",
-        "cynic-supervisor",
-        "cynic-types",
-        "cynic-vcs"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "binary",
-      "layer": "L3",
-      "loc": 57387
-    },
-    "cynic-node-protocol": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-host",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L0",
-      "loc": 6340
-    },
-    "cynic-persistence": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host",
-        "cynic-knowledge",
-        "cynic-node",
-        "cynic-sqlite",
-        "cynic-surreal"
-      ],
-      "dependents": [],
-      "depends_on": [
-        "cynic-protocol",
-        "cynic-secrets"
-      ],
-      "dev_dependents": [],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 2927
-    },
-    "cynic-pkg": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host",
-        "cynic-surreal"
-      ],
-      "depends_on": [
-        "cynic-network",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 2912
-    },
-    "cynic-process": {
-      "consumers": [
-        "cynic-agent",
-        "cynic-build",
-        "cynic-cli",
-        "cynic-forensics",
-        "cynic-host",
-        "cynic-mcp",
-        "cynic-network",
-        "cynic-node",
-        "cynic-pkg",
-        "cynic-proxmox",
-        "cynic-release",
-        "cynic-sandbox",
-        "cynic-supervisor",
-        "cynic-surreal",
-        "cynic-vcs"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "description": "OS process spawning and in-memory test runner",
-      "dev_depends_on": [],
-      "domain": "process",
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 334
-    },
-    "cynic-protocol": {
-      "consumers": [
-        "cynic-agent",
         "cynic-anchoring",
         "cynic-audit-engine",
-        "cynic-build",
-        "cynic-cli",
+        "cynic-finance",
+        "cynic-lxc",
+        "cynic-node-protocol",
+        "cynic-process",
+        "cynic-secrets",
+        "cynic-ssh",
+        "cynic-traces",
         "cynic-consensus",
         "cynic-domain-ops",
-        "cynic-eval",
-        "cynic-finance",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-intel",
-        "cynic-lxc",
-        "cynic-market",
+        "cynic-forensics",
         "cynic-mcp",
         "cynic-network",
-        "cynic-node",
-        "cynic-node-protocol",
         "cynic-persistence",
-        "cynic-pkg",
-        "cynic-process",
         "cynic-proxmox",
         "cynic-release",
         "cynic-sandbox",
-        "cynic-secrets",
-        "cynic-sqlite",
-        "cynic-ssh",
         "cynic-supervisor",
-        "cynic-traces",
-        "cynic-vcs"
-      ],
-      "depends_on": [
-        "cynic-types"
-      ],
-      "dev_depends_on": [
-        "cynic-types"
-      ],
-      "justified": true,
-      "kind": "library",
-      "layer": "L0",
-      "loc": 43847
-    },
-    "cynic-proxmox": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-secrets",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 5649
-    },
-    "cynic-release": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-host",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-process",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 5504
-    },
-    "cynic-sandbox": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-host",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-process",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 1400
-    },
-    "cynic-secrets": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-domain-ops",
-        "cynic-eval",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-intel",
-        "cynic-network",
-        "cynic-node",
-        "cynic-persistence",
-        "cynic-proxmox",
-        "cynic-surreal",
-        "cynic-vcs"
-      ],
-      "depends_on": [
-        "cynic-protocol",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "cross_cutting",
-      "loc": 2035
-    },
-    "cynic-sqlite": {
-      "consumers": [],
-      "depends_on": [
-        "cynic-persistence",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": false,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 1255
-    },
-    "cynic-ssh": {
-      "consumers": [
-        "cynic-build",
-        "cynic-cli",
-        "cynic-host",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-protocol",
-        "cynic-types"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 1544
-    },
-    "cynic-supervisor": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-process",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 2511
-    },
-    "cynic-surreal": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-host",
-        "cynic-knowledge"
-      ],
-      "dependents": [],
-      "depends_on": [
-        "cynic-persistence",
-        "cynic-pkg",
-        "cynic-process",
-        "cynic-secrets"
-      ],
-      "dev_dependents": [],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 1670
-    },
-    "cynic-traces": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-eval"
-      ],
-      "depends_on": [
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 5381
-    },
-    "cynic-tui": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L4",
-      "loc": 468
-    },
-    "cynic-types": {
-      "consumers": [
         "cynic-agent",
-        "cynic-build",
-        "cynic-cli",
-        "cynic-eval",
-        "cynic-host",
-        "cynic-inference",
-        "cynic-knowledge",
-        "cynic-lxc",
-        "cynic-network",
-        "cynic-node",
         "cynic-pkg",
-        "cynic-protocol",
-        "cynic-proxmox",
-        "cynic-secrets",
-        "cynic-ssh",
-        "cynic-vcs"
-      ],
-      "depends_on": [],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L0",
-      "loc": 1121
-    },
-    "cynic-vcs": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-node"
-      ],
-      "depends_on": [
-        "cynic-network",
-        "cynic-process",
-        "cynic-protocol",
-        "cynic-secrets",
-        "cynic-types"
-      ],
-      "dev_depends_on": [
-        "cynic-process"
-      ],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 17799
-    }
-  },
-  "extraction_order": [
-    "cynic-tui",
-    "cynic-types",
-    "cynic-protocol",
-    "cynic-anchoring",
-    "cynic-audit-engine",
-    "cynic-finance",
-    "cynic-lxc",
-    "cynic-node-protocol",
-    "cynic-process",
-    "cynic-secrets",
-    "cynic-ssh",
-    "cynic-traces",
-    "cynic-consensus",
-    "cynic-domain-ops",
-    "cynic-forensics",
-    "cynic-mcp",
-    "cynic-network",
-    "cynic-persistence",
-    "cynic-proxmox",
-    "cynic-release",
-    "cynic-sandbox",
-    "cynic-supervisor",
-    "cynic-agent",
-    "cynic-pkg",
-    "cynic-sqlite",
-    "cynic-vcs",
-    "cynic-build",
-    "cynic-surreal",
-    "cynic-host",
-    "cynic-knowledge",
-    "cynic-eval",
-    "cynic-intel",
-    "cynic-inference",
-    "cynic-market",
-    "cynic-node",
-    "cynic-cli"
-  ],
-  "generator": {
-    "derives": [
-      "layer_policy",
-      "layers",
-      "crates.*.kind",
-      "crates.*.depends_on",
-      "crates.*.dev_depends_on",
-      "crates.*.consumers",
-      "crates.*.justified",
-      "crates.*.loc",
-      "measured",
-      "layer_debt.count",
-      "extraction_order"
+        "cynic-sqlite",
+        "cynic-vcs",
+        "cynic-surreal",
+        "cynic-host",
+        "cynic-knowledge",
+        "cynic-build",
+        "cynic-eval",
+        "cynic-intel",
+        "cynic-inference",
+        "cynic-market",
+        "cynic-node",
+        "cynic-cli"
     ],
-    "tool": "cynic-topology",
-    "version": 1
-  },
-  "justification_rule": "Every member must be a binary, have at least one dependent, or appear in pending_disposition with a written reason. A crate that is none of these is a node with in-degree zero: it cannot take part in a runtime loop, and every layer that names it is describing a boundary nothing crosses. pending_disposition may only shrink.",
-  "layer_debt": {
-    "count": 0,
-    "edges": [],
-    "reasons": {},
-    "rule": "Ascending edges the workspace currently tolerates, as reported by ARCH-004. Recorded as data so the debt is measurable instead of prose: `layer_rule` counted these in words, and a number written in a sentence cannot fail, so it cannot be paid. The debt grew from 12 to 15 while the sentence still said 12, the two extra being a domain landing in two substrate crates. This field and the observed report must agree exactly, and the set may only shrink. Paying an edge means removing it from BOTH this list and the baseline in crates/cynic-host/tests/layer_debt_ratchet.rs, which is what makes the reduction visible in a diff. Adding one without a written reason fails the gate.",
-    "schema": "cynic.crate_topology.layer_debt.v1"
-  },
-  "layer_policy": {
+    "generator": {
+        "derives": [
+            "layer_policy",
+            "layers",
+            "crates.*.kind",
+            "crates.*.depends_on",
+            "crates.*.dev_depends_on",
+            "crates.*.consumers",
+            "crates.*.justified",
+            "crates.*.loc",
+            "measured",
+            "layer_debt.count",
+            "extraction_order"
+        ],
+        "tool": "cynic-topology",
+        "version": 1
+    },
+    "justification_rule": "Every member must be a binary, have at least one dependent, or appear in pending_disposition with a written reason. A crate that is none of these is a node with in-degree zero: it cannot take part in a runtime loop, and every layer that names it is describing a boundary nothing crosses. pending_disposition may only shrink.",
+    "layer_debt": {
+        "count": 0,
+        "edges": [],
+        "reasons": {},
+        "rule": "Ascending edges the workspace currently tolerates, as reported by ARCH-004. Recorded as data so the debt is measurable instead of prose: `layer_rule` counted these in words, and a number written in a sentence cannot fail, so it cannot be paid. The debt grew from 12 to 15 while the sentence still said 12, the two extra being a domain landing in two substrate crates. This field and the observed report must agree exactly, and the set may only shrink. Paying an edge means removing it from BOTH this list and the baseline in crates/cynic-host/tests/layer_debt_ratchet.rs, which is what makes the reduction visible in a diff. Adding one without a written reason fails the gate.",
+        "schema": "cynic.crate_topology.layer_debt.v1"
+    },
+    "layer_policy": {
+        "layers": {
+            "L0": {
+                "may_depend_on": [
+                    "cross_cutting",
+                    "L0"
+                ],
+                "rank": 0
+            },
+            "L1": {
+                "may_depend_on": [
+                    "cross_cutting",
+                    "L0",
+                    "L1"
+                ],
+                "rank": 1
+            },
+            "L2": {
+                "may_depend_on": [
+                    "cross_cutting",
+                    "L0",
+                    "L1",
+                    "L2"
+                ],
+                "rank": 2
+            },
+            "L3": {
+                "may_depend_on": [
+                    "cross_cutting",
+                    "L0",
+                    "L1",
+                    "L2",
+                    "L3"
+                ],
+                "rank": 3
+            },
+            "L4": {
+                "may_depend_on": [
+                    "cross_cutting",
+                    "L0",
+                    "L1",
+                    "L2",
+                    "L3",
+                    "L4"
+                ],
+                "rank": 4
+            },
+            "cross_cutting": {
+                "may_depend_on": [
+                    "cross_cutting",
+                    "L0",
+                    "L1",
+                    "L2",
+                    "L3",
+                    "L4"
+                ],
+                "rank": -1
+            }
+        },
+        "rule": "An edge from crate A to crate B is legal when layer(B) is listed in layer_policy.layers[layer(A)].may_depend_on. may_depend_on is derived from rank: every layer whose rank is at most the source layer's, plus every unlayered layer. A layer with a negative rank is unlayered cross-cutting code and may depend on anything. Same-layer edges are legal and common, especially inside L2.",
+        "schema": "cynic.crate_topology.layer_policy.v1"
+    },
+    "layer_rule": "An edge from crate A to crate B is legal when layer(B) is lower than layer(A), or equal to it. Same-layer edges are legal and common, especially inside L2. An edge is illegal when layer(B) is higher than layer(A): dependencies flow downward. L0 is pure: no I/O, no adapter. cross_cutting is unlayered (rank -1) and may be depended on from any layer, and its own outgoing edges are not checked. This rule IS enforced: ARCH-004 in cynic-host/src/audit_engine/topology.rs emits ARCH-004-UPWARD-EDGE at Critical severity, which maps to audit status blocked. Measured on the 47-crate graph, ARCH-004 currently reports 12 ascending edges, all L1 -> L2: cynic-host -> cynic-build, cynic-eval, cynic-inference, cynic-intel, cynic-node-protocol, cynic-storage, cynic-vcs, cynic-vcs-providers; cynic-discovery-host -> cynic-build, cynic-discovery; KNOWN GAP: crates/cynic-host/tests/crate_topology_coherence.rs asserts emptiness for the other ARCH-004 violation classes but has NO assertion for ARCH-004-UPWARD-EDGE, so the rule runs under `cynic audit` and is invisible to the test gate. The 12 edges are counted, documented and unfixed; adding the missing assertion would turn the gate red on them, which is the point.",
     "layers": {
-      "L0": {
-        "may_depend_on": [
-          "cross_cutting",
-          "L0"
+        "L0": [
+            "cynic-node-protocol",
+            "cynic-protocol",
+            "cynic-types"
         ],
-        "rank": 0
-      },
-      "L1": {
-        "may_depend_on": [
-          "cross_cutting",
-          "L0",
-          "L1"
+        "L1": [
+            "cynic-anchoring",
+            "cynic-audit-engine",
+            "cynic-forensics",
+            "cynic-host",
+            "cynic-knowledge",
+            "cynic-lxc",
+            "cynic-network",
+            "cynic-persistence",
+            "cynic-pkg",
+            "cynic-process",
+            "cynic-proxmox",
+            "cynic-release",
+            "cynic-sandbox",
+            "cynic-sqlite",
+            "cynic-ssh",
+            "cynic-supervisor",
+            "cynic-surreal"
         ],
-        "rank": 1
-      },
-      "L2": {
-        "may_depend_on": [
-          "cross_cutting",
-          "L0",
-          "L1",
-          "L2"
+        "L2": [
+            "cynic-agent",
+            "cynic-build",
+            "cynic-consensus",
+            "cynic-domain-ops",
+            "cynic-eval",
+            "cynic-finance",
+            "cynic-inference",
+            "cynic-intel",
+            "cynic-market",
+            "cynic-traces",
+            "cynic-vcs"
         ],
-        "rank": 2
-      },
-      "L3": {
-        "may_depend_on": [
-          "cross_cutting",
-          "L0",
-          "L1",
-          "L2",
-          "L3"
+        "L3": [
+            "cynic-node"
         ],
-        "rank": 3
-      },
-      "L4": {
-        "may_depend_on": [
-          "cross_cutting",
-          "L0",
-          "L1",
-          "L2",
-          "L3",
-          "L4"
+        "L4": [
+            "cynic-cli",
+            "cynic-mcp",
+            "cynic-tui"
         ],
-        "rank": 4
-      },
-      "cross_cutting": {
-        "may_depend_on": [
-          "cross_cutting",
-          "L0",
-          "L1",
-          "L2",
-          "L3",
-          "L4"
-        ],
-        "rank": -1
-      }
+        "cross_cutting": [
+            "cynic-secrets"
+        ]
     },
-    "rule": "An edge from crate A to crate B is legal when layer(B) is listed in layer_policy.layers[layer(A)].may_depend_on. may_depend_on is derived from rank: every layer whose rank is at most the source layer's, plus every unlayered layer. A layer with a negative rank is unlayered cross-cutting code and may depend on anything. Same-layer edges are legal and common, especially inside L2.",
-    "schema": "cynic.crate_topology.layer_policy.v1"
-  },
-  "layer_rule": "An edge from crate A to crate B is legal when layer(B) is lower than layer(A), or equal to it. Same-layer edges are legal and common, especially inside L2. An edge is illegal when layer(B) is higher than layer(A): dependencies flow downward. L0 is pure: no I/O, no adapter. cross_cutting is unlayered (rank -1) and may be depended on from any layer, and its own outgoing edges are not checked. This rule IS enforced: ARCH-004 in cynic-host/src/audit_engine/topology.rs emits ARCH-004-UPWARD-EDGE at Critical severity, which maps to audit status blocked. Measured on the 47-crate graph, ARCH-004 currently reports 12 ascending edges, all L1 -> L2: cynic-host -> cynic-build, cynic-eval, cynic-inference, cynic-intel, cynic-node-protocol, cynic-storage, cynic-vcs, cynic-vcs-providers; cynic-discovery-host -> cynic-build, cynic-discovery; KNOWN GAP: crates/cynic-host/tests/crate_topology_coherence.rs asserts emptiness for the other ARCH-004 violation classes but has NO assertion for ARCH-004-UPWARD-EDGE, so the rule runs under `cynic audit` and is invisible to the test gate. The 12 edges are counted, documented and unfixed; adding the missing assertion would turn the gate red on them, which is the point.",
-  "layers": {
-    "L0": [
-      "cynic-node-protocol",
-      "cynic-protocol",
-      "cynic-types"
-    ],
-    "L1": [
-      "cynic-anchoring",
-      "cynic-audit-engine",
-      "cynic-forensics",
-      "cynic-host",
-      "cynic-knowledge",
-      "cynic-lxc",
-      "cynic-network",
-      "cynic-persistence",
-      "cynic-pkg",
-      "cynic-process",
-      "cynic-proxmox",
-      "cynic-release",
-      "cynic-sandbox",
-      "cynic-sqlite",
-      "cynic-ssh",
-      "cynic-supervisor",
-      "cynic-surreal"
-    ],
-    "L2": [
-      "cynic-agent",
-      "cynic-build",
-      "cynic-consensus",
-      "cynic-domain-ops",
-      "cynic-eval",
-      "cynic-finance",
-      "cynic-inference",
-      "cynic-intel",
-      "cynic-market",
-      "cynic-traces",
-      "cynic-vcs"
-    ],
-    "L3": [
-      "cynic-node"
-    ],
-    "L4": [
-      "cynic-cli",
-      "cynic-mcp",
-      "cynic-tui"
-    ],
-    "cross_cutting": [
-      "cynic-secrets"
-    ]
-  },
-  "measured": {
-    "acyclic": true,
-    "binaries": 4,
-    "crates": 36,
-    "dev_edges": 7,
-    "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 397165,
-    "pending_disposition": 3,
-    "runtime_edges": 160,
-    "unjustified": 2,
-    "upward_edges": 0
-  },
-  "pending_disposition": {
-    "cynic-anchoring": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, personal anchoring domain crate"
+    "measured": {
+        "acyclic": true,
+        "binaries": 4,
+        "crates": 36,
+        "dev_edges": 7,
+        "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
+        "loc_total": 397169,
+        "pending_disposition": 3,
+        "runtime_edges": 161,
+        "unjustified": 2,
+        "upward_edges": 0
     },
-    "cynic-market": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, not a binary"
+    "pending_disposition": {
+        "cynic-anchoring": {
+            "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
+            "reason": "measured 0 runtime, 0 dev dependents, personal anchoring domain crate"
+        },
+        "cynic-market": {
+            "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
+            "reason": "measured 0 runtime, 0 dev dependents, not a binary"
+        },
+        "cynic-sqlite": {
+            "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
+            "reason": "measured 0 runtime, 0 dev dependents, candidate for deletion or fusion"
+        }
     },
-    "cynic-sqlite": {
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
-      "reason": "measured 0 runtime, 0 dev dependents, candidate for deletion or fusion"
-    }
-  },
-  "purpose": "Machine-readable crate dependency topology. Single source of truth for the DAG, the layer assignment, and crate justification. Replaces the prose taxonomy in AGENTS.md and the tables in infra/CANONICAL_CRATE_MAP.md, which can drift from the build graph and from each other and are not executable. A vertical slice names crates; this file gives the topological order to extract them in.",
-  "ratification": {
-    "date": "2026-09-28",
-    "not_yet_propagated": "AGENTS.md still carries the prose taxonomy and does not point here. It is claimed by another agent, so the pointer is deferred. Two statements of the taxonomy therefore coexist today; on the authority_order this file declares, this one wins.",
-    "status": "normative",
-    "why": "Single source of truth for the crate DAG, the layer assignment and crate justification. It supersedes the prose taxonomy in AGENTS.md, which is not executable and can drift from the build graph. ARCH-004 makes it falsifiable: every crate declared, every edge real, no undeclared edge, no upward edge, acyclic, and every crate justified or listed in pending_disposition."
-  },
-  "schema": "cynic.crate_topology.v1",
-  "status": "normative"
+    "purpose": "Machine-readable crate dependency topology. Single source of truth for the DAG, the layer assignment, and crate justification. Replaces the prose taxonomy in AGENTS.md and the tables in infra/CANONICAL_CRATE_MAP.md, which can drift from the build graph and from each other and are not executable. A vertical slice names crates; this file gives the topological order to extract them in.",
+    "ratification": {
+        "date": "2026-09-28",
+        "not_yet_propagated": "AGENTS.md still carries the prose taxonomy and does not point here. It is claimed by another agent, so the pointer is deferred. Two statements of the taxonomy therefore coexist today; on the authority_order this file declares, this one wins.",
+        "status": "normative",
+        "why": "Single source of truth for the crate DAG, the layer assignment and crate justification. It supersedes the prose taxonomy in AGENTS.md, which is not executable and can drift from the build graph. ARCH-004 makes it falsifiable: every crate declared, every edge real, no undeclared edge, no upward edge, acyclic, and every crate justified or listed in pending_disposition."
+    },
+    "schema": "cynic.crate_topology.v1",
+    "status": "normative"
 }

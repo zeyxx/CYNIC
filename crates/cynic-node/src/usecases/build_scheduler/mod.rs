@@ -21,7 +21,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     adapters::{
         local_agent_workload_store::LocalAgentWorkloadStore,
-        tokio_build_execution::TokioBuildExecution,
+        cynic_build::adapters::TokioBuildExecution,
     },
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{

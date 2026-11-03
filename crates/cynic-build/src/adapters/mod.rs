@@ -14,10 +14,20 @@ pub mod std_fs;
 pub mod local_release_basket_packaging;
 pub mod ssh_release_basket_signing;
 
+
+pub mod ssh_build_runner;
+pub mod local_build_workspace;
+pub mod tokio_build_execution;
+
 pub use build_evidence::{
     CurlBuildLeaseVerificationAdapter, JsonBuildRunnerObservationAdapter,
     NodeBuildLeaseVerificationAdapter, SshBuildRunnerObservationAdapter,
 };
+
+pub use ssh_build_runner::{DEFAULT_SSOT_URL, SshBuildRunner};
+pub use local_build_workspace::LocalBuildWorkspace;
+pub use tokio_build_execution::TokioBuildExecution;
+
 pub use http::{HttpDeployAdapter, HttpExternalBuildAdapter};
 pub use local::{LocalExternalBuildAdapter};
 pub use local_build_cache::LocalBuildCacheAdapter;

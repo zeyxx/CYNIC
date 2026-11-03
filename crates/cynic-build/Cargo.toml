@@ -18,6 +18,7 @@ cynic-types = { path = "../cynic-types" }
 cynic-network = { path = "../cynic-network" }
 cynic-process = { path = "../cynic-process" }
 cynic-ssh = { path = "../cynic-ssh" }
+cynic-host = { path = "../cynic-host" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 hmac.workspace = true
 reqwest.workspace = true

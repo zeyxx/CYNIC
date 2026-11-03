@@ -17,7 +17,7 @@ use crate::{
         http_artifact_transport::HttpArtifactTransport,
         local_agent_workload_store::LocalAgentWorkloadStore,
         local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
-        local_build_workspace::LocalBuildWorkspace,
+        cynic_build::adapters::*,
         registry::{RegistryAgentWorkspaceLayoutAdapter, recompute_layout_digest},
     },
     config::{BuildSchedulerConfig, NodeControlConfig},
