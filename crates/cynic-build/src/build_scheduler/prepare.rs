@@ -20,8 +20,8 @@ use crate::adapters::LocalBuildWorkloadGrantStore;
 use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
 use crate::build_scheduler::grant::issue_signed_build_workload_grant;
 use crate::ports::{
-    BuildWorkloadGrantStorePort, BuildWorkloadGrantSignerPort, CapacityAssessmentPort,
-    CpuMeterPort, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
+    BuildArtefactReclaimer, BuildWorkloadGrantStorePort, BuildWorkloadGrantSignerPort,
+    CapacityAssessmentPort, CpuMeterPort, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
 };
 use crate::ports::recompute_layout_digest;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
