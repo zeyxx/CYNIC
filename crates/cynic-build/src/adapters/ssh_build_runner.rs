@@ -5,12 +5,12 @@
 //! canonical protocol action) builds it. Disposable; the port contract in
 //! `build_runner.rs` is durable. Tests inject a fake `CommandRunner`.
 
-use cynic_build::pipeline_proof::{
+use crate::pipeline_proof::{
     BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
-use cynic_build::build::canonical_argv_from_build_action;
-use cynic_build::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
+use crate::build::canonical_argv_from_build_action;
+use crate::build_disk_capacity::{DiskCapacityDecision, decide_disk_capacity};
 use cynic_protocol::remote_cache_roots::{parse_state_root, remote_cache_roots};
 
 use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
@@ -774,7 +774,7 @@ mod tests {
     use super::*;
     // PipelineStatus is only referenced by tests; the file-level import was
     // dropped to silence the unused warning on normal builds.
-    use cynic_build::pipeline_proof::PipelineStatus;
+    use crate::pipeline_proof::PipelineStatus;
 
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};

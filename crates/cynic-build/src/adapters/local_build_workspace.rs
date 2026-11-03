@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use cynic_process::ArgvRunner;
 
-use cynic_build::ports::{BuildWorkspacePort, BuildWorkspaceReadBack};
+use crate::ports::{BuildWorkspacePort, BuildWorkspaceReadBack};
 
 use cynic_agent::workspace::ports::{AgentWorkspaceLayout, AgentWorkspacePortError};
 
