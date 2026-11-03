@@ -4,8 +4,11 @@ pub mod release_publication;
 mod source_prepare;
 
 pub use crate::ports::{
-    BuildExecutionError, BuildExecutionPort, CapacityAssessment, CapacityAssessmentPort,
-    CpuMeterPort, LoadPolicy, LoadTier, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
+    BuildArtefactReclaimer, BuildExecutionError, BuildExecutionPort, BuildWorkloadGrantSignerPort,
+    CapacityAssessment, CapacityAssessmentPort, CpuMeterPort, LoadPolicy, LoadTier,
+    ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort,
+    ReleasePublicationError, ReleasePublicationFuture, ReleasePublicationResult,
+    ReleasePublicationTargets, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
 };
 
 use std::time::{Duration, Instant};
