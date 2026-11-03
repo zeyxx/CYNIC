@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_build::{BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference};
+use crate::{BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference};
 use cynic_process::ArgvRunner;
 use cynic_vcs::{
     SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
@@ -18,20 +18,18 @@ use cynic_vcs::ports::{
     SourceMaterializationPort, SourceRepositoryBootstrapPort, SourceRepositoryLayout,
 };
 
-use crate::config::{BuildSchedulerConfig, NodeControlConfig};
-use crate::ports::{
-    agent_workspace_port::AgentWorkspaceLayout,
-    runtime_artifact_transport_port::RuntimeArtifactTransportPort,
-};
+use cynic_agent::workspace::ports::AgentWorkspaceLayout;
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::ports::RuntimeArtifactTransportPort;
 
-pub(super) async fn prepare_build_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>(
+pub(super) async fn prepare_build_source<R: ArgvRunner>(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     source: &BuildSourceReference,
     workload_id: &str,
     layout: AgentWorkspaceLayout,
     runner: &R,
-    artifact_transport: &T,
+    artifact_transport: &dyn RuntimeArtifactTransportPort,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> Result<(AgentWorkspaceLayout, Vec<String>), String> {
     if source.schema != BUILD_SOURCE_REFERENCE_SCHEMA {
@@ -109,15 +107,15 @@ fn prepare_live_git_source<R: ArgvRunner>(
     Ok((layout, vec![source.authority_ref.clone()]))
 }
 
-async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>(
+async fn prepare_snapshot_source<R: ArgvRunner>(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     source: &BuildSourceReference,
-    snapshot: &cynic_build::BuildSourceSnapshotReference,
+    snapshot: &crate::BuildSourceSnapshotReference,
     workload_id: &str,
     mut layout: AgentWorkspaceLayout,
     runner: &R,
-    artifact_transport: &T,
+    artifact_transport: &dyn RuntimeArtifactTransportPort,
     cancellation: &tokio_util::sync::CancellationToken,
 ) -> Result<(AgentWorkspaceLayout, Vec<String>), String> {
     let target_relative_path = format!("source/materializations/{workload_id}");

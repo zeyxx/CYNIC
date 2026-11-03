@@ -13,6 +13,7 @@ pub mod os_identity;
 pub mod std_fs;
 pub mod local_release_basket_packaging;
 pub mod ssh_release_basket_signing;
+pub mod agent_execution_runtime_observer;
 
 
 pub mod ssh_build_runner;

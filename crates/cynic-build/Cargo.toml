@@ -19,6 +19,7 @@ cynic-network = { path = "../cynic-network" }
 cynic-process = { path = "../cynic-process" }
 cynic-ssh = { path = "../cynic-ssh" }
 cynic-sandbox = { path = "../cynic-sandbox" }
+cynic-vcs = { path = "../cynic-vcs" }
 hmac.workspace = true
 reqwest.workspace = true
 serde = { version = "1.0", features = ["derive"] }
@@ -32,6 +33,7 @@ async-trait.workspace = true
 tempfile = "3.17"
 tokio.workspace = true
 tokio-util = { version = "0.7", features = ["rt"] }
+tracing.workspace = true
 
 [dev-dependencies]
 serde_json = { workspace = true }

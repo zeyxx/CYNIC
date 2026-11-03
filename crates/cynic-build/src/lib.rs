@@ -28,6 +28,7 @@ pub mod build_queue;
 pub mod build_reliability;
 pub mod build_runner_harness;
 pub mod build_slice;
+pub mod build_scheduler;
 pub mod build_workflow;
 pub mod builder_client;
 pub mod builder_rbac;
@@ -66,6 +67,14 @@ pub use build_reliability::*;
 pub use build_runner_harness::*;
 pub use build_slice::*;
 pub use build_workflow::*;
+pub use build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+pub use build_scheduler::grant::issue_signed_build_workload_grant;
+pub use build_scheduler::release_publication::publish_with_ports;
+pub use ports::{
+    BuildArtefactReclaimer, CapacityAssessment, CapacityAssessmentPort, CpuMeterPort, CpuSample,
+    LoadPolicy, LoadTier, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
+};
+pub use build_scheduler::config::ReleasePublicationConfig;
 pub use builder_client::*;
 pub use builder_rbac::*;
 pub use collision_counter::*;

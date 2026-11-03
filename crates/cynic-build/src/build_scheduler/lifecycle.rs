@@ -12,11 +12,9 @@ use cynic_agent::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    adapters::local_agent_workload_store::LocalAgentWorkloadStore,
-    config::{BuildSchedulerConfig, NodeControlConfig},
-    ports::agent_workload_store_port::AgentWorkloadStorePort,
-};
+use cynic_agent::adapters::local_workload_store::LocalAgentWorkloadStore;
+use cynic_agent::workload::ports::AgentWorkloadStorePort;
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
 
 pub(super) fn claim_if_available(
     control: &NodeControlConfig,

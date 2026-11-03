@@ -5,29 +5,31 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use cynic_build::build_source_reference_from_workload;
-use cynic_build::ports::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack};
+use crate::build_source_reference_from_workload;
+use crate::ports::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack};
 use cynic_process::LocalArgvRunner;
 use cynic_protocol::{LeaseGuard, digest_json};
 use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 
-use cynic_build::adapters::LocalBuildWorkspace;
-use cynic_build::profile_for_argv;
-use crate::{
-    adapters::{
-        ed25519_build_workload_grant::Ed25519BuildWorkloadGrantSigner,
-        http_artifact_transport::HttpArtifactTransport,
-        local_agent_workload_store::LocalAgentWorkloadStore,
-        local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
-        registry::{RegistryAgentWorkspaceLayoutAdapter, recompute_layout_digest},
-    },
-    config::{BuildSchedulerConfig, NodeControlConfig},
-    ports::{
-        agent_workload_store_port::AgentWorkloadStorePort,
-        agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspaceLayoutPort},
-        build_workload_grant_store_port::BuildWorkloadGrantStorePort,
-    },
-    usecases::build_workload_grant_uc::issue_signed_build_workload_grant,
+use crate::adapters::LocalBuildWorkspace;
+use crate::profile_for_argv;
+use cynic_agent::adapters::local_workload_store::LocalAgentWorkloadStore;
+use cynic_agent::workload::ports::AgentWorkloadStorePort;
+use cynic_agent::workspace::ports::{AgentWorkspaceLayout, AgentWorkspacePortError};
+use crate::adapters::LocalBuildWorkloadGrantStore;
+use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::build_scheduler::grant::issue_signed_build_workload_grant;
+use crate::ports::{
+    BuildArtefactReclaimer, BuildWorkloadGrantStorePort, BuildWorkloadGrantSignerPort,
+    CapacityAssessmentPort, CpuMeterPort, RuntimeArtifactTransportPort, WorkspaceLayoutResolver,
+};
+use crate::ports::recompute_layout_digest;
+use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
+use cynic_vcs::ports::{
+    SourceMaterializationPort, SourceRepositoryBootstrapPort, SourceRepositoryLayout,
+};
+use cynic_vcs::adapters::{
+    LocalSourceMaterialization, LocalSourceRepositoryBootstrap, source_snapshot_store::snapshot_path,
 };
 
 use super::source_prepare::prepare_build_source;
@@ -47,6 +49,10 @@ pub(super) async fn prepare(
     claimed: &DurableAgentWorkloadRecord,
     guard: &LeaseGuard,
     cancellation: &tokio_util::sync::CancellationToken,
+    layout: &dyn WorkspaceLayoutResolver,
+    signer: &dyn BuildWorkloadGrantSignerPort,
+    artifact_transport: &dyn RuntimeArtifactTransportPort,
+    reclaimer: &dyn BuildArtefactReclaimer,
 ) -> Result<PreparedBuild, String> {
     if cancellation.is_cancelled() {
         return Err("build_scheduler_cancelled_before_prepare".into());
@@ -61,18 +67,14 @@ pub(super) async fn prepare(
     // The reclaim runs here, at the point where space is about to be
     // consumed, and its failure is never fatal: an unobservable disk must
     // not block a build that may still fit.
-    reclaim_before_build();
+    reclaim_before_build(reclaimer);
 
     let source = build_source_reference_from_workload(&claimed.record.envelope)
         .map_err(|blockers| blockers.join(","))?;
     if source.repository_id != scheduler.repository_id {
         return Err("build_scheduler_repository_id_mismatch".into());
     }
-    let layout_port = RegistryAgentWorkspaceLayoutAdapter::new(
-        &scheduler.registry_path,
-        &control.agent_workload_state_root,
-    );
-    let layout = layout_port
+    let layout = layout
         .resolve(
             &source.repository_id,
             &claimed.record.envelope.workload_id,
@@ -90,11 +92,7 @@ pub(super) async fn prepare(
 
     let runner = LocalArgvRunner;
     let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
-    let artifact_transport = HttpArtifactTransport::new(
-        snapshot_root,
-        control.runtime_artifact_max_bytes,
-        Duration::from_secs(control.runtime_artifact_timeout_secs),
-    )?;
+    let artifact_transport = artifact_transport;
     let (source_layout, mut source_provenance) = prepare_build_source(
         control,
         scheduler,
@@ -102,7 +100,7 @@ pub(super) async fn prepare(
         &claimed.record.envelope.workload_id,
         layout,
         &runner,
-        &artifact_transport,
+        artifact_transport,
         cancellation,
     )
     .await?;
@@ -113,8 +111,7 @@ pub(super) async fn prepare(
         .prepare(&source_layout, &source.revision)
         .map_err(|error| error.code)?;
 
-    let signer = Ed25519BuildWorkloadGrantSigner::load_hex_file(&control.signing_key_path)
-        .map_err(|_| "build_grant_machine_signer_unavailable".to_string())?;
+    // signer provided by caller
     if cancellation.is_cancelled() {
         return Err("build_scheduler_cancelled_before_action_reservation".into());
     }
@@ -124,7 +121,7 @@ pub(super) async fn prepare(
         &consumed,
         &control.node_id,
         action_now_ms / 1_000,
-        &signer,
+        signer,
     )
     .map_err(|blockers| blockers.join(","))?;
     let grant_store = LocalBuildWorkloadGrantStore::new(
@@ -280,46 +277,8 @@ pub(super) fn build_execution_env(
 /// disk; refusing it because the reclaim failed would turn a maintenance
 /// problem into an outage. The pre-trigger disk gate is what refuses a
 /// build that does not fit.
-fn reclaim_before_build() {
-    use cynic_host::adapters::local_build_artefact::LocalBuildArtefactAdapter;
-    use cynic_host::domain::build_artefact::{
-        RetentionExecutor, RetentionObserver, RetentionPlanner,
-    };
-    use cynic_protocol::retention::default_build_artefact_policy;
-
-    let adapter = LocalBuildArtefactAdapter;
-    let Ok(observation) = adapter.observe() else {
-        eprintln!("cynic: build artefact observation failed; reclaim skipped");
-        return;
-    };
-    let policy = default_build_artefact_policy();
-    let plan = adapter.plan(&observation, &policy);
-    if plan.items.is_empty() {
-        return;
-    }
-    match adapter.execute(&plan) {
-        Ok(result) if result.success => {
-            eprintln!(
-                "cynic: reclaimed {} build artefact(s), {} bytes",
-                result.items_executed.len(),
-                plan.total_reclaimable_bytes
-            );
-        }
-        Ok(result) => {
-            eprintln!(
-                "cynic: reclaim incomplete: {} of {} artefact(s) reclaimed",
-                result
-                    .items_executed
-                    .iter()
-                    .filter(|item| item.success)
-                    .count(),
-                plan.items.len()
-            );
-        }
-        Err(error) => {
-            eprintln!("cynic: reclaim failed: {error}");
-        }
-    }
+fn reclaim_before_build(reclaimer: &dyn BuildArtefactReclaimer) {
+    reclaimer.reclaim();
 }
 
 fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
@@ -624,7 +583,7 @@ mod tests {
     #[test]
     fn execution_env_has_cargo_target_dir_when_shared_target_root_configured() {
         let root = PathBuf::from("/var/lib/cynic/build-targets");
-        let scheduler = crate::config::BuildSchedulerConfig {
+        let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             shared_target_root: Some(root.clone()),
             ..scheduler_config()
         };
@@ -645,7 +604,7 @@ mod tests {
     #[test]
     fn execution_env_falls_back_to_unscoped_target_dir_when_checkout_name_unusable() {
         let root = PathBuf::from("/var/lib/cynic/build-targets");
-        let scheduler = crate::config::BuildSchedulerConfig {
+        let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             shared_target_root: Some(root.clone()),
             ..scheduler_config()
         };
@@ -845,8 +804,8 @@ mod tests {
         );
     }
 
-    fn scheduler_config() -> crate::config::BuildSchedulerConfig {
-        crate::config::BuildSchedulerConfig {
+    fn scheduler_config() -> crate::build_scheduler::config::BuildSchedulerConfig {
+        crate::build_scheduler::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
             repository_id: String::new(),
             transport_uri: None,

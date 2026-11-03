@@ -77,6 +77,10 @@ pub trait IdentityPort: Send + Sync {
 pub trait BuildWorkloadGrantSignerPort: Send + Sync {
     fn authority_key_id(&self) -> &str;
     fn sign(&self, payload: &[u8]) -> Result<String, String>;
+    fn persist_public_key(&self, path: &std::path::Path) -> Result<(), String> {
+        let _ = path;
+        Ok(())
+    }
 }
 
 /// Port for verifying build workload grants.
@@ -290,4 +294,92 @@ pub trait BuildExecutionPort: Send + Sync {
                 + 'a,
         >,
     >;
+}
+
+// --- Additional build-scheduler ports ---
+
+/// Port for staging runtime artifacts (e.g. source snapshots).
+#[async_trait::async_trait]
+pub trait RuntimeArtifactTransportPort: Send + Sync {
+    async fn stage(
+        &self,
+        source: &RuntimeArtifactSource,
+        destination: &std::path::Path,
+        expected_digest: Option<&str>,
+    ) -> Result<cynic_protocol::artifact_transport::ArtifactTransferReceipt, String>;
+}
+
+/// Capacity tier outcome for the admission gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadTier {
+    Headroom,
+    Normal,
+    Saturated,
+}
+
+#[derive(Debug, Clone)]
+pub struct CapacityAssessment {
+    pub state: LoadTier,
+    pub residual_unknowns: Vec<String>,
+}
+
+/// Port for observing host capacity. The scheduler calls this once per tick.
+pub trait CapacityAssessmentPort: Send + Sync {
+    fn assess(&self, policy: &LoadPolicy) -> CapacityAssessment;
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadPolicy {
+    pub domain: String,
+}
+
+impl LoadPolicy {
+    pub fn with_legacy_defaults(domain: impl Into<String>) -> Self {
+        Self { domain: domain.into() }
+    }
+}
+
+/// Opaque CPU sample token.
+#[derive(Debug, Clone, Copy)]
+pub struct CpuSample;
+
+/// Port for bracketing CPU measurement around a build scope.
+pub trait CpuMeterPort: Send + Sync {
+    fn mark(&self) -> CpuSample;
+    fn cpu_ms_between(&self, _start: &CpuSample, _end: &CpuSample) -> Option<u64>;
+}
+
+/// Port for resolving workspace layouts from a runtime registry.
+pub trait WorkspaceLayoutResolver: Send + Sync {
+    fn resolve(
+        &self,
+        repository_id: &str,
+        workload_id: &str,
+        node_id: &str,
+    ) -> Result<AgentWorkspaceLayout, AgentWorkspacePortError>;
+}
+
+/// Recompute the evidence digest for a resolved layout after a path override.
+pub fn recompute_layout_digest(
+    layout: &AgentWorkspaceLayout,
+    node_id: &str,
+    repository_id: &str,
+    workspace_id: &str,
+) -> Result<String, String> {
+    use cynic_protocol::digest_json;
+    digest_json(&(
+        node_id,
+        repository_id,
+        workspace_id,
+        layout.repository_root.clone(),
+        layout.workspace_root.clone(),
+        layout.dedicated,
+        &layout.required_principal,
+    ))
+    .map_err(|error| error.to_string())
+}
+
+/// Port for reclaiming build artefacts before a build consumes space.
+pub trait BuildArtefactReclaimer: Send + Sync {
+    fn reclaim(&self);
 }
