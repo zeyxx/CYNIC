@@ -1,7 +1,7 @@
 use crate::deps_surface_model::{
     DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, VersionFrom,
 };
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     EcosystemPackageExecutionPort, InstallPrincipalKind, LocalEcosystemPackageExecution,
     PrincipalInstallLayout, ProviderChannel, observe_python_install_authority,
     observe_tooling_authority, plan_for_dep, provider_spec, python_cli_policy, resolve_binary,
@@ -219,20 +219,20 @@ fn python_cli_can_auto_apply(layout: &PrincipalInstallLayout, dep_id: &str) -> b
 }
 
 fn format_python_provenance(
-    provenance: cynic_host::domain::ecosystem_package::PythonInstallProvenance,
+    provenance: cynic_pkg::PythonInstallProvenance,
 ) -> String {
     match provenance {
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::UvTool => "uv_tool",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::UvVenv => "uv_venv",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::VirtualEnv => "virtual_env",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::Pipx => "pipx",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::PipUserSite => {
+        cynic_pkg::PythonInstallProvenance::UvTool => "uv_tool",
+        cynic_pkg::PythonInstallProvenance::UvVenv => "uv_venv",
+        cynic_pkg::PythonInstallProvenance::VirtualEnv => "virtual_env",
+        cynic_pkg::PythonInstallProvenance::Pipx => "pipx",
+        cynic_pkg::PythonInstallProvenance::PipUserSite => {
             "pip_user_site"
         }
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::SystemPython => {
+        cynic_pkg::PythonInstallProvenance::SystemPython => {
             "system_python"
         }
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::Unknown => "unknown",
+        cynic_pkg::PythonInstallProvenance::Unknown => "unknown",
     }
     .to_string()
 }
@@ -429,7 +429,7 @@ mod tests {
     use super::{
         PrincipalInstallLayout, python_cli_normalizable_now, python_cli_uv_in_runtime_layout,
     };
-    use cynic_host::domain::ecosystem_package::InstallPrincipalKind;
+    use cynic_pkg::InstallPrincipalKind;
     use std::fs::File;
     use std::path::PathBuf;
 
@@ -441,7 +441,7 @@ mod tests {
             bin_dir: home.join(".local/bin"),
             src_dir: home.join(".local/share/cynic/src"),
             share_dir: home.join(".local/share/cynic"),
-            run_as: cynic_host::domain::ecosystem_package::RunAs::Current,
+            run_as: cynic_pkg::RunAs::Current,
             writable,
             notes: vec![],
         }

@@ -1,6 +1,6 @@
 use crate::deps_surface_audit::DepsAuditReport;
 use crate::deps_surface_model::{DepsPlanReport, DepsReport, UpgradeMode, UpgradeReport};
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     ProviderChannel, ToolingAuthorityFamily, ToolingInstallProvenance,
 };
 
@@ -229,19 +229,19 @@ fn format_tooling_provenance(provenance: ToolingInstallProvenance) -> &'static s
 }
 
 fn format_python_provenance(
-    provenance: cynic_host::domain::ecosystem_package::PythonInstallProvenance,
+    provenance: cynic_pkg::PythonInstallProvenance,
 ) -> &'static str {
     match provenance {
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::UvTool => "uv_tool",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::UvVenv => "uv_venv",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::VirtualEnv => "virtual_env",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::Pipx => "pipx",
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::PipUserSite => {
+        cynic_pkg::PythonInstallProvenance::UvTool => "uv_tool",
+        cynic_pkg::PythonInstallProvenance::UvVenv => "uv_venv",
+        cynic_pkg::PythonInstallProvenance::VirtualEnv => "virtual_env",
+        cynic_pkg::PythonInstallProvenance::Pipx => "pipx",
+        cynic_pkg::PythonInstallProvenance::PipUserSite => {
             "pip_user_site"
         }
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::SystemPython => {
+        cynic_pkg::PythonInstallProvenance::SystemPython => {
             "system_python"
         }
-        cynic_host::domain::ecosystem_package::PythonInstallProvenance::Unknown => "unknown",
+        cynic_pkg::PythonInstallProvenance::Unknown => "unknown",
     }
 }

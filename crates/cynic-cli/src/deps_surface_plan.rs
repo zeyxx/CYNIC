@@ -1,5 +1,5 @@
 use crate::deps_surface_model::{DepsPlanReport, DepsReport, FrictionlessHints, PlanAction};
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     ProviderChannel, channel_auto_applicable, has_auto_handler, plan_for_dep,
     resolve_principal_install_layout,
 };

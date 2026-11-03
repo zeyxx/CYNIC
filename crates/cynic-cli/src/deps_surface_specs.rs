@@ -1,5 +1,5 @@
 use crate::deps_surface_model::{DepSpec, VersionFrom};
-use cynic_host::domain::ecosystem_package::{
+use cynic_pkg::{
     ToolingAuthorityFamily, ToolingInstallProvenance, python_cli_policy,
 };
 

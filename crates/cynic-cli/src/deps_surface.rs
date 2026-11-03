@@ -1,6 +1,6 @@
 //! Thin CLI surface for ecosystem tech-watch.
 //!
-//! Business logic lives in `cynic_host::domain::ecosystem_package`:
+//! Business logic lives in `cynic_pkg`:
 //! types / layout / port / registry / providers (not a monolith).
 //!
 //! This module: probe pins, print human/JSON, consent (`--yes` / token).
