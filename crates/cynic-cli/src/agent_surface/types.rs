@@ -8,65 +8,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-pub(crate) const AGENT_CLAIM_REPORT_SCHEMA: &str = "cynic.cli.agent_claim_report.v1";
-pub(crate) const AGENT_RELEASE_REPORT_SCHEMA: &str = "cynic.cli.agent_release_report.v1";
-pub(crate) const AGENT_IDENTIFY_REPORT_SCHEMA: &str = "cynic.cli.agent_identify_report.v1";
-pub(crate) const AGENT_EVENTS_REPORT_SCHEMA: &str = "cynic.cli.agent_events_report.v1";
-
-/// Report emitted after a successful claim.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct AgentClaimReport {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub agent_id: String,
-    pub target: String,
-    pub claim_type: String,
-    pub lease_id: String,
-    pub fencing_token: u64,
-    pub ttl_seconds: u64,
-    pub budget_actions: u64,
-    pub budget_wall_seconds: u64,
-    pub granted_at_unix_ms: u64,
-    pub expires_at_unix_ms: u64,
-}
-
-/// Report emitted after a successful release.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct AgentReleaseReport {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub agent_id: String,
-    pub target: String,
-    pub lease_id: String,
-    pub proof_refs: Vec<String>,
-    pub released_at_unix_ms: u64,
-}
-
-pub(crate) type AgentClaimSummary = cynic_agent::coordination::AgentClaimSummary;
-pub(crate) type AgentStatusReport = cynic_agent::coordination::AgentStatusReport;
-pub(crate) const AGENT_STATUS_REPORT_SCHEMA: &str = cynic_agent::coordination::AGENT_STATUS_REPORT_SCHEMA;
-
-/// Report emitted after identity declaration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct AgentIdentifyReport {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub agent_id: String,
-    pub agent_kind: String,
-    pub credential_kind: String,
-    pub attested_at_unix_ms: u64,
-}
-
-/// Report emitted when reading back the append-only claim event log.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct AgentEventsReport {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub agent_id: String,
-    pub target: String,
-    pub total_events: usize,
-    pub events: Vec<Value>,
-}
+pub(crate) use cynic_agent::coordination::{
+    AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport, AgentReleaseReport,
+    AgentScopeReport, AgentStatusReport, AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA,
+    AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
+    AGENT_STATUS_REPORT_SCHEMA,
+};
 
 // ── Agent SoC Audit Types ───────────────────────────────────────────────────
 
