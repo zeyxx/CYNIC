@@ -20,7 +20,7 @@ use cynic_host::adapters::{
     cpu_usage_meter::CpuUsageMeter, local_build_artefact::LocalBuildArtefactAdapter,
     local_capacity::LocalCapacityAdapter, local_evidence_store::LocalContentAddressedEvidenceStore,
 };
-use cynic_protocol::capacity::LoadPolicy;
+use cynic_build::ports::LoadPolicy;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use tokio_util::sync::CancellationToken;
 

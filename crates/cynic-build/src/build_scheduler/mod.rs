@@ -26,7 +26,7 @@ use cynic_agent::{
 };
 use cynic_agent::adapters::local_workload_store::LocalAgentWorkloadStore;
 use cynic_agent::workload::ports::AgentWorkloadStorePort;
-use crate::build_scheduler::config::{BuildSchedulerConfig, NodeControlConfig};
+pub use crate::build_scheduler::config::*;
 use crate::ports::recompute_layout_digest;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
 use cynic_sandbox::cargo::BuildSandboxMode;
