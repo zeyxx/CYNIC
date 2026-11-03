@@ -514,6 +514,7 @@ use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SC
     }
 
     struct NoTransport;
+    #[async_trait::async_trait]
     impl RuntimeArtifactTransportPort for NoTransport {
         async fn stage(
             &self,
@@ -582,6 +583,7 @@ use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SC
     }
 
     struct ProvedTransport;
+    #[async_trait::async_trait]
     impl RuntimeArtifactTransportPort for ProvedTransport {
         async fn stage(
             &self,
