@@ -204,6 +204,7 @@ impl HttpArtifactTransport {
     }
 }
 
+#[async_trait::async_trait]
 impl RuntimeArtifactTransportPort for HttpArtifactTransport {
     async fn stage(
         &self,

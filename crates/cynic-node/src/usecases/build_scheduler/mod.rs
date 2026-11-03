@@ -22,6 +22,7 @@ use cynic_host::adapters::{
 };
 use cynic_build::ports::LoadPolicy;
 use cynic_protocol::evidence_store_port::ContentAddressedEvidenceStorePort;
+use cynic_protocol::{RetentionExecutor, RetentionObserver, RetentionPlanner};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -33,6 +34,18 @@ use crate::{
     },
     config::{BuildSchedulerConfig as NodeBuildSchedulerConfig, NodeControlConfig as NodeNodeControlConfig, ReleasePublicationConfig as NodeReleasePublicationConfig},
 };
+use cynic_agent::workspace::ports::AgentWorkspaceLayoutPort;
+
+impl WorkspaceLayoutResolver for RegistryAgentWorkspaceLayoutAdapter {
+    fn resolve(
+        &self,
+        repository_id: &str,
+        workload_id: &str,
+        node_id: &str,
+    ) -> Result<cynic_agent::workspace::ports::AgentWorkspaceLayout, cynic_agent::workspace::ports::AgentWorkspacePortError> {
+        AgentWorkspaceLayoutPort::resolve(self, repository_id, workload_id, node_id)
+    }
+}
 
 // --- Port implementations that bridge node-local adapters to cynic-build ports ---
 
@@ -41,7 +54,8 @@ pub struct NodeCapacityAssessment;
 impl CapacityAssessmentPort for NodeCapacityAssessment {
     fn assess(&self, policy: &LoadPolicy) -> CapacityAssessment {
         let adapter = LocalCapacityAdapter::new();
-        match adapter.assess_capacity(policy) {
+        let host_policy = cynic_host::capacity::LoadPolicy::with_legacy_defaults(&policy.domain);
+        match adapter.assess_capacity(&host_policy) {
             Ok(assessment) => CapacityAssessment {
                 state: match assessment.state {
                     cynic_host::capacity::LoadTier::Headroom => cynic_build::ports::LoadTier::Headroom,
