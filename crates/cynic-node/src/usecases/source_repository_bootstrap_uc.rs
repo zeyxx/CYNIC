@@ -12,20 +12,20 @@ use cynic_vcs::{
     SourceRepositoryBootstrapStatus, reconcile_source_repository_bootstrap,
 };
 
+use cynic_vcs::adapters::LocalSourceRepositoryBootstrap;
+use cynic_vcs::ports::{
+    SourceRepositoryBootstrapPort, SourceRepositoryProofCommitPort, SourceRepositoryLayout,
+};
+
 use crate::{
     adapters::{
         kernel_source_repository_proof_commit::KernelSourceRepositoryProofCommit,
-        local_source_repository_bootstrap::LocalSourceRepositoryBootstrap,
         registry::RegistryAgentWorkspaceLayoutAdapter,
     },
     domain::source_repository_proof::{
         mark_kernel_committed, mark_unknown, persist_local_proof, runtime_proof_bundle,
     },
-    ports::{
-        agent_workspace_port::AgentWorkspaceLayoutPort,
-        source_repository_bootstrap_port::SourceRepositoryBootstrapPort,
-        source_repository_proof_commit_port::SourceRepositoryProofCommitPort,
-    },
+    ports::agent_workspace_port::AgentWorkspaceLayoutPort,
 };
 
 pub async fn execute_source_repository_bootstrap(
@@ -59,7 +59,7 @@ pub async fn execute_source_repository_bootstrap(
     };
     let runner = LocalArgvRunner;
     let adapter = LocalSourceRepositoryBootstrap::new(&runner, &state_root_path, "git", "id");
-    let before = match adapter.observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request) {
+    let before = match adapter.observe(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request) {
         Ok(observation) => observation,
         Err(failure) => {
             return emit_error(format!(
@@ -217,7 +217,7 @@ pub async fn execute_source_repository_bootstrap(
         }
     }
     let after = if mutation_required {
-        if let Err(failure) = adapter.apply(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request) {
+        if let Err(failure) = adapter.apply(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request) {
             let _ = coordination.release(&guard).await;
             let mut result = report(
                 SourceRepositoryBootstrapStatus::Unknown,
@@ -234,7 +234,7 @@ pub async fn execute_source_repository_bootstrap(
             ));
             return emit_report(result);
         }
-        match adapter.observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request) {
+        match adapter.observe(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request) {
             Ok(observation) => observation,
             Err(failure) => {
                 let _ = coordination.release(&guard).await;

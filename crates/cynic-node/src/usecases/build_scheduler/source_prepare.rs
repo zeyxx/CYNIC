@@ -11,19 +11,17 @@ use cynic_vcs::{
 };
 use cynic_protocol::digest_json;
 
-use crate::{
-    adapters::{
-        local_source_materialization::LocalSourceMaterialization,
-        local_source_repository_bootstrap::LocalSourceRepositoryBootstrap,
-        source_snapshot_store::snapshot_path,
-    },
-    config::{BuildSchedulerConfig, NodeControlConfig},
-    ports::{
-        agent_workspace_port::AgentWorkspaceLayout,
-        runtime_artifact_transport_port::RuntimeArtifactTransportPort,
-        source_materialization_port::SourceMaterializationPort,
-        source_repository_bootstrap_port::SourceRepositoryBootstrapPort,
-    },
+use cynic_vcs::adapters::{
+    LocalSourceMaterialization, LocalSourceRepositoryBootstrap, source_snapshot_store::snapshot_path,
+};
+use cynic_vcs::ports::{
+    SourceMaterializationPort, SourceRepositoryBootstrapPort, SourceRepositoryLayout,
+};
+
+use crate::config::{BuildSchedulerConfig, NodeControlConfig};
+use crate::ports::{
+    agent_workspace_port::AgentWorkspaceLayout,
+    runtime_artifact_transport_port::RuntimeArtifactTransportPort,
 };
 
 pub(super) async fn prepare_build_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>(
@@ -79,7 +77,7 @@ fn prepare_live_git_source<R: ArgvRunner>(
         "id",
     );
     let before = adapter
-        .observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request)
+        .observe(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request)
         .map_err(|error| error.code)?;
     match reconcile_source_repository_bootstrap(&request, &before) {
         SourceRepositoryBootstrapDecision::Converged => {}
@@ -89,10 +87,10 @@ fn prepare_live_git_source<R: ArgvRunner>(
                 return Err("build_scheduler_cancelled_before_source_sync".to_string());
             }
             adapter
-                .apply(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request)
+                .apply(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request)
                 .map_err(|error| error.code)?;
             let after = adapter
-                .observe(&cynic_vcs::SourceRepositoryLayout { repository_root: layout.repository_root.clone(), required_principal: layout.required_principal.clone() }, &request)
+                .observe(&SourceRepositoryLayout::new(&layout.repository_root, &layout.required_principal), &request)
                 .map_err(|error| error.code)?;
             if !matches!(
                 reconcile_source_repository_bootstrap(&request, &after),

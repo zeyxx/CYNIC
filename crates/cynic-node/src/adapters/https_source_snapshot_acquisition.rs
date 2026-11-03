@@ -1,1 +1,0 @@
-pub use cynic_vcs::adapters::https_source_snapshot_acquisition::*;

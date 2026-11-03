@@ -13,15 +13,11 @@ use cynic_vcs::{
 };
 use serde::Serialize;
 
-use crate::{
-    adapters::{
-        https_source_snapshot_acquisition::HttpsSourceSnapshotAcquisition,
-        local_source_materialization::LocalSourceMaterialization,
-        local_source_snapshot_acquisition::LocalSourceSnapshotAcquisition,
-    },
-    ports::source_materialization_port::{
-        SourceMaterializationPort, SourceSnapshotAcquisitionPort,
-    },
+use cynic_vcs::adapters::{
+    HttpsSourceSnapshotAcquisition, LocalSourceMaterialization, LocalSourceSnapshotAcquisition,
+};
+use cynic_vcs::ports::{
+    SourceMaterializationPort, SourceMaterializationPortError, SourceSnapshotAcquisitionPort,
 };
 
 #[derive(Debug, Serialize)]
@@ -166,7 +162,7 @@ fn execute_action<R: cynic_process::ArgvRunner>(
     adapter: &LocalSourceMaterialization<'_, R>,
     request: &SourceMaterializationRequest,
     action: &SourceMaterializationAction,
-) -> Result<(), crate::ports::source_materialization_port::SourceMaterializationPortError> {
+) -> Result<(), SourceMaterializationPortError> {
     match action {
         SourceMaterializationAction::AcquireSnapshot {
             snapshot_digest,
@@ -185,7 +181,7 @@ fn execute_action<R: cynic_process::ArgvRunner>(
                 Ok(())
             } else {
                 Err(
-                    crate::ports::source_materialization_port::SourceMaterializationPortError::new(
+                    SourceMaterializationPortError::new(
                         "source_materialization_read_back_mismatch",
                         "checkout commit or provenance digest differs",
                     ),
