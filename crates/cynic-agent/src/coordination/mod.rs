@@ -1,15 +1,24 @@
 pub mod admission;
+pub mod claims;
 pub mod events;
 pub mod local_store;
 pub mod types;
 
 pub use admission::{local_claim_active, local_scope_of, refresh_claim_entry};
+pub use claims::{
+    execute_claim_local, execute_release_local, execute_scope,
+};
 pub use events::{civil_from_days, event_matches};
 pub use local_store::{
     append_claim_event, claim_event_log_dir, claims_file_path, execute_status_from_claims_file,
     load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc, CLAIM_EVENT_SCHEMA,
 };
-pub use types::{AgentClaimSummary, AgentStatusReport, ClaimEvent, LocalScope, AGENT_STATUS_REPORT_SCHEMA};
+pub use types::{
+    AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport, AgentReleaseReport,
+    AgentScopeReport, AgentStatusReport, ClaimEvent, LocalScope, AGENT_CLAIM_REPORT_SCHEMA,
+    AGENT_EVENTS_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA,
+    AGENT_SCOPE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA,
+};
 
 #[cfg(test)]
 mod tests {
