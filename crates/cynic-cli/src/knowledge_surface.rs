@@ -1051,6 +1051,7 @@ pub fn retrieve_dense_corpus_and_query(
 }
 
 fn find_repo_root(start: &std::path::Path) -> Option<PathBuf> {
+    let mut current = start.to_path_buf();
     loop {
         if current.join(".git").exists() || current.join("Cargo.toml").exists() {
             return Some(current);
