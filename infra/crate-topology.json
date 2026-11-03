@@ -71,7 +71,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 26382
+            "loc": 26331
         },
         "cynic-cli": {
             "consumers": [],
@@ -916,7 +916,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 397378,
+        "loc_total": 397327,
         "pending_disposition": 3,
         "runtime_edges": 161,
         "unjustified": 2,

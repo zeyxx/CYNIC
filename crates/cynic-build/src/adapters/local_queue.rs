@@ -4,7 +4,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::build_discovery::{
-    BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
+    BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, HostTriple, Toolchain,
 };
 use cynic_protocol::branch_graph::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph, BRANCH_GRAPH_SCHEMA,
@@ -12,10 +12,11 @@ use cynic_protocol::branch_graph::{
 };
 use cynic_protocol::queue::QueuePlan;
 
+use crate::adapters::build_discovery::LocalBuildDiscoveryAdapter;
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
 use crate::build_artefact::RetentionPlanner;
-use cynic_protocol::cargo_metadata::parse_cargo_metadata;
 use crate::build_queue::build_queue_plan;
+use crate::domain::build_discovery::port::BuildDiscoveryObservationPort;
 
 pub struct CaptureOutput {
     pub success: bool,
@@ -50,7 +51,7 @@ impl LocalQueueAdapter {
                 }
             }
         };
-        let discovery = match observe_discovery_local() {
+        let discovery = match LocalBuildDiscoveryAdapter.observe() {
             Ok(d) => d,
             Err(e) => {
                 BuildDiscoveryReport {
@@ -137,55 +138,3 @@ fn observe_branch_graph_local() -> Result<BranchGraph, String> {
     })
 }
 
-fn observe_discovery_local() -> Result<BuildDiscoveryReport, String> {
-    let mut residual_unknowns: Vec<String> = Vec::new();
-    let meta_raw = capture_command("cargo", &cynic_protocol::cargo_metadata::cargo_metadata_argv())
-        .map_err(|e| format!("cargo metadata failed: {e}"))?
-        .stdout;
-    let disc_plan = parse_cargo_metadata(&meta_raw)
-        .map_err(|e| format!("parse cargo metadata failed: {e}"))?;
-
-    let toolchain = match capture_command("rustc", &["--version"]) {
-        Ok(c) => Toolchain(c.stdout.trim().to_string()),
-        Err(e) => {
-            residual_unknowns.push(format!("rustc_version_unknown:{e}"));
-            Toolchain("stable".to_string())
-        }
-    };
-    let host_triple = match capture_command("rustc", &["-vV"]) {
-        Ok(c) => {
-            let triple = c
-                .stdout
-                .lines()
-                .find(|l| l.starts_with("host:"))
-                .and_then(|l| l.split_whitespace().nth(1))
-                .unwrap_or("x86_64-unknown-linux-gnu")
-                .to_string();
-            HostTriple(triple)
-        }
-        Err(e) => {
-            residual_unknowns.push(format!("host_triple_unknown:{e}"));
-            HostTriple("x86_64-unknown-linux-gnu".to_string())
-        }
-    };
-
-    let crates = disc_plan
-        .crates
-        .into_iter()
-        .map(|c| DiscoveredCrate {
-            name: c.name,
-            version: c.version,
-            targets: c.targets,
-        })
-        .collect();
-
-    Ok(BuildDiscoveryReport {
-        schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
-        toolchain,
-        host_triple,
-        targets: vec![],
-        crates,
-        observed_at_unix_s: now_secs(),
-        residual_unknowns,
-    })
-}
