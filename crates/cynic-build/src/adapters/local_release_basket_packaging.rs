@@ -6,7 +6,7 @@ use std::{
     process::Command,
 };
 
-use cynic_build::SignedReleaseBasketPlan;
+use crate::SignedReleaseBasketPlan;
 use cynic_protocol::{RUNTIME_SEED_BUNDLE_MARKER_FILE, canonical_json_bytes};
 use sha2::{Digest, Sha256};
 

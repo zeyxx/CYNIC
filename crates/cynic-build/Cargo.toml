@@ -32,3 +32,4 @@ async-trait.workspace = true
 [dev-dependencies]
 serde_json = { workspace = true }
 tempfile = "3.17"
+tokio.workspace = true
