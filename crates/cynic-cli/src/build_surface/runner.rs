@@ -586,4 +586,106 @@ mod tests {
     fn no_history_is_unexplored_never_zero() {
         assert_eq!(proof_median_ms("", "builder", "cargo:check"), (None, 0));
     }
+
+    fn proof_response(completion: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "workload_id": "workload-test",
+            "state": "completed",
+            "envelope": {
+                "source_commit": "a".repeat(40),
+                "action": {"argv": ["cargo", "check"]},
+                "delegation": {"node_id": "builder-test"}
+            },
+            "completion": completion
+        })
+    }
+
+    fn with_local_builder(proof: serde_json::Value) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local builder");
+        let address = format!("http://{}", listener.local_addr().expect("local address"));
+        let handle = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().expect("accept builder request");
+                let mut request = [0_u8; 4096];
+                let size = stream.read(&mut request).expect("read builder request");
+                let request = String::from_utf8_lossy(&request[..size]);
+                let body = if request.starts_with("POST /workloads/submit ") {
+                    serde_json::json!({"workload_id": "workload-test"}).to_string()
+                } else if request.starts_with("GET /proofs/workload-test ") {
+                    proof.to_string()
+                } else {
+                    panic!("unexpected builder request: {request}");
+                };
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write builder response");
+            }
+        });
+        (address, handle)
+    }
+
+    #[test]
+    fn build_proof_report_projects_terminal_execution_metadata() {
+        let proof = proof_response(serde_json::json!({
+            "status": "completed",
+            "node_id": "builder-test",
+            "unknowns": [],
+            "evidence_refs": [{"kind": "build_execution_provenance"}],
+            "consumed_budget": {"wall_time_ms": 4200}
+        }));
+        let (builder_url, server) = with_local_builder(proof);
+
+        let report = run_one_proof(
+            &"a".repeat(40),
+            None,
+            "check",
+            None,
+            Some(&builder_url),
+            "test-agent",
+        )
+        .expect("proof response should be projected");
+        server.join().expect("builder server");
+
+        assert_eq!(
+            report.status,
+            cynic_build::build_proof::BuildProofStatus::Converged
+        );
+        assert_eq!(report.argv, ["cargo", "check"]);
+        assert_eq!(report.node_id, "builder-test");
+        assert_eq!(report.elapsed_secs, 5);
+    }
+
+    #[test]
+    fn completed_lifecycle_without_execution_evidence_is_not_converged() {
+        let proof = proof_response(serde_json::json!({
+            "status": "completed",
+            "unknowns": [],
+            "evidence_refs": [],
+            "consumed_budget": {"wall_time_ms": 0}
+        }));
+        let (builder_url, server) = with_local_builder(proof);
+
+        let report = run_one_proof(
+            &"a".repeat(40),
+            None,
+            "check",
+            None,
+            Some(&builder_url),
+            "test-agent",
+        )
+        .expect("terminal response should be reported");
+        server.join().expect("builder server");
+
+        assert!(matches!(
+            report.status,
+            cynic_build::build_proof::BuildProofStatus::Unreachable { .. }
+        ));
+    }
 }
