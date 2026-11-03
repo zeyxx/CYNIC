@@ -9,9 +9,10 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub(crate) use cynic_agent::coordination::{
-    AgentClaimReport, AgentEventsReport, AgentIdentifyReport, AgentReleaseReport,
-    AgentScopeReport, AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA,
+    AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport, AgentReleaseReport,
+    AgentScopeReport, AgentStatusReport, AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA,
     AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
+    AGENT_STATUS_REPORT_SCHEMA,
 };
 
 // ── Agent SoC Audit Types ───────────────────────────────────────────────────
