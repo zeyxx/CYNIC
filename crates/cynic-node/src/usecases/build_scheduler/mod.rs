@@ -7,6 +7,7 @@ mod source_prepare;
 use std::time::{Duration, Instant};
 
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
+use cynic_build::ports::{BuildExecutionError, BuildExecutionPort};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_host::capacity::{
@@ -25,7 +26,6 @@ use crate::{
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{
         agent_workload_store_port::AgentWorkloadStorePort,
-        build_scheduler_port::{BuildExecutionError, BuildExecutionPort},
     },
 };
 

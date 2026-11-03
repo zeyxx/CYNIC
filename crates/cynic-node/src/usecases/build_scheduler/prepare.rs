@@ -6,6 +6,7 @@ use std::{
 };
 
 use cynic_build::build_source_reference_from_workload;
+use cynic_build::ports::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack};
 use cynic_process::LocalArgvRunner;
 use cynic_protocol::{LeaseGuard, digest_json};
 use cynic_agent::{DurableAgentWorkloadRecord, consume_agent_workload_action};
@@ -23,7 +24,6 @@ use crate::{
     ports::{
         agent_workload_store_port::AgentWorkloadStorePort,
         agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspaceLayoutPort},
-        build_scheduler_port::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack},
         build_workload_grant_store_port::BuildWorkloadGrantStorePort,
     },
     usecases::build_workload_grant_uc::issue_signed_build_workload_grant,

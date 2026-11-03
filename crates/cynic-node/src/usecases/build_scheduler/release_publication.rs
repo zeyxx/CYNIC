@@ -19,10 +19,8 @@ use crate::{
         http_artifact_transport::HttpArtifactTransport,
     },
     config::ReleasePublicationConfig,
-    ports::{
-        build_scheduler_port::BuildWorkspaceReadBack,
-    },
 };
+use cynic_build::ports::BuildWorkspaceReadBack;
 use cynic_build::{
     LocalReleaseBasketPackaging, SshReleaseBasketSigning,
     ports::{

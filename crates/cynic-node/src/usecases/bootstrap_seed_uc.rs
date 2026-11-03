@@ -3,7 +3,7 @@ use cynic_node_protocol::{NodeExecutionMode, NodeExecutionSurface, node_executio
 use std::{collections::BTreeMap, path::Path, time::Duration};
 use tokio_util::sync::CancellationToken;
 
-use crate::ports::build_scheduler_port::{
+use cynic_build::ports::{
     BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
 };
 
@@ -322,7 +322,7 @@ mod tests {
         )
         .expect("requests");
         let outcomes = vec![Ok(
-            crate::ports::build_scheduler_port::BuildExecutionReadBack {
+            cynic_build::ports::BuildExecutionReadBack {
                 exit_code: Some(0),
                 stdout: "ok".to_string(),
                 stderr: String::new(),
@@ -358,11 +358,11 @@ mod tests {
             ],
             Vec::new(),
         );
-        let requests: Vec<crate::ports::build_scheduler_port::BuildExecutionRequest> = seed_plan
+        let requests: Vec<cynic_build::ports::BuildExecutionRequest> = seed_plan
             .argv
             .iter()
             .map(
-                |argv| crate::ports::build_scheduler_port::BuildExecutionRequest {
+                |argv| cynic_build::ports::BuildExecutionRequest {
                     argv: argv.clone(),
                     working_directory: std::path::PathBuf::from("/tmp/seed"),
                     environment: Default::default(),
@@ -372,13 +372,13 @@ mod tests {
             )
             .collect();
         let outcomes = vec![
-            Ok(crate::ports::build_scheduler_port::BuildExecutionReadBack {
+            Ok(cynic_build::ports::BuildExecutionReadBack {
                 exit_code: Some(0),
                 stdout: String::new(),
                 stderr: String::new(),
                 peak_memory_bytes: None,
             }),
-            Ok(crate::ports::build_scheduler_port::BuildExecutionReadBack {
+            Ok(cynic_build::ports::BuildExecutionReadBack {
                 exit_code: Some(1),
                 stdout: String::new(),
                 stderr: "boom".to_string(),
@@ -404,11 +404,11 @@ mod tests {
             vec![vec!["cargo".to_string(), "check".to_string()]],
             Vec::new(),
         );
-        let requests: Vec<crate::ports::build_scheduler_port::BuildExecutionRequest> = seed_plan
+        let requests: Vec<cynic_build::ports::BuildExecutionRequest> = seed_plan
             .argv
             .iter()
             .map(
-                |argv| crate::ports::build_scheduler_port::BuildExecutionRequest {
+                |argv| cynic_build::ports::BuildExecutionRequest {
                     argv: argv.clone(),
                     working_directory: std::path::PathBuf::from("/tmp/seed"),
                     environment: Default::default(),
@@ -418,7 +418,7 @@ mod tests {
             )
             .collect();
         let outcomes = vec![Err(
-            crate::ports::build_scheduler_port::BuildExecutionError::Cancelled,
+            cynic_build::ports::BuildExecutionError::Cancelled,
         )];
 
         let receipt = bootstrap_seed_receipt(&seed_plan, &requests, &outcomes);
@@ -438,11 +438,11 @@ mod tests {
             vec![vec!["cargo".to_string(), "check".to_string()]],
             Vec::new(),
         );
-        let requests: Vec<crate::ports::build_scheduler_port::BuildExecutionRequest> = seed_plan
+        let requests: Vec<cynic_build::ports::BuildExecutionRequest> = seed_plan
             .argv
             .iter()
             .map(
-                |argv| crate::ports::build_scheduler_port::BuildExecutionRequest {
+                |argv| cynic_build::ports::BuildExecutionRequest {
                     argv: argv.clone(),
                     working_directory: std::path::PathBuf::from("/tmp/seed"),
                     environment: Default::default(),
@@ -452,7 +452,7 @@ mod tests {
             )
             .collect();
         let outcomes = vec![Err(
-            crate::ports::build_scheduler_port::BuildExecutionError::Spawn(
+            cynic_build::ports::BuildExecutionError::Spawn(
                 "no such file".to_string(),
             ),
         )];
