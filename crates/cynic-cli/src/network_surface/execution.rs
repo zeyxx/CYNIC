@@ -464,7 +464,6 @@ use cynic_node::network_actuator;
 use cynic_node::network_actuator_status;
 use cynic_node::network_evidence;
 use cynic_node::network_mesh_apply_plan;
-use cynic_node::network_mesh_plan;
 use cynic_node::network_runtime_status;
 use cynic_node::network_shadow_proof;
 use cynic_node::observe;
@@ -792,7 +791,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             json: _,
             registry,
             provider,
-        } => match network_mesh_plan::build_network_mesh_plan(registry, provider.as_deref()) {
+        } => match cynic_network::load_mesh_plan(registry, provider.as_deref()) {
             Ok(report) => emit_json("network mesh plan", &report, false),
             Err(error) => {
                 tracing::error!("network mesh plan failed: {error}");
@@ -941,8 +940,8 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let ep = endpoint
                 .clone()
                 .unwrap_or_else(|| {
-                    use cynic_node::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
-                    use cynic_node::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
+                    use cynic_network::LocalNetworkMeshRegistryReader;
+                    use cynic_network::NetworkMeshRegistryPort;
                     LocalNetworkMeshRegistryReader
                         .load_mesh_registry(Path::new(registry))
                         .ok()
@@ -985,7 +984,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 use cynic_node::ports::mesh_coordination_port::MeshCoordinationPort;
                 let health = adapter.check_health().ok().map(|h| h.status);
                 let members = adapter.list_members().unwrap_or_default();
-                let plan = network_mesh_plan::build_network_mesh_plan(registry, Some("headscale"));
+                let plan = cynic_network::load_mesh_plan(registry, Some("headscale"));
                 let desired_peers: Vec<cynic_node::domain::mesh_coordination::DesiredMeshPeer> = plan
                     .map(|p| {
                         p.desired_peers

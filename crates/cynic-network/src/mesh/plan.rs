@@ -266,6 +266,9 @@ pub fn generate_mesh_plan(
     })
 }
 
+#[cfg(kani)]
+pub mod verification;
+
 #[cfg(test)]
 mod tests {
     use super::*;

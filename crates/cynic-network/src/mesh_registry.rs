@@ -1,49 +1,46 @@
 use std::path::Path;
 
-use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
-use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
-#[cfg(test)]
-use cynic_network::NETWORK_MESH_PLAN_SCHEMA;
-use cynic_network::NetworkMeshPlan;
+use crate::mesh_plan::{MeshRegistry, generate_mesh_plan};
 
-pub(crate) mod model;
-#[cfg(kani)]
-mod verification;
+pub use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
+pub use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
 
-pub fn build_network_mesh_plan(
+/// Load a mesh plan from a registry file on disk.
+///
+/// Canonical registry→mesh-plan loading entry point. Reads the registry JSON,
+/// parses it into `MeshRegistry`, then delegates the pure plan calculation to
+/// `generate_mesh_plan`. The returned plan keeps the `registry_path` the
+/// generator supplies (the canonical default `"infra/registry.json"` unless the
+/// generator overrides it), and honours `provider_override`.
+///
+/// Side effects are confined to std `fs` + serde; the calculation is pure.
+pub fn load_mesh_plan(
     registry_path: &str,
     provider_override: Option<&str>,
-) -> Result<NetworkMeshPlan, String> {
+) -> Result<crate::types::NetworkMeshPlan, String> {
     let registry_path_ref = Path::new(registry_path);
-    let registry: model::MeshRegistry =
-        LocalNetworkMeshRegistryReader.load_mesh_registry(registry_path_ref)?;
-
-    cynic_network::generate_mesh_plan(&registry, provider_override)
+    let registry = crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader
+        .load_mesh_registry(registry_path_ref)?;
+    generate_mesh_plan(&registry, provider_override)
 }
 
-/// Test/kani engine: delegates to pure cynic-network domain engine.
+/// Test/kani helper: load a plan from a substituted registry reader.
+///
+/// Mirrors the node-owned `build_network_mesh_plan_with_reader` which was moved
+/// to `cynic-network` as part of making the network crate canonical for
+/// registry→mesh-plan loading. The loading policy (read + parse, then
+/// `generate_mesh_plan`) is unchanged from the node-owned implementation.
 #[cfg(any(test, kani))]
-fn build_network_mesh_plan_with_reader(
+pub fn load_mesh_plan_with_reader(
     registry_path: &str,
     provider_override: Option<&str>,
-    registry_reader: &impl NetworkMeshRegistryPort,
-) -> Result<NetworkMeshPlan, String> {
+    registry_reader: &impl crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort,
+) -> Result<crate::types::NetworkMeshPlan, String> {
     let registry_path_ref = Path::new(registry_path);
     let registry = registry_reader.load_mesh_registry(registry_path_ref)?;
-
-    let mut plan = cynic_network::generate_mesh_plan(&registry, provider_override)?;
+    let mut plan = generate_mesh_plan(&registry, provider_override)?;
     plan.registry_path = registry_path_ref.to_string_lossy().to_string();
     Ok(plan)
-}
-
-#[cfg(any(test, kani))]
-fn address_plane(policy: Option<&model::NetworkPolicy>, service_plane: &str) -> String {
-    cynic_network::address_plane(policy, service_plane)
-}
-
-#[cfg(any(test, kani))]
-fn default_dns_names(id: &str, plane: Option<&model::NetworkPlane>) -> Vec<String> {
-    cynic_network::default_dns_names(id, plane)
 }
 
 #[cfg(test)]
@@ -56,13 +53,16 @@ mod tests {
     struct FakeRegistryReader;
 
     impl NetworkMeshRegistryPort for FakeRegistryReader {
-        fn load_mesh_registry(&self, _registry_path: &Path) -> Result<model::MeshRegistry, String> {
-            Ok(model::MeshRegistry {
-                network_policy: Some(model::NetworkPolicy {
+        fn load_mesh_registry(
+            &self,
+            _registry_path: &Path,
+        ) -> Result<crate::mesh_plan::MeshRegistry, String> {
+            Ok(crate::mesh_plan::MeshRegistry {
+                network_policy: Some(crate::mesh_plan::NetworkPolicy {
                     canonical_service_plane: Some("labmesh".to_string()),
                     planes: BTreeMap::from([(
                         "labmesh".to_string(),
-                        model::NetworkPlane {
+                        crate::mesh_plan::NetworkPlane {
                             cidr: Some("10.30.0.0/24".to_string()),
                             dns_zone: Some("labmesh.example".to_string()),
                             canonical: Some(true),
@@ -70,12 +70,12 @@ mod tests {
                         },
                     )]),
                     reservations: Vec::new(),
-                    mesh: Some(model::MeshPolicy {
+                    mesh: Some(crate::mesh_plan::MeshPolicy {
                         provider: Some("wireguard".to_string()),
                     }),
                 }),
                 nodes: vec![
-                    model::RegistryNode {
+                    crate::mesh_plan::RegistryNode {
                         id: None,
                         name: Some("node-a".to_string()),
                         role: Some("kernel".to_string()),
@@ -84,14 +84,14 @@ mod tests {
                             ("labmesh".to_string(), "10.30.0.10".to_string()),
                             ("local".to_string(), "192.168.1.10".to_string()),
                         ]),
-                        services: vec![model::RegistryService {
+                        services: vec![crate::mesh_plan::RegistryService {
                             name: Some("ssh".to_string()),
                             port: Some(22),
                             network_plane: None,
                             protocol: None,
                         }],
                     },
-                    model::RegistryNode {
+                    crate::mesh_plan::RegistryNode {
                         id: None,
                         name: Some("node-b".to_string()),
                         role: Some("worker".to_string()),
@@ -113,28 +113,20 @@ mod tests {
             "{}/../../infra/registries/lab.json",
             env!("CARGO_MANIFEST_DIR")
         );
-        let plan = build_network_mesh_plan(&registry_path, None).expect("plan");
-        assert_eq!(plan.schema, NETWORK_MESH_PLAN_SCHEMA);
+        let plan = load_mesh_plan(&registry_path, None).expect("plan");
+        assert_eq!(plan.schema, crate::types::NETWORK_MESH_PLAN_SCHEMA);
         assert_eq!(plan.status, "planned");
         assert_eq!(plan.desired_peer_count, 3);
         assert_eq!(plan.service_plane, "labmesh");
         assert_eq!(plan.dns_zone.as_deref(), Some("labmesh.example"));
-        assert!(
-            plan.routes
-                .iter()
-                .any(|route| route.via_peer == "lab-kernel")
-        );
-        assert!(
-            plan.dns
-                .iter()
-                .any(|record| record.name == "kernel.labmesh.example")
-        );
+        assert!(plan.routes.iter().any(|route| route.via_peer == "lab-kernel"));
+        assert!(plan.dns.iter().any(|record| record.name == "kernel.labmesh.example"));
         assert!(!plan.can_apply);
     }
 
     #[test]
     fn plan_can_be_built_from_substituted_registry_port() {
-        let plan = build_network_mesh_plan_with_reader(
+        let plan = load_mesh_plan_with_reader(
             "/virtual/registry.json",
             None,
             &FakeRegistryReader,
@@ -144,10 +136,6 @@ mod tests {
         assert_eq!(plan.provider, "wireguard");
         assert_eq!(plan.desired_peer_count, 2);
         assert_eq!(plan.status, "planned");
-        assert!(
-            plan.routes
-                .iter()
-                .all(|route| route.provider == "wireguard")
-        );
+        assert!(plan.routes.iter().all(|route| route.provider == "wireguard"));
     }
 }

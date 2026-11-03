@@ -1,5 +1,5 @@
 pub mod port;
-
+pub mod network_mesh_registry_port;
 pub use port::NetworkObservationPort;
 pub mod mesh_coordination;
 pub use mesh_coordination::*;

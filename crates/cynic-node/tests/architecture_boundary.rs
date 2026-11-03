@@ -476,64 +476,60 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
 }
 
 #[test]
-fn network_mesh_plan_reads_registry_through_a_port() {
+fn network_mesh_plan_reads_registry_through_cynic_network() {
     let root = crate_root();
-    let planner = fs::read_to_string(root.join("src/network_mesh_plan.rs"))
-        .expect("read network_mesh_plan.rs");
-    let domain_model = fs::read_to_string(root.join("src/network_mesh_plan/model.rs"))
-        .expect("read network_mesh_plan/model.rs");
-    let verification = fs::read_to_string(root.join("src/network_mesh_plan/verification.rs"))
-        .expect("read network_mesh_plan/verification.rs");
-    let port = fs::read_to_string(root.join("src/ports/network_mesh_registry_port.rs"))
-        .expect("read ports/network_mesh_registry_port.rs");
-    let adapter = fs::read_to_string(root.join("src/adapters/local_network_mesh_registry/mod.rs"))
-        .expect("read adapters/local_network_mesh_registry/mod.rs");
+    let cynic_network = root.join("..").join("cynic-network");
 
+    // cynic-network is canonical for registry→mesh-plan loading.
+    // Definitions live in `src/mesh/plan.rs`; `src/mesh_plan.rs` is only a
+    // one-line re-export (`pub use crate::mesh::plan::*;`) and contains none.
+    let mesh_plan_src = fs::read_to_string(cynic_network.join("src/mesh/plan.rs"))
+        .expect("read cynic-network mesh/plan.rs");
     assert!(
-        planner.lines().count() <= 300
-            && planner.contains("pub(crate) mod model;")
-            && planner.contains("mod verification;")
-            && planner.contains("build_network_mesh_plan_with_reader"),
-        "network_mesh_plan.rs must stay a thin mesh planning surface"
+        mesh_plan_src.contains("pub struct MeshRegistry")
+            && mesh_plan_src.contains("pub fn generate_mesh_plan"),
+        "cynic-network::mesh_plan owns MeshRegistry + generate_mesh_plan"
     );
-    for forbidden in [
-        "std::fs::read_to_string",
-        "serde_json::from_str(&raw)",
-        "Deserialize",
-    ] {
-        assert!(
-            !planner.contains(forbidden),
-            "network_mesh_plan.rs must not own registry file loading/parsing: {forbidden}"
-        );
-    }
+    let port_src = fs::read_to_string(cynic_network.join("src/ports/network_mesh_registry_port.rs"))
+        .expect("read cynic-network ports port");
     assert!(
-        verification.contains("#[kani::proof]")
-            && verification.contains("proof_address_plane_prefers_declared_service_plane")
-            && verification.contains("proof_default_dns_names_follow_zone_presence"),
-        "mesh planning Kani proofs must live in network_mesh_plan/verification.rs"
+        port_src.contains("pub trait NetworkMeshRegistryPort") && port_src.contains("fn load_mesh_registry"),
+        "cynic-network owns NetworkMeshRegistryPort"
     );
+    let adapter_src = fs::read_to_string(cynic_network.join("src/adapters/local_network_mesh_registry/mod.rs"))
+        .expect("read cynic-network local mesh registry");
     assert!(
-        domain_model.contains("pub(crate) use cynic_network::MeshRegistry")
-            && !domain_model.contains("pub(crate) struct MeshRegistry")
-            && !domain_model.contains("pub(crate) struct NetworkPolicy")
-            && !domain_model.contains("pub(crate) struct RegistryNode"),
-        "mesh registry DTOs must resolve through network_mesh_plan/model.rs as the single gateway, never as divergent in-crate copies"
+        adapter_src.contains("impl NetworkMeshRegistryPort for LocalNetworkMeshRegistryReader")
+            && adapter_src.contains("fs::read_to_string") && adapter_src.contains("serde_json::from_str"),
+        "cynic-network owns LocalNetworkMeshRegistryReader"
     );
+
+    // cynic-node must NOT own the duplicate module/adapter/port.
     assert!(
-        port.contains("pub trait NetworkMeshRegistryPort")
-            && port.contains("fn load_mesh_registry"),
-        "mesh plan registry loading must expose a dedicated port"
+        !root.join("src/network_mesh_plan/model.rs").exists(),
+        "cynic-node must not own network_mesh_plan/model.rs"
     );
     assert!(
-        adapter.contains("impl NetworkMeshRegistryPort for LocalNetworkMeshRegistryReader")
-            && adapter.contains("fs::read_to_string")
-            && adapter.contains("serde_json::from_str"),
-        "local mesh registry file loading must live in the local adapter"
+        !root.join("src/ports/network_mesh_registry_port.rs").exists(),
+        "cynic-node must not own network_mesh_registry_port"
     );
-    let tests = planner.split("mod tests").nth(1).unwrap_or_default();
     assert!(
-        tests.contains("FakeRegistryReader") && tests.contains("/virtual/registry.json"),
-        "network mesh plan tests must prove substituted registry loading"
+        !root.join("src/adapters/local_network_mesh_registry/mod.rs").exists(),
+        "cynic-node must not own local_network_mesh_registry"
+    );
+    assert!(
+        !root.join("src/network_mesh_plan.rs").exists(),
+        "cynic-node must not own network_mesh_plan"
+    );
+
+    // Kani proofs moved to cynic-network.
+    let kani = fs::read_to_string(cynic_network.join("src/mesh/plan/verification.rs"))
+        .expect("read cynic-network mesh plan verification");
+    assert!(
+        kani.contains("#[kani::proof]")
+            && kani.contains("proof_address_plane_prefers_declared_service_plane")
+            && kani.contains("proof_default_dns_names_follow_zone_presence"),
+        "mesh planning Kani proofs must live in cynic-network mesh plan verification"
     );
 }
 

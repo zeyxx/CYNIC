@@ -11,6 +11,7 @@ pub mod freebox;
 pub mod headscale;
 pub mod host_probe;
 pub mod workspace_registry;
+pub mod local_network_mesh_registry;
 
 pub use dns_resolver::RegistryDnsResolver;
 pub use finance::NetworkFinanceMeter;
