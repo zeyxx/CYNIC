@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
+use cynic_protocol::build::{parse_checkout_list, parse_df_pressure};
 use crate::domain::build_artefact::{
     RETENTION_OBSERVATION_SCHEMA, RETENTION_RESULT_SCHEMA, RetentionError, RetentionExecutor,
     RetentionItem, RetentionItemExecution, RetentionObservation, RetentionObserver, RetentionPlan,
