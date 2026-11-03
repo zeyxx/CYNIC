@@ -71,7 +71,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 24201
+            "loc": 26382
         },
         "cynic-cli": {
             "consumers": [],
@@ -229,7 +229,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L1",
-            "loc": 75034
+            "loc": 73391
         },
         "cynic-inference": {
             "consumers": [
@@ -388,7 +388,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L3",
-            "loc": 51757
+            "loc": 51018
         },
         "cynic-node-protocol": {
             "consumers": [
@@ -916,7 +916,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 397579,
+        "loc_total": 397378,
         "pending_disposition": 3,
         "runtime_edges": 161,
         "unjustified": 2,

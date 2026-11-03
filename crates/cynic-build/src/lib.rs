@@ -52,7 +52,10 @@ pub mod runtime_release;
 pub mod types;
 
 pub use adapters::{CurlBuildLeaseVerificationAdapter, HttpDeployAdapter, HttpExternalBuildAdapter, JsonBuildRunnerObservationAdapter, LocalReleaseBasketPackaging, MemFilesystem, NodeBuildLeaseVerificationAdapter, OsIdentity, SshBuildRunnerObservationAdapter, SshReleaseBasketSigning, StdFilesystem};
-pub use adapters::{SshBuildRunner, DEFAULT_SSOT_URL, LocalBuildWorkspace, TokioBuildExecution};
+pub use adapters::{
+    DEFAULT_SSOT_URL, HttpArtifactTransport, LocalBuildArtefactAdapter, LocalBuildWorkspace,
+    LocalQueueAdapter, SshBuildRunner, TokioBuildExecution,
+};
 pub use build::*;
 pub use cache::*;
 pub use build_artefact::*;

@@ -1,5 +1,5 @@
 //! Local queue observation — composes branch_graph + discovery + gc
-//! via in-process `capture_command` and pure `build_queue_plan`.
+//! via in-process commands and pure `build_queue_plan`.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,10 +13,24 @@ use cynic_protocol::branch_graph::{
 use cynic_protocol::queue::QueuePlan;
 
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
-use crate::domain::build_artefact::RetentionPlanner;
+use crate::build_artefact::RetentionPlanner;
 use cynic_protocol::cargo_metadata::parse_cargo_metadata;
-use crate::domain::queue::probe::build_queue_plan;
-use crate::process_observation::capture_command;
+use crate::build_queue::build_queue_plan;
+
+pub struct CaptureOutput {
+    pub success: bool,
+    pub stdout: String,
+}
+
+fn capture_command(bin: &str, args: &[&str]) -> Result<CaptureOutput, String> {
+    let mut cmd = std::process::Command::new(bin);
+    cmd.args(args);
+    let output = cmd.output().map_err(|e| format!("exec error: {e}"))?;
+    Ok(CaptureOutput {
+        success: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+    })
+}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalQueueAdapter;
@@ -39,8 +53,6 @@ impl LocalQueueAdapter {
         let discovery = match observe_discovery_local() {
             Ok(d) => d,
             Err(e) => {
-                // No direct push: the fallback report below already carries
-                // this cause, and the extend picks it up (no duplicates).
                 BuildDiscoveryReport {
                     schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
                     toolchain: Toolchain("stable".to_string()),
@@ -52,13 +64,10 @@ impl LocalQueueAdapter {
                 }
             }
         };
-        // A discovery that succeeded partially still names its gaps — those
-        // propagate to the plan so callers can tell live from guessed.
         unknowns.extend(discovery.residual_unknowns.iter().cloned());
         let gc_plan = match LocalBuildArtefactAdapter::observe_shallow() {
             Ok(obs) => {
-                let policy =
-                    cynic_protocol::retention::default_build_artefact_policy();
+                let policy = cynic_protocol::retention::default_build_artefact_policy();
                 LocalBuildArtefactAdapter.plan(&obs, &policy)
             }
             Err(e) => {
@@ -75,10 +84,8 @@ impl LocalQueueAdapter {
         plan.residual_unknowns = unknowns;
         Ok(plan)
     }
-}
 
-impl crate::domain::queue::port::QueuePlanningPort for LocalQueueAdapter {
-    fn plan_queue(
+    pub fn plan_queue(
         &self,
         branch_graph: &BranchGraph,
         discovery: &BuildDiscoveryReport,
@@ -98,58 +105,87 @@ fn now_secs() -> u64 {
 
 fn observe_branch_graph_local() -> Result<BranchGraph, String> {
     let root_commit = capture_command("git", &["rev-parse", "HEAD"])
-        .ok()
-        .filter(|c| c.success)
-        .map(|c| c.stdout.trim().to_string())
-        .unwrap_or_default();
-    let raw_refs = capture_command(
+        .map_err(|e| format!("git rev-parse failed: {e}"))?
+        .stdout
+        .trim()
+        .to_string();
+
+    let refs_raw = capture_command(
         "git",
         &[
             "for-each-ref",
-            "--format=%(refname:short)|%(objectname)|%(upstream:short)|%(committerdate:unix)",
+            "--format=%(refname)|%(objectname)|%(committerdate:raw)|%(upstream:short)",
             "refs/heads/",
         ],
     )
-    .ok()
-    .filter(|c| c.success)
-    .map(|c| c.stdout)
-    .unwrap_or_default();
-    let raw_log = capture_command("git", &["log", "--all", "--pretty=format:%H %P"])
-        .ok()
-        .filter(|c| c.success)
-        .map(|c| c.stdout)
-        .unwrap_or_default();
-    // No branches observed means git is missing or this is not a repository —
-    // an empty graph is a lie here, not a clean queue.
-    if raw_refs.trim().is_empty() {
-        return Err("git_branch_graph_unavailable".to_string());
-    }
-    let g = parse_git_for_each_ref(&raw_refs, &root_commit, now_secs());
-    let map = parse_git_log_graph(&raw_log);
-    Ok(enrich_with_parents(g, &map))
+    .map_err(|e| format!("git for-each-ref failed: {e}"))?
+    .stdout;
+
+    let log_raw = capture_command("git", &["log", "--all", "--pretty=format:%H %P"])
+        .map_err(|e| format!("git log graph failed: {e}"))?
+        .stdout;
+
+    let parent_map = parse_git_log_graph(&log_raw);
+    let mut nodes = parse_git_for_each_ref(&refs_raw, "main");
+    enrich_with_parents(&mut nodes, &parent_map);
+
+    Ok(BranchGraph {
+        schema: BRANCH_GRAPH_SCHEMA.to_string(),
+        root: "main".to_string(),
+        root_commit,
+        nodes,
+    })
 }
 
 fn observe_discovery_local() -> Result<BuildDiscoveryReport, String> {
-    let json = capture_command("cargo", cynic_protocol::cargo_metadata::CARGO_METADATA_ARGS)
-        .ok()
-        .filter(|c| c.success)
-        .map(|c| c.stdout)
-        .ok_or_else(|| "cargo_metadata_spawn_failed".to_string())?;
-    let toolchain = capture_command("rustc", &["--version"])
-        .ok()
-        .filter(|c| c.success)
-        .map(|c| c.stdout.trim().to_string())
-        .unwrap_or_else(|| "stable".to_string());
-    let host_triple = capture_command("rustc", &["-vV"])
-        .ok()
-        .filter(|c| c.success)
-        .map(|c| {
-            c.stdout
+    let mut residual_unknowns: Vec<String> = Vec::new();
+    let meta_raw = capture_command("cargo", &cynic_protocol::cargo_metadata::cargo_metadata_argv())
+        .map_err(|e| format!("cargo metadata failed: {e}"))?
+        .stdout;
+    let disc_plan = parse_cargo_metadata(&meta_raw)
+        .map_err(|e| format!("parse cargo metadata failed: {e}"))?;
+
+    let toolchain = match capture_command("rustc", &["--version"]) {
+        Ok(c) => Toolchain(c.stdout.trim().to_string()),
+        Err(e) => {
+            residual_unknowns.push(format!("rustc_version_unknown:{e}"));
+            Toolchain("stable".to_string())
+        }
+    };
+    let host_triple = match capture_command("rustc", &["-vV"]) {
+        Ok(c) => {
+            let triple = c
+                .stdout
                 .lines()
                 .find(|l| l.starts_with("host:"))
-                .map(|l| l["host:".len()..].trim().to_string())
-                .unwrap_or_else(|| "x86_64-unknown-linux-gnu".to_string())
+                .and_then(|l| l.split_whitespace().nth(1))
+                .unwrap_or("x86_64-unknown-linux-gnu")
+                .to_string();
+            HostTriple(triple)
+        }
+        Err(e) => {
+            residual_unknowns.push(format!("host_triple_unknown:{e}"));
+            HostTriple("x86_64-unknown-linux-gnu".to_string())
+        }
+    };
+
+    let crates = disc_plan
+        .crates
+        .into_iter()
+        .map(|c| DiscoveredCrate {
+            name: c.name,
+            version: c.version,
+            targets: c.targets,
         })
-        .unwrap_or_else(|| "x86_64-unknown-linux-gnu".to_string());
-    parse_cargo_metadata(&json, now_secs(), toolchain, host_triple)
+        .collect();
+
+    Ok(BuildDiscoveryReport {
+        schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
+        toolchain,
+        host_triple,
+        targets: vec![],
+        crates,
+        observed_at_unix_s: now_secs(),
+        residual_unknowns,
+    })
 }
