@@ -56,7 +56,7 @@ pub(super) fn decide(
         ),
         (
             "artifact_packaging",
-            "cynic-node::local_release_basket_packaging",
+            "cynic-build::local_release_basket_packaging",
             registry.artifact_packaging_blockers(),
             vec!["release_basket_digest_read_back".to_string()],
         ),

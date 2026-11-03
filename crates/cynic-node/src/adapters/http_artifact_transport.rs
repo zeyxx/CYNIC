@@ -20,7 +20,7 @@ use sha2::{Digest, Sha256};
 
 use crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransportPort;
 use cynic_protocol::artifact_transport::ArtifactTransferReceipt;
-use crate::ports::release_publication_port::{
+use cynic_build::ports::{
     DetachedReleaseSignature, PackagedReleaseBasket, ReleaseArtifactPublicationPort,
     ReleasePublicationFuture, ReleasePublicationTargets,
 };
