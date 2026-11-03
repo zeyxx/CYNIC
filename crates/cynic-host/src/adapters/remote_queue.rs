@@ -12,7 +12,7 @@ use cynic_protocol::branch_graph::{
 };
 use cynic_protocol::queue::QueuePlan;
 use cynic_protocol::retention::{RetentionItem, RetentionPlan};
-use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
+use cynic_protocol::build::{parse_checkout_list, parse_df_pressure};
 use cynic_protocol::cargo_metadata::parse_cargo_metadata;
 use crate::domain::build_artefact::plan_build_artefacts;
 use crate::domain::queue::probe::build_queue_plan;
