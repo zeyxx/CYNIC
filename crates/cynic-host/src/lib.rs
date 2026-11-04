@@ -22,8 +22,6 @@ pub mod execution;
 
 pub mod federation_runtime;
 pub mod filesystem_observation;
-pub mod fleet_discovery;
-pub mod fleet_heartbeat;
 pub mod framework_bootstrap;
 pub mod gc_surfaces;
 pub mod hardware_baseline;
@@ -89,7 +87,6 @@ pub mod storage_credential_sync;
 pub(crate) mod storage_identity;
 pub mod storage_primary;
 pub mod transport;
-pub mod tunnel_supervisor;
 pub mod usecases;
 pub mod wireguard_readback;
 
