@@ -79,7 +79,6 @@
                 "cynic-agent",
                 "cynic-audit-engine",
                 "cynic-build",
-                "cynic-consensus",
                 "cynic-domain-ops",
                 "cynic-eval",
                 "cynic-forensics",
@@ -115,7 +114,6 @@
         "cynic-consensus": {
             "consumers": [
                 "cynic-agent",
-                "cynic-cli",
                 "cynic-inference",
                 "cynic-market",
                 "cynic-node"
@@ -127,7 +125,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 2528
+            "loc": 2286
         },
         "cynic-domain-ops": {
             "consumers": [
@@ -504,7 +502,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L0",
-            "loc": 44912
+            "loc": 45153
         },
         "cynic-proxmox": {
             "consumers": [
@@ -905,9 +903,9 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 399064,
+        "loc_total": 399063,
         "pending_disposition": 3,
-        "runtime_edges": 156,
+        "runtime_edges": 155,
         "unjustified": 3,
         "upward_edges": 0
     },

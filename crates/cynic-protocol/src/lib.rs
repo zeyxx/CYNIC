@@ -2,6 +2,7 @@ pub mod agent;
 pub mod agent_citizenship;
 pub mod cargo_metadata;
 pub mod fleet;
+pub use fleet::consensus::*;
 pub mod fleet_target;
 pub mod anchor_client;
 pub mod agent_connection;

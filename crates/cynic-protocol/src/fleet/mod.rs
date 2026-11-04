@@ -10,3 +10,6 @@ pub use crate::federation_membership;
 pub use crate::fleet_discovery;
 pub use crate::fleet_heartbeat;
 pub use crate::fleet_target;
+
+pub mod consensus;
+pub use consensus::*;

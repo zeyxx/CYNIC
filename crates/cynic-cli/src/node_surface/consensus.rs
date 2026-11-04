@@ -19,8 +19,8 @@ pub(crate) fn execute_consensus_status(
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
 
-    let local_attestation = cynic_consensus::NodeEpochAttestation {
-        schema: cynic_consensus::FLEET_EPOCH_ATTESTATION_SCHEMA.to_string(),
+    let local_attestation = cynic_protocol::fleet::consensus::NodeEpochAttestation {
+        schema: cynic_protocol::fleet::consensus::FLEET_EPOCH_ATTESTATION_SCHEMA.to_string(),
         node_id: "cynic-host-cortex".to_string(),
         epoch_sequence: expected_epoch,
         commit_sha: expected_commit.to_string(),
@@ -31,7 +31,7 @@ pub(crate) fn execute_consensus_status(
         attested_at_unix_ms: now_unix_ms,
     };
 
-    let consensus = cynic_consensus::evaluate_fleet_consensus(
+    let consensus = cynic_protocol::fleet::consensus::evaluate_fleet_consensus(
         expected_epoch,
         expected_commit,
         &registered_nodes,
