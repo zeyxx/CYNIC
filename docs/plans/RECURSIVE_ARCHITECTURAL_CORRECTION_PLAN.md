@@ -44,19 +44,21 @@ Ce plan n'est pas une liste statique de tâches rigides. C'est un **état vivant
 ### Horizon 3 : Partitionnement DDD & Canonicalisation (`cynic-protocol` & `cynic-types`)
 **Objectif** : Structurer le sac plat de L0 et unifier les types de base.
 - [x] **Cycle 3.1 — Unification atomique L0** (PR #710, #715) : Enrichi `cynic-types::AgentId` / `TaskId` et raccordé sur `cynic-agent::task_ledger` et `cynic-protocol::AgentIdentity`.
-- [ ] **Cycle 3.2 — Partitionnement modulaire** : Grouper les 150 modules plats en sous-domaines (`protocol::agent::*`, `protocol::build::*`, `protocol::substrate::*`).
+- [x] **Cycle 3.2 — Partitionnement modulaire** (PR #719) : Créé le sous-domaine `protocol::agent` regroupant les 10 modules d'agents avec re-exports rétro-compatibles.
+- [ ] **Cycle 3.2b — Partitionnement build & fleet** : Regrouper `build_*` sous `protocol::build` et `fleet_*` sous `protocol::fleet`.
 - [ ] **Cycle 3.3 — Alignement Glossaire** : Vérification systématique contre `contracts/glossary.json`.
 
 ### Horizon 4 : Autonomie Cluster & Découplage Démon (`cynic-node`)
 **Objectif** : Isoler le daemon mesh pur de la facturation et du storage.
 - [x] **Cycle 4.1 — Facturation** (PR #713) : Supprimé `finance_adapters.rs` et dépendance `cynic-finance` dans `cynic-node`. Arêtes réduites à 160.
-- [ ] **Cycle 4.2 — Coordination Mesh pure** : Sanctuariser le rôle réseau p2p du daemon.
+- [x] **Cycle 4.2 — Coordination Mesh pure** (PR #718) : Supprimé le module mort `lxc_bridge` et purgé `cynic-market`, `cynic-release`, `cynic-lxc` de `Cargo.toml`. Arêtes réduites à 157.
+- [ ] **Cycle 4.3 — Sanctuarisation p2p** : Poursuivre le découplage des ports de storage et d'activation.
 
 ### Horizon 5 : Tranches Verticales Transversales & Invariants Substrat (NOUVEAU)
 **Objectif** : Éradiquer les réinventions de patterns de bas niveau à travers toutes les crates.
 - [x] **Cycle 5.1 — SSOT SSH Transport (`CYNIC-ARCH-003`)** (PR #708, #709) : Éradiqué tout `vec!["ssh", ...]` manuel dans `cynic-proxmox` et `cynic-host` au profit de `cynic_ssh::argv::ssh_argv`.
 - [x] **Cycle 5.2 — Unification des Types Substrat (`CYNIC-ARCH-006`)** (PR #710, #715) : Raccordement systématique des ID d'agents et tâches sur `cynic-types`.
-- [ ] **Cycle 5.3 — Pureté FCIS & Runner Unique (`CYNIC-ARCH-002`)** : Baigner tous les adaptateurs I/O dans `cynic-process::ArgvRunner` et bannir les invocations I/O orphelines.
+- [x] **Cycle 5.3 — Pureté FCIS & Runner Unique (`CYNIC-ARCH-002`)** (PR #717) : Invalidation des `Command::new` directs dans `cynic-secrets::keyring` et raccordement sur `cynic_process::ArgvRunner`.
 
 ---
 
@@ -88,3 +90,6 @@ Lorsqu'un agent ou sous-agent rencontre une anomalie non prévue :
 | **2026-11-04 (PR #711, #713)** | `cynic-cli`, `cynic-node` | Dépendances inutilisées (`cynic-intel`, `cynic-traces`, `cynic-finance`). | Éradication des modules morts et dépendances dans Cargo.toml. Runtime edges abaissées à 160. |
 | **2026-11-04 (PR #712)** | `cynic-host` | 3 modules zombies (`fleet_discovery`, `fleet_heartbeat`, `tunnel_supervisor`) sans consommateurs. | Purge physique complète (-481 LOC) de `cynic-host`. |
 | **2026-11-04 (PR #714)** | `cynic-audit-engine` | Absence d'audit automatisé des budgets de taille et de la dérive de glossaire. | Implémentation des règles `CYNIC-ARCH-005` (budget god-crate) et `CYNIC-ARCH-006` (glossaire). |
+| **2026-11-04 (PR #717)** | `cynic-secrets`, `cynic-process` | Appels `Command::new` directs dans le provider keyring sans runner injectable (`CYNIC-ARCH-002`). | Ajout de `run_with_stdin` à `ArgvRunner` et injection de `LocalArgvRunner` / runner générique. |
+| **2026-11-04 (PR #718)** | `cynic-node` | Dépendances Cargo mortes (`cynic-market`, `cynic-release`, `cynic-lxc`) et bridge LXC orphelin. | Purge de `lxc_bridge.rs` et retrait des 3 dépendances de `Cargo.toml`. Arêtes runtime tombées à 157. |
+| **2026-11-04 (PR #719)** | `cynic-protocol` | 10 modules d'agents plats à la racine de `cynic-protocol/src/`. | Partitionnement dans `cynic-protocol::agent` avec rétro-compatibilité ascendante. |
