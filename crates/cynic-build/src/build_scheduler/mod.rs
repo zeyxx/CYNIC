@@ -669,8 +669,8 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
-    use crate::usecases::build_admission::admit_build_check;
+    use cynic_agent::workload::ports::AgentWorkloadStorePort;
+    use cynic_host::capacity::assess_load_tier;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -678,6 +678,131 @@ mod tests {
     const QA: &str = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
     const QB: &str = "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
 
+    fn make_test_workload(
+        source_commit: &str,
+        _package: &str,
+        _runner_ref: &str,
+        node_id: &str,
+        agent_id: &str,
+        committed_at_ms: u64,
+        store: &LocalAgentWorkloadStore,
+    ) -> DurableAgentWorkloadRecord {
+        use cynic_agent::{AgentBoundedAction, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState};
+        use cynic_protocol::{
+            AgentDelegationEnvelope, AgentEvidenceRef, ExecutionAuthorization, MutationContract,
+            PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
+            PolicySetRef, RequiredProof,
+        };
+        let short = source_commit.chars().take(12).collect::<String>();
+        let workload_id = format!("build-{short}-pkg");
+        let idempotency_key = format!("build:{source_commit}:pkg:check");
+        let action = AgentBoundedAction {
+            argv: vec!["cargo".to_string(), "check".to_string()],
+            working_directory: None,
+            input_digest: None,
+            mutates: false,
+            requires_privilege: false,
+            stop_condition: "stop on first non-zero exit".to_string(),
+            rollback_intent: "discard isolated checkout".to_string(),
+        };
+        let plan_digest = cynic_protocol::digest_json(&action).expect("digest");
+        let envelope = AgentWorkloadEnvelope {
+            schema: cynic_agent::AGENT_WORKLOAD_ENVELOPE_SCHEMA.to_string(),
+            workload_id: workload_id.clone(),
+            idempotency_key: idempotency_key.clone(),
+            plan_digest: plan_digest.clone(),
+            mandate_binding: None,
+            source_commit: Some(source_commit.to_string()),
+            branch: None,
+            input: None,
+            action,
+            delegation: AgentDelegationEnvelope {
+                schema: cynic_protocol::AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
+                delegation_id: format!("delegation-{workload_id}"),
+                node_id: node_id.to_string(),
+                agent_id: agent_id.to_string(),
+                parent_agent_id: None,
+                depth: 0,
+                objective: "run canonical check".to_string(),
+                authority_snapshot: AgentEvidenceRef {
+                    kind: "authority_snapshot".to_string(),
+                    subject: workload_id.clone(),
+                    digest: format!("sha256:{}", "e".repeat(64)),
+                    lineage: None,
+                },
+                context_refs: Vec::new(),
+                capabilities: Vec::new(),
+                budget: cynic_protocol::AgentBudget {
+                    context_tokens: 1_000,
+                    actions: 10,
+                    children: 0,
+                    wall_time_ms: 1_800_000,
+                    cpu_ms: None,
+                },
+                expected_proofs: vec!["canonical_gate_report".to_string()],
+            },
+            parent_delegation: None,
+            policy_admission: PolicyAdmissionReport {
+                schema: cynic_protocol::POLICY_ADMISSION_REPORT_SCHEMA.to_string(),
+                policy_set: PolicySetRef {
+                    id: "build.validation".to_string(),
+                    version: "v1".to_string(),
+                    digest: format!("sha256:{}", "c".repeat(64)),
+                },
+                intent: PolicyIntentRef {
+                    id: idempotency_key.clone(),
+                    kind: "repository_validation".to_string(),
+                    actor: agent_id.to_string(),
+                    subject: source_commit.to_string(),
+                    digest: format!("sha256:{}", "d".repeat(64)),
+                    plan_digest,
+                },
+                mutation: MutationContract {
+                    kind: "repository_validation".to_string(),
+                    scope: PolicyScope {
+                        domain: "build".to_string(),
+                        target: source_commit.to_string(),
+                    },
+                    mutates: false,
+                    requires_privilege: false,
+                    requires_explicit_apply: false,
+                    required_authority: PolicyAuthority::RuntimePrincipal,
+                    preconditions: vec!["source_commit_observed".to_string()],
+                    rollback_intent: "discard isolated checkout".to_string(),
+                    expected_proofs: vec![RequiredProof {
+                        gate: "canonical_gate_report".to_string(),
+                        subject: source_commit.to_string(),
+                    }],
+                },
+                decision: PolicyDecision::Allow {
+                    required_authority: PolicyAuthority::RuntimePrincipal,
+                    required_proofs: vec![RequiredProof {
+                        gate: "canonical_gate_report".to_string(),
+                        subject: source_commit.to_string(),
+                    }],
+                },
+            },
+            execution_authorization: ExecutionAuthorization {
+                schema: cynic_protocol::EXECUTION_AUTHORIZATION_SCHEMA.to_string(),
+                actor: agent_id.to_string(),
+                authority: PolicyAuthority::RuntimePrincipal,
+                explicit_apply: false,
+                satisfied_preconditions: vec!["source_commit_observed".to_string()],
+            },
+            resource_budget: None,
+        };
+        let record = AgentWorkloadRecord {
+            schema: cynic_agent::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+            envelope,
+            state: AgentWorkloadState::Dispatched,
+            claim: None,
+            last_fencing_token: 0,
+            cancellation_generation: 0,
+            consumed_actions: 0,
+            completion: None,
+        };
+        store.compare_and_swap(&workload_id, None, &record, committed_at_ms).expect("write test workload")
+    }
     fn queue_store() -> LocalAgentWorkloadStore {
         let id = QUEUE_SEQ.fetch_add(1, Ordering::SeqCst);
         let dir = std::env::temp_dir().join(format!("cynic-queue-{}-{id}", std::process::id()));
@@ -688,7 +813,7 @@ mod tests {
     #[test]
     fn queue_follows_commit_time_not_insertion_order() {
         let store = queue_store();
-        admit_build_check(
+        make_test_workload(
             QB,
             "cynic-host",
             "cynic-builder",
@@ -696,9 +821,8 @@ mod tests {
             "agent-1",
             200,
             &store,
-        )
-        .expect("admit newer first");
-        admit_build_check(
+        );
+        make_test_workload(
             QA,
             "cynic-host",
             "cynic-builder",
@@ -706,8 +830,7 @@ mod tests {
             "agent-1",
             100,
             &store,
-        )
-        .expect("admit older second");
+        );
 
         let durables = store.durable_records().expect("list records");
         let ordered = queue_ordered_ids(&durables, "node-1");
@@ -720,7 +843,7 @@ mod tests {
     #[test]
     fn queue_skips_terminal_and_foreign_records() {
         let store = queue_store();
-        let done = admit_build_check(
+        let done = make_test_workload(
             QA,
             "cynic-host",
             "cynic-builder",
@@ -728,9 +851,8 @@ mod tests {
             "agent-1",
             100,
             &store,
-        )
-        .expect("admit");
-        admit_build_check(
+        );
+        make_test_workload(
             QB,
             "cynic-host",
             "cynic-builder",
@@ -738,8 +860,7 @@ mod tests {
             "agent-1",
             50,
             &store,
-        )
-        .expect("admit foreign");
+        );
         let mut finished = done.record.clone();
         finished.state = AgentWorkloadState::Completed;
         store
@@ -1011,24 +1132,24 @@ mod tests {
 
     /// Fabricated CPU report with a known utilisation, mirroring the
     /// constructor pattern used by `cynic_host::capacity` tests.
-    fn fabricated_cpu_report(util_pct: f64) -> cynic_host::host_substrate::cpu::CpuReport {
-        cynic_host::host_substrate::cpu::CpuReport {
+    fn fabricated_cpu_report(util_pct: f64) -> cynic_protocol::host_substrate::cpu::CpuReport {
+        cynic_protocol::host_substrate::cpu::CpuReport {
             schema: "cynic.host_cpu_report.v1".to_string(),
             timestamp: "test".to_string(),
-            physical: cynic_host::host_substrate::cpu::CpuPhysical {
+            physical: cynic_protocol::host_substrate::cpu::CpuPhysical {
                 model_name: "test".to_string(),
                 logical_cpus: 16,
                 cores: Some(8),
                 sockets: Some(1),
                 max_bogomips_or_hz: None,
             },
-            volume: cynic_host::host_substrate::cpu::CpuVolume {
+            volume: cynic_protocol::host_substrate::cpu::CpuVolume {
                 governor: None,
                 isolated_mask: None,
                 online_cpus: 16,
                 possible_cpus: 16,
             },
-            usage: cynic_host::host_substrate::cpu::CpuUsage {
+            usage: cynic_protocol::host_substrate::cpu::CpuUsage {
                 user: 0,
                 system: 0,
                 idle: 0,
@@ -1044,24 +1165,24 @@ mod tests {
 
     /// Fabricated memory report from total/used GiB, mirroring the
     /// constructor pattern used by `cynic_host::capacity` tests.
-    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_host::host_substrate::memory::MemoryReport {
-        cynic_host::host_substrate::memory::MemoryReport {
+    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_protocol::host_substrate::memory::MemoryReport {
+        cynic_protocol::host_substrate::memory::MemoryReport {
             schema: "cynic.host_memory_report.v1".to_string(),
             timestamp: "test".to_string(),
-            physical: cynic_host::host_substrate::memory::MemoryUsage {
+            physical: cynic_protocol::host_substrate::memory::MemoryUsage {
                 total_bytes: total_gb * 1024 * 1024 * 1024,
                 free_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
                 available_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
                 used_bytes: used_gb * 1024 * 1024 * 1024,
                 reclaimable_bytes: 0,
             },
-            volume: cynic_host::host_substrate::memory::MemoryVolume {
+            volume: cynic_protocol::host_substrate::memory::MemoryVolume {
                 page_size_bytes: 4096,
                 swappiness: None,
                 hugepages_reserved: None,
                 hugepage_size_bytes: None,
             },
-            swap: cynic_host::host_substrate::memory::MemoryUsage {
+            swap: cynic_protocol::host_substrate::memory::MemoryUsage {
                 total_bytes: 0,
                 free_bytes: 0,
                 available_bytes: 0,
@@ -1080,32 +1201,12 @@ mod tests {
     ) {
         use std::path::PathBuf;
         let control = crate::build_scheduler::config::NodeControlConfig {
-            kernel_url: String::new(),
             node_id: "node-1".to_string(),
             signing_key_path: PathBuf::from("/tmp/x"),
-            enrollment_request_path: PathBuf::from("/tmp/x"),
-            enrollment_grant_path: PathBuf::from("/tmp/x"),
-            enrollment_authority_public_key_path: PathBuf::from("/tmp/x"),
-            enrollment_token_path: PathBuf::from("/tmp/x"),
-            enrollment_seed_id: String::new(),
-            enrollment_role: String::new(),
             agent_workload_state_root: PathBuf::from("/tmp/x"),
-            runtime_artifact_inbox_root: PathBuf::from("/tmp/x"),
             runtime_artifact_max_bytes: 0,
             runtime_artifact_timeout_secs: 0,
-            enrollment_requested_capabilities: Vec::new(),
-            enrollment_request_ttl_secs: 0,
-            enrollment_renewal_window_secs: 0,
-            interval_secs: 0,
-            timeout_secs: 0,
-            workload_delivery_lease_ttl_secs: 0,
-            observed_capabilities: Vec::new(),
-            observed_services: Vec::new(),
-            registry_path: PathBuf::from("/tmp/x"),
             build_scheduler: None,
-            builder_listen_addr: "127.0.0.1:1".parse().expect("addr"),
-            workspace_root: PathBuf::from("/tmp/x"),
-            membership_interval_secs: 0,
         };
         let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
@@ -1137,10 +1238,9 @@ mod tests {
         use cynic_agent::AgentWorkloadClaim;
 
         let store = queue_store();
-        let admitted = admit_build_check(
+        let admitted = make_test_workload(
             QA, "cynic-host", "cynic-builder", "node-1", "agent-1", 100, &store,
-        )
-        .expect("admit");
+        );
         let (control, scheduler) = scheduler_configs();
 
         let mut expired = admitted.record.clone();
