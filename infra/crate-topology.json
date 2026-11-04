@@ -71,7 +71,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 27968
+            "loc": 28740
         },
         "cynic-cli": {
             "consumers": [],
@@ -112,7 +112,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L4",
-            "loc": 42740
+            "loc": 42812
         },
         "cynic-consensus": {
             "consumers": [
@@ -552,7 +552,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L1",
-            "loc": 5504
+            "loc": 6011
         },
         "cynic-sandbox": {
             "consumers": [
@@ -746,20 +746,20 @@
         "cynic-lxc",
         "cynic-node-protocol",
         "cynic-process",
-        "cynic-secrets",
         "cynic-ssh",
         "cynic-traces",
         "cynic-consensus",
-        "cynic-domain-ops",
         "cynic-forensics",
         "cynic-mcp",
+        "cynic-release",
+        "cynic-sandbox",
+        "cynic-secrets",
+        "cynic-supervisor",
+        "cynic-agent",
+        "cynic-domain-ops",
         "cynic-network",
         "cynic-persistence",
         "cynic-proxmox",
-        "cynic-release",
-        "cynic-sandbox",
-        "cynic-supervisor",
-        "cynic-agent",
         "cynic-pkg",
         "cynic-sqlite",
         "cynic-vcs",
@@ -918,7 +918,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 397885,
+        "loc_total": 399236,
         "pending_disposition": 3,
         "runtime_edges": 162,
         "unjustified": 2,

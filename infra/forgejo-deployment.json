@@ -56,7 +56,7 @@
     "install_method": "unknown: binary copied to /usr/local/bin on 2026-05-20; no installer script or history found (root and home bash_history empty of install commands)",
     "artifact_origin_at_install": "unknown: the binary matches today's official 11.0.1 hash, but the download source on 2026-05-20 is not recorded",
     "installed_by": "unknown",
-    "backup_procedure": "no scheduled backup: only the manual dump above",
+    "backup_procedure": "scheduled systemd units declared in-tree (infra/os/systemd/forgejo-backup.service, infra/os/systemd/forgejo-backup.timer); pending LXC 101 enablement",
     "upgrade_history": "unknown: only one binary present"
   },
   "access": {
@@ -82,7 +82,11 @@
     ]
   },
   "backup": {
-    "status": "one manual dump taken 2026-10-27 before any upgrade; no scheduled backup exists yet",
+    "status": "one manual dump taken 2026-10-27 before any upgrade; scheduled units declared in-tree (pending LXC 101 enablement)",
+    "scheduled_units_in_tree": [
+      "infra/os/systemd/forgejo-backup.service",
+      "infra/os/systemd/forgejo-backup.timer"
+    ],
     "dump_file": "forgejo-dump-20261027T130331.zip",
     "dump_sha256": "0a9e196558294aa778719b5fd7bd5575a06852fe386afb8bcf59ab3b026f68a3",
     "copies": [

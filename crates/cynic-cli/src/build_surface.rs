@@ -230,12 +230,21 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Render the canary deploy plan for a release commit (read-only).
-    /// Couche A: the plan is data — execution stays manual.
+    /// Render the canary deploy plan for a release commit (read-only by default),
+    /// or execute layout-aware canary deployment across fleet machines with `--apply`.
     Deploy {
         /// Exact 40-character source commit to deploy.
         #[arg(long)]
         commit: String,
+        /// Path to the built `cynic` binary artifact (required with `--apply`).
+        #[arg(long)]
+        binary: Option<String>,
+        /// Optional release directory tag for symlink layouts (defaults to `git-<short-sha>`).
+        #[arg(long)]
+        tag: Option<String>,
+        /// Execute the canary deploy (stage, mandatory backup, swap, and 3 read-back gates).
+        #[arg(long)]
+        apply: bool,
         /// Path to the deploy policy (cynic.deploy_policy.v1).
         #[arg(long, default_value = "infra/deploy-policy.json")]
         policy: String,
@@ -283,11 +292,14 @@ pub(crate) enum BuildCommand {
         },
 }
 
-/// Render the canary deploy plan (read-only, couche A).
-/// Eligibility is assumed-manual: the operator verifies the release verdict
-/// before executing. The plan is data from the policy, nothing is applied.
-fn render_deploy_plan(
+/// Render the canary deploy plan (read-only by default), or execute layout-aware
+/// canary deployment across the planned machines when `apply` is true.
+#[allow(clippy::too_many_arguments)]
+fn run_deploy_command(
     commit: &str,
+    binary_path: Option<&str>,
+    tag_override: Option<&str>,
+    apply: bool,
     policy_path: &str,
     locations_path: &str,
     machines_filter: Option<&str>,
@@ -330,69 +342,117 @@ fn render_deploy_plan(
         let wanted: Vec<String> = filter.split(',').map(|s| s.trim().to_string()).collect();
         known.retain(|m| wanted.contains(m));
     }
-    // Every planned machine must resolve to a deployable target with its
-    // read-back surfaces — a plan that names a machine the registry cannot
-    // place is a plan that fails at the worst moment. The path resolution
-    // uses the machine's own roots, so a workstation path never inherits a
-    // node's state root.
-    let state_root = cynic_types::paths::CynicPaths::state_dir();
-    let home = std::env::var("HOME").ok();
-    for machine in &known {
-        let target = cynic_release::decide_deploy_target(&locations, machine).map_err(
-            |refusal| {
-                format!("deploy target refused for {}: {}", refusal.machine, refusal.reason)
-            },
-        )?;
-        cynic_release::resolve_deploy_path(
-            &target.deploy_path,
-            Some(state_root.to_string_lossy().as_ref()),
-            home.as_deref(),
-        )
-        .map_err(|refusal| {
-            format!("deploy path refused for {}: {}", refusal.machine, refusal.reason)
-        })?;
+    if known.is_empty() {
+        return Err("no target machines matched the requested filter".to_string());
     }
-    // Couche A: eligibility verified manually via the release verdict.
+    let state_root = CynicPaths::state_dir();
+    let home = std::env::var("HOME").ok();
+    let roots = cynic_release::MachineRoots {
+        state_root: Some(state_root.to_string_lossy().into_owned()),
+        home: home.clone(),
+    };
+    let effective_tag = tag_override
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("git-{}", &commit[..12]));
+    for machine in &known {
+        cynic_release::plan_machine_deploy(&locations, machine, commit, &effective_tag, &roots)
+            .map_err(|refusal| {
+                format!(
+                    "deploy target refused for {}: {}",
+                    refusal.machine, refusal.reason
+                )
+            })?;
+    }
     let verdict = cynic_release::ReleaseEligibilityVerdict::Eligible {
         schema: "cynic.release_verdict.v1",
         version: cynic_release::ReleaseVersion::new(0, 0, 0, None),
         commit_sha: commit.to_string(),
-        tag_name: "assumed-manual-couche-a".to_string(),
+        tag_name: effective_tag.clone(),
         decided_at_unix_s: 0,
     };
     let plan = cynic_release::decide_deploy_plan(&verdict, &policy, &known, &gate_names, commit)?;
+
+    if !apply {
+        if json {
+            let text = serde_json::to_string_pretty(&plan)
+                .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
+            println!("{text}");
+        } else {
+            println!("deploy plan for {commit} (tag={effective_tag}, read-only):");
+            for step in &plan.steps {
+                let target = cynic_release::plan_machine_deploy(
+                    &locations,
+                    &step.machine,
+                    commit,
+                    &effective_tag,
+                    &roots,
+                )
+                .map(|spec| {
+                    format!(
+                        "{} ({:?}, endpoint={}, backup={})",
+                        spec.deploy_path, spec.layout, spec.primary_endpoint, spec.backup_pattern
+                    )
+                })
+                .unwrap_or_else(|_| "unresolved".to_string());
+                println!(
+                    "  {}. {} -> {target} (gates: {})",
+                    step.order + 1,
+                    step.machine,
+                    step.gate_names.join(", ")
+                );
+            }
+            println!("(read-only — pass --binary <PATH> --apply to execute)");
+        }
+        return Ok(());
+    }
+
+    let bin_path_str = binary_path
+        .filter(|p| !p.trim().is_empty())
+        .ok_or_else(|| "--binary <PATH> is required when --apply is set".to_string())?;
+    let bin_bytes = std::fs::read(bin_path_str)
+        .map_err(|e| format!("read local binary {bin_path_str}: {e}"))?;
+    let runner = cynic_process::LocalArgvRunner;
+    let artifact = cynic_build::prepare_local_deploy_artifact(
+        Path::new(bin_path_str),
+        &bin_bytes,
+        commit,
+        &effective_tag,
+        &runner,
+    )
+    .map_err(|failure| format!("local artifact rejected ({}): {failure:?}", failure.gate_name()))?;
+
+    let order: Vec<String> = plan.steps.iter().map(|s| s.machine.clone()).collect();
+    let report = cynic_build::execute_canary_deploy(&locations, &order, &artifact, &roots, &runner);
     if json {
-        let text = serde_json::to_string_pretty(&plan)
+        let text = serde_json::to_string_pretty(&report)
             .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
         println!("{text}");
     } else {
-        println!("deploy plan for {commit} (eligibility assumed-manual):");
-        for step in &plan.steps {
-            let target = cynic_release::decide_deploy_target(&locations, &step.machine)
-                .ok()
-                .and_then(|machine| {
-                    cynic_release::resolve_deploy_path(
-                        &machine.deploy_path,
-                        Some(state_root.to_string_lossy().as_ref()),
-                        home.as_deref(),
-                    )
-                    .ok()
-                    .map(|path| {
-                        format!(
-                            "{} ({:?}, {})",
-                            path, machine.layout, machine.principal
-                        )
-                    })
-                })
-                .unwrap_or_else(|| "unresolved".to_string());
+        println!(
+            "deploy report for {} (status={}, sha256={}):",
+            report.commit, report.status, report.artifact_sha256
+        );
+        for (idx, step) in report.steps.iter().enumerate() {
             println!(
-                "  {}. {} -> {target} (gates: {})",
-                step.order + 1,
+                "  {}. {} ({:?} via {}) -> {} [swapped={}, rolled_back={}]",
+                idx + 1,
                 step.machine,
-                step.gate_names.join(", ")
+                step.layout,
+                step.endpoint,
+                step.deploy_path,
+                step.swapped,
+                step.rolled_back
             );
+            if let Some(failure) = &step.failure {
+                println!("     FAIL ({}): {:?}", failure.gate_name(), failure);
+            }
         }
-        println!("(read-only — verify the release verdict, then execute manually)");
+    }
+    if !report.converged() {
+        return Err(format!(
+            "canary deploy halted at {}",
+            report.stopped_at.as_deref().unwrap_or("unknown")
+        ));
     }
     Ok(())
 }
@@ -748,11 +808,23 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         },
         BuildCommand::Deploy {
             commit,
+            binary,
+            tag,
+            apply,
             policy,
             locations,
             machines,
             json,
-        } => render_deploy_plan(&commit, &policy, &locations, machines.as_deref(), json),
+        } => run_deploy_command(
+            &commit,
+            binary.as_deref(),
+            tag.as_deref(),
+            apply,
+            &policy,
+            &locations,
+            machines.as_deref(),
+            json,
+        ),
         BuildCommand::Fetch {
             workload_id,
             binary,
