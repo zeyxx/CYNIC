@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used)]
 
-use std::cell::RefCell;
+use std::sync::Mutex;
 use std::path::Path;
 
 use cynic_build::{
@@ -21,8 +21,8 @@ struct FakeFleetRunner {
     baked_commit: String,
     fail_primary_host: Option<String>,
     fail_smoke_on_first: bool,
-    swapped: RefCell<bool>,
-    seen: RefCell<Vec<Vec<String>>>,
+    swapped: Mutex<bool>,
+    seen: Mutex<Vec<Vec<String>>>,
 }
 
 impl FakeFleetRunner {
@@ -32,8 +32,8 @@ impl FakeFleetRunner {
             baked_commit: COMMIT.to_string(),
             fail_primary_host: None,
             fail_smoke_on_first: false,
-            swapped: RefCell::new(false),
-            seen: RefCell::new(Vec::new()),
+            swapped: Mutex::new(false),
+            seen: Mutex::new(Vec::new()),
         }
     }
 }
@@ -41,7 +41,7 @@ impl FakeFleetRunner {
 impl ArgvRunner for FakeFleetRunner {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
         let owned: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
-        self.seen.borrow_mut().push(owned.clone());
+        self.seen.lock().unwrap().push(owned.clone());
 
         if let Some(bad_host) = &self.fail_primary_host {
             if argv.first() == Some(&"ssh") && argv.contains(&bad_host.as_str()) {
@@ -76,10 +76,10 @@ impl ArgvRunner for FakeFleetRunner {
         };
 
         if tail.first() == Some(&"mv") {
-            *self.swapped.borrow_mut() = true;
+            *self.swapped.lock().unwrap() = true;
         }
         if tail.first() == Some(&"sha256sum") {
-            let digest = if *self.swapped.borrow() {
+            let digest = if *self.swapped.lock().unwrap() {
                 &self.artifact_digest
             } else {
                 OLD_DIGEST
@@ -223,7 +223,8 @@ fn canary_deploy_fails_over_to_fallback_endpoint_and_converges_across_flat_and_s
     assert!(
         runner
             .seen
-            .borrow()
+            .lock()
+            .unwrap()
             .iter()
             .any(|argv| argv.first().map(String::as_str) == Some("scp")),
         "staging must use scp_argv from cynic-ssh"

@@ -332,7 +332,7 @@ mod tests {
 
         assert_eq!(report.status, "proved");
         assert_eq!(report.transfers.len(), 2);
-        assert_eq!(transport.0.borrow().len(), 2);
+        assert_eq!(transport.0.lock().unwrap().len(), 2);
         assert!(
             report
                 .activation

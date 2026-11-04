@@ -256,7 +256,7 @@ pub fn build_queue_plan(
 }
 
 #[cfg(test)]
-mod tests {
+mod plan_tests {
     use super::*;
     use cynic_protocol::retention::{
         RetentionItem, RetentionPlan, RETENTION_PLAN_SCHEMA,

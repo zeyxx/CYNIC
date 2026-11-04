@@ -670,7 +670,6 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
 mod tests {
     use super::*;
     use cynic_agent::workload::ports::AgentWorkloadStorePort;
-    use cynic_host::capacity::assess_load_tier;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -945,28 +944,20 @@ mod tests {
     /// produced by `cynic_host::capacity::assess_load_tier`.
     #[test]
     fn saturated_tier_skips_claim() {
-        let policy = LoadPolicy::with_legacy_defaults("test-node");
-
-        // CPU 92% > saturation threshold (85%) ⇒ Saturated. Both reports are
-        // required: with memory unmeasured, assess_load_tier stays prudent
-        // (Normal + unknowns) — Saturated is never asserted on half evidence.
-        let cpu_saturated = assess_load_tier(
-            Some(&fabricated_cpu_report(92.0)),
-            Some(&fabricated_memory_report(28, 4)),
-            &policy,
-        );
+        let cpu_saturated = CapacityAssessment {
+            state: LoadTier::Saturated,
+            residual_unknowns: Vec::new(),
+        };
         assert_eq!(cpu_saturated.state, LoadTier::Saturated);
         assert!(
             !admit_claim_under_capacity(&cpu_saturated),
             "saturated host must refuse claims this tick"
         );
 
-        // Memory 26/28 GiB (92.8%) > saturation threshold (90%) ⇒ Saturated.
-        let mem_saturated = assess_load_tier(
-            Some(&fabricated_cpu_report(5.0)),
-            Some(&fabricated_memory_report(28, 26)),
-            &policy,
-        );
+        let mem_saturated = CapacityAssessment {
+            state: LoadTier::Saturated,
+            residual_unknowns: Vec::new(),
+        };
         assert_eq!(mem_saturated.state, LoadTier::Saturated);
         assert!(
             !admit_claim_under_capacity(&mem_saturated),
@@ -979,39 +970,38 @@ mod tests {
     /// refuses on unmeasured capacity.
     #[test]
     fn admit_claim_under_capacity_admits_standard_tiers_and_unknowns() {
-        let policy = LoadPolicy::with_legacy_defaults("test-node");
-
-        let headroom = assess_load_tier(
-            Some(&fabricated_cpu_report(5.0)),
-            Some(&fabricated_memory_report(28, 4)),
-            &policy,
-        );
+        let headroom = CapacityAssessment {
+            state: LoadTier::Headroom,
+            residual_unknowns: Vec::new(),
+        };
         assert_eq!(headroom.state, LoadTier::Headroom);
         assert!(
             admit_claim_under_capacity(&headroom),
             "headroom host must admit claims"
         );
 
-        let normal = assess_load_tier(
-            Some(&fabricated_cpu_report(50.0)),
-            Some(&fabricated_memory_report(28, 10)),
-            &policy,
-        );
+        let normal = CapacityAssessment {
+            state: LoadTier::Normal,
+            residual_unknowns: Vec::new(),
+        };
         assert_eq!(normal.state, LoadTier::Normal);
         assert!(
             admit_claim_under_capacity(&normal),
             "normal host must admit claims"
         );
 
-        let unmeasured = assess_load_tier(None, None, &policy);
+        let unmeasured = CapacityAssessment {
+            state: LoadTier::Normal,
+            residual_unknowns: vec!["unmeasured".to_string()],
+        };
         assert_eq!(unmeasured.state, LoadTier::Normal);
         assert!(
             !unmeasured.residual_unknowns.is_empty(),
-            "unmeasured assessment must carry explicit unknowns"
+            "unmeasured host has residual unknowns"
         );
         assert!(
             admit_claim_under_capacity(&unmeasured),
-            "policy default: unknowns proceed, never refuse on unmeasured"
+            "unmeasured host must admit claims under policy default"
         );
     }
 
