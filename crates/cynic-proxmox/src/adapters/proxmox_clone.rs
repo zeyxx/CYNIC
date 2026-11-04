@@ -1,4 +1,5 @@
 use cynic_process::ArgvRunner;
+use cynic_ssh::argv;
 use serde::{Deserialize, Serialize};
 
 pub const LXC_CLONE_OBSERVATION_SCHEMA: &str = "cynic.lxc_clone.observation.v1";
@@ -36,13 +37,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
     }
 
     pub fn plan_clone(&self, source_vmid: u32, clone_vmid: u32) -> Vec<String> {
-        vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
+        let remote = vec![
             "sudo".to_string(),
             "-n".to_string(),
             "/usr/bin/pct".to_string(),
@@ -53,17 +48,12 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
             "0".to_string(),
             "--target".to_string(),
             "pve".to_string(),
-        ]
+        ];
+        argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
     }
 
     pub fn plan_destroy(&self, clone_vmid: u32) -> Vec<String> {
-        vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
+        let remote = vec![
             "sudo".to_string(),
             "-n".to_string(),
             "/usr/bin/pct".to_string(),
@@ -71,7 +61,8 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
             clone_vmid.to_string(),
             "--purge".to_string(),
             "1".to_string(),
-        ]
+        ];
+        argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
     }
 
     /// Pure argv sets for the pre-template hygiene scan: one `find` per
@@ -103,17 +94,12 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
         Self::hygiene_scan_roots()
             .iter()
             .map(|root| {
-                vec![
-                    "ssh".to_string(),
-                    "-o".to_string(),
-                    "BatchMode=yes".to_string(),
-                    "-o".to_string(),
-                    "StrictHostKeyChecking=yes".to_string(),
-                    self.ssh_target.clone(),
+                let remote = vec![
                     "find".to_string(),
                     root.to_string(),
                     "-print".to_string(),
-                ]
+                ];
+                argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
             })
             .collect()
     }
@@ -149,19 +135,14 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
     /// builder into a versioned template. The caller must have passed the
     /// hygiene gate first — this method does not re-check.
     pub fn plan_convert_template(&self, builder_vmid: u32) -> Vec<String> {
-        vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
+        let remote = vec![
             "sudo".to_string(),
             "-n".to_string(),
             "/usr/bin/pct".to_string(),
             "template".to_string(),
             builder_vmid.to_string(),
-        ]
+        ];
+        argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
     }
 
     /// Convert the builder into a template. Fails closed on pct error;
@@ -204,19 +185,16 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
     }
 
     pub fn observe_clone(&self, clone_vmid: u32) -> Result<LxcCloneObservation, String> {
-        let status_argv = vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
-            "sudo".to_string(),
-            "-n".to_string(),
-            "/usr/bin/pct".to_string(),
-            "status".to_string(),
-            clone_vmid.to_string(),
-        ];
+        let status_argv = {
+            let remote = vec![
+                "sudo".to_string(),
+                "-n".to_string(),
+                "/usr/bin/pct".to_string(),
+                "status".to_string(),
+                clone_vmid.to_string(),
+            ];
+            argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
+        };
         let refs = status_argv.iter().map(String::as_str).collect::<Vec<_>>();
         let output = self.runner.run(&refs);
         if !output.success() {
@@ -407,6 +385,8 @@ mod tests {
                 "BatchMode=yes",
                 "-o",
                 "StrictHostKeyChecking=yes",
+                "-o",
+                "ConnectTimeout=10",
                 "proxmox-pve",
                 "sudo",
                 "-n",
