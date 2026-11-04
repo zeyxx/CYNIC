@@ -21,25 +21,34 @@ The agent proposes. The operator validates. The agent never replaces the operato
    input for the graph, not an execution path.
 5. **Bottom-up.** Domain types are derived from real captured data, never invented first.
 6. **DDD + FCIS + hexagonal**, same level as in `AGENTS.md`.
+7. **Browser is Camoufox, headed.** Chosen over Chrome for lower detectability. Persistent
+   profile. Operator and agent share the same browser. Note: Camoufox is Firefox-based, so it
+   is driven through Playwright, not CDP. Earlier "CDP" wording in this spec is obsolete.
+8. **Proxy sits lower in the network**, not as a per-browser setting. Exact placement
+   (gateway, router, dedicated node) is still to choose from the operator's network map.
+9. **Entropy is multi-signal.** Several systems ingest it: keystroke timing, scroll, focus,
+   and network flows. Network flows are the base layer that structures the whole system;
+   the other signals attach to it.
 
 ## Open decisions (unresolved — do not assume)
 
-- **Proxy placement.** Browser-proxy mode (Chrome `--proxy-server`, a CA must be trusted) is
-  observable by X in principle. Network-level transparent placement, lower in the operator's
-  network, is the alternative. The choice is not recorded here yet. Detectability of each
-  mode has not been measured.
+- **Exact proxy placement.** Lower in the network is decided. Which node is not.
+- **TLS interception caveat.** Moving the proxy lower does not remove the need for a CA
+  trusted by the browser: the proxy still re-signs certificates. It only removes the
+  per-browser proxy setting. Placement does not by itself make capture invisible.
 - **Observed blocker.** With the browser-proxy mode, `x.com/i/api/2/timeline/home.json`
   returned `403` through mitmproxy, and TLS handshakes failed when the CA was not trusted.
-  Cause not isolated (CA trust, HTTP/3/QUIC, or X-side detection).
-- **Entropy scope.** Which signals count as "entropy" (network flows only, or also input timing,
-  scroll, focus) is not defined.
+  Hypothesis, not measured: X sees the proxy-to-X leg, whose TLS/HTTP2 fingerprint differs
+  from a real browser. A lower placement would not change that.
+- **Entropy signal contracts.** Which events each signal emits, and how they join to the
+  network flow timeline (shared clock, correlation key), is not defined.
 
 ## Architecture
 
 ```
-operator ──► Chrome (headed, persistent profile) ──► proxy ──► x.com
+operator ──► Camoufox (headed, persistent profile) ──► network proxy ──► x.com
                          │                            │
-                         │ CDP (read-only first)      ▼
+                         │ Playwright                 ▼
                          │                     raw flow store (SQLite, append-only)
                          ▼                            │ parse (pure)
                   agent session (Hermes)              ▼
@@ -51,9 +60,9 @@ operator ──► Chrome (headed, persistent profile) ──► proxy ──►
 
 - `domain/` — pure. Aggregates, entities, value objects, events, domain services. No I/O.
 - `ports/` — repository and capture interfaces.
-- `adapters/` — mitmproxy addon, SQLite raw store, SurrealDB repository, CDP driver.
+- `adapters/` — mitmproxy addon, SQLite raw store, SurrealDB repository, Playwright driver.
 - `application/` — use cases: ingest flow, build graph, propose draft.
-- `entropy/` — entropy signal definitions (scope open, see above).
+- `entropy/` — entropy signals: network flows (base), keystroke timing, scroll, focus.
 - `mcp/` — thin MCP surface over application use cases.
 
 ### Bounded context and ubiquitous language
@@ -87,9 +96,9 @@ Terms to ground in real data before freezing: `User`, `Tweet`, `Interaction`, `D
 
 | Phase | Deliverable | Status |
 |-------|-------------|--------|
-| 1 | Chrome headed + CDP + persistent profile | done |
+| 1 | Browser with persistent profile | Chrome headed done; Camoufox headed not yet adopted |
 | 2 | Proxy + capture addon, raw store | partial (403 / CA issue open) |
-| 3 | Resolve proxy placement and measure detectability | open |
+| 3 | Choose proxy node; isolate the 403 cause | open |
 | 4 | Derive domain types from real raw flows | not started |
 | 5 | Graph schema + ingestion | not started |
 | 6 | Agent context integration | not started |
