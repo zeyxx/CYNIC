@@ -1,6 +1,6 @@
 //! Idea ledger projection surface: `cynic know idea list/add/status/consume`.
 //!
-//! Projects `infra/idea-ledger.json`. Pure logic lives in [`crate::idea_ledger`];
+//! Projects `infra/idea-ledger.json`. Pure logic lives in [`cynic_knowledge::idea_ledger`];
 //! this module owns I/O and clap.
 
 use std::fs;
