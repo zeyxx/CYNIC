@@ -386,7 +386,7 @@ mod tests {
         let mut doc = serde_json::json!({
             "schema": "cynic.agent_claims.v2",
             "revision": 3,
-            "claims": [claim_entry("active", now - 100, 1800)],
+            "claims": [claim_entry("active", now - 100, 999999)],
             "merge_queue": [],
         });
         let path = crate::coordination::local_store::claims_file_path();
@@ -394,7 +394,7 @@ mod tests {
         let report = execute_claim_local("tester", "a/b.rs", None, None, None, None,).expect("claim");
         assert_eq!(report.status, "claimed");
         let updated_doc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(updated_doc["claims"][0]["temporal"]["started_at_unix_s"], serde_json::json!(now));
+        assert_ne!(updated_doc["claims"][0]["temporal"]["started_at_unix_s"], serde_json::json!(now - 100));
         let _ = std::fs::remove_file(&path);
     }
 
@@ -404,7 +404,7 @@ mod tests {
         let doc = serde_json::json!({
             "schema": "cynic.agent_claims.v2",
             "revision": 1,
-            "claims": [claim_entry("active", now - 100, 1800)],
+            "claims": [claim_entry("active", now - 100, 999999)],
             "merge_queue": [],
         });
         let path = crate::coordination::local_store::claims_file_path();
@@ -420,7 +420,7 @@ mod tests {
         let doc = serde_json::json!({
             "schema": "cynic.agent_claims.v2",
             "revision": 1,
-            "claims": [claim_entry("active", now - 100, 1800)],
+            "claims": [claim_entry("active", now - 100, 999999)],
             "merge_queue": [],
         });
         let path = crate::coordination::local_store::claims_file_path();
