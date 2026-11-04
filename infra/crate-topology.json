@@ -85,7 +85,6 @@
                 "cynic-forensics",
                 "cynic-host",
                 "cynic-inference",
-                "cynic-intel",
                 "cynic-knowledge",
                 "cynic-network",
                 "cynic-node",
@@ -101,7 +100,6 @@
                 "cynic-ssh",
                 "cynic-supervisor",
                 "cynic-surreal",
-                "cynic-traces",
                 "cynic-tui",
                 "cynic-types",
                 "cynic-vcs"
@@ -256,7 +254,6 @@
         },
         "cynic-intel": {
             "consumers": [
-                "cynic-cli",
                 "cynic-market",
                 "cynic-node"
             ],
@@ -667,7 +664,6 @@
         },
         "cynic-traces": {
             "consumers": [
-                "cynic-cli",
                 "cynic-eval"
             ],
             "depends_on": [
@@ -922,7 +918,7 @@
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
         "loc_total": 399227,
         "pending_disposition": 3,
-        "runtime_edges": 163,
+        "runtime_edges": 161,
         "unjustified": 2,
         "upward_edges": 0
     },
