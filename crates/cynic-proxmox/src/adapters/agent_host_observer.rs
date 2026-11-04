@@ -14,6 +14,7 @@
 //! - Storage content is queried on `desired.storage_pool`, not on `local`.
 
 use cynic_process::ArgvRunner;
+use cynic_ssh::argv;
 use cynic_protocol::AgentHostDesired;
 use reqwest::Certificate;
 use reqwest::blocking::Client;
@@ -378,18 +379,14 @@ impl<'a, R: ArgvRunner> ProxmoxSshAgentHostObserver<'a, R> {
     }
 
     fn pvesh(&self, args: &[String]) -> Result<cynic_process::ArgvOutput, String> {
-        let mut argv = vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
+        let mut remote = vec![
             "sudo".to_string(),
             "-n".to_string(),
             "/usr/bin/pvesh".to_string(),
         ];
-        argv.extend(args.iter().cloned());
+        remote.extend(args.iter().cloned());
+        let argv =
+            argv::ssh_argv(&self.ssh_target, &remote).map_err(|e| e.to_string())?;
         let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
         let output = self.runner.run(&refs);
         if output.success() {

@@ -5,6 +5,7 @@ use cynic_protocol::{
 };
 
 use cynic_process::ArgvRunner;
+use cynic_ssh::argv;
 use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 
 pub struct ProxmoxSshSubstrateAdapter<'a, R: ArgvRunner> {
@@ -45,18 +46,14 @@ impl<'a, R: ArgvRunner> ProxmoxSshSubstrateAdapter<'a, R> {
     }
 
     fn pvesh(&self, args: &[String]) -> Result<cynic_process::ArgvOutput, String> {
-        let mut argv = vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
+        let mut remote = vec![
             "sudo".to_string(),
             "-n".to_string(),
             "/usr/bin/pvesh".to_string(),
         ];
-        argv.extend(args.iter().cloned());
+        remote.extend(args.iter().cloned());
+        let argv =
+            argv::ssh_argv(&self.ssh_target, &remote).map_err(|e| e.to_string())?;
         let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
         let output = self.runner.run(&refs);
         if output.success() {
@@ -197,17 +194,13 @@ impl<R: ArgvRunner> NodeSubstrateControlPort for ProxmoxSshSubstrateAdapter<'_, 
                     ));
                 }
                 for (index, action) in plan.actions.iter().enumerate() {
-                    let mut argv = vec![
-                        "ssh".to_string(),
-                        "-o".to_string(),
-                        "BatchMode=yes".to_string(),
-                        "-o".to_string(),
-                        "StrictHostKeyChecking=yes".to_string(),
-                        self.ssh_target.clone(),
+                    let mut remote = vec![
                         "sudo".to_string(),
                         "-n".to_string(),
                     ];
-                    argv.extend(action.argv.iter().cloned());
+                    remote.extend(action.argv.iter().cloned());
+                    let argv =
+                        argv::ssh_argv(&self.ssh_target, &remote).map_err(|e| e.to_string())?;
                     let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
                     let output = self.runner.run(&refs);
                     if !output.success() {

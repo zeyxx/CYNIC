@@ -1,6 +1,7 @@
 //! Proxmox LXC container implementation of the canonical `ComputeSubstratePort`.
 
 use cynic_process::{ArgvOutput, ArgvRunner};
+use cynic_ssh::argv;
 use cynic_protocol::agent_isolation::SandboxStrategy;
 use cynic_protocol::compute::{
     CommandExecutionResult, ComputeRequirements, ComputeSubstratePort, RunnerAllocation,
@@ -56,17 +57,13 @@ impl<R: ArgvRunner + Send + Sync> ProxmoxLxcSubstrateAdapter<R> {
     }
 
     fn run_ssh(&self, cmd: &[String]) -> Result<ArgvOutput, ProxmoxLxcSubstrateError> {
-        let mut argv = vec![
-            "ssh".to_string(),
-            "-o".to_string(),
-            "BatchMode=yes".to_string(),
-            "-o".to_string(),
-            "StrictHostKeyChecking=yes".to_string(),
-            self.ssh_target.clone(),
+        let mut remote = vec![
             "sudo".to_string(),
             "-n".to_string(),
         ];
-        argv.extend(cmd.iter().cloned());
+        remote.extend(cmd.iter().cloned());
+        let argv = argv::ssh_argv(&self.ssh_target, &remote)
+            .map_err(ProxmoxLxcSubstrateError::ExecutionFailed)?;
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
         let output = self.runner.run(&refs);
         if let Some(err) = output.spawn_error {
