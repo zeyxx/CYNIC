@@ -831,8 +831,18 @@ mod tests {
                     spawn_error: None,
                 };
             }
-            script.responses.pop_front().unwrap_or_default()
+            script
+                .responses
+                .pop_front()
+                .expect("scripted responses must cover every runner call")
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "scripted responses must cover every runner call")]
+    fn fake_runner_rejects_an_unscripted_call() {
+        let runner = FakeRunner::with(Vec::new());
+        let _ = runner.run(&["git", "status"]);
     }
 
     fn ok(stdout: &str) -> ArgvOutput {

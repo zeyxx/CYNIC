@@ -669,8 +669,7 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
-    use crate::usecases::build_admission::admit_build_check;
+    use crate::build::admission::admit_build_check;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -819,37 +818,16 @@ mod tests {
         );
     }
 
-    /// T3 (T4): a Saturated load tier must refuse admission. The gate is the
-    /// pure `admit_claim_under_capacity` decision over the assessment
-    /// produced by `cynic_host::capacity::assess_load_tier`.
+    /// A saturated capacity assessment must refuse admission.
     #[test]
     fn saturated_tier_skips_claim() {
-        let policy = LoadPolicy::with_legacy_defaults("test-node");
-
-        // CPU 92% > saturation threshold (85%) ⇒ Saturated. Both reports are
-        // required: with memory unmeasured, assess_load_tier stays prudent
-        // (Normal + unknowns) — Saturated is never asserted on half evidence.
-        let cpu_saturated = assess_load_tier(
-            Some(&fabricated_cpu_report(92.0)),
-            Some(&fabricated_memory_report(28, 4)),
-            &policy,
-        );
-        assert_eq!(cpu_saturated.state, LoadTier::Saturated);
+        let saturated = CapacityAssessment {
+            state: LoadTier::Saturated,
+            residual_unknowns: Vec::new(),
+        };
         assert!(
-            !admit_claim_under_capacity(&cpu_saturated),
-            "saturated host must refuse claims this tick"
-        );
-
-        // Memory 26/28 GiB (92.8%) > saturation threshold (90%) ⇒ Saturated.
-        let mem_saturated = assess_load_tier(
-            Some(&fabricated_cpu_report(5.0)),
-            Some(&fabricated_memory_report(28, 26)),
-            &policy,
-        );
-        assert_eq!(mem_saturated.state, LoadTier::Saturated);
-        assert!(
-            !admit_claim_under_capacity(&mem_saturated),
-            "memory-saturated host must refuse claims this tick"
+            !admit_claim_under_capacity(&saturated),
+            "saturated capacity must refuse claims this tick"
         );
     }
 
@@ -858,31 +836,33 @@ mod tests {
     /// refuses on unmeasured capacity.
     #[test]
     fn admit_claim_under_capacity_admits_standard_tiers_and_unknowns() {
-        let policy = LoadPolicy::with_legacy_defaults("test-node");
-
-        let headroom = assess_load_tier(
-            Some(&fabricated_cpu_report(5.0)),
-            Some(&fabricated_memory_report(28, 4)),
-            &policy,
-        );
+        let headroom = CapacityAssessment {
+            state: LoadTier::Headroom,
+            residual_unknowns: Vec::new(),
+        };
         assert_eq!(headroom.state, LoadTier::Headroom);
         assert!(
             admit_claim_under_capacity(&headroom),
             "headroom host must admit claims"
         );
 
-        let normal = assess_load_tier(
-            Some(&fabricated_cpu_report(50.0)),
-            Some(&fabricated_memory_report(28, 10)),
-            &policy,
-        );
+        let normal = CapacityAssessment {
+            state: LoadTier::Normal,
+            residual_unknowns: Vec::new(),
+        };
         assert_eq!(normal.state, LoadTier::Normal);
         assert!(
             admit_claim_under_capacity(&normal),
             "normal host must admit claims"
         );
 
-        let unmeasured = assess_load_tier(None, None, &policy);
+        let unmeasured = CapacityAssessment {
+            state: LoadTier::Normal,
+            residual_unknowns: vec![
+                "cpu_report_missing".to_string(),
+                "memory_report_missing".to_string(),
+            ],
+        };
         assert_eq!(unmeasured.state, LoadTier::Normal);
         assert!(
             !unmeasured.residual_unknowns.is_empty(),
@@ -1009,103 +989,18 @@ mod tests {
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
     }
 
-    /// Fabricated CPU report with a known utilisation, mirroring the
-    /// constructor pattern used by `cynic_host::capacity` tests.
-    fn fabricated_cpu_report(util_pct: f64) -> cynic_host::host_substrate::cpu::CpuReport {
-        cynic_host::host_substrate::cpu::CpuReport {
-            schema: "cynic.host_cpu_report.v1".to_string(),
-            timestamp: "test".to_string(),
-            physical: cynic_host::host_substrate::cpu::CpuPhysical {
-                model_name: "test".to_string(),
-                logical_cpus: 16,
-                cores: Some(8),
-                sockets: Some(1),
-                max_bogomips_or_hz: None,
-            },
-            volume: cynic_host::host_substrate::cpu::CpuVolume {
-                governor: None,
-                isolated_mask: None,
-                online_cpus: 16,
-                possible_cpus: 16,
-            },
-            usage: cynic_host::host_substrate::cpu::CpuUsage {
-                user: 0,
-                system: 0,
-                idle: 0,
-                iowait: 0,
-                softirq: 0,
-                steal: 0,
-                util_pct: Some(util_pct),
-            },
-            pressure: None,
-            residual_unknowns: Vec::new(),
-        }
-    }
-
-    /// Fabricated memory report from total/used GiB, mirroring the
-    /// constructor pattern used by `cynic_host::capacity` tests.
-    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_host::host_substrate::memory::MemoryReport {
-        cynic_host::host_substrate::memory::MemoryReport {
-            schema: "cynic.host_memory_report.v1".to_string(),
-            timestamp: "test".to_string(),
-            physical: cynic_host::host_substrate::memory::MemoryUsage {
-                total_bytes: total_gb * 1024 * 1024 * 1024,
-                free_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
-                available_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
-                used_bytes: used_gb * 1024 * 1024 * 1024,
-                reclaimable_bytes: 0,
-            },
-            volume: cynic_host::host_substrate::memory::MemoryVolume {
-                page_size_bytes: 4096,
-                swappiness: None,
-                hugepages_reserved: None,
-                hugepage_size_bytes: None,
-            },
-            swap: cynic_host::host_substrate::memory::MemoryUsage {
-                total_bytes: 0,
-                free_bytes: 0,
-                available_bytes: 0,
-                used_bytes: 0,
-                reclaimable_bytes: 0,
-            },
-            pressure: None,
-            meminfo_headline: None,
-            residual_unknowns: Vec::new(),
-        }
-    }
-
     fn scheduler_configs() -> (
         crate::build_scheduler::config::NodeControlConfig,
         crate::build_scheduler::config::BuildSchedulerConfig,
     ) {
         use std::path::PathBuf;
         let control = crate::build_scheduler::config::NodeControlConfig {
-            kernel_url: String::new(),
             node_id: "node-1".to_string(),
             signing_key_path: PathBuf::from("/tmp/x"),
-            enrollment_request_path: PathBuf::from("/tmp/x"),
-            enrollment_grant_path: PathBuf::from("/tmp/x"),
-            enrollment_authority_public_key_path: PathBuf::from("/tmp/x"),
-            enrollment_token_path: PathBuf::from("/tmp/x"),
-            enrollment_seed_id: String::new(),
-            enrollment_role: String::new(),
             agent_workload_state_root: PathBuf::from("/tmp/x"),
-            runtime_artifact_inbox_root: PathBuf::from("/tmp/x"),
             runtime_artifact_max_bytes: 0,
             runtime_artifact_timeout_secs: 0,
-            enrollment_requested_capabilities: Vec::new(),
-            enrollment_request_ttl_secs: 0,
-            enrollment_renewal_window_secs: 0,
-            interval_secs: 0,
-            timeout_secs: 0,
-            workload_delivery_lease_ttl_secs: 0,
-            observed_capabilities: Vec::new(),
-            observed_services: Vec::new(),
-            registry_path: PathBuf::from("/tmp/x"),
             build_scheduler: None,
-            builder_listen_addr: "127.0.0.1:1".parse().expect("addr"),
-            workspace_root: PathBuf::from("/tmp/x"),
-            membership_interval_secs: 0,
         };
         let scheduler = crate::build_scheduler::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),

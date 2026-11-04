@@ -6,6 +6,7 @@ pub use cynic_protocol::build::*;
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
 pub mod bootstrap_withdrawal;
+pub mod admission;
 pub use crate::cache::isolation::*;
 pub mod route_convergence;
 pub mod stack_budget;
