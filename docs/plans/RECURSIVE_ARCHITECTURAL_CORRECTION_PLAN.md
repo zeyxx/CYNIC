@@ -32,13 +32,12 @@ Ce plan n'est pas une liste statique de tâches rigides. C'est un **état vivant
 
 ### Horizon 1 : Éradication Transversale des Shims (`cynic-cli`)
 **Objectif** : Couper les façades de ré-export et faire chuter les arêtes artificielles de `cynic-cli`.
-- [ ] **Cycle 1.1 — Shims Ledgers** : Supprimer `task_ledger.rs`, `idea_ledger.rs`, `coordination_ledger.rs` de `cynic-cli/src/`. Rebrancher les surfaces directement sur `cynic-agent` et `cynic-knowledge`.
-- [ ] **Cycle 1.2 — Shims Écosystème Pkg** : Supprimer `deps_surface_specs.rs`, `deps_surface_pins.rs`, `deps_surface_plan.rs` de `cynic-cli/src/`. Rebrancher sur `cynic-pkg`.
-- [ ] **Cycle 1.3 — Découplage Cargo** : Retirer les dépendances superflues dans `crates/cynic-cli/Cargo.toml` et mesurer la baisse des arêtes.
+- [x] **Cycle 1.1 — Shims Ledgers & Pkg** (PR #703) : Supprimé `task_ledger.rs`, `idea_ledger.rs`, `coordination_ledger.rs`, `deps_surface_specs.rs`, `deps_surface_pins.rs`. Rebranché sur `cynic-agent`, `cynic-knowledge`, `cynic-pkg`.
+- [ ] **Cycle 1.2 — Découplage Cargo cynic-cli** : Retirer les dépendances directes superflues dans `crates/cynic-cli/Cargo.toml` et mesurer la baisse des arêtes.
 
 ### Horizon 2 : Dégraissage Substrat & Sécurité (`cynic-host`)
 **Objectif** : Sortir les domaines non-substrat hors de L1. Ramener `cynic-host` vers < 30k LOC.
-- [ ] **Cycle 2.1 — Secrets & Credentials** : Migrer `credential.rs`, `credential_provisioning.rs`, `credential_hardening/`, `secret_material.rs` vers `cynic-secrets`.
+- [x] **Cycle 2.1 — Secrets & Credentials** (PR #704) : Migré `credential.rs`, `credential_provisioning.rs`, `credential_hardening/`, `secret_material.rs` vers `cynic-secrets`.
 - [ ] **Cycle 2.2 — Agent Access & Workloads** : Déplacer `agent_access/` vers `cynic-agent`.
 - [ ] **Cycle 2.3 — Purge des modules zombies** : Nettoyer les reliquats d'observateurs de flotte et de tunnels migrés.
 
@@ -52,6 +51,12 @@ Ce plan n'est pas une liste statique de tâches rigides. C'est un **état vivant
 **Objectif** : Isoler le daemon mesh pur de la facturation et du storage.
 - [ ] **Cycle 4.1 — Facturation** : Extraire `finance_adapters/` vers `cynic-market`.
 - [ ] **Cycle 4.2 — Coordination Mesh pure** : Sanctuariser le rôle réseau p2p du daemon.
+
+### Horizon 5 : Tranches Verticales Transversales & Invariants Substrat (NOUVEAU)
+**Objectif** : Éradiquer les réinventions de patterns de bas niveau à travers toutes les crates.
+- [ ] **Cycle 5.1 — SSOT SSH Transport (`CYNIC-ARCH-003`)** : Remplacer tout `vec!["ssh", ...]` manuel dans `cynic-proxmox`, `cynic-host`, `cynic-release` par `cynic_ssh::argv::ssh_argv`.
+- [ ] **Cycle 5.2 — Unification des Types Substrat (`CYNIC-ARCH-006`)** : Remplacer les `String` nues désignant des agents, tâches ou nœuds par les types stricts de `cynic-types`.
+- [ ] **Cycle 5.3 — Pureté FCIS & Runner Unique (`CYNIC-ARCH-002`)** : Baigner tous les adaptateurs I/O dans `cynic-process::ArgvRunner` et bannir les invocations I/O orphelines.
 
 ---
 
@@ -77,3 +82,4 @@ Lorsqu'un agent ou sous-agent rencontre une anomalie non prévue :
 | **2026-11-04 (PR #695)** | `cynic-host::toolchain` | Dépendance L1 $\to$ L2 cachée par des shims dans `cynic-host`. | Rapatriement pur et simple de tout le cycle de vie toolchain dans `cynic-build` (L2). |
 | **2026-11-04 (PR #691)** | `infra/crate-topology.json` | Génération de topologie via `cargo metadata` prenait 15s par PR, causant des timeouts. | Création de `scripts/sync-topology.py` en Python pur (50ms). |
 | **2026-11-04 (Cycle 2.1)** | `cynic-host` → `cynic-secrets` | Hoist de `credential.rs`, `credential_provisioning.rs`, `credential_hardening/`, `secret_material.rs`. Seul appelant externe était `cynic-cli/src/build_surface/services.rs`. Dépendances ajoutées à `cynic-secrets`: `cynic-process`, `rpassword`, `base64`. `cynic-host` perd 4 modules et le shim `secret_material`. | Migration réussie vers `cynic-secrets::credential::{types, provisioning, hardening}`. Rewiring de `cynic-cli` vers `cynic_secrets`. Suppression des fichiers source dans `cynic-host`. |
+| **2026-11-04 (PR #706)** | `cynic-protocol` & `cynic-audit-engine` | Les récurrences de dettes architecturales étaient détectées au cas par cas sans identifiants canoniques. | Création de `CynicErrorDomain::Architecture` et des codes `CYNIC-ARCH-001` à `CYNIC-ARCH-006` dans `error_catalog.rs`. Câblage dans `cynic-audit-engine::debt_pattern_rule`. |
