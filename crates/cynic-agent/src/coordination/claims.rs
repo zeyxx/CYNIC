@@ -6,14 +6,16 @@
 //! status computation from the local claims document. They are the single
 //! source of truth for those rules; `cynic_cli` only dispatches to them.
 
-use cynic_protocol::agent_coordination::{predicates as coord_predicates, ClaimScope};
-use serde_json::Value;
+use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
+use serde_json::{Value, json};
 
 use crate::coordination::admission::{local_claim_active, local_scope_of};
-use crate::coordination::local_store::{append_claim_event, load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc};
+use crate::coordination::local_store::{
+    append_claim_event, load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc,
+};
 use crate::coordination::types::{
-    AgentClaimReport, AgentReleaseReport, AgentScopeReport, AGENT_CLAIM_REPORT_SCHEMA,
-    AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
+    AGENT_CLAIM_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
+    AgentClaimReport, AgentReleaseReport, AgentScopeReport,
 };
 
 /// Claim a scope in the local (no kernel) path.
@@ -262,7 +264,9 @@ pub fn execute_release_local(
                 released_at_unix_ms: now_ms,
             });
         }
-        return Err(format!("release failed: no local claim for target {target}"));
+        return Err(format!(
+            "release failed: no local claim for target {target}"
+        ));
     }
     store_claims_doc(&mut doc)?;
     append_claim_event(
@@ -279,7 +283,11 @@ pub fn execute_release_local(
         status: "released",
         agent_id: agent_id.to_string(),
         target: target.to_string(),
-        lease_id: if lease_id.is_empty() { matched_lease } else { lease_id.to_string() },
+        lease_id: if lease_id.is_empty() {
+            matched_lease
+        } else {
+            lease_id.to_string()
+        },
         proof_refs,
         released_at_unix_ms: now_ms,
     })
@@ -302,8 +310,7 @@ pub fn execute_scope(agent_id: &str, paths: &[String]) -> Result<Value, String> 
     for path in paths {
         let wanted = ClaimScope::File { path: path.clone() };
         let held = claims.iter().any(|claim| {
-            claim.get("agent_id")
-                .and_then(|v| v.as_str()) == Some(agent_id)
+            claim.get("agent_id").and_then(|v| v.as_str()) == Some(agent_id)
                 && local_claim_active(claim, now_s)
                 && {
                     let kind = claim
@@ -372,7 +379,7 @@ mod tests {
             ],
             "merge_queue": [],
         });
-        let _ = execute_claim_local("tester", "x/y.rs", None, None, None, None,);
+        let _ = execute_claim_local("tester", "x/y.rs", None, None, None, None);
         let claims = doc["claims"].as_array().unwrap();
         assert_eq!(claims.len(), 2);
         assert_eq!(claims[0]["status"], "active");
@@ -389,9 +396,13 @@ mod tests {
             "claims": [claim_entry("active", now - 100, 1800)],
             "merge_queue": [],
         });
-        let report = execute_claim_local("tester", "a/b.rs", None, None, None, None,).expect("claim");
+        let report =
+            execute_claim_local("tester", "a/b.rs", None, None, None, None).expect("claim");
         assert_eq!(report.status, "claimed");
-        assert_eq!(doc["claims"][0]["temporal"]["started_at_unix_s"], json!(now));
+        assert_eq!(
+            doc["claims"][0]["temporal"]["started_at_unix_s"],
+            json!(now)
+        );
     }
 
     #[test]
