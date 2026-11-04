@@ -448,7 +448,7 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
             log,
             ledger,
         } => {
-            use crate::coordination_ledger::{COORDINATION_LEDGER_SCHEMA, CoordinationLedger};
+            use cynic_agent::coordination::ledger::{COORDINATION_LEDGER_SCHEMA, CoordinationLedger};
             use crate::rust_source;
 
             let claims_path = claims.unwrap_or_else(|| {

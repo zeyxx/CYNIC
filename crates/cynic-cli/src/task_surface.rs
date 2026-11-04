@@ -1,7 +1,7 @@
 //! Task ledger projection surface: `cynic task list/add/status`.
 //!
 //! Projects `infra/task-ledger.json` (kairotic + operational opportunities).
-//! Pure logic lives in [`crate::task_ledger`]; this module owns I/O and clap.
+//! Pure logic lives in [`cynic_agent::task_ledger`]; this module owns I/O and clap.
 
 use std::fs;
 use std::path::{Path, PathBuf};

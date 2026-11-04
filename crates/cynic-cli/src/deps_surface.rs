@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::cli_json::emit_pretty_json;
 use crate::deps_surface_audit::build_deps_audit;
-use crate::deps_surface_pins::load_pins;
+use cynic_pkg::pins::load_pins;
 use crate::deps_surface_plan::build_plan;
 use crate::deps_surface_render::{print_deps_human, print_plan_human};
 use crate::deps_surface_report::build_deps_report;
