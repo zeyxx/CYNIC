@@ -31,6 +31,8 @@ pub enum CynicErrorDomain {
     Opportunity,
     /// Runtime storage: disk full, capacity pressure, extension required.
     Runtime,
+    /// Architectural debt, DAG violations, re-export shims, unnormed vocabulary.
+    Architecture,
 }
 
 impl CynicErrorDomain {
@@ -50,6 +52,7 @@ impl CynicErrorDomain {
             Self::Publication => "PUB",
             Self::Opportunity => "OPP",
             Self::Runtime => "RT",
+            Self::Architecture => "ARCH",
         }
     }
 
@@ -68,6 +71,7 @@ impl CynicErrorDomain {
             Self::Publication => "publication",
             Self::Opportunity => "opportunity",
             Self::Runtime => "runtime",
+            Self::Architecture => "architecture",
         }
     }
 }
@@ -201,6 +205,19 @@ pub enum CynicErrorCode {
     RuntimeCapacityPressure,
     RuntimeOrphanedCheckout,
     RuntimeStorageExtensionRequired,
+    // Architectural Codes (CYNIC-ARCH-*)
+    /// Legacy re-export shim leaked in domain/cli surface.
+    ArchitectureReexportShimLeak,
+    /// Pure domain module contains forbidden I/O operations (FCIS violation).
+    ArchitectureDomainImpurityIo,
+    /// Raw SSH bypass outside cynic-ssh transport SSOT.
+    ArchitectureSshBypassRaw,
+    /// Upward dependency violating strict DAG (lower layer depends on higher layer).
+    ArchitectureDagUpwardInversion,
+    /// God-crate complexity or dependency budget exceeded.
+    ArchitectureGodCrateBudgetExceeded,
+    /// Unnormed vocabulary or ad-hoc types bypassing cynic-types / glossary.
+    ArchitectureUnnormedVocabularyDrift,
 }
 
 pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
@@ -269,6 +286,12 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::RuntimeCapacityPressure,
     CynicErrorCode::RuntimeOrphanedCheckout,
     CynicErrorCode::RuntimeStorageExtensionRequired,
+    CynicErrorCode::ArchitectureReexportShimLeak,
+    CynicErrorCode::ArchitectureDomainImpurityIo,
+    CynicErrorCode::ArchitectureSshBypassRaw,
+    CynicErrorCode::ArchitectureDagUpwardInversion,
+    CynicErrorCode::ArchitectureGodCrateBudgetExceeded,
+    CynicErrorCode::ArchitectureUnnormedVocabularyDrift,
 ];
 
 impl CynicErrorCode {
@@ -342,6 +365,12 @@ impl CynicErrorCode {
             | Self::RuntimeCapacityPressure
             | Self::RuntimeOrphanedCheckout
             | Self::RuntimeStorageExtensionRequired => CynicErrorDomain::Runtime,
+            Self::ArchitectureReexportShimLeak
+            | Self::ArchitectureDomainImpurityIo
+            | Self::ArchitectureSshBypassRaw
+            | Self::ArchitectureDagUpwardInversion
+            | Self::ArchitectureGodCrateBudgetExceeded
+            | Self::ArchitectureUnnormedVocabularyDrift => CynicErrorDomain::Architecture,
         }
     }
 
@@ -419,6 +448,12 @@ impl CynicErrorCode {
             | Self::RuntimeCapacityPressure
             | Self::RuntimeOrphanedCheckout
             | Self::RuntimeStorageExtensionRequired => CynicErrorClass::Recoverable,
+            Self::ArchitectureReexportShimLeak
+            | Self::ArchitectureDomainImpurityIo
+            | Self::ArchitectureSshBypassRaw
+            | Self::ArchitectureDagUpwardInversion
+            | Self::ArchitectureGodCrateBudgetExceeded
+            | Self::ArchitectureUnnormedVocabularyDrift => CynicErrorClass::Blocked,
         }
     }
 
@@ -492,7 +527,13 @@ impl CynicErrorCode {
             (CynicErrorDomain::Runtime, 2) => "CYNIC-RT-002",
             (CynicErrorDomain::Runtime, 3) => "CYNIC-RT-003",
             (CynicErrorDomain::Runtime, 4) => "CYNIC-RT-004",
-            _ => "CYNIC-ERR-000",
+            (CynicErrorDomain::Architecture, 1) => "CYNIC-ARCH-001",
+            (CynicErrorDomain::Architecture, 2) => "CYNIC-ARCH-002",
+            (CynicErrorDomain::Architecture, 3) => "CYNIC-ARCH-003",
+            (CynicErrorDomain::Architecture, 4) => "CYNIC-ARCH-004",
+            (CynicErrorDomain::Architecture, 5) => "CYNIC-ARCH-005",
+            (CynicErrorDomain::Architecture, 6) => "CYNIC-ARCH-006",
+            _ => "CYNIC-UNKNOWN",
         }
     }
 
@@ -707,6 +748,24 @@ impl CynicErrorCode {
             Self::RuntimeStorageExtensionRequired => {
                 "request a disk extension via the hypervisor supervision port"
             }
+            Self::ArchitectureReexportShimLeak => {
+                "eradicate legacy re-export shim file and rewire callers directly to SSOT crate"
+            }
+            Self::ArchitectureDomainImpurityIo => {
+                "remove I/O operations from pure domain module and move to adapters behind a port trait (FCIS)"
+            }
+            Self::ArchitectureSshBypassRaw => {
+                "replace raw SSH execution with cynic_ssh::argv::ssh_argv (SSH transport SSOT)"
+            }
+            Self::ArchitectureDagUpwardInversion => {
+                "reverse upward layer dependency or hoist shared domain types to a common lower layer"
+            }
+            Self::ArchitectureGodCrateBudgetExceeded => {
+                "perform vertical domain extraction to split oversized crate into bounded domain crates"
+            }
+            Self::ArchitectureUnnormedVocabularyDrift => {
+                "canonicalize ad-hoc types and vocabulary against cynic-types and contracts/glossary.json"
+            }
         }
     }
 
@@ -873,6 +932,7 @@ mod tests {
             CynicErrorDomain::Agent,
             CynicErrorDomain::Fleet,
             CynicErrorDomain::OsHealth,
+            CynicErrorDomain::Architecture,
         ] {
             let subset = domain.codes();
             for code in &subset {
@@ -918,6 +978,25 @@ mod tests {
             assert_eq!(variant.code(), expected);
             assert!(CYNIC_ERROR_CODES.contains(&variant));
             assert_eq!(variant.domain(), CynicErrorDomain::Activation);
+        }
+    }
+
+    #[test]
+    fn architecture_codes_are_catalogued() {
+        let arch = [
+            (CynicErrorCode::ArchitectureReexportShimLeak, "CYNIC-ARCH-001"),
+            (CynicErrorCode::ArchitectureDomainImpurityIo, "CYNIC-ARCH-002"),
+            (CynicErrorCode::ArchitectureSshBypassRaw, "CYNIC-ARCH-003"),
+            (CynicErrorCode::ArchitectureDagUpwardInversion, "CYNIC-ARCH-004"),
+            (CynicErrorCode::ArchitectureGodCrateBudgetExceeded, "CYNIC-ARCH-005"),
+            (CynicErrorCode::ArchitectureUnnormedVocabularyDrift, "CYNIC-ARCH-006"),
+        ];
+        for (variant, expected) in arch {
+            assert_eq!(variant.code(), expected);
+            assert!(CYNIC_ERROR_CODES.contains(&variant));
+            assert_eq!(variant.domain(), CynicErrorDomain::Architecture);
+            assert_eq!(variant.class(), CynicErrorClass::Blocked);
+            assert!(!variant.operator_action().is_empty());
         }
     }
 

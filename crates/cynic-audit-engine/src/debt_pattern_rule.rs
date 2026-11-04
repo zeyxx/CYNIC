@@ -48,7 +48,7 @@ impl AuditRule for DebtPatternRule {
             // Rule 1: SSH direct outside cynic-ssh
             if !path.contains("cynic-ssh") && file.content.contains("Command::new(\"ssh\")") {
                 violations.push(AuditViolation {
-                    code: format!("{RULE_ID}-SSH-DIRECT"),
+                    code: "CYNIC-ARCH-003".to_string(),
                     message: format!(
                         "SSH direct (Command::new(\"ssh\")) found in `{}`. Must use cynic_ssh::argv::ssh_argv.",
                         path
@@ -68,15 +68,15 @@ impl AuditRule for DebtPatternRule {
                     || file.content.contains("std::net::");
                 if has_io {
                     violations.push(AuditViolation {
-                        code: format!("{RULE_ID}-IO-IN-DOMAIN"),
+                        code: "CYNIC-ARCH-002".to_string(),
                         message: format!(
-                            "I/O operation found in domain module `{}`. Domain must be pure (FCIS).",
+                            "Forbidden I/O in domain/ module `{}`. Domain modules must be pure FCIS.",
                             path
                         ),
                         severity: AuditSeverity::Critical,
                         category: AuditCategory::Boundary,
                         span: None,
-                        remediation: Some("Move I/O to adapters/ behind a port trait.".to_string()),
+                        remediation: Some("Extract I/O to an adapter in adapters/ behind a port trait.".to_string()),
                     });
                 }
             }
@@ -90,7 +90,7 @@ impl AuditRule for DebtPatternRule {
                         let parts: Vec<&str> = trimmed.split("::").collect();
                         if parts.len() >= 4 {
                             violations.push(AuditViolation {
-                                code: format!("{RULE_ID}-REEXPORT-SHIM"),
+                                code: "CYNIC-ARCH-001".to_string(),
                                 message: format!(
                                     "Re-export shim in `{}`: `{}`. Canonicalize to direct module path.",
                                     path, trimmed
@@ -112,7 +112,7 @@ impl AuditRule for DebtPatternRule {
                 for crate_name in &higher_crates {
                     if file.content.contains(&format!("{} = {{ path", crate_name)) {
                         violations.push(AuditViolation {
-                            code: format!("{RULE_ID}-UPWARD-DEP"),
+                            code: "CYNIC-ARCH-004".to_string(),
                             message: format!(
                                 "Upward dependency: cynic-host depends on {} (higher layer).",
                                 crate_name
