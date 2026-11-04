@@ -11,7 +11,7 @@ use clap::Subcommand;
 
 use crate::emit_json;
 use crate::rust_source;
-use crate::task_ledger::{
+pub(crate) use cynic_agent::task_ledger::{
     TASK_LEDGER_SCHEMA, TaskEntry, TaskLedger, add_task, filter_tasks, generate_task_id,
     update_status,
 };
