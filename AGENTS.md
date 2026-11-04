@@ -24,6 +24,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 - **Bottom-Up over Top-Down**: Always observe, measure, and validate physical substrate reality (hardware, raw bytes, exit codes, machine receipts, AST) before introducing speculative, probabilistic, or higher-layer abstractions across all domains. No model or policy without an empirically verified baseline.
 - **Strict DAG downward**: Higher layers depend on lower layers, never the reverse.
 - **FCIS / Zero-I/O Core**: Pure logic in domain modules; side effects behind ports in `adapters/`.
+- **DDD (Domain-Driven Design)**: Bounded contexts, ubiquitous language, aggregates, value objects, domain events, repositories behind ports. Every domain crate defines its bounded context and ubiquitous language. No anemic domain models.
 - **Boundaries**: Dynamic registries over hardcoded values; typed argv execution; explicit `--yes`/`--apply` for mutation.
 - **SSH Transport SSOT**: All SSH transport, command construction, batch options, and target validations MUST live exclusively in `crates/cynic-ssh`. Reimplementing SSH argv, bypasses, or raw `Command::new("ssh")` anywhere outside `cynic-ssh` is an architectural defect; an observation issue must be opened immediately upon detection.
 
