@@ -483,6 +483,7 @@ pub(crate) fn openrc_service_name(unit: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::ServicePolicyExt as _;
     use super::{
         ServiceCommandContext, ServiceManagerKind, ServicePolicy, ServiceUnitPolicy,
         openrc_service_name,
