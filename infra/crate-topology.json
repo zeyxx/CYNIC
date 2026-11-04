@@ -121,14 +121,13 @@
                 "cynic-node"
             ],
             "depends_on": [
-                "cynic-finance",
                 "cynic-protocol"
             ],
             "dev_depends_on": [],
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 2736
+            "loc": 2528
         },
         "cynic-domain-ops": {
             "consumers": [
@@ -166,7 +165,6 @@
         "cynic-finance": {
             "consumers": [
                 "cynic-agent",
-                "cynic-consensus",
                 "cynic-inference",
                 "cynic-market"
             ],
@@ -907,9 +905,9 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 399205,
+        "loc_total": 398997,
         "pending_disposition": 3,
-        "runtime_edges": 157,
+        "runtime_edges": 156,
         "unjustified": 3,
         "upward_edges": 0
     },
