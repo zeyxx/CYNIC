@@ -1,10 +1,58 @@
+//! Fleet consensus attestation & evaluation (hoisted from `cynic-consensus`).
+//!
+//! Pure state machine: Sha256 epoch fingerprinting and ≥ 2/3 quorum evaluation
+//! across fleet attestations. Zero I/O.
+
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::types::{
-    FLEET_CONSENSUS_STATE_SCHEMA, FleetConsensusStatus, FleetEpochConsensusState,
-    NodeEpochAttestation,
-};
+pub const FLEET_EPOCH_ATTESTATION_SCHEMA: &str = "cynic.consensus.fleet_epoch_attestation.v1";
+pub const FLEET_CONSENSUS_STATE_SCHEMA: &str = "cynic.consensus.fleet_consensus_state.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeEpochAttestation {
+    pub schema: String,
+    pub node_id: String,
+    pub epoch_sequence: u64,
+    pub commit_sha: String,
+    pub binary_sha256: String,
+    pub registry_digest: String,
+    pub monotonic_tick: u64,
+    pub signature_hex: String,
+    pub attested_at_unix_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FleetConsensusStatus {
+    Synchronized {
+        epoch_sequence: u64,
+        confirmed_nodes: Vec<String>,
+    },
+    Transitioning {
+        target_epoch: u64,
+        progress_ratio: String,
+    },
+    Partitioned {
+        split_epochs: BTreeMap<u64, Vec<String>>,
+    },
+    DegradedClockSkew {
+        max_skew_ms: u64,
+        flagged_nodes: Vec<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetEpochConsensusState {
+    pub schema: String,
+    pub current_epoch: u64,
+    pub active_commit: String,
+    pub status: FleetConsensusStatus,
+    pub quorum_size: usize,
+    pub participating_nodes: Vec<String>,
+    pub attested_nodes: BTreeSet<String>,
+    pub evaluated_at_unix_ms: u64,
+}
 
 /// Computes the unique cryptographic fingerprint of an Epoch.
 pub fn compute_epoch_fingerprint(
@@ -98,7 +146,6 @@ pub fn evaluate_fleet_consensus(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::FLEET_EPOCH_ATTESTATION_SCHEMA;
 
     #[test]
     fn achieves_consensus_when_two_of_three_nodes_agree() {
@@ -166,7 +213,7 @@ mod tests {
             NodeEpochAttestation {
                 schema: FLEET_EPOCH_ATTESTATION_SCHEMA.to_string(),
                 node_id: "cynic-builder".to_string(),
-                epoch_sequence: 41, // Lagging behind
+                epoch_sequence: 41,
                 commit_sha: "old".to_string(),
                 binary_sha256: "bin0".to_string(),
                 registry_digest: "reg0".to_string(),
