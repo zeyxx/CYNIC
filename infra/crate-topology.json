@@ -24,7 +24,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L2",
-            "loc": 11991
+            "loc": 11992
         },
         "cynic-anchoring": {
             "consumers": [],
@@ -714,7 +714,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L0",
-            "loc": 1121
+            "loc": 1153
         },
         "cynic-vcs": {
             "consumers": [
@@ -920,7 +920,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 399194,
+        "loc_total": 399227,
         "pending_disposition": 3,
         "runtime_edges": 163,
         "unjustified": 2,

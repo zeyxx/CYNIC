@@ -6,6 +6,7 @@
 //!
 //! Moved from `cynic-cli` so the CLI crate owns only clap and formatting.
 
+use cynic_types::TaskId;
 use serde::{Deserialize, Serialize};
 
 pub const TASK_LEDGER_SCHEMA: &str = "cynic.task_ledger.v1";
@@ -32,7 +33,7 @@ impl TaskLedger {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskEntry {
-    pub task_id: String,
+    pub task_id: TaskId,
     pub title: String,
     pub priority: String,
     pub status: String,
@@ -75,14 +76,14 @@ pub fn add_task(ledger: &mut TaskLedger, entry: TaskEntry) -> Result<(), LedgerE
     if entry.title.trim().is_empty() {
         return Err(LedgerError::EmptyTitle);
     }
-    if entry.task_id.trim().is_empty() {
+    if entry.task_id.as_str().trim().is_empty() {
         return Err(LedgerError::EmptyTaskId);
     }
     if !is_valid_kind(&entry.kind) {
         return Err(LedgerError::InvalidKind(entry.kind.clone()));
     }
     if ledger.tasks.iter().any(|t| t.task_id == entry.task_id) {
-        return Err(LedgerError::DuplicateTaskId(entry.task_id.clone()));
+        return Err(LedgerError::DuplicateTaskId(entry.task_id.to_string()));
     }
     ledger.tasks.push(entry);
     Ok(())
@@ -103,7 +104,7 @@ pub fn update_status(
     let entry = ledger
         .tasks
         .iter_mut()
-        .find(|t| t.task_id == task_id)
+        .find(|t| t.task_id.as_str() == task_id)
         .ok_or_else(|| LedgerError::TaskNotFound(task_id.to_string()))?;
     entry.status = status.to_string();
     entry.updated_at = now.to_string();
@@ -127,13 +128,13 @@ pub fn filter_tasks<'a>(
 
 pub fn generate_task_id(existing: &[TaskEntry], now_unix_s: u64) -> String {
     let base = format!("task-{now_unix_s}");
-    if !existing.iter().any(|t| t.task_id == base) {
+    if !existing.iter().any(|t| t.task_id.as_str() == base) {
         return base;
     }
     let mut i = 1u64;
     loop {
         let candidate = format!("{base}-{i}");
-        if !existing.iter().any(|t| t.task_id == candidate) {
+        if !existing.iter().any(|t| t.task_id.as_str() == candidate) {
             return candidate;
         }
         i += 1;
