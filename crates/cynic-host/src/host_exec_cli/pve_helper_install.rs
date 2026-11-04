@@ -26,6 +26,7 @@ use crate::host_exec_cli::io::emit_json;
 use crate::privilege::{
     DEFAULT_POLICY_PATH, DEFAULT_TRANSPORT_POLICY_PATH, PveHelperPolicy, TransportCapabilities,
 };
+use cynic_ssh::argv::ssh_argv;
 
 const PVE_HELPER_INSTALL_REPORT_SCHEMA: &str = "cynic.host.pve_helper_install_report.v1";
 
@@ -55,7 +56,7 @@ struct PveHelperInstallReport {
 /// it is installed. An install-then-validate order lets a file that fails
 /// validation land in `/etc/sudoers.d/`, which can break `sudo` entirely —
 /// including the ability to fix it.
-fn render_install_argv(policy: &PveHelperPolicy, staged_dir: &str) -> Vec<String> {
+fn render_install_argv(policy: &PveHelperPolicy, staged_dir: &str, endpoint: &str) -> Vec<String> {
     let remote_sh = format!(
         "set -e; \
          visudo -cf {staged_dir}/pve-pct.sudoers && \
@@ -64,14 +65,11 @@ fn render_install_argv(policy: &PveHelperPolicy, staged_dir: &str) -> Vec<String
          echo MEMBRANE_DONE",
         sudoers = policy.sudoers_path,
     );
-    vec![
-        "ssh".to_string(),
-        "-t".to_string(),
-        "sudo".to_string(),
-        "sh".to_string(),
-        "-c".to_string(),
-        remote_sh,
-    ]
+    // ssh -t allocates a PTY so sudo can prompt for the human's password.
+    let mut argv = ssh_argv(endpoint, &["sudo", "sh", "-c", remote_sh.as_str()])
+        .expect("valid ssh target");
+    argv.insert(1, "-t".to_string());
+    argv
 }
 
 pub(crate) fn execute_pve_helper_install(
@@ -164,8 +162,7 @@ pub(crate) fn execute_pve_helper_install(
     // Step 2: the organism installs the membrane through sudo over an
     // interactive SSH tunnel; the human's password prompt lives only in their
     // terminal.
-    let mut install_argv = render_install_argv(&policy, &staged_dir);
-    install_argv.insert(2, endpoint.clone());
+    let mut install_argv = render_install_argv(&policy, &staged_dir, &endpoint);
     let install_step = run_step_with_stdio("install_membrane", &install_argv, true);
     let install_ok = install_step.ok;
     report.steps.push(install_step);
@@ -176,13 +173,8 @@ pub(crate) fn execute_pve_helper_install(
 
     // Step 3: independent read-back through the bounded membrane (no sudo):
     // the exec arm must answer now that NOPASSWD exists.
-    let probe_argv = vec![
-        "ssh".to_string(),
-        "-o".to_string(),
-        "BatchMode=yes".to_string(),
-        endpoint,
-        format!("{} privilege catalog", policy.helper_path),
-    ];
+    let probe_argv = ssh_argv(&endpoint, &[format!("{} privilege catalog", policy.helper_path)])
+        .expect("valid ssh target");
     let probe_step = run_step("readback_bounded_catalog", &probe_argv);
     report.steps.push(probe_step);
     if !report.steps.last().expect("probe step").ok {
