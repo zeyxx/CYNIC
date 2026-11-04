@@ -50,8 +50,6 @@ pub use idea_ledger::{DEFAULT_LEDGER_STATUS, IDEA_LEDGER_SCHEMA, VALID_FRESHNESS
     IdeaEntry, IdeaLedger, LedgerError, consume, filter_ideas, generate_idea_id, is_valid_freshness,
     is_valid_status, update_freshness, update_status};
 
-// Service module — knowledge command surface (L3)
-
 use std::path::Path;
 
 /// Standard directory exclusion set (never index build artifacts or VCS state).
