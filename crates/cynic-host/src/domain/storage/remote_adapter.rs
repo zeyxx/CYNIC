@@ -6,6 +6,7 @@ use cynic_proxmox::storage::topology::StorageTopologyObserved;
 
 use super::probe::StorageTopologyObservationPort;
 use cynic_process::ArgvRunner;
+use cynic_ssh::argv::ssh_argv;
 use std::time::Instant;
 
 pub struct RemoteStorageTopologyAdapter<R: ArgvRunner> {
@@ -17,10 +18,11 @@ pub struct RemoteStorageTopologyAdapter<R: ArgvRunner> {
 impl<R: ArgvRunner> StorageTopologyObservationPort for RemoteStorageTopologyAdapter<R> {
     fn observe_topology(&self) -> StorageTopologyObserved {
         let poll_start = Instant::now();
-        let argv = ["ssh", &self.ssh_target, "cat", &self.topology_path];
-        let out = self
-            .runner
-            .run(&argv.iter().map(|s| *s).collect::<Vec<_>>());
+        let argv = ssh_argv(&self.ssh_target, &["cat", self.topology_path.as_str()])
+            .map_err(|_| "invalid ssh target".to_string())
+            .unwrap_or_default();
+        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let out = self.runner.run(&refs);
         let endpoints = serde_json::from_str::<serde_json::Value>(&out.stdout)
             .ok()
             .and_then(|v| {
