@@ -877,7 +877,7 @@ pub struct RestartSignal {
     pub desired_sha256: String,
 }
 
-pub use crate::domain::builder_restart::{decide_builder_restart, BuilderRestartDecision};
+pub use cynic_build::builder_restart::{decide_builder_restart, BuilderRestartDecision};
 
 fn sha256_of_file(path: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
