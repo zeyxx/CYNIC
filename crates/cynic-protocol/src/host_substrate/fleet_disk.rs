@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::disk::DiskReport;
-use cynic_protocol::task_pipeline::EnergyBudget;
+use crate::task_pipeline::EnergyBudget;
 
 pub const FLEET_DISK_SCHEMA: &str = "cynic.fleet_disk.v1";
 

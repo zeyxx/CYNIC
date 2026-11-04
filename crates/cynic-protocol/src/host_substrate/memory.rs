@@ -13,7 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::task_pipeline::EnergyBudget;
+use crate::task_pipeline::EnergyBudget;
 
 /// Memory pressure as reported by `/proc/pressure/memory`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

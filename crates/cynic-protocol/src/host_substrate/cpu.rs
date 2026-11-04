@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::task_pipeline::EnergyBudget;
+use crate::task_pipeline::EnergyBudget;
 
 /// Physical CPU model + topology (level 1).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::detection::PackageManagerKind;
+use crate::detection::PackageManagerKind;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostCapabilities {
