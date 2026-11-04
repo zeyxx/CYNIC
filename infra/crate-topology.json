@@ -168,8 +168,7 @@
                 "cynic-agent",
                 "cynic-consensus",
                 "cynic-inference",
-                "cynic-market",
-                "cynic-node"
+                "cynic-market"
             ],
             "depends_on": [
                 "cynic-protocol"
@@ -361,7 +360,6 @@
                 "cynic-agent",
                 "cynic-build",
                 "cynic-consensus",
-                "cynic-finance",
                 "cynic-host",
                 "cynic-inference",
                 "cynic-intel",
@@ -385,7 +383,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L3",
-            "loc": 51019
+            "loc": 50984
         },
         "cynic-node-protocol": {
             "consumers": [
@@ -916,9 +914,9 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 398748,
+        "loc_total": 398713,
         "pending_disposition": 3,
-        "runtime_edges": 161,
+        "runtime_edges": 160,
         "unjustified": 2,
         "upward_edges": 0
     },
