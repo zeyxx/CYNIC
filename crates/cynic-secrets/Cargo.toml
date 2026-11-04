@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
+cynic-process = { path = "../cynic-process" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha3.workspace = true
@@ -24,6 +25,8 @@ getrandom = "0.2"
 ed25519-dalek.workspace = true
 hex.workspace = true
 rand_core = { version = "0.6", optional = true, features = ["getrandom"] }
+base64.workspace = true
+rpassword = "7.5.4"
 
 [features]
 default = ["std"]

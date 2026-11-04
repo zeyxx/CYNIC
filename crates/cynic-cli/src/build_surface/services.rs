@@ -90,7 +90,7 @@ pub(crate) fn provision_credentials(
     apply: bool,
     json: bool,
 ) -> Result<(), String> {
-    use cynic_host::credential_provisioning::{
+    use cynic_secrets::credential::provisioning::{
         provision_ssh_credential, scan_unprovisioned_enrollment_transports,
     };
 
