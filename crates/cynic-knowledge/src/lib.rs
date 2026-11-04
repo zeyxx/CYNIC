@@ -1,5 +1,8 @@
 pub mod adapters;
 pub mod domain;
+use std::path::Path;
+use walkdir::WalkDir;
+
 pub mod vector;
 
 pub mod idea_ledger;
@@ -48,9 +51,6 @@ pub use domain::{
 pub use idea_ledger::{DEFAULT_LEDGER_STATUS, IDEA_LEDGER_SCHEMA, VALID_FRESHNESSES, VALID_STATUSES,
     IdeaEntry, IdeaLedger, LedgerError, consume, filter_ideas, generate_idea_id, is_valid_freshness,
     is_valid_status, update_freshness, update_status};
-
-use std::path::Path;
-use walkdir::WalkDir;
 
 /// Standard directory exclusion set (never index build artifacts or VCS state).
 const IGNORED_DIRS: &[&str] = &[
