@@ -143,9 +143,121 @@ impl LocalArgvRunner {
     }
 }
 
+impl LocalArgvRunner {
+    /// Spawns argv[0] with remaining args, feeding `stdin` to its standard input.
+    pub fn run_with_stdin_bytes(
+        &self,
+        argv: &[&str],
+        stdin: &[u8],
+    ) -> ArgvOutput {
+        self.run_with_stdin_bytes_and_timeout(argv, stdin, default_command_timeout())
+    }
+
+    pub fn run_with_stdin_bytes_and_timeout(
+        &self,
+        argv: &[&str],
+        stdin: &[u8],
+        timeout: Duration,
+    ) -> ArgvOutput {
+        use std::io::Write as _;
+        if argv.is_empty() {
+            return ArgvOutput {
+                exit_code: None,
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: Some("empty argv".into()),
+            };
+        }
+        let mut cmd = Command::new(argv[0]);
+        cmd.args(&argv[1..]);
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            Err(e) => {
+                return ArgvOutput {
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: Some(format!("spawn {}: {e}", argv[0])),
+                };
+            }
+        };
+        if let Some(mut stdin_pipe) = child.stdin.take() {
+            let _ = stdin_pipe.write_all(stdin);
+            let _ = stdin_pipe.flush();
+            drop(stdin_pipe);
+        }
+        // Reap using try_wait loop with timeout, reading stdout/stderr.
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+        let stdout_reader = stdout.map(|out| {
+            std::thread::spawn(move || {
+                let mut r = out;
+                let mut buf = Vec::new();
+                let _ = r.read_to_end(&mut buf);
+                buf
+            })
+        });
+        let stderr_reader = stderr.map(|err| {
+            std::thread::spawn(move || {
+                let mut r = err;
+                let mut buf = Vec::new();
+                let _ = r.read_to_end(&mut buf);
+                buf
+            })
+        });
+        let deadline = Instant::now() + timeout;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let stdout_bytes = stdout_reader
+                        .map(|h| h.join().unwrap_or_default())
+                        .unwrap_or_default();
+                    let stderr_bytes = stderr_reader
+                        .map(|h| h.join().unwrap_or_default())
+                        .unwrap_or_default();
+                    return ArgvOutput {
+                        exit_code: status.code(),
+                        stdout: String::from_utf8_lossy(&stdout_bytes).into_owned(),
+                        stderr: String::from_utf8_lossy(&stderr_bytes).into_owned(),
+                        spawn_error: None,
+                    };
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    let _ = child.kill();
+                    return ArgvOutput {
+                        exit_code: None,
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        spawn_error: Some(format!("wait error: {e}")),
+                    };
+                }
+            }
+            if Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                return ArgvOutput {
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: "command timed out".into(),
+                    spawn_error: Some(format!("command timed out after {}ms", timeout.as_millis())),
+                };
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+}
+
 impl ArgvRunner for LocalArgvRunner {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
         self.run_in_dir(argv, None)
+    }
+
+    fn run_with_stdin(&self, argv: &[&str], stdin: &[u8]) -> ArgvOutput {
+        self.run_with_stdin_bytes(argv, stdin)
     }
 }
 
