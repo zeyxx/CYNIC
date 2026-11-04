@@ -1,6 +1,7 @@
 pub mod admission;
 pub mod claims;
 pub mod events;
+pub mod ledger;
 pub mod local_store;
 pub mod types;
 
@@ -9,6 +10,7 @@ pub use claims::{
     execute_claim_local, execute_release_local, execute_scope,
 };
 pub use events::{civil_from_days, event_matches};
+pub use ledger::*;
 pub use local_store::{
     append_claim_event, claim_event_log_dir, claims_file_path, execute_status_from_claims_file,
     load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc, CLAIM_EVENT_SCHEMA,
