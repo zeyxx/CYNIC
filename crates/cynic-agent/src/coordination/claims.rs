@@ -391,7 +391,7 @@ mod tests {
         });
         let report = execute_claim_local("tester", "a/b.rs", None, None, None, None,).expect("claim");
         assert_eq!(report.status, "claimed");
-        assert_eq!(doc["claims"][0]["temporal"]["started_at_unix_s"], json!(now));
+        assert_eq!(doc["claims"][0]["temporal"]["started_at_unix_s"], serde_json::json!(now));
     }
 
     #[test]

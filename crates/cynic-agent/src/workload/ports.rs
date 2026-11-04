@@ -247,6 +247,7 @@ mod workload_signer_tests {
                     actions: 1,
                     children: 0,
                     wall_time_ms: 1_000,
+                    cpu_ms: None,
                 },
                 expected_proofs: vec![],
             },
