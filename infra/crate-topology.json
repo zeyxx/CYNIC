@@ -224,7 +224,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L1",
-            "loc": 71045
+            "loc": 70553
         },
         "cynic-inference": {
             "consumers": [
@@ -504,7 +504,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L0",
-            "loc": 44089
+            "loc": 44615
         },
         "cynic-proxmox": {
             "consumers": [
@@ -905,7 +905,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 399006,
+        "loc_total": 399040,
         "pending_disposition": 3,
         "runtime_edges": 156,
         "unjustified": 3,

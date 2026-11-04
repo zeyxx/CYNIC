@@ -9,6 +9,8 @@
 //! - `proxmox`: Proxmox VE VM identifiers, controllers, and extension policies.
 //! - `provisioning`: ephemeral build container provisioning spec and port.
 //! - `vm_disk`: VM disk resizing, SCSI/VirtIO controllers, and size limits.
+//!
+//! All DTOs are re-exported from `cynic-protocol` (L0) for 100% backward compatibility.
 
 pub mod capabilities;
 pub mod cpu;
@@ -18,3 +20,8 @@ pub mod memory;
 pub mod remote_execution;
 
 pub use capabilities::*;
+pub use cpu::*;
+pub use disk::*;
+pub use fleet_disk::*;
+pub use memory::*;
+pub use remote_execution::*;
