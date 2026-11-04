@@ -21,7 +21,7 @@ use std::path::Path;
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
 use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
-use self::debt_pattern_rule::DebtPatternRule;
+use self::debt_pattern_rule::{DebtPatternRule, GodCrateBudgetRule, UnnormedVocabularyDriftRule};
 use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::prose_citation_rule::CodeCitesProseRule;
@@ -35,6 +35,7 @@ use self::runtime_divergence::RuntimeDivergenceRule;
 use self::runtime_path_literal_rule::RuntimePathLiteralRule;
 use self::scanner::scan_workspace;
 pub use self::scanner::{HostObservation, WorkspaceSourceIndex};
+pub use self::debt_pattern_rule::{Arch005Rule, Arch006Rule, GodCrateBudgetExceededRule, VocabularyDriftRule};
 pub use debt_ledger::reconcile_debt_ledger;
 
 /// The RUN-001 body, callable from a fixture.
@@ -83,6 +84,8 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(RetiredMetaphorRule),
         Box::new(HostProbeLeakRule),
         Box::new(DebtPatternRule),
+        Box::new(GodCrateBudgetRule),
+        Box::new(UnnormedVocabularyDriftRule),
     ]
 }
 
