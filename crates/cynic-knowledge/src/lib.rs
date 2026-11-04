@@ -2,43 +2,52 @@ pub mod adapters;
 pub mod domain;
 pub mod vector;
 
+pub mod idea_ledger;
+
 pub use vector::{ContiguousVectorStore, SimdVectorAdapter};
 
 pub use adapters::{
-    git_proof_resolver, local_repo_name, shell_claim_runner,
-    categorize_interaction, classify_repo_domain, classify_repo_era, extract_git_history, load_author_profile,
-    find_canonical_registry_path, harvest_live_ledger, load_authority_overrides,
-    load_corpus_cache, load_workspace_geometry, parse_document_tree, parse_git_log_output,
-    parse_github_repos, parse_interactions_graph, parse_json_contract,
-    parse_json_contract_with_authority, parse_jsonl_wal, parse_markdown_tree, parse_rust_file,
-    resolve_service_endpoint_from_registry, save_corpus_cache, sync_workspace_corpus,
-    load_rerank_cache, save_rerank_cache, load_canonical_retrieval_policy, GitExtractError,
-    to_surreal_fact_record,
+    GitExtractError, categorize_interaction, classify_repo_domain, classify_repo_era,
+    extract_git_history, find_canonical_registry_path, git_proof_resolver, harvest_live_ledger,
+    load_author_profile, load_authority_overrides, load_canonical_retrieval_policy,
+    load_corpus_cache, load_rerank_cache, load_workspace_geometry, local_repo_name,
+    parse_document_tree, parse_git_log_output, parse_github_repos, parse_interactions_graph,
+    parse_json_contract, parse_json_contract_with_authority, parse_jsonl_wal, parse_markdown_tree,
+    parse_rust_file, resolve_service_endpoint_from_registry, save_corpus_cache, save_rerank_cache,
+    shell_claim_runner, sync_workspace_corpus, to_surreal_fact_record,
 };
 pub use domain::{
-    apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
-    expand_hits_with_graph, expand_hits_with_graph_multi_hop, expand_hits_with_graph_query, expand_hits_with_graph_query_hops, expand_hits_with_profile, expand_hits_with_topological_contexts, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
-    normalize_engine, render_public_surface_html, render_public_surface_markdown,
-    RerankCacheRecord, RerankItem, RerankRequest, RerankResponse, RERANK_CACHE_SCHEMA_V1,
-    RetrievalPolicy, RetrievalProfile, RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1,
-    route_query, save_vector_cache, tokenize, top_k_dense, vectorize_chunks,
-    vectorize_chunks_cached, AuthorIdentity, AuthorProfile, AuthorshipNature, AuthorityOverrides, AuthorityTier, BrokenReference,
-    CachedFileRecord, CalibratedSkillGroup, CalibratedSkillItem, ChunkEmbedder, ChunkVector,
-    CitedSource, ClaimCategory, ClaimStatus, CodeBlock, CorpusCacheRecord, CorpusManifest,
-    CrateGeometryRecord, DenseHit, DocumentChunk, DocumentTree, EpistemicAssemblyConfig,
-    EpistemicCoverageVerdict, EpistemicFactLedger, EpistemicSource, GitCommitRecord, HistoricalEvent,
-    InteractionCategory, InteractionRecord, InteractionsGraph,
-    CorpusEdge, CorpusEdgeKind, CorpusGraph, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalHit, LexicalIndex, MarkdownLink,
-    NormalizationStrategy, QueryRoute, RepoEra, RepoProvenance, RoutingTable, SearchHit,
-    SectionNode, SkillBasis, SkillDepth, SynthesisPrompt, SynthesisPromptBuilder, TechnicalDomain,
-    VectorCacheRecord, VerifiableClaim, WorkspaceGeometry, AUTHORITY_TIERS_REGISTRY_PATH,
-    AUTHORITY_TIERS_SCHEMA_V1, CORPUS_CACHE_SCHEMA_V2, CORPUS_MANIFEST_SCHEMA_V1, DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD, DEFAULT_RRF_K,
-    DOCUMENT_TREE_SCHEMA_V1, EPISTEMIC_FACTS_SCHEMA_V1, GIT_COMMIT_SCHEMA_V1,
-    INTERACTIONS_GRAPH_SCHEMA_V1, SYNTHESIS_PROMPT_SCHEMA_V1, UNCOVERED_REJECTION_TOKEN,
-    WORKSPACE_GEOMETRY_SCHEMA_V1,
-    check_claims, check_freshness, epoch_seconds, parse_count, ClaimCheck, ClaimCheckOutcome, parse_proof_reference, verify_event_proofs, ProofOutcome, ProofRef, ProofVerdict,
-    hybrid_retrieve, simd_top_k_dense,
+    AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorIdentity, AuthorProfile,
+    AuthorshipNature, AuthorityOverrides, AuthorityTier, BrokenReference,
+    CORPUS_CACHE_SCHEMA_V2, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord, CalibratedSkillGroup,
+    CalibratedSkillItem, ChunkEmbedder, ChunkVector, CitedSource, ClaimCategory, ClaimCheck,
+    ClaimCheckOutcome, ClaimStatus, CodeBlock, CorpusCacheRecord, CorpusEdge, CorpusEdgeKind,
+    CorpusGraph, CorpusManifest, CrateGeometryRecord, DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD,
+    DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk, DocumentTree,
+    EPISTEMIC_FACTS_SCHEMA_V1, EpistemicAssemblyConfig, EpistemicCoverageVerdict,
+    EpistemicFactLedger, EpistemicSource, GIT_COMMIT_SCHEMA_V1, GitCommitRecord, HistoricalEvent,
+    INTERACTIONS_GRAPH_SCHEMA_V1, InteractionCategory, InteractionRecord, InteractionsGraph,
+    KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalHit, LexicalIndex, MarkdownLink,
+    NormalizationStrategy, ProofOutcome, ProofRef, ProofVerdict, QueryRoute, RERANK_CACHE_SCHEMA_V1,
+    RETRIEVAL_POLICY_CONTRACT_PATH, RETRIEVAL_POLICY_SCHEMA_V1, RepoEra, RepoProvenance,
+    RerankCacheRecord, RerankItem, RerankRequest, RerankResponse, RetrievalPolicy, RetrievalProfile,
+    RoutingTable, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode, SkillBasis, SkillDepth,
+    SynthesisPrompt, SynthesisPromptBuilder, TechnicalDomain, UNCOVERED_REJECTION_TOKEN,
+    VectorCacheRecord, VerifiableClaim, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
+    apply_rerank_scores, assemble_epistemic_context, authority_for, bm25_margin,
+    check_claims, check_freshness, cosine_similarity, dense_margin, epoch_seconds,
+    expand_hits_with_graph, expand_hits_with_graph_multi_hop, expand_hits_with_graph_query,
+    expand_hits_with_graph_query_hops, expand_hits_with_profile,
+    expand_hits_with_topological_contexts, fuse_continuous_convex, fuse_reciprocal_ranks,
+    hybrid_retrieve, load_vector_cache, normalize_engine, parse_count, parse_proof_reference,
+    render_public_surface_html, render_public_surface_markdown, route_query, save_vector_cache,
+    simd_top_k_dense, tokenize, top_k_dense, vectorize_chunks, vectorize_chunks_cached,
+    verify_event_proofs,
 };
+
+pub use idea_ledger::{DEFAULT_LEDGER_STATUS, IDEA_LEDGER_SCHEMA, VALID_FRESHNESSES, VALID_STATUSES,
+    IdeaEntry, IdeaLedger, LedgerError, consume, filter_ideas, generate_idea_id, is_valid_freshness,
+    is_valid_status, update_freshness, update_status};
 
 use std::path::Path;
 use walkdir::WalkDir;
