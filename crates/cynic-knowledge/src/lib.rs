@@ -1,6 +1,8 @@
 pub mod adapters;
 pub mod domain;
-pub mod service;
+use std::path::Path;
+use walkdir::WalkDir;
+
 pub mod vector;
 
 pub mod idea_ledger;
