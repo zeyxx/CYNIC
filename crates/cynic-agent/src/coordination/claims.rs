@@ -389,9 +389,13 @@ mod tests {
             "claims": [claim_entry("active", now - 100, 1800)],
             "merge_queue": [],
         });
+        let path = crate::coordination::local_store::claims_file_path();
+        std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
         let report = execute_claim_local("tester", "a/b.rs", None, None, None, None,).expect("claim");
         assert_eq!(report.status, "claimed");
-        assert_eq!(doc["claims"][0]["temporal"]["started_at_unix_s"], serde_json::json!(now));
+        let updated_doc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(updated_doc["claims"][0]["temporal"]["started_at_unix_s"], serde_json::json!(now));
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -403,8 +407,11 @@ mod tests {
             "claims": [claim_entry("active", now - 100, 1800)],
             "merge_queue": [],
         });
+        let path = crate::coordination::local_store::claims_file_path();
+        std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
         let err = execute_release_local("rival", "a/b.rs", "", vec![]).unwrap_err();
         assert!(err.contains("held by tester"));
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -416,9 +423,12 @@ mod tests {
             "claims": [claim_entry("active", now - 100, 1800)],
             "merge_queue": [],
         });
+        let path = crate::coordination::local_store::claims_file_path();
+        std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
         let v = execute_scope("tester", &["a/b.rs".to_string()]).unwrap();
         assert_eq!(v["status"], "covered");
         let uncovered = v["uncovered"].as_array().unwrap();
         assert!(uncovered.is_empty());
+        let _ = std::fs::remove_file(&path);
     }
 }
