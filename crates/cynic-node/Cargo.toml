@@ -54,10 +54,7 @@ cynic-ssh = { path = "../cynic-ssh" }
 cynic-consensus = { path = "../cynic-consensus" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-intel = { path = "../cynic-intel" }
-cynic-release = { path = "../cynic-release" }
-cynic-lxc = { path = "../cynic-lxc" }
 cynic-sandbox = { path = "../cynic-sandbox" }
-cynic-market = { path = "../cynic-market" }
 async-trait.workspace = true
 thiserror = "2"
 axum.workspace = true

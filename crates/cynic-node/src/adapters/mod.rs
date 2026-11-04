@@ -51,7 +51,6 @@ pub mod local_system_probe;
 pub mod local_workload_identity;
 pub mod peer_storage;
 pub mod provider_fallback_probe;
-pub mod proxmox;
 pub mod proxmox_storage;
 pub mod qemu_guest_agent_network_runner;
 pub mod registry;

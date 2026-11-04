@@ -287,8 +287,7 @@
         },
         "cynic-lxc": {
             "consumers": [
-                "cynic-host",
-                "cynic-node"
+                "cynic-host"
             ],
             "depends_on": [
                 "cynic-protocol",
@@ -301,9 +300,7 @@
             "loc": 1284
         },
         "cynic-market": {
-            "consumers": [
-                "cynic-node"
-            ],
+            "consumers": [],
             "depends_on": [
                 "cynic-agent",
                 "cynic-consensus",
@@ -312,7 +309,7 @@
                 "cynic-protocol"
             ],
             "dev_depends_on": [],
-            "justified": true,
+            "justified": false,
             "kind": "library",
             "layer": "L2",
             "loc": 1260
@@ -363,15 +360,12 @@
                 "cynic-host",
                 "cynic-inference",
                 "cynic-intel",
-                "cynic-lxc",
-                "cynic-market",
                 "cynic-network",
                 "cynic-node-protocol",
                 "cynic-persistence",
                 "cynic-process",
                 "cynic-protocol",
                 "cynic-proxmox",
-                "cynic-release",
                 "cynic-sandbox",
                 "cynic-secrets",
                 "cynic-ssh",
@@ -383,7 +377,7 @@
             "justified": true,
             "kind": "binary",
             "layer": "L3",
-            "loc": 50984
+            "loc": 50974
         },
         "cynic-node-protocol": {
             "consumers": [
@@ -537,8 +531,7 @@
             "consumers": [
                 "cynic-build",
                 "cynic-cli",
-                "cynic-host",
-                "cynic-node"
+                "cynic-host"
             ],
             "depends_on": [
                 "cynic-process",
@@ -914,10 +907,10 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 399177,
+        "loc_total": 399167,
         "pending_disposition": 3,
-        "runtime_edges": 160,
-        "unjustified": 2,
+        "runtime_edges": 157,
+        "unjustified": 3,
         "upward_edges": 0
     },
     "pending_disposition": {
