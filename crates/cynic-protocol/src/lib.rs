@@ -120,6 +120,7 @@ pub mod service_policy;
 pub use service_policy::*;
 pub mod supervision;
 pub mod surface_registry;
+pub mod task;
 pub mod task_admission;
 pub mod task_pipeline;
 pub mod tasks;
