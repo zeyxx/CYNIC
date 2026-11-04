@@ -1,8 +1,6 @@
 pub mod bootstrap;
-pub mod builder_restart;
 pub mod discovery_candidate;
 pub mod fleet_reconcile;
-pub mod fleet_truth;
 pub mod mesh;
 pub mod mesh_coordination;
 pub mod network_execution;
@@ -18,3 +16,8 @@ pub mod storage_lifecycle;
 pub mod supervision;
 pub mod system_observation;
 pub mod version;
+
+// Pure build-decision logic (builder restart, build-runner selection /
+// degradation) is implemented in cynic-build and re-exported here so that
+// cynic-node stays decoupled from the build engine's selection surface.
+pub use cynic_build::{builder_restart, domain::fleet_truth};

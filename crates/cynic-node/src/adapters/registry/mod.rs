@@ -18,7 +18,7 @@ use projections::{
     reservation_service_by_name, vm_aliases_by_name,
 };
 
-use crate::domain::fleet_truth::{Node, ObservedResource};
+use cynic_build::domain::fleet_truth::{Node, ObservedResource};
 use crate::ports::network_interfaces_port::{
     NetworkPolicySummary, ProviderFallbackHostRecord, ProviderFallbackRoute, ProviderServiceCheck,
     RegistryNodeRecord, RegistryTopologyPort,
