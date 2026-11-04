@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Forgejo sovereign backup timer
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

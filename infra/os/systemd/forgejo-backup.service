@@ -1,0 +1,24 @@
+[Unit]
+Description=Forgejo daily sovereign archive dump
+After=forgejo.service
+
+[Service]
+Type=oneshot
+User=forgejo
+Group=forgejo
+UMask=0077
+WorkingDirectory=/var/lib/forgejo
+ExecStart=/bin/bash -euo pipefail -c '\
+  BACKUP_DIR="/var/lib/forgejo/backups"; \
+  mkdir -p "$${BACKUP_DIR}" && chmod 0700 "$${BACKUP_DIR}"; \
+  STAMP="$$(date -u +%%Y%%m%%dT%%H%%M%%SZ)"; \
+  FILE="$${BACKUP_DIR}/forgejo-dump-$${STAMP}.zip"; \
+  /usr/local/bin/forgejo dump --config /etc/forgejo/app.ini --type zip --file "$${FILE}" && \
+  unzip -t "$${FILE}" >/dev/null && \
+  BYTES="$$(stat -c%%s "$${FILE}")" && \
+  [ "$${BYTES}" -gt 1024 ] && \
+  sha256sum "$${FILE}" > "$${FILE}.sha256" && \
+  sha256sum -c "$${FILE}.sha256" >/dev/null && \
+  echo "[forgejo-backup] OK: $${FILE} ($${BYTES} bytes, zip + sha256 verified)" || \
+  { echo "[forgejo-backup] FAIL: $${FILE} corrupt or incomplete"; rm -f "$${FILE}" "$${FILE}.sha256"; exit 1; }'
+ExecStartPost=/bin/bash -c 'find /var/lib/forgejo/backups -maxdepth 1 \( -name "forgejo-dump-*.zip" -o -name "forgejo-dump-*.zip.sha256" \) -mtime +14 -delete'

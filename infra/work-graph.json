@@ -321,9 +321,9 @@
       "id": "B19",
       "kind": "action",
       "title": "add a command that drives deploy_to_machine: dry-run plan by default, --apply to mutate, report with read-backs",
-      "state": "open",
+      "state": "done",
       "probe": null,
-      "note": "native replacement for ad hoc scripts"
+      "note": "wired into `cynic build deploy` (--binary + --apply) over cynic-release::machine_deploy and cynic-ssh SSOT"
     },
     {
       "id": "B20",
