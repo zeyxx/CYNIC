@@ -18,7 +18,6 @@
 )]
 
 pub mod adapters;
-pub mod finance_adapters;
 pub mod gc_adapter;
 pub(crate) mod announce;
 mod build_attestation;
