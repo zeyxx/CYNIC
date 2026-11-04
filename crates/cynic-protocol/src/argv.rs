@@ -79,6 +79,15 @@ impl ArgvOutput {
 /// this reason.
 pub trait ArgvRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> ArgvOutput;
+
+    /// Run argv with `stdin` bytes fed to the child's standard input.
+    ///
+    /// Default implementation ignores `stdin` and delegates to [`Self::run`];
+    /// runners that spawn real processes (e.g. `LocalArgvRunner`) override this
+    /// so secrets never have to travel through argv or the environment.
+    fn run_with_stdin(&self, argv: &[&str], _stdin: &[u8]) -> ArgvOutput {
+        self.run(argv)
+    }
 }
 
 /// Blanket impl: a shared runner behind an `Arc` is still an argv runner.
@@ -88,6 +97,10 @@ pub trait ArgvRunner: Send + Sync {
 impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
         self.as_ref().run(argv)
+    }
+
+    fn run_with_stdin(&self, argv: &[&str], stdin: &[u8]) -> ArgvOutput {
+        self.as_ref().run_with_stdin(argv, stdin)
     }
 }
 
