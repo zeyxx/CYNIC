@@ -18,6 +18,8 @@ pub mod traits;
 pub mod workload;
 pub mod workspace;
 
+pub mod task_ledger;
+
 pub use adapters::*;
 pub use capability::*;
 pub use cleanup::CleanupAgent;
@@ -28,6 +30,7 @@ pub use skill::*;
 pub use traits::AutonomousAgent;
 pub use workload::*;
 pub use workspace::*;
+pub use task_ledger::*;
 
 #[cfg(test)]
 mod tests;
