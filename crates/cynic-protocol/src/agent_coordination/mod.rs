@@ -63,7 +63,7 @@ mod tests {
     fn valid_agent_identity_passes_validation() {
         let identity = AgentIdentity {
             schema: AGENT_IDENTITY_SCHEMA.to_string(),
-            agent_id: "hermes:test:node1:1234".to_string(),
+            agent_id: "0123456789abcdef0123456789abcdef".to_string(),
             agent_kind: AgentKind::Hermes,
             credentials: CredentialAttestation::LocalPeerBinding {
                 process_id: 1234,
@@ -97,7 +97,7 @@ mod tests {
     fn jwt_expiry_before_attestation_fails() {
         let identity = AgentIdentity {
             schema: AGENT_IDENTITY_SCHEMA.to_string(),
-            agent_id: "hermes:test".to_string(),
+            agent_id: "0123456789abcdef0123456789abcdee".to_string(),
             agent_kind: AgentKind::Hermes,
             credentials: CredentialAttestation::SignedJwt {
                 issuer: "test".to_string(),
@@ -398,6 +398,73 @@ mod tests {
             max_lease_window_ms: 3600000,
             parent_claim_id: None,
         }
+    }
+
+    #[test]
+    fn parsed_hex_agent_id_round_trips() {
+        let hex = "0123456789abcdef0123456789abcdef";
+        let identity = AgentIdentity {
+            schema: AGENT_IDENTITY_SCHEMA.to_string(),
+            agent_id: hex.to_string(),
+            agent_kind: AgentKind::Hermes,
+            credentials: CredentialAttestation::LocalPeerBinding {
+                process_id: 1234,
+                user_id: 1000,
+                attested_at_unix_ms: 1000,
+            },
+            attested_at_unix_ms: 1000,
+            evidence: Some(SecurityEvidenceState::Proven),
+        };
+        let parsed = identity.agent_id_typed().unwrap();
+        assert_eq!(parsed.to_hex(), hex);
+        assert_eq!(
+            *parsed.as_bytes(),
+            [
+                0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+                0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+            ]
+        );
+    }
+
+    #[test]
+    fn typed_agent_id_fails_on_non_hex() {
+        let identity = AgentIdentity {
+            schema: AGENT_IDENTITY_SCHEMA.to_string(),
+            agent_id: "not-a-hex".to_string(),
+            agent_kind: AgentKind::Hermes,
+            credentials: CredentialAttestation::LocalPeerBinding {
+                process_id: 1234,
+                user_id: 1000,
+                attested_at_unix_ms: 1000,
+            },
+            attested_at_unix_ms: 1000,
+            evidence: None,
+        };
+        assert!(identity.agent_id_typed().is_err());
+        let codes = identity.validate().unwrap_err();
+        assert!(codes.iter().any(|c| c.contains("agent_id_invalid_hex")));
+    }
+
+    #[test]
+    fn agent_identity_with_agent_id_accepts_cynic_types_agent_id() {
+        let id = cynic_types::AgentId::from_hex("0123456789abcdef0123456789abcdef").unwrap();
+        let identity = AgentIdentity::with_agent_id(
+            id,
+            AGENT_IDENTITY_SCHEMA.to_string(),
+            AgentKind::Hermes,
+            CredentialAttestation::LocalPeerBinding {
+                process_id: 1234,
+                user_id: 1000,
+                attested_at_unix_ms: 1000,
+            },
+            1000,
+            Some(SecurityEvidenceState::Proven),
+        );
+        assert_eq!(identity.agent_id, "0123456789abcdef0123456789abcdef");
+        assert_eq!(
+            identity.agent_id_typed().unwrap().to_hex(),
+            "0123456789abcdef0123456789abcdef"
+        );
     }
 }
 

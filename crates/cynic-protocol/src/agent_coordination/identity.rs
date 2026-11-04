@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use cynic_types::AgentId;
+
 use super::*;
 
 // ── Agent Identity (Phase 1 — IDENTIFY) ──────────────────────────────────
@@ -49,6 +51,35 @@ pub struct AgentIdentity {
 }
 
 impl AgentIdentity {
+    /// Typed accessor: parse the schema-string `agent_id` into the canonical
+    /// L0 [`cynic_types::AgentId`]. Rejects anything that is not a 32-character
+    /// lowercase hex string decoding to exactly 16 bytes.
+    pub fn agent_id_typed(&self) -> Result<AgentId, String> {
+        AgentId::from_hex(&self.agent_id)
+    }
+
+    /// Constructor accepting the canonical L0 `cynic_types::AgentId`.
+    ///
+    /// The schema field is populated from the hex encoding of the typed id,
+    /// so the struct round-trips through the `cynic.agent_identity.v1` contract.
+    pub fn with_agent_id(
+        agent_id: AgentId,
+        schema: String,
+        agent_kind: AgentKind,
+        credentials: CredentialAttestation,
+        attested_at_unix_ms: u64,
+        evidence: Option<SecurityEvidenceState>,
+    ) -> Self {
+        Self {
+            schema,
+            agent_id: agent_id.to_hex(),
+            agent_kind,
+            credentials,
+            attested_at_unix_ms,
+            evidence,
+        }
+    }
+
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut codes = Vec::new();
 
@@ -66,6 +97,11 @@ impl AgentIdentity {
         }
         if self.attested_at_unix_ms == 0 {
             codes.push("attestation_timestamp_missing".to_string());
+        }
+        // Canonical L0 check: the schema string must carry a valid 16-byte
+        // `cynic_types::AgentId`, otherwise the identity is not canonicalized.
+        if let Err(e) = self.agent_id_typed() {
+            codes.push(format!("agent_id_invalid_hex:{}", e));
         }
 
         match &self.credentials {

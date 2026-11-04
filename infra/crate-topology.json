@@ -512,7 +512,7 @@
             "justified": true,
             "kind": "library",
             "layer": "L0",
-            "loc": 43926
+            "loc": 44029
         },
         "cynic-proxmox": {
             "consumers": [
@@ -914,7 +914,7 @@
         "crates": 36,
         "dev_edges": 7,
         "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-        "loc_total": 398928,
+        "loc_total": 399031,
         "pending_disposition": 3,
         "runtime_edges": 160,
         "unjustified": 2,
