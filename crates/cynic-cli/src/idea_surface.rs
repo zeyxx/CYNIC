@@ -11,7 +11,7 @@ use clap::Subcommand;
 
 use crate::emit_json;
 use crate::rust_source;
-use crate::idea_ledger::{
+use cynic_knowledge::idea_ledger::{
     IDEA_LEDGER_SCHEMA, IdeaEntry, IdeaLedger, add_idea, consume, filter_ideas, generate_idea_id,
     update_freshness, update_status,
 };
