@@ -687,7 +687,7 @@ mod tests {
     #[test]
     fn execution_env_contains_rustc_wrapper_and_sccache_dir_when_sccache_stanza_present() {
         let mut scheduler = scheduler_config();
-        scheduler.sccache = Some(crate::config::SccacheConfig {
+        scheduler.sccache = Some(crate::build_scheduler::config::SccacheConfig {
             cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
             binary: "sccache".to_string(),
             max_size_bytes: 8 * 1024 * 1024 * 1024,
@@ -719,7 +719,7 @@ mod tests {
     #[test]
     fn execution_env_rustc_wrapper_uses_configured_binary_when_set() {
         let mut scheduler = scheduler_config();
-        scheduler.sccache = Some(crate::config::SccacheConfig {
+        scheduler.sccache = Some(crate::build_scheduler::config::SccacheConfig {
             cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
             binary: "/usr/local/bin/sccache".to_string(),
             max_size_bytes: 8 * 1024 * 1024 * 1024,
