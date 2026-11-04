@@ -1,18 +1,16 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::AgentWorkloadEnvelope;
+use crate::workspace::ports::AgentWorkspacePortError;
 use crate::{
-    AgentSchedulerJournalRecord,
-    AgentWorkloadCompletionPublication,
-    AgentWorkloadDelivery,
-    AgentWorkloadDeliveryAcceptance,
-    AgentWorkloadDeliveryLease,
-    AgentWorkloadRecord,
+    AgentSchedulerJournalRecord, AgentWorkloadCompletionPublication, AgentWorkloadDelivery,
+    AgentWorkloadDeliveryAcceptance, AgentWorkloadDeliveryLease, AgentWorkloadRecord,
     DurableAgentWorkloadRecord,
 };
-use crate::workspace::ports::AgentWorkspacePortError;
-use crate::AgentWorkloadEnvelope;
-use cynic_protocol::{ExecutionAuthorization, WorkloadIdentityDesiredState, WorkloadIdentityObservation};
+use cynic_protocol::{
+    ExecutionAuthorization, WorkloadIdentityDesiredState, WorkloadIdentityObservation,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildWorkloadSubmissionReadBack {
@@ -197,11 +195,11 @@ pub trait WorkloadIdentityPort: Send + Sync {
 #[cfg(test)]
 mod workload_signer_tests {
     use super::*;
-    use crate::{AgentBoundedAction, AGENT_WORKLOAD_ENVELOPE_SCHEMA};
+    use crate::{AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction};
     use cynic_protocol::{
         AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
-        ExecutionAuthorization, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
-        PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, MutationContract,
+        ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
+        PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
     };
 
     fn stub_envelope() -> AgentWorkloadEnvelope {
@@ -247,6 +245,7 @@ mod workload_signer_tests {
                     actions: 1,
                     children: 0,
                     wall_time_ms: 1_000,
+                    cpu_ms: None,
                 },
                 expected_proofs: vec![],
             },

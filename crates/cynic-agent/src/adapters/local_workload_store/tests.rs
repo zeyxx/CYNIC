@@ -1,12 +1,12 @@
+use crate::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
+    AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
+};
 use cynic_protocol::{
     AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
     AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, MutationContract,
     POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
     PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
-};
-use cynic_agent::{
-    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
-    AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
 };
 
 use super::*;
@@ -151,7 +151,12 @@ fn archive_terminal_returns_none_for_live_record() {
     let store = LocalAgentWorkloadStore::new(root.path());
 
     store
-        .compare_and_swap("workload-live", None, &record("workload-live", "key-live"), 1_000)
+        .compare_and_swap(
+            "workload-live",
+            None,
+            &record("workload-live", "key-live"),
+            1_000,
+        )
         .expect("seed live record");
 
     let result = store
@@ -178,7 +183,12 @@ fn append_evidence_stores_sidecar_next_to_record() {
     let store = LocalAgentWorkloadStore::new(root.path());
 
     store
-        .compare_and_swap("workload-evi", None, &record("workload-evi", "key-evi"), 1_000)
+        .compare_and_swap(
+            "workload-evi",
+            None,
+            &record("workload-evi", "key-evi"),
+            1_000,
+        )
         .expect("seed record");
 
     let body = serde_json::json!({"workload_id": "workload-evi", "status": "failed"});
@@ -198,7 +208,12 @@ fn append_evidence_fails_closed_on_unknown_workload_and_unsafe_names() {
     let store = LocalAgentWorkloadStore::new(root.path());
 
     store
-        .compare_and_swap("workload-evi", None, &record("workload-evi", "key-evi"), 1_000)
+        .compare_and_swap(
+            "workload-evi",
+            None,
+            &record("workload-evi", "key-evi"),
+            1_000,
+        )
         .expect("seed record");
 
     let body = serde_json::json!({});
