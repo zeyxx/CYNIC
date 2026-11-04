@@ -15,8 +15,6 @@ pub mod rate_classify_scan;
 // coordination lease enforcement it implements has been inert: nothing compiled
 // it, and both test suites failed at E0432 rather than exercising it.
 pub mod coordination_lease_store;
-pub mod credential;
-pub mod credential_provisioning;
 pub mod crypto;
 pub mod infra;
 pub mod endpoint_observation;
@@ -102,6 +100,5 @@ pub fn sha256_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     hex::encode(Sha256::digest(bytes))
 }
-pub mod credential_hardening;
 pub mod emergence_runtime;
 pub mod local_autonomy_runtime;

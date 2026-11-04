@@ -14,6 +14,7 @@
 
 pub mod adapters;
 pub mod composite;
+pub mod credential;
 pub mod material;
 pub mod error;
 pub mod identity;
