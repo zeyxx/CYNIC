@@ -16,6 +16,7 @@ cynic-process = { path = "../cynic-process" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha3.workspace = true
+sha2.workspace = true
 thiserror = "2.0"
 zeroize = "1.8"
 libc.workspace = true
