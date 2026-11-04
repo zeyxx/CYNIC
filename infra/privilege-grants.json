@@ -60,6 +60,35 @@
       "installed_at": null,
       "read_back_ref": null,
       "risk_note": "Abuse ceiling: an actor holding this grant can stop and disable exactly two named soak units, and read their active state. It cannot enable them, cannot start other units, cannot write files, and cannot obtain a shell. The soak is not a production role (its own README says so) and the user-scope pair already provides the function, so the availability ceiling is nil. Revoke by deleting /etc/sudoers.d/cynic-soak-retire."
+    },
+    {
+      "id": "cortex-wg-observe",
+      "node": "cynic-host-cortex",
+      "grantee_user": "user",
+      "file": "/etc/sudoers.d/cynic-wg-observe",
+      "mode": "0440",
+      "content": "user ALL=(root) NOPASSWD: /usr/bin/wg show wg0 peers, /usr/bin/wg show wg0 latest-handshakes, /usr/bin/wg show wg0 endpoints, /usr/bin/wg show wg0 allowed-ips, /usr/bin/wg show wg0 transfer, /usr/bin/wg show wg0 listen-port, /usr/bin/wg show wg0 public-key",
+      "permits": [
+        "read-only, key-free views of interface wg0: peers, latest-handshakes, endpoints, allowed-ips, transfer, listen-port, public-key"
+      ],
+      "forbids": [
+        "`dump` (its first line prints the interface PRIVATE key)",
+        "private-key",
+        "preshared-keys",
+        "showconf",
+        "any set/add/del verb",
+        "any interface other than wg0",
+        "extra arguments (no wildcard)",
+        "shell",
+        "file writes"
+      ],
+      "purpose": "cortex cannot observe its own WireGuard mesh: `wg show` needs root and `user` has no general sudo, so `cynic network audit` reports 0 peers and `network runtime` reports wireguard_mesh_absent while wg0 is up (10.20.0.3). Observation must be trustworthy before any dashboard or egress node is built on it.",
+      "proposed_by": "hermes",
+      "proposed_at": "2026-11-05",
+      "status": "proposed",
+      "installed_at": null,
+      "read_back_ref": null,
+      "risk_note": "Abuse ceiling: an actor holding this grant learns the mesh topology of wg0 (peer public keys, peer endpoints, allowed-ips, handshake times, byte counters). It cannot read the private or preshared keys, cannot change the interface, and cannot obtain a shell. Public keys are not secrets; endpoints are sensitive but not credentials. Revoke by deleting /etc/sudoers.d/cynic-wg-observe. Code follow-up required: current readers call bare `wg ... dump` without sudo; they must move to these key-free verbs through ONE adapter calling `sudo -n /usr/bin/wg`."
     }
   ]
 }
