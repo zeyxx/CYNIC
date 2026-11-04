@@ -126,7 +126,7 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
             let now = now_rfc3339();
             let id = task_id.unwrap_or_else(|| generate_task_id(&ledger_doc.tasks, now_unix_s()));
             let entry = TaskEntry {
-                task_id: id.clone(),
+                task_id: id.clone().into(),
                 title: title.clone(),
                 priority: priority.clone(),
                 status: status.clone(),
