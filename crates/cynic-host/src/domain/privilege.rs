@@ -10,7 +10,7 @@ use crate::domain::shared::{
 };
 use crate::install_contract::{MODE_0440, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 const DEFAULT_DENIED_SHELL_BIN: &str = "/bin/sh";
 

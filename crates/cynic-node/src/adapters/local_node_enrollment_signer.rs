@@ -118,7 +118,7 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
 }
 
 fn config_root() -> PathBuf {
-    cynic_host::runtime_authority::default_runtime_authority_paths().config_root
+    cynic_registry::runtime_authority::default_runtime_authority_paths().config_root
 }
 
 #[cfg(test)]

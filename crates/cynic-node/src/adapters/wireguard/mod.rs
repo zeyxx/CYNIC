@@ -1,7 +1,7 @@
 use crate::domain::mesh::MeshTopology;
 use cynic_network::MeshAdapter;
-use cynic_host::process_observation::capture_command;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use std::error::Error;
 use tracing::{error, info};
 

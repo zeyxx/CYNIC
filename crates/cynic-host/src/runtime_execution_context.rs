@@ -4,10 +4,10 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
-use crate::process_observation::command_json;
+use cynic_registry::process_observation::command_json;
 use crate::project_root::current_project_root;
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
-use crate::runtime_layout::HostRuntimeLayout;
+use cynic_registry::runtime_layout::HostRuntimeLayout;
 use crate::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
 };
@@ -359,7 +359,7 @@ fn next_actions(status: &str, canonical_next_command: Option<&str>) -> Vec<Strin
     actions
 }
 
-fn command_summary(value: crate::process_observation::CommandObservation) -> CommandSummary {
+fn command_summary(value: cynic_registry::process_observation::CommandObservation) -> CommandSummary {
     CommandSummary {
         command: value.command,
         args: value.args,

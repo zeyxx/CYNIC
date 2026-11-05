@@ -1,9 +1,9 @@
 use chrono::Utc;
-use cynic_host::process_observation::{
+use cynic_registry::process_observation::{
     command_json, command_reports_active, command_succeeded_with_stdout, resolve_host, tcp_open,
     tcp_probe,
 };
-use cynic_host::runtime_layout::{current_runtime_layout, observed_hostname};
+use cynic_registry::runtime_layout::{current_runtime_layout, observed_hostname};
 
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::adapters::runtime_observation::LocalMeshRuntimeObserver;

@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::domain::principal::PrincipalPolicy;
 use crate::execution::{HostOperationPlan, build_principal_operation_plan};
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 pub use admitted::{
     PRINCIPAL_PREPARE_EXECUTION_SCHEMA, PrincipalPrepareExecutionReport,

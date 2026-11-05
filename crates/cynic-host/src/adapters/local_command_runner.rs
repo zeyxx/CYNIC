@@ -4,8 +4,8 @@ use std::os::unix::fs::PermissionsExt;
 use crate::domain::services::openrc_service_name;
 use crate::execution::AdmittedHostOperation;
 use crate::ports::{HostCommandResult, HostCommandRunnerPort, HostOperation};
-use crate::process_observation::capture_command;
-use crate::runtime_layout::{PackageManagerKindExt, current_runtime_layout};
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::{PackageManagerKindExt, current_runtime_layout};
 
 use super::principal_manager::{
     ensure_owned_dir, ensure_supplementary_group_member, ensure_system_group, ensure_system_user,
@@ -79,7 +79,7 @@ impl HostCommandRunnerPort for LocalHostCommandRunner {
 }
 
 fn enable_now_service(
-    capabilities: &crate::runtime_layout::HostCapabilities,
+    capabilities: &cynic_registry::runtime_layout::HostCapabilities,
     unit: &str,
 ) -> HostCommandResult {
     match capabilities.service_manager.kind.as_str() {
@@ -115,7 +115,7 @@ fn enable_now_service(
 /// is idempotent, and a host where the stale unit was never installed
 /// has already converged.
 fn retire_service(
-    capabilities: &crate::runtime_layout::HostCapabilities,
+    capabilities: &cynic_registry::runtime_layout::HostCapabilities,
     unit: &str,
 ) -> HostCommandResult {
     if !is_plain_service_unit(unit) {
@@ -204,7 +204,7 @@ fn is_plain_service_unit(unit: &str) -> bool {
 }
 
 fn start_service(
-    capabilities: &crate::runtime_layout::HostCapabilities,
+    capabilities: &cynic_registry::runtime_layout::HostCapabilities,
     unit: &str,
 ) -> HostCommandResult {
     match capabilities.service_manager.kind.as_str() {

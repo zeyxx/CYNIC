@@ -4,7 +4,7 @@ use crate::hardware_baseline::HardwareBaselinePlan;
 use crate::hardware_baseline_apply::{
     HardwareBaselineBundleProof, HardwareBaselineBundleStorePort, build_hardware_baseline_bundle,
 };
-use crate::runtime_layout::HostRuntimeLayout;
+use cynic_registry::runtime_layout::HostRuntimeLayout;
 use cynic_process::ArgvRunner;
 
 pub const HARDWARE_BASELINE_RECONCILE_SCHEMA: &str =

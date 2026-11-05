@@ -1,4 +1,4 @@
-use cynic_host::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 use serde::Serialize;
 use serde_json::Value;
 

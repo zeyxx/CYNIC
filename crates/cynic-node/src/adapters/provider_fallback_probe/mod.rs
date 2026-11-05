@@ -1,5 +1,5 @@
-use cynic_host::process_observation::{capture_command, tcp_probe};
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::{capture_command, tcp_probe};
+use cynic_registry::runtime_layout::current_runtime_layout;
 use std::error::Error;
 
 use crate::ports::network_interfaces_port::{

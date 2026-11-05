@@ -11,7 +11,7 @@ pub fn resolve_local_machine_enrollment_authority_spec(
     node_id: &str,
     staging_root: &Path,
 ) -> Result<MachineEnrollmentAuthoritySpec, String> {
-    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     let owner_id = crate::identity_database::resolve_identity_id("/etc/passwd", "root")
         .ok_or_else(|| "machine_enrollment_root_identity_unresolved".to_string())?;
     let group_id = crate::identity_database::resolve_identity_id(
@@ -23,7 +23,7 @@ pub fn resolve_local_machine_enrollment_authority_spec(
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| format!("machine_enrollment_clock_invalid:{error}"))?
         .as_secs();
-    let observed_hostname = crate::runtime_layout::observed_hostname();
+    let observed_hostname = cynic_registry::runtime_layout::observed_hostname();
     resolve_machine_enrollment_authority_spec(
         registry_path,
         seed_manifest_path,

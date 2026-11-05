@@ -5,8 +5,8 @@
 //! Typiquement utilisé pour interagir avec `systemd` (ex: restart llama-server)
 //! ou lire des métriques GPU (`nvidia-smi`) directement sur l'hôte.
 
-use cynic_host::process_observation::capture_command;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -11,7 +11,7 @@ use crate::execution::{
 use crate::ports::{
     HostCommandResult, HostCommandRunnerPort, HostOperation, HostPrincipalObservationPort,
 };
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 pub const PRINCIPAL_PREPARE_EXECUTION_SCHEMA: &str = "cynic.host.principal_prepare_execution.v1";
 

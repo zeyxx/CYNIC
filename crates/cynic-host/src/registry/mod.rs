@@ -1,10 +1,6 @@
 //! Registry module — types/scan/validate/persist extracted to cynic-registry;
 //! `resolve` remains here (depends on host profiles & runtime layout).
 
-pub use cynic_registry::persist::*;
-pub use cynic_registry::scan::*;
-pub use cynic_registry::types::*;
-pub use cynic_registry::validate::*;
 
 // Keep existing public functions for backward compatibility
 pub use crate::registry::resolve::{
@@ -21,9 +17,10 @@ pub use crate::registry::resolve::{
 pub mod resolve {
     use super::*;
     use crate::profiles::HostProfile;
-    use crate::runtime_layout::current_runtime_layout;
+    use cynic_registry::runtime_layout::current_runtime_layout;
     use crate::runtime_registry::resolve_runtime_registry_path;
     use cynic_protocol::{NodeSubstrateDesiredState, NodeSubstratePower};
+    use cynic_registry::types::*;
     use std::path::{Path, PathBuf};
 
     // Re-export the resolution functions from the original registry.rs
@@ -34,7 +31,7 @@ pub mod resolve {
     }
 
     fn current_hostname() -> Result<String, String> {
-        let trimmed = crate::runtime_layout::observed_hostname();
+        let trimmed = cynic_registry::runtime_layout::observed_hostname();
         if trimmed.is_empty() {
             Err("hostname resolution returned empty output".to_string())
         } else {
@@ -979,7 +976,7 @@ pub mod resolve {
 
     fn current_service_manager_kind() -> crate::domain::services::ServiceManagerKind {
         service_manager_kind_from_runtime_kind(
-            &crate::runtime_layout::current_runtime_layout().service_manager_kind(),
+            &cynic_registry::runtime_layout::current_runtime_layout().service_manager_kind(),
         )
     }
 

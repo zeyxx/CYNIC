@@ -586,7 +586,7 @@ mod tests {
         HostServiceObservationPort,
     };
     use crate::profiles::HostProfile;
-    use crate::registry::HostProfileResolution;
+    use cynic_registry::HostProfileResolution;
 
     struct ReadyObserver;
 

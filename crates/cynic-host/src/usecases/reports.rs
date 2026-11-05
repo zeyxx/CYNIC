@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::command_surface::HostCommandSurface;
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 pub const HOST_OBSERVATION_SCHEMA: &str = "cynic.host_substrate.observation.v1";
 pub const HOST_BUNDLE_SCHEMA: &str = "cynic.host_substrate.bundle.v1";

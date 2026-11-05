@@ -8,7 +8,7 @@ use crate::domain::shared::{
 };
 use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 pub use cynic_protocol::service_policy::{ServiceManagerKind, ServiceUnitPolicy, ServicePolicy};
 

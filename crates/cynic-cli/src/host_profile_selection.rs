@@ -3,8 +3,9 @@ use std::env;
 use clap::Args;
 use cynic_host::domain::shared::SurfaceStatus;
 use cynic_host::profiles::HostProfile;
+use cynic_registry::HostProfileResolution;
 use cynic_host::registry::{
-    HostProfileResolution, resolve_current_host_profile, resolve_current_host_profile_resolution,
+    resolve_current_host_profile, resolve_current_host_profile_resolution,
     resolve_host_profile, resolve_host_profile_resolution,
 };
 

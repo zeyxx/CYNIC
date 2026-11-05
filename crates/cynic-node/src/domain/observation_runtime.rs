@@ -1,4 +1,4 @@
-use cynic_host::process_observation::{
+use cynic_registry::process_observation::{
     CommandObservation, command_reports_active, resolved_ip_from_command,
 };
 use serde::Serialize;

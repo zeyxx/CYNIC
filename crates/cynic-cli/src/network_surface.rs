@@ -436,7 +436,7 @@ pub(crate) enum NetworkActuatorCommand {
     Plan {
         #[arg(long)]
         registry: Option<String>,
-        #[arg(long, default_value_t = cynic_host::runtime_layout::current_runtime_layout().network_actuator_bundle_dir)]
+        #[arg(long, default_value_t = cynic_registry::runtime_layout::current_runtime_layout().network_actuator_bundle_dir)]
         bundle_dir: String,
     },
     /// Apply an actuator change (--apply required).

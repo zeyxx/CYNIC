@@ -23,7 +23,7 @@ pub struct AgentAuthorityProjectionSpec {
 
 impl AgentAuthorityProjectionSpec {
     pub fn installed(source_path: impl Into<String>, authority: AgentSessionAuthority) -> Self {
-        let runtime = crate::runtime_authority::default_runtime_authority_paths();
+        let runtime = cynic_registry::runtime_authority::default_runtime_authority_paths();
         let owner = "root".to_string();
         let group = runtime.principal.runtime_user;
         Self {

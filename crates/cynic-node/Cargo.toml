@@ -48,6 +48,7 @@ cynic-vcs = { path = "../cynic-vcs" }
 cynic-persistence = { path = "../cynic-persistence" }
 cynic-build = { path = "../cynic-build" }
 cynic-host = { path = "../cynic-host" }
+cynic-registry = { path = "../cynic-registry" }
 cynic-process = { path = "../cynic-process" }
 cynic-network = { path = "../cynic-network" }
 cynic-ssh = { path = "../cynic-ssh" }

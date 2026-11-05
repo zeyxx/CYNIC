@@ -2,7 +2,7 @@ use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 
-use cynic_host::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
+use cynic_registry::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
 use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

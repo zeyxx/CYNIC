@@ -1,7 +1,8 @@
 use serde::Serialize;
 use std::path::Path;
 
-use cynic_host::registry::{ResolvedNodeSubstrateTarget, resolve_node_substrate_targets};
+use cynic_registry::ResolvedNodeSubstrateTarget;
+use cynic_host::registry::resolve_node_substrate_targets;
 use cynic_protocol::{
     ExecutionAuthorization, MutationContract, NodeSubstrateAction, NodeSubstrateDecision,
     NodeSubstrateObservation, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,

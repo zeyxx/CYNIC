@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use cynic_types::paths::CynicPaths;
 
 use crate::project_root::current_project_root;
-use crate::runtime_authority::RuntimeProjectionClass;
+use cynic_registry::runtime_authority::RuntimeProjectionClass;
 
 const ALLOW_LOCAL_DEV_BUILD_ENV: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";
 
@@ -186,7 +186,7 @@ mod tests {
         RuntimeProjectRootMode, RuntimeRegistryMode, resolve_runtime_project_root_or_cwd_fallback,
         resolve_runtime_registry,
     };
-    use crate::runtime_authority::RuntimeProjectionClass;
+    use cynic_registry::runtime_authority::RuntimeProjectionClass;
     use std::path::Path;
 
     #[test]

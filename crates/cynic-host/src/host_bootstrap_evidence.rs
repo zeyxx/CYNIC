@@ -14,7 +14,7 @@ use crate::ports::{
     HostPrivilegeObservationPort, HostServiceObservationPort,
 };
 use crate::profiles::HostProfile;
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 use crate::runtime_context::observe_host_runtime_context_with_observer;
 use cynic_types::paths::CynicPaths;
 

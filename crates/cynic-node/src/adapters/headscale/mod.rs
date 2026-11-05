@@ -20,8 +20,8 @@
 use crate::ports::mesh_coordination_port::{
     MeshCoordinationError, MeshCoordinationPort, MeshJoinGrant, MeshMember,
 };
-use cynic_host::process_observation::capture_command;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::current_runtime_layout;
 #[cfg(test)]
 use cynic_network::MeshRole;
 use cynic_network::MeshSovereignty;

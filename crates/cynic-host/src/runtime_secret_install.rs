@@ -18,7 +18,7 @@ pub struct RuntimeSecretInstallSpec {
 
 impl RuntimeSecretInstallSpec {
     pub fn storage_runtime() -> Self {
-        let authority = crate::runtime_authority::default_runtime_authority_paths();
+        let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
         let group = authority.principal.runtime_group;
         Self {
             identity_id: "storage-runtime".to_string(),
@@ -35,7 +35,7 @@ impl RuntimeSecretInstallSpec {
         if provider != "proxmox" {
             return Err("provider runtime secret adapter is unavailable".to_string());
         }
-        let authority = crate::runtime_authority::default_runtime_authority_paths();
+        let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
         let group = authority.principal.runtime_group;
         Ok(Self {
             identity_id: "provider-control:proxmox".to_string(),
@@ -211,7 +211,7 @@ pub(crate) fn install_protected_runtime_file(
     if material.is_empty() || material.len() > 64 * 1024 {
         return Err("protected runtime file material is empty or exceeds the bound".to_string());
     }
-    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     if !target.starts_with(&authority.config_root)
         || target
             .components()
@@ -287,7 +287,7 @@ pub(crate) fn remove_protected_runtime_file_if_matches(
 }
 
 fn prepare_secret_directory(spec: &RuntimeSecretInstallSpec, parent: &Path) -> Result<(), String> {
-    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     let root_metadata = fs::symlink_metadata(&authority.config_root)
         .map_err(|error| format!("runtime config authority is unavailable: {error}"))?;
     if !root_metadata.file_type().is_dir()

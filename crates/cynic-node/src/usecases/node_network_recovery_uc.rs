@@ -10,7 +10,7 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 

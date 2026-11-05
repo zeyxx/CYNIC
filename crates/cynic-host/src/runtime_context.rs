@@ -11,8 +11,9 @@ use crate::ports::{
     HostServiceObservationPort,
 };
 use crate::profiles::HostProfile;
+use cynic_registry::HostProfileResolution;
 use crate::registry::{
-    HostProfileResolution, resolve_current_host_profile, resolve_current_host_profile_resolution,
+    resolve_current_host_profile, resolve_current_host_profile_resolution,
 };
 use crate::usecases::{
     HostActivationPlanReport, HostObservationReports, build_host_activation_plan_with_resolution,

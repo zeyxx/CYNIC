@@ -1,6 +1,6 @@
 use crate::ports::{HostCommandResult, PrincipalLoginShell};
-use crate::process_observation::capture_command;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 use super::local_command_runner::run_command;
 

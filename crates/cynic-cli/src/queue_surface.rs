@@ -7,7 +7,7 @@ use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
 use cynic_build::adapters::LocalQueueAdapter;
-use cynic_host::process_observation::capture_command;
+use cynic_registry::process_observation::capture_command;
 use cynic_protocol::queue::{
     QUEUE_EXECUTION_RESULT_SCHEMA, QueueExecutionResult, QueueItemExecution,
 };

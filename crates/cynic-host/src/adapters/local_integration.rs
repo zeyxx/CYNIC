@@ -14,7 +14,7 @@ use crate::domain::ecosystem_package::{
     connect_integration, observe_integrations, plan_integrations,
 };
 use crate::project_root::current_project_root;
-use crate::runtime_authority::default_runtime_principal_layout;
+use cynic_registry::runtime_authority::default_runtime_principal_layout;
 use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
 pub struct LocalIntegrationObservationAdapter<'a> {

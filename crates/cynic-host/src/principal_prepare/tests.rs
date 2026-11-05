@@ -13,7 +13,7 @@ use crate::execution::AdmittedHostOperation;
 use crate::ports::{
     HostCommandResult, HostCommandRunnerPort, HostOperation, HostPrincipalObservationPort,
 };
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 struct RecordingRunner {
     calls: Cell<usize>,

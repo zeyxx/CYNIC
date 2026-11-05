@@ -1,6 +1,6 @@
 use crate::command_surface::{HostCommandInvocation, HostCommandSurface};
-use crate::process_observation::capture_argv;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_argv;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 use super::types::{
     HostArgvCommand, HostCommandExecution, HostExecutionPlan, HostExecutionPlanReport,

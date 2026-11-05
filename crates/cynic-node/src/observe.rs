@@ -21,7 +21,7 @@ use crate::domain::node_observation::{
 };
 use crate::domain::observation_runtime::DnsResolutionObservation;
 #[cfg(any(test, kani))]
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]

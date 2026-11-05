@@ -12,11 +12,13 @@ use cynic_network::actuator::{
     NetworkActuationRuntime, admit_network_actuation_plan, build_network_actuation_commands,
     execute_network_actuation_with_readback, gate_network_actuation_plan,
 };
-use crate::registry::{
+use cynic_registry::{
     ObservedManagementLink, ResolvedDirectManagementLink, ResolvedHostIdentity,
+};
+use crate::registry::{
     resolve_observed_direct_management_link,
 };
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
 pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
@@ -573,7 +575,7 @@ mod tests {
         };
         let identity = project_direct_management_target_from_registry(
             &mut observation,
-            Some(&crate::registry::ObservedManagementLink {
+            Some(&cynic_registry::ObservedManagementLink {
                 interface: "enp42s0".to_string(),
                 connection: "Connexion filaire 1".to_string(),
                 address: "192.168.100.2/24".to_string(),

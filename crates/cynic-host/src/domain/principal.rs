@@ -9,7 +9,7 @@ use crate::domain::shared::{
 };
 use crate::install_contract::{InstallOwnership, InstallPathPolicy, MODE_0755};
 use crate::ports::{HostOperation, PrincipalLoginShell};
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrincipalPolicy {
@@ -373,7 +373,7 @@ mod tests {
     use super::{PrincipalCommandContext, PrincipalObservedState, PrincipalPolicy};
     use crate::command_surface::render_command;
     use crate::domain::shared::{LifecycleStatus, SurfaceStatus};
-    use crate::runtime_authority::default_runtime_principal_layout;
+    use cynic_registry::runtime_authority::default_runtime_principal_layout;
 
     fn context() -> PrincipalCommandContext {
         PrincipalCommandContext {

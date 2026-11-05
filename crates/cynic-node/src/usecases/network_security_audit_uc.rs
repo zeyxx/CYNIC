@@ -6,7 +6,7 @@
 
 use cynic_network::LocalNetworkAdapter;
 use cynic_host::registry::resolve_host_profile_resolution;
-use cynic_host::runtime_layout::observed_hostname;
+use cynic_registry::runtime_layout::observed_hostname;
 use cynic_intel::soc::evaluate_network_security;
 use cynic_network::extract_allowed_ports_from_registry;
 

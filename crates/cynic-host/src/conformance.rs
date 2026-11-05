@@ -12,10 +12,10 @@ use crate::ports::{
     HostPrivilegeObservationPort, HostServiceObservationPort, PreOsPlatformObservationPort,
 };
 use crate::profiles::HostProfile;
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 use crate::project_root::current_project_root;
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use crate::runtime_proof::{
     assemble_runtime_proof_bundle, assemble_runtime_proof_persistence_record,
     host_identity_runtime_proof,
@@ -141,7 +141,7 @@ fn observe_host_conformance_with_observer_and_build_evidence(
         .map(|value| value.hostname_observed.as_str())
         .unwrap_or("unresolved-host");
     let hardware_baseline_path =
-        crate::runtime_layout::current_runtime_layout().hardware_baseline_path();
+        cynic_registry::runtime_layout::current_runtime_layout().hardware_baseline_path();
     let hardware_baseline_plan = plan_hardware_baseline(
         hardware_subject,
         "cynic-conformance",

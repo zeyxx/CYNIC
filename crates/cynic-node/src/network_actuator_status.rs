@@ -7,7 +7,7 @@ use std::path::Path;
 use chrono::Utc;
 use cynic_host::filesystem_observation::{path_executable, path_exists, path_mode_equals};
 use cynic_protocol::install_contract::{MODE_0440, MODE_0644};
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use serde_json::Value;
 
 use crate::network_actuator_contract::{
@@ -86,7 +86,7 @@ fn activation_status_with_host_context(
     bundle_complete: bool,
     root_authority: RootAuthorityCheck,
     host_profile: &'static str,
-    host_resolution: Option<cynic_host::registry::HostProfileResolution>,
+    host_resolution: Option<cynic_registry::HostProfileResolution>,
     host_substrate: Value,
     host_substrate_plan: Value,
     host_bootstrap: Value,
