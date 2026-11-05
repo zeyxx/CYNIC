@@ -5,9 +5,8 @@
 
 pub mod port;
 pub mod probe;
-pub mod types;
 
 pub use probe::{parse_cpuinfo, parse_pressure_cpu, parse_stat};
 // Full canonical type surface (CpuUsage/CpuVolume/CpuPressure included) —
 // adapters and probes reference them via `crate::domain::cpu::`.
-pub use types::*;
+pub use cynic_protocol::host_substrate::cpu::*;

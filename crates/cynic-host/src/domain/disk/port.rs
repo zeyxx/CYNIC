@@ -1,6 +1,6 @@
 //! Universal port interfaces for disk space observation and cleanup.
 
-use super::types::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
+use cynic_protocol::host_substrate::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
 
 pub trait DiskObservationPort: Send + Sync {
     /// Observe host storage space (filesystems, caches, large files).

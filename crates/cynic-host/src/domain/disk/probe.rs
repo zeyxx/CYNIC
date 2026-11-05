@@ -3,7 +3,7 @@
 //! Also hosts the portable `df`-output parser so that both the local and the
 //! SSH remote disk adapters share one parsing path (no hardwired substrate).
 
-use super::types::{
+use cynic_protocol::host_substrate::disk::{
     DiskCleanupItem, DiskCleanupPlan, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
 
@@ -290,7 +290,7 @@ pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::disk::types::{DiskCacheEntry, DiskReport};
+    use cynic_protocol::host_substrate::disk::{DiskCacheEntry, DiskReport};
 
     const SAMPLE_DF: &str = "\
 Filesystem     Type  Size  Used Avail Use% Mounted on

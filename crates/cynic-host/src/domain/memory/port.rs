@@ -4,7 +4,7 @@
 //! adapter's job). `LocalMemoryAdapter` implements this and is injected by
 //! the CLI/host surface.
 
-use crate::domain::memory::types::MemoryReport;
+use cynic_protocol::host_substrate::MemoryReport;
 
 pub trait MemoryObservationPort {
     /// Produce a full 4-layer memory report (physical/volume/usage/pressure).
