@@ -40,7 +40,7 @@ Ce plan n'est pas une liste statique de tâches rigides. C'est un **état vivant
 - [x] **Cycle 2.1 — Secrets & Credentials** (PR #704) : Migré `credential.rs`, `credential_provisioning.rs`, `credential_hardening/`, `secret_material.rs` vers `cynic-secrets`.
 - [ ] **Cycle 2.2 — Agent Access & Workloads** : Évaluation d'arbitrage : gestion des identités POSIX hôte maintenue dans `cynic-host` pour préserver le DAG strict.
 - [x] **Cycle 2.3 — Purge des modules zombies** (PR #712) : Supprimé `fleet_discovery.rs`, `fleet_heartbeat.rs`, `tunnel_supervisor.rs` (-481 LOC).
-- [x] **Cycle 2.4 — Extraction registry & runtime substrate** (PR #733) : Hoist de `registry/{types,scan,validate,persist}`, `runtime_authority`, `process_observation`, `package_provenance`, `runtime_layout`, `runtime_registry`, `project_root` vers `cynic-registry`. `cynic-host` perd ~2000 LOC. Shims `pub use` temporaires (éradication Cycle 2.5).
+- [x] **Cycle 2.4 — Extraction registry & runtime substrate** (PR #733) : Hoist de `registry/{types,scan,validate,persist}`, `runtime_authority`, `process_observation`, `package_provenance`, `runtime_layout`, `runtime_registry`, `project_root` vers `cynic-registry`. `cynic-host` perd ~2000 LOC. Phase 3 (éradication shims) complétée : 95 fichiers rewirés vers `cynic_registry::` directement, 0 shim restant.
 
 ### Horizon 3 : Partitionnement DDD & Canonicalisation (`cynic-protocol` & `cynic-types`)
 **Objectif** : Structurer le sac plat de L0 et unifier les types de base.
