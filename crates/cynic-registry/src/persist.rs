@@ -3,9 +3,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use crate::registry::scan::{ScanError, load_registry, resolve_registry_path};
-use crate::registry::types::RegistryDocument;
-use crate::registry::validate::{ValidationError, validate_registry_or_error};
+use crate::scan::{ScanError, load_registry, resolve_registry_path};
+use crate::types::RegistryDocument;
+use crate::validate::{ValidationError, validate_registry_or_error};
 
 /// Persistence error
 #[derive(Debug, thiserror::Error)]
@@ -213,8 +213,8 @@ fn registry_documents_equal(a: &RegistryDocument, b: &RegistryDocument) -> bool 
 }
 
 fn registry_nodes_equal(
-    a: &crate::registry::types::RegistryNode,
-    b: &crate::registry::types::RegistryNode,
+    a: &crate::types::RegistryNode,
+    b: &crate::types::RegistryNode,
 ) -> bool {
     a.id == b.id
         && a.name == b.name
@@ -229,8 +229,8 @@ fn registry_nodes_equal(
 }
 
 fn registry_services_equal(
-    a: &[crate::registry::types::RegistryNodeService],
-    b: &[crate::registry::types::RegistryNodeService],
+    a: &[crate::types::RegistryNodeService],
+    b: &[crate::types::RegistryNodeService],
 ) -> bool {
     if a.len() != b.len() {
         return false;
@@ -252,8 +252,8 @@ fn registry_services_equal(
 }
 
 fn registry_network_links_equal(
-    a: &[crate::registry::types::RegistryNetworkLink],
-    b: &[crate::registry::types::RegistryNetworkLink],
+    a: &[crate::types::RegistryNetworkLink],
+    b: &[crate::types::RegistryNetworkLink],
 ) -> bool {
     if a.len() != b.len() {
         return false;
@@ -287,7 +287,7 @@ pub fn load_and_validate_registry(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::types::{RegistryDocument, RegistryNode};
+    use crate::types::{RegistryDocument, RegistryNode};
     use tempfile::NamedTempFile;
 
     fn minimal_doc() -> RegistryDocument {

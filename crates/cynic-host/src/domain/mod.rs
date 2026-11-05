@@ -1,3 +1,4 @@
+pub use cynic_registry::package_provenance;
 pub mod agent_session;
 pub mod metrics;
 pub mod bootstrap;
@@ -9,7 +10,6 @@ pub mod host_family_drift;
 pub mod persistence_drift;
 pub mod memory;
 pub mod network;
-pub mod package_provenance;
 pub mod packages;
 pub mod principal;
 pub mod pool_eligibility;

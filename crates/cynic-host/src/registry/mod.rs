@@ -1,35 +1,10 @@
-//! Registry module — split into focused submodules
-//!
-//! - `types`: Pure data structures (no I/O, no policy)
-//! - `scan`: Discovery and loading (read-only)
-//! - `validate`: Pure validation functions
-//! - `persist`: I/O operations with atomic write + read-back proof
+//! Registry module — types/scan/validate/persist extracted to cynic-registry;
+//! `resolve` remains here (depends on host profiles & runtime layout).
 
-pub mod persist;
-pub mod scan;
-pub mod types;
-pub mod validate;
-
-// Re-export main public API
-pub use persist::{
-    PersistError, WriteProof, load_and_validate_registry, write_registry, write_registry_atomic,
-};
-pub use scan::{
-    ScanError, discover_registry_sources, find_node, load_registry, resolve_registry_path,
-};
-pub use types::{
-    HostProfileResolution, ObservedManagementLink, RegistryDocument, RegistryFleetDesired,
-    RegistryFleetTarget, RegistryHostBootstrap, RegistryHostBootstrapRoleProfile,
-    RegistryKernelRelease, RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane,
-    RegistryNetworkPolicy, RegistryNode, RegistryNodeService, RegistryNodeSubstrate,
-    RegistryNodeTransports, RegistryServiceHealth, RegistryServiceSupervisor,
-    RegistrySourceRepository, RegistrySourceWorkspaceLayout, RegistrySshEnrollmentAuthority,
-    RegistrySshTransport, ResolvedBuildRunnerTransport, ResolvedDirectManagementLink,
-    ResolvedHostIdentity, ResolvedNodeSubstrateTarget, ResolvedProviderControlTransport,
-};
-pub use validate::{
-    ValidationError, check_role_consistency, validate_registry, validate_registry_or_error,
-};
+pub use cynic_registry::persist::*;
+pub use cynic_registry::scan::*;
+pub use cynic_registry::types::*;
+pub use cynic_registry::validate::*;
 
 // Keep existing public functions for backward compatibility
 pub use crate::registry::resolve::{
@@ -1081,7 +1056,7 @@ pub mod resolve {
     #[cfg(test)]
     mod host_family_resolution_tests {
         use super::*;
-        use crate::registry::types::RegistryNode;
+        use cynic_registry::RegistryNode;
 
         fn node_with_family(name: &str, role: Option<&str>, family: Option<&str>) -> RegistryNode {
             RegistryNode {

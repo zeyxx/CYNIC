@@ -23,6 +23,7 @@ members = [
     "crates/cynic-sandbox",
     "crates/cynic-process",
     "crates/cynic-network",
+    "crates/cynic-registry",
     "crates/cynic-eval",
     "crates/cynic-consensus",
     "crates/cynic-forensics",

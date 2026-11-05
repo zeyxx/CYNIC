@@ -21,6 +21,7 @@ cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-process = { path = "../cynic-process" }
 cynic-network = { path = "../cynic-network" }
+cynic-registry = { path = "../cynic-registry" }
 cynic-ssh = { path = "../cynic-ssh" }
 cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }

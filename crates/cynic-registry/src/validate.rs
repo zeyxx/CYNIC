@@ -1,6 +1,6 @@
 //! Registry validation — pure functions, no I/O
 
-use crate::registry::types::{RegistryDocument, RegistryNetworkLink};
+use crate::types::{RegistryDocument, RegistryNetworkLink};
 
 /// Validation error with context
 #[derive(Debug, thiserror::Error)]
@@ -258,7 +258,7 @@ pub fn check_role_consistency(doc: &RegistryDocument) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::types::{
+    use crate::types::{
         RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
         RegistryLifecycle, RegistryNode,
     };
