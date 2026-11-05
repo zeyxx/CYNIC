@@ -40,6 +40,7 @@ Ce plan n'est pas une liste statique de tâches rigides. C'est un **état vivant
 - [x] **Cycle 2.1 — Secrets & Credentials** (PR #704) : Migré `credential.rs`, `credential_provisioning.rs`, `credential_hardening/`, `secret_material.rs` vers `cynic-secrets`.
 - [ ] **Cycle 2.2 — Agent Access & Workloads** : Évaluation d'arbitrage : gestion des identités POSIX hôte maintenue dans `cynic-host` pour préserver le DAG strict.
 - [x] **Cycle 2.3 — Purge des modules zombies** (PR #712) : Supprimé `fleet_discovery.rs`, `fleet_heartbeat.rs`, `tunnel_supervisor.rs` (-481 LOC).
+- [x] **Cycle 2.4 — Extraction registry & runtime substrate** (PR #733) : Hoist de `registry/{types,scan,validate,persist}`, `runtime_authority`, `process_observation`, `package_provenance`, `runtime_layout`, `runtime_registry`, `project_root` vers `cynic-registry`. `cynic-host` perd ~2000 LOC. Shims `pub use` temporaires (éradication Cycle 2.5).
 
 ### Horizon 3 : Partitionnement DDD & Canonicalisation (`cynic-protocol` & `cynic-types`)
 **Objectif** : Structurer le sac plat de L0 et unifier les types de base.
@@ -93,3 +94,4 @@ Lorsqu'un agent ou sous-agent rencontre une anomalie non prévue :
 | **2026-11-04 (PR #717)** | `cynic-secrets`, `cynic-process` | Appels `Command::new` directs dans le provider keyring sans runner injectable (`CYNIC-ARCH-002`). | Ajout de `run_with_stdin` à `ArgvRunner` et injection de `LocalArgvRunner` / runner générique. |
 | **2026-11-04 (PR #718)** | `cynic-node` | Dépendances Cargo mortes (`cynic-market`, `cynic-release`, `cynic-lxc`) et bridge LXC orphelin. | Purge de `lxc_bridge.rs` et retrait des 3 dépendances de `Cargo.toml`. Arêtes runtime tombées à 157. |
 | **2026-11-04 (PR #719)** | `cynic-protocol` | 10 modules d'agents plats à la racine de `cynic-protocol/src/`. | Partitionnement dans `cynic-protocol::agent` avec rétro-compatibilité ascendante. |
+| **2026-11-05 (PR #733)** | `cynic-host` → `cynic-registry` | Extraction par chaîne causale bottom-up : 6 feuilles auto-contenues (runtime_authority, package_provenance, process_observation, runtime_layout, registry types/scan/validate/persist, runtime_registry, project_root). Cluster couplé (profiles, domain, ports, resolve) reste dans cynic-host. | Création de `cynic-registry` (38e crate, 14 modules, 28 tests). Re-exports `pub use` temporaires (shims DEBT-001). Prochaine étape : décomposer domain/ports en place, puis extraire les feuilles émergentes. |
