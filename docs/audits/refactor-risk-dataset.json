@@ -1,0 +1,107 @@
+{
+  "schema": "cynic.refactor_risk.dataset.v1",
+  "generated": "2026-11-05",
+  "source": "git log (90d) + cargo test counts + refactor themes from docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md",
+  "description": "Retroactively labeled refactor/absorption candidates. Ground truth for the heuristic in crates/cynic-intel/src/refactor_risk.rs. A future ML model must beat this baseline.",
+  "candidates": [
+    {
+      "name": "browser-ingestion",
+      "commits_90d": 2,
+      "test_count": 1,
+      "loc": 0,
+      "has_ports": true,
+      "in_active_refactor": false,
+      "churning_deps": 0,
+      "expected_level": "Low",
+      "rationale": "No dedicated browser crate churn; only incidental network/knowledge usage. Stable."
+    },
+    {
+      "name": "cynic-secrets",
+      "commits_90d": 9,
+      "test_count": 42,
+      "loc": 0,
+      "has_ports": true,
+      "in_active_refactor": true,
+      "churning_deps": 1,
+      "expected_level": "Medium",
+      "rationale": "Horizon 5 vertical FCIS active (ArgvRunner port, keyring hoist). Moderate churn."
+    },
+    {
+      "name": "cynic-ssh",
+      "commits_90d": 4,
+      "test_count": 36,
+      "loc": 0,
+      "has_ports": true,
+      "in_active_refactor": true,
+      "churning_deps": 1,
+      "expected_level": "Medium",
+      "rationale": "SSH SSOT invariant enforced; forward tunnel argv builder in flight."
+    },
+    {
+      "name": "cynic-sandbox",
+      "commits_90d": 3,
+      "test_count": 19,
+      "loc": 0,
+      "has_ports": false,
+      "in_active_refactor": true,
+      "churning_deps": 1,
+      "expected_level": "Medium",
+      "rationale": "Sandbox repaved to cynic-process; ArgvRunner sweep ongoing; not yet ported."
+    },
+    {
+      "name": "cynic-eval",
+      "commits_90d": 7,
+      "test_count": 129,
+      "loc": 0,
+      "has_ports": false,
+      "in_active_refactor": true,
+      "churning_deps": 1,
+      "expected_level": "Medium",
+      "rationale": "Eval harness/parity active; host->eval edge removed. Strong tests but mid-refactor."
+    },
+    {
+      "name": "cynic-build",
+      "commits_90d": 92,
+      "test_count": 440,
+      "loc": 0,
+      "has_ports": true,
+      "in_active_refactor": true,
+      "churning_deps": 2,
+      "expected_level": "High",
+      "rationale": "Build scheduler heavy churn (92 commits/90d); scoped proof execution in flight."
+    },
+    {
+      "name": "cynic-knowledge",
+      "commits_90d": 127,
+      "test_count": 87,
+      "loc": 0,
+      "has_ports": false,
+      "in_active_refactor": true,
+      "churning_deps": 1,
+      "expected_level": "High",
+      "rationale": "Corpus ingestion churn (127 commits/90d); no port boundary yet."
+    },
+    {
+      "name": "cynic-protocol",
+      "commits_90d": 72,
+      "test_count": 734,
+      "loc": 0,
+      "has_ports": true,
+      "in_active_refactor": true,
+      "churning_deps": 1,
+      "expected_level": "High",
+      "rationale": "Horizon 3 DDD partitioning in flight; 179 changes to lib.rs alone."
+    },
+    {
+      "name": "cynic-host",
+      "commits_90d": 725,
+      "test_count": 717,
+      "loc": 0,
+      "has_ports": false,
+      "in_active_refactor": true,
+      "churning_deps": 3,
+      "expected_level": "High",
+      "rationale": "Highest churn (725 commits/90d); god-object slimming ongoing."
+    }
+  ]
+}

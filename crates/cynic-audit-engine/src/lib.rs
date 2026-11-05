@@ -9,6 +9,8 @@ pub mod history;
 pub mod node_host_audit;
 pub mod path_rules;
 pub mod ports;
+pub mod refactor_risk;
+pub use refactor_risk::{assess, RefactorCandidate, RefactorRisk, RefactorRiskLevel};
 pub mod prose_citation_rule;
 pub mod retired_metaphor_rule;
 pub mod rules;

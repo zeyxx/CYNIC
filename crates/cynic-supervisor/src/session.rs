@@ -302,7 +302,7 @@ fn observe_process_metrics(pid: u32) -> Option<SessionProcessMetrics> {
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
 
-    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as u64;
+    let page_size = 4096u64; // Linux page size; safe (forbid(unsafe_code))
     let rss_bytes = rss_pages * page_size;
 
     let uptime_secs = process_uptime_secs(starttime_ticks);
@@ -326,7 +326,7 @@ fn process_uptime_secs(starttime_ticks: u64) -> u64 {
         .and_then(|s| s.split_whitespace().next()?.parse::<f64>().ok())
         .unwrap_or(0.0);
 
-    let ticks_per_sec = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
+    let ticks_per_sec = 100u64; // Linux USER_HZ; safe (forbid(unsafe_code))
     if ticks_per_sec == 0 {
         return 0;
     }
@@ -352,7 +352,7 @@ fn estimate_cpu_usage(pid: u32, uptime_secs: u64) -> f32 {
     let fields: Vec<&str> = post_comm.split_whitespace().collect();
     let utime: u64 = fields.get(11).and_then(|s| s.parse().ok()).unwrap_or(0);
     let stime: u64 = fields.get(12).and_then(|s| s.parse().ok()).unwrap_or(0);
-    let ticks_per_sec = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as u64;
+    let ticks_per_sec = 100u64; // Linux USER_HZ; safe (forbid(unsafe_code))
     if ticks_per_sec == 0 {
         return 0.0;
     }
