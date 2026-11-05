@@ -18,10 +18,8 @@ pub mod runtime_path_literal_rule;
 pub mod scanner;
 pub mod topology;
 pub mod topology_generate;
-
 use std::path::Path;
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
-
 use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
 use self::debt_pattern_rule::{DebtPatternRule, GodCrateBudgetRule, UnnormedVocabularyDriftRule};
 use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
