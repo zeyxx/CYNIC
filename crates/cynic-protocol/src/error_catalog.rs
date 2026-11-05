@@ -218,6 +218,8 @@ pub enum CynicErrorCode {
     ArchitectureGodCrateBudgetExceeded,
     /// Unnormed vocabulary or ad-hoc types bypassing cynic-types / glossary.
     ArchitectureUnnormedVocabularyDrift,
+    /// Refactor/absorption candidate with high collision risk against in-flight work.
+    ArchitectureRefactorCollisionRisk,
 }
 
 pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
@@ -292,6 +294,7 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::ArchitectureDagUpwardInversion,
     CynicErrorCode::ArchitectureGodCrateBudgetExceeded,
     CynicErrorCode::ArchitectureUnnormedVocabularyDrift,
+    CynicErrorCode::ArchitectureRefactorCollisionRisk,
 ];
 
 impl CynicErrorCode {
@@ -370,7 +373,8 @@ impl CynicErrorCode {
             | Self::ArchitectureSshBypassRaw
             | Self::ArchitectureDagUpwardInversion
             | Self::ArchitectureGodCrateBudgetExceeded
-            | Self::ArchitectureUnnormedVocabularyDrift => CynicErrorDomain::Architecture,
+            | Self::ArchitectureUnnormedVocabularyDrift
+            | Self::ArchitectureRefactorCollisionRisk => CynicErrorDomain::Architecture,
         }
     }
 
@@ -453,7 +457,8 @@ impl CynicErrorCode {
             | Self::ArchitectureSshBypassRaw
             | Self::ArchitectureDagUpwardInversion
             | Self::ArchitectureGodCrateBudgetExceeded
-            | Self::ArchitectureUnnormedVocabularyDrift => CynicErrorClass::Blocked,
+            | Self::ArchitectureUnnormedVocabularyDrift
+            | Self::ArchitectureRefactorCollisionRisk => CynicErrorClass::Blocked,
         }
     }
 
@@ -533,6 +538,7 @@ impl CynicErrorCode {
             (CynicErrorDomain::Architecture, 4) => "CYNIC-ARCH-004",
             (CynicErrorDomain::Architecture, 5) => "CYNIC-ARCH-005",
             (CynicErrorDomain::Architecture, 6) => "CYNIC-ARCH-006",
+            (CynicErrorDomain::Architecture, 7) => "CYNIC-ARCH-007",
             _ => "CYNIC-UNKNOWN",
         }
     }
@@ -766,6 +772,9 @@ impl CynicErrorCode {
             Self::ArchitectureUnnormedVocabularyDrift => {
                 "canonicalize ad-hoc types and vocabulary against cynic-types and contracts/glossary.json"
             }
+            Self::ArchitectureRefactorCollisionRisk => {
+                "defer absorption/refactor until target crate stabilizes; or scope to low-flux areas only"
+            }
         }
     }
 
@@ -990,6 +999,7 @@ mod tests {
             (CynicErrorCode::ArchitectureDagUpwardInversion, "CYNIC-ARCH-004"),
             (CynicErrorCode::ArchitectureGodCrateBudgetExceeded, "CYNIC-ARCH-005"),
             (CynicErrorCode::ArchitectureUnnormedVocabularyDrift, "CYNIC-ARCH-006"),
+            (CynicErrorCode::ArchitectureRefactorCollisionRisk, "CYNIC-ARCH-007"),
         ];
         for (variant, expected) in arch {
             assert_eq!(variant.code(), expected);

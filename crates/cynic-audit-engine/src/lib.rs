@@ -9,6 +9,8 @@ pub mod history;
 pub mod node_host_audit;
 pub mod path_rules;
 pub mod ports;
+pub mod refactor_risk;
+pub use refactor_risk::{assess, RefactorCandidate, RefactorRisk, RefactorRiskLevel};
 pub mod prose_citation_rule;
 pub mod retired_metaphor_rule;
 pub mod rules;
@@ -16,10 +18,8 @@ pub mod runtime_path_literal_rule;
 pub mod scanner;
 pub mod topology;
 pub mod topology_generate;
-
 use std::path::Path;
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
-
 use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
 use self::debt_pattern_rule::{DebtPatternRule, GodCrateBudgetRule, UnnormedVocabularyDriftRule};
 use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};

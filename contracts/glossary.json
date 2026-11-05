@@ -151,6 +151,20 @@
       "banned_usages": [
         "Maintaining separate, drifted HTTP transport mechanisms for runtime staging versus release publication"
       ]
+    },
+    "RefactorCollisionRisk": {
+      "definition": "Assessed collision risk of a refactor or absorption candidate against in-flight work, derived from observable churn, test coverage, modularity, active-refactor overlap, and churning dependencies.",
+      "canonical_values": [
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "banned_synonyms": [
+        "RefactorRiskLevel",
+        "AbsorptionRisk",
+        "CollisionScore"
+      ],
+      "rationale": "A risk level is an assessment, not a deployment tier or a test harness. Canonicalized so the heuristic (cynic-audit-engine/refactor_risk) and the CynicErrorCode (ArchitectureRefactorCollisionRisk) share one vocabulary."
     }
   }
 }
