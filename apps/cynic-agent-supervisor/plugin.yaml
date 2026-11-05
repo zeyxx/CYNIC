@@ -1,0 +1,25 @@
+name: cynic-agent-supervisor
+version: "0.2.0"
+manifest_version: 2
+api_version: 1
+description: >-
+  Supervise agent CLIs and bind CYNIC claims to a Hermes session with heartbeat,
+  finalization release, read-back receipt, and bounded TTL fallback.
+provides_hooks:
+  - on_session_start
+  - pre_llm_call
+  - on_session_finalize
+  - on_session_reset
+provides_tools:
+  - cynic_agent_supervise
+  - cynic_agent_claims
+  - cynic_agent_list
+tags:
+  - cynic
+  - supervisor
+  - agent
+  - opencode
+  - claude
+  - codex
+  - gemini
+  - provenance
