@@ -24,6 +24,8 @@ jobs:
               if [ -d "crates/$crate" ]; then
                 echo "=== cargo check -p $crate ==="
                 cargo check -p "$crate" --lib || exit 1
+                echo "=== cargo test -p $crate --lib ==="
+                cargo test -p "$crate" --lib || exit 1
               else
                 echo "=== skipping deleted crate $crate ==="
               fi
