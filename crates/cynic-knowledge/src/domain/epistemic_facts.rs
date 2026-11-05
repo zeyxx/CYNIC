@@ -181,7 +181,7 @@ pub enum RepoEra {
     NsiAwakening,
     /// Late 2025: Offensive cybersecurity exploration, pentesting scripts, web dissection.
     OffensivePentest,
-    /// Dec 2025 - Feb 2026: Solana memecoin trench, vanity grinding, pump.fun validators, GASdf, perps.
+    /// Dec 2025 - Feb 2026: Solana memecoin trench, vanity grinding, pump.fun validators, perps.
     SolanaTrench,
     /// Feb 2026 - Present: Low-layer sovereign Rust, CYNIC runtime, SMR, multi-agent epistemic coordination.
     SovereignRust,

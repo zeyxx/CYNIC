@@ -62,13 +62,11 @@ pub fn classify_repo_era(name: &str, created_at: &str) -> RepoEra {
             RepoEra::OffensivePentest
         }
         _ if name.starts_with("asdf")
-            || name == "GASdf"
             || name == "HolDex"
             || name == "ASDev"
             || name == "ASDForecast"
             || name == "solana-keychain"
             || name == "claude-mem"
-            || name == "upptime-gasdf"
             || name == "awesome-solana-ai"
             || (name == "zeyxx" && year_month <= "2026-01") =>
         {
@@ -82,8 +80,7 @@ pub fn classify_repo_era(name: &str, created_at: &str) -> RepoEra {
 pub fn classify_repo_domain(name: &str) -> TechnicalDomain {
     match name {
         "CYNIC" | "CYNIC-legacy" | "kyon-android" => TechnicalDomain::Systems,
-        "GASdf"
-        | "solana-keychain"
+        "solana-keychain"
         | "percolator-prog"
         | "percolator-cli"
         | "asdf-validator"
@@ -102,7 +99,7 @@ pub fn classify_repo_domain(name: &str) -> TechnicalDomain {
         "KAIROS" | "CultScreener" | "HolDex" | "asdf-oracle" | "ASDev" | "blitz-and-chill" => {
             TechnicalDomain::MarketIntel
         }
-        "hermes-utls-parity" | "upptime-gasdf" | "zeyxx" | "asdf-manifesto" | "asdf-brain" => {
+        "hermes-utls-parity" | "zeyxx" | "asdf-manifesto" | "asdf-brain" => {
             TechnicalDomain::Infra
         }
         _ => TechnicalDomain::DataMl,

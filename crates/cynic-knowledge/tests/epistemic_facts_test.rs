@@ -34,11 +34,6 @@ fn github_repos_parsing_and_era_classification() {
     assert_eq!(cynic.domain, TechnicalDomain::Systems);
     assert_eq!(cynic.authorship, AuthorshipNature::Original);
 
-    let gasdf = repos.iter().find(|r| r.name == "GASdf").expect("GASdf must exist");
-    assert_eq!(gasdf.era, RepoEra::SolanaTrench);
-    assert_eq!(gasdf.domain, TechnicalDomain::Blockchain);
-    assert_eq!(gasdf.authorship, AuthorshipNature::Original);
-
     let holdex = repos.iter().find(|r| r.name == "HolDex").expect("HolDex must exist");
     assert_eq!(holdex.authorship, AuthorshipNature::ContributedFork);
     assert!(holdex.author_commits >= 100);

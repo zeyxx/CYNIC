@@ -7,8 +7,7 @@ Status: draft v0.1, 2026-10-26. Observed facts only. Unknowns are marked `UNKNOW
 - Upstream repo: `github.com/zeyxx/GASdf` (GitHub is the public projection).
 - Canonical clone path (declared in `infra/external-project-registry.json`):
   `/var/lib/cynic/source/repositories/external/gasdf`
-- Its `origin` currently points to a local working copy, not to GitHub.
-  This inverts the expected chain and must be corrected (step 3 of the plan).
+- Its `origin` now points to GitHub (`https://github.com/zeyxx/GASdf`), corrected 2026-11-04. Chain is canonical.
 - Tip of the canonical clone on 2026-10-26: `6538b4d`, present on `main` through PR #2
   (merge `5b7e3b7`).
 
@@ -36,10 +35,9 @@ Status: draft v0.1, 2026-10-26. Observed facts only. Unknowns are marked `UNKNOW
 
 ## 5. CYNIC coupling (observed)
 
-- `infra/external-pins.json`: GASdf pinned to `86d917f` (June 2026) on `main`.
-  A pin update to `6538b4d` exists on branch `agent/hermes/gasdf-pin-refresh`, not merged.
-- `crates/cynic-protocol/src/gasdf/`: pure types and decisions, exported by `lib.rs` and `exports.rs`.
-- `crates/cynic-knowledge`, `crates/cynic-proxmox`: string references to GASdf.
+- `infra/external-pins.json`: GASdf pinned to `6538b4d` (Phase C, 2026-10-26) on `main`. Pin updated; origin now points to GitHub (https://github.com/zeyxx/GASdf).
+- `crates/cynic-protocol/src/gasdf/`: removed (decoupled, 2026-11-04). CYNIC no longer carries GASdf types.
+- `crates/cynic-knowledge`, `crates/cynic-proxmox`: string references only (no code dependency).
 - 47 tracked files in CYNIC mention GASdf.
 
 ## 6. Rules proposed
