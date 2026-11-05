@@ -17,11 +17,11 @@
       "observed_at": "2026-10-15",
       "purpose": "Paper week A/B signals and grading reference (curated alerts, labels, exit plan)",
       "data_demanded": [
-        "CuratedAlert JSON (mint, createdAt ms, anchorPriceUsd, anchorMcapUsd, labelRule, freshQuote, model, confidence, narrativeVerdict) — apps/api/src/curatedFeed.ts (field is createdAt, verified 0 hits for alertAt in pin cffd91c)",
-        "CandidateOutcome verdicts incl. non-curated (hit2x, hit4x, hit10x, disqualified, stoppedAt, trailExit, profitSim EXIT_PLAN, runPeak24h) — packages/core/src/curation/labels.ts, profitSim.ts",
-        "TokenSnapshot minute series in window + extended watch — curatedFeed.ts withLatestSnapshots",
-        "TokenSage read id + rulesVersion per alert — apps/api/src/tokenSageView.ts",
-        "Meta: governorTarget, cooldown, championModel, trainingRunId — packages/core/src/curation/governor.ts, trainer.ts"
+        "CuratedAlert JSON (mint, createdAt ms, anchorPriceUsd, anchorMcapUsd, labelRule, freshQuote, model, confidence, narrativeVerdict) \u2014 apps/api/src/curatedFeed.ts (field is createdAt, verified 0 hits for alertAt in pin cffd91c)",
+        "CandidateOutcome verdicts incl. non-curated (hit2x, hit4x, hit10x, disqualified, stoppedAt, trailExit, profitSim EXIT_PLAN, runPeak24h) \u2014 packages/core/src/curation/labels.ts, profitSim.ts",
+        "TokenSnapshot minute series in window + extended watch \u2014 curatedFeed.ts withLatestSnapshots",
+        "TokenSage read id + rulesVersion per alert \u2014 apps/api/src/tokenSageView.ts",
+        "Meta: governorTarget, cooldown, championModel, trainingRunId \u2014 packages/core/src/curation/governor.ts, trainer.ts"
       ]
     },
     {
@@ -56,8 +56,8 @@
       "observed_at": "2026-10-19",
       "purpose": "Token meaning API for pump.fun CAs (name, ticker, image, X content, categories, flags, confidence, evidence). REST: /v1/tokens/{ca}, /v1/meta, /admin/v1/* (17 paths, openapi 3.1). License MIT with Commons Clause (no selling or paid-product use without permission).",
       "data_demanded": [
-        "Token meaning read per CA (name, ticker, image, description, X content, categories, flags, confidence, evidence) — /v1/tokens/{ca}",
-        "Batch jobs with signed webhook callbacks — /v1/jobs/{job_id}",
+        "Token meaning read per CA (name, ticker, image, description, X content, categories, flags, confidence, evidence) \u2014 /v1/tokens/{ca}",
+        "Batch jobs with signed webhook callbacks \u2014 /v1/jobs/{job_id}",
         "quarantine_note: Commons Clause restricts paid-product use; read-only observation until license clarified"
       ]
     },
@@ -76,52 +76,52 @@
       "repo": "zeyxx/GASdf",
       "url": "https://github.com/zeyxx/GASdf",
       "sha": "6538b4d78e10e82402c72977d1879f8795fd219a",
-      "observed_at": "2026-10-26",
+      "observed_at": "2026-11-04",
       "purpose": "Gasless relay prototype referential (Phase 0: 1 real on-chain tx). Contractual extraction only; suringenierie (Redis, PostgreSQL, yield, E-Score, holder tiers) is not absorbed. Serves as observed baseline; adapters stay in GASdf, CYNIC reads surfaces and proofs only.",
       "data_demanded": [
-        "Quote flow: request shape, fee-payer reservation, TTL — src/routes/quote.js, src/services/fee-payer-pool.js",
-        "Submit flow: transaction validation (Ed25519), fee-payer co-sign, Helius Sender submission — src/routes/submit.js, src/services/validator.js, src/services/signer.js",
-        "Fee-payer invariant treasury.publicKey === feePayer.publicKey — CLAUDE.md absolute rule",
-        "Burn economics ratios 76.4/23.6 and dual burn channel — ARCHITECTURE.md (burn phase)",
-        "Token gate tiers (K-score thresholds, min 40) — src/services/token-gate.js, ARCHITECTURE.md Token Gating",
-        "Constants and limits (MTU 1232, max accounts, Jito tip 0.0002 SOL) — TODO.md, src/constants.js"
+        "Quote flow: request shape, fee-payer reservation, TTL \u2014 src/routes/quote.js, src/services/fee-payer-pool.js",
+        "Submit flow: transaction validation (Ed25519), fee-payer co-sign, Helius Sender submission \u2014 src/routes/submit.js, src/services/validator.js, src/services/signer.js",
+        "Fee-payer invariant treasury.publicKey === feePayer.publicKey \u2014 CLAUDE.md absolute rule",
+        "Burn economics ratios 76.4/23.6 and dual burn channel \u2014 ARCHITECTURE.md (burn phase)",
+        "Token gate tiers (K-score thresholds, min 40) \u2014 src/services/token-gate.js, ARCHITECTURE.md Token Gating",
+        "Constants and limits (MTU 1232, max accounts, Jito tip 0.0002 SOL) \u2014 TODO.md, src/constants.js"
       ]
     },
-  {
-    "slug": "aegisscan",
-    "repo": "Robinho100/aegisscan",
-    "url": "https://github.com/Robinho100/aegisscan",
-    "sha": "8758ad3ca1ec44b156342a5deb3635832d9e36ef",
-    "observed_at": "2026-10-21",
-    "purpose": "Aegis consortium pentest engine (local-first, modular). Observed baseline; read-only until promoted.",
-    "data_demanded": []
-  },
-  {
-    "slug": "aegis-core",
-    "repo": "Robinho100/aegis-core",
-    "url": "https://github.com/Robinho100/aegis-core",
-    "sha": "d82ca40715b80d64bd7bcf6407bcf373438f11ab",
-    "observed_at": "2026-10-21",
-    "purpose": "Sanitized collaboration source (refusal by construction). Read-only observation + build/test only, never deploy.",
-    "data_demanded": []
-  },
-  {
-    "slug": "ai-bus",
-    "repo": "Robinho100/ai-bus",
-    "url": "https://github.com/Robinho100/ai-bus",
-    "sha": "dd87232d852250634d2e28b67285c8c2fec1a1f3",
-    "observed_at": "2026-10-21",
-    "purpose": "Local Windows app: Claude Code CLI <-> Codex CLI over localhost MCP bus. Observed baseline.",
-    "data_demanded": []
-  },
-  {
-    "slug": "hermes-antigravity",
-    "repo": "zeyxx/hermes-antigravity",
-    "url": "https://github.com/zeyxx/hermes-antigravity",
-    "sha": "4756d18fa23e22d91392013288cca399e329d5a3",
-    "observed_at": "2026-10-22",
-    "purpose": "Hermes model-provider plugin: Google Antigravity inference (Python stdlib suite 190/190). Operator-owned upstream; observed baseline.",
-    "data_demanded": []
-  }
- ]
+    {
+      "slug": "aegisscan",
+      "repo": "Robinho100/aegisscan",
+      "url": "https://github.com/Robinho100/aegisscan",
+      "sha": "8758ad3ca1ec44b156342a5deb3635832d9e36ef",
+      "observed_at": "2026-10-21",
+      "purpose": "Aegis consortium pentest engine (local-first, modular). Observed baseline; read-only until promoted.",
+      "data_demanded": []
+    },
+    {
+      "slug": "aegis-core",
+      "repo": "Robinho100/aegis-core",
+      "url": "https://github.com/Robinho100/aegis-core",
+      "sha": "d82ca40715b80d64bd7bcf6407bcf373438f11ab",
+      "observed_at": "2026-10-21",
+      "purpose": "Sanitized collaboration source (refusal by construction). Read-only observation + build/test only, never deploy.",
+      "data_demanded": []
+    },
+    {
+      "slug": "ai-bus",
+      "repo": "Robinho100/ai-bus",
+      "url": "https://github.com/Robinho100/ai-bus",
+      "sha": "dd87232d852250634d2e28b67285c8c2fec1a1f3",
+      "observed_at": "2026-10-21",
+      "purpose": "Local Windows app: Claude Code CLI <-> Codex CLI over localhost MCP bus. Observed baseline.",
+      "data_demanded": []
+    },
+    {
+      "slug": "hermes-antigravity",
+      "repo": "zeyxx/hermes-antigravity",
+      "url": "https://github.com/zeyxx/hermes-antigravity",
+      "sha": "4756d18fa23e22d91392013288cca399e329d5a3",
+      "observed_at": "2026-10-22",
+      "purpose": "Hermes model-provider plugin: Google Antigravity inference (Python stdlib suite 190/190). Operator-owned upstream; observed baseline.",
+      "data_demanded": []
+    }
+  ]
 }

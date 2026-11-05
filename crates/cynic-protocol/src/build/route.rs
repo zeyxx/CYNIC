@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::SecurityEvidenceState;
-use super::BUILD_RUNNER_ROLE;
 use super::bootstrap::{
     BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,
     build_runner_bootstrap_input_digest,
@@ -459,6 +458,7 @@ fn normalize(mut values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::BUILD_RUNNER_ROLE;
 
     const NOW: u64 = 1_000_000;
 
