@@ -35,7 +35,6 @@ pub mod local_hex_key_file;
 pub mod local_network_actuation_request_reader;
 pub(crate) mod local_network_command_runner;
 pub(crate) mod local_network_mesh_bundle;
-pub mod local_network_mesh_registry;
 pub mod local_node_control_observer;
 pub mod local_node_enrollment;
 pub mod local_node_enrollment_signer;

@@ -25,6 +25,7 @@ pub use notification_outbox::*;
 pub mod observability;
 pub use observability::*;
 pub mod mesh_plan;
+pub mod mesh_registry;
 pub mod fleet_membership;
 pub mod plane_vocabulary;
 pub mod port;
@@ -67,6 +68,7 @@ pub use freebox::{
 pub use mesh::*;
 pub use mesh_bundle::*;
 pub use mesh_plan::*;
+pub use mesh_registry::*;
 pub use registry_maintenance::*;
 pub use telemetry::*;
 pub use transport_readback::*;

@@ -46,7 +46,6 @@ mod network_diagnostic_surface;
 pub mod network_evidence;
 mod network_host_substrate;
 pub mod network_mesh_apply_plan;
-pub mod network_mesh_plan;
 pub mod network_repair;
 pub mod network_root_policy;
 pub mod network_runtime_proof;

@@ -21,6 +21,7 @@ fn proof_address_plane_prefers_declared_service_plane() {
             cidr: Some("10.30.0.0/24".to_string()),
             dns_zone: None,
             canonical: Some(false),
+            interface: None,
         },
     );
     policy.planes.insert(
@@ -29,6 +30,7 @@ fn proof_address_plane_prefers_declared_service_plane() {
             cidr: Some("10.31.0.0/24".to_string()),
             dns_zone: None,
             canonical: Some(true),
+            interface: None,
         },
     );
 
@@ -44,6 +46,7 @@ fn proof_address_plane_falls_back_to_canonical_plane() {
             cidr: Some("10.30.0.0/24".to_string()),
             dns_zone: Some("labmesh.example".to_string()),
             canonical: Some(true),
+            interface: None,
         },
     );
 
@@ -54,7 +57,13 @@ fn proof_address_plane_falls_back_to_canonical_plane() {
 fn proof_address_plane_defaults_to_synapse_without_match() {
     let policy = empty_policy();
 
-    assert_eq!(address_plane(Some(&policy), "missing"), "synapse");
+    // Declared plane absent -> live canonical fallback from the shared plane
+    // vocabulary, i.e. `CANONICAL_SERVICE_PLANE`, not the stale literal `synapse`.
+    assert_eq!(
+        address_plane(Some(&policy), "missing"),
+        crate::mesh::plan::CANONICAL_SERVICE_PLANE
+    );
+    // None policy -> input passthrough.
     assert_eq!(address_plane(None, "missing"), "missing");
 }
 
@@ -64,6 +73,7 @@ fn proof_default_dns_names_follow_zone_presence() {
     let plane = NetworkPlane {
         cidr: None,
         dns_zone: has_zone.then(|| "labmesh.example".to_string()),
+        interface: None,
         canonical: None,
     };
 
