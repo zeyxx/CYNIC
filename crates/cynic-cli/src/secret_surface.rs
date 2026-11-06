@@ -10,7 +10,7 @@ use std::io::Read;
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_host::secret_presence::{
+use cynic_secrets::secret_presence::{
     RuntimeSecretPresenceReport, RuntimeSecretPresenceSpec, observe_runtime_secret_presence,
 };
 use cynic_secrets::{
@@ -171,7 +171,7 @@ fn execute_status(json: bool) -> ExitCode {
     let present_count = reports.iter().filter(|r| r.present).count();
     let unknown_count = reports
         .iter()
-        .filter(|r| r.presence == cynic_host::secret_presence::RuntimeSecretPresence::Unknown)
+        .filter(|r| r.presence == cynic_secrets::secret_presence::RuntimeSecretPresence::Unknown)
         .count();
     let absent_count = reports.len() - present_count - unknown_count;
 
@@ -207,7 +207,7 @@ fn execute_status(json: bool) -> ExitCode {
         for s in &report.secrets {
             let status_mark = if s.present {
                 "[OK]"
-            } else if s.presence == cynic_host::secret_presence::RuntimeSecretPresence::Unknown {
+            } else if s.presence == cynic_secrets::secret_presence::RuntimeSecretPresence::Unknown {
                 "[UNKNOWN]"
             } else {
                 "[MISSING]"

@@ -16,7 +16,8 @@ pub mod validate;
 pub mod registry_divergence_probe;
 pub mod registry_observation;
 pub mod runtime_harness;
-
+pub mod gc_surfaces;
+pub mod kernel_proof_persistence;
 pub use package_provenance::*;
 pub use persist::*;
 pub use process_observation::*;
@@ -31,3 +32,5 @@ pub use validate::*;
 pub use registry_divergence_probe::*;
 pub use registry_observation::*;
 pub use runtime_harness::*;
+pub use gc_surfaces::*;
+pub use kernel_proof_persistence::*;

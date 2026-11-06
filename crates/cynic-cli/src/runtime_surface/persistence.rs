@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use cynic_host::kernel_proof_persistence::{
+use cynic_registry::kernel_proof_persistence::{
     CurlKernelProofPersistenceAdapter, KernelProofPersistencePort,
 };
 use cynic_process::LocalArgvRunner;
