@@ -3,6 +3,7 @@
 pub mod capabilities;
 pub mod conformance;
 pub mod cpu;
+pub mod hardware_baseline;
 pub mod disk;
 pub mod fleet_disk;
 pub mod memory;
@@ -12,6 +13,7 @@ pub mod hypervisor;
 pub use capabilities::*;
 pub use conformance::*;
 pub use cpu::*;
+pub use hardware_baseline::*;
 pub use disk::*;
 pub use fleet_disk::*;
 pub use memory::*;
