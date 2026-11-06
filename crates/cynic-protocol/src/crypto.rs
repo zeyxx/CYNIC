@@ -4,7 +4,7 @@
 //! and key management to ensure the Trust-Chain vertical is substrate-agnostic.
 
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
-use rand::{RngCore, rngs::OsRng};
+use rand::{TryRngCore, rngs::OsRng};
 use std::fmt;
 use std::fs;
 use std::io;
@@ -102,7 +102,7 @@ impl CryptoProvider for Ed25519Provider {
 
     fn generate_keypair(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
         let mut secret_bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut secret_bytes);
+        OsRng.try_fill_bytes(&mut secret_bytes).expect("os rng");
 
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = VerifyingKey::from(&signing_key);
