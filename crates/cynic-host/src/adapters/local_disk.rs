@@ -19,7 +19,7 @@ use crate::domain::disk::{
     DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
 use cynic_registry::process_observation::capture_command;
-use crate::scan_exclusions::excluded_dirs_for_cwd;
+use cynic_registry::scan_exclusions::excluded_dirs_for_cwd;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalDiskAdapter;

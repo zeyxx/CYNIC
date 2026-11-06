@@ -52,6 +52,7 @@ pub mod network_runtime_proof;
 pub mod network_runtime_status;
 pub mod network_shadow_proof;
 mod network_surface_inventory;
+pub mod node_activation;
 pub mod node_control_runtime;
 pub mod observe;
 pub mod peer_attach;
@@ -82,3 +83,4 @@ pub mod websocket;
 // `pub mod`. Widening those is slice 2, where the surfaces move out.
 pub use adapters::peer_storage::ingress::execute_peer_command;
 pub use network_runtime_status::build_network_runtime_status_value;
+pub use node_activation::*;
