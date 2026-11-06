@@ -66,7 +66,7 @@ pub(crate) fn execute_registry_observe(
         return ExitCode::FAILURE;
     }
     let registry = crate::registry_path(registry);
-    match cynic_host::registry_observation::project_registry_observation(
+    match cynic_registry::registry_observation::project_registry_observation(
         &registry,
         observation,
         apply,

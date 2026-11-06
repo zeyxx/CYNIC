@@ -12,6 +12,8 @@ pub mod runtime_registry;
 pub mod scan;
 pub mod types;
 pub mod validate;
+pub mod registry_divergence_probe;
+pub mod registry_observation;
 
 pub use package_provenance::*;
 pub use persist::*;
@@ -23,3 +25,5 @@ pub use runtime_registry::resolve_runtime_registry_path;
 pub use scan::*;
 pub use types::*;
 pub use validate::*;
+pub use registry_divergence_probe::*;
+pub use registry_observation::*;

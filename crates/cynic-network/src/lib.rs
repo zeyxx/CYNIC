@@ -39,6 +39,7 @@ pub mod transport_readback;
 pub mod transport_security;
 pub mod types;
 pub mod usecases;
+pub mod kernel_tunnel;
 pub mod watchdog_alerter;
 
 // Re-export adapters for direct and legacy access
@@ -83,3 +84,4 @@ pub use probe::{
     parse_usage_from_dev, parse_wireguard_telemetry,
 };
 pub use watchdog_alerter::reconcile_network_watchdog_outbox;
+pub use kernel_tunnel::*;
