@@ -21,7 +21,7 @@ use cynic_node_protocol::{
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 
-use crate::crypto::{CryptoError, CryptoProvider, Ed25519Provider, SecretStore};
+use cynic_protocol::crypto::{CryptoError, CryptoProvider, Ed25519Provider, SecretStore};
 
 /// Cryptographic identity material for a node.
 #[derive(Debug, Clone)]

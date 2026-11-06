@@ -3,6 +3,7 @@
 //! Extracted from cynic-host to reduce the god-crate surface.
 
 pub mod package_provenance;
+pub mod harness_progression;
 pub mod persist;
 pub mod process_observation;
 pub mod project_root;
@@ -19,6 +20,7 @@ pub mod runtime_harness;
 pub mod gc_surfaces;
 pub mod kernel_proof_persistence;
 pub use package_provenance::*;
+pub use harness_progression::*;
 pub use persist::*;
 pub use process_observation::*;
 pub use project_root::current_project_root;

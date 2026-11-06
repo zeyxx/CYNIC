@@ -16,7 +16,6 @@ pub mod rate_classify_scan;
 // coordination lease enforcement it implements has been inert: nothing compiled
 // it, and both test suites failed at E0432 rather than exercising it.
 pub mod coordination_lease_store;
-pub mod crypto;
 pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
@@ -28,7 +27,6 @@ pub mod hardware_baseline;
 pub mod hardware_baseline_apply;
 pub mod hardware_baseline_reconcile;
 pub mod hardware_conformance;
-pub mod harness_progression;
 pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;

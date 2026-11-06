@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use cynic_protocol::runtime_takeover::{CryptographicLease, RoleTransitionRecord};
 
-use crate::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
+use cynic_protocol::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
 
 /// Manager for cryptographic leases and monotonic fencing tokens.
 pub struct LeaseManager {

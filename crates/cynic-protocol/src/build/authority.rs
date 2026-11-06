@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 /// Used by:
 /// - `cynic-protocol::harness` (build scenarios)
 /// - `cynic-host::runtime_harness` (runtime progression)
-/// - `cynic-host::harness_progression` (progression decision)
+/// - `cynic-registry::harness_progression` (progression decision)
 /// - `cynic-cli` surfaces (projection only)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
