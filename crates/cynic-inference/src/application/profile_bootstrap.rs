@@ -14,11 +14,11 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::adapters::local::FsModelStore;
+use super::super::adapters::local::FsModelStore;
 use crate::domain::local_runtime::LocalModelProfile;
 use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
-use crate::infra::gguf_meta::preflight_gguf_with_store;
-use crate::infra::model_layout::ModelLayout;
+use super::super::infra::gguf_meta::preflight_gguf_with_store;
+use super::super::infra::model_layout::ModelLayout;
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
 

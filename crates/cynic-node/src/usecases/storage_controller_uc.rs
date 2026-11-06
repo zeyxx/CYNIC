@@ -5,7 +5,7 @@ use cynic_proxmox::storage::controller::{
 };
 use cynic_proxmox::storage::lifecycle::{StorageObservation, StoragePlan};
 
-use crate::adapters::local_storage_controller_store::seal_storage_controller_record;
+use super::super::adapters::local_storage_controller_store::seal_storage_controller_record;
 use crate::ports::storage_controller_store_port::{
     StorageControllerStoreError, StorageControllerStorePort,
 };

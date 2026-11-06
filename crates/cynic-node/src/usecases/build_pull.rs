@@ -449,7 +449,7 @@ mod tests {
         assert_eq!(plan.blockers.len(), 1);
     }
 
-    use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
+    use super::super::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
     use crate::usecases::build_admission::admit_build_check;
     use std::sync::atomic::{AtomicU64, Ordering};
 

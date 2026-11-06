@@ -1,7 +1,7 @@
 //! Hexagonal Ports for Solana Operations, RPC observation, and SOP safety evaluation.
 
-use crate::domain_enrichment::{EnrichmentError, TokenData};
-use crate::solana_safety_dog::SolanaSafetyReport;
+use super::super::domain_enrichment::{EnrichmentError, TokenData};
+use super::super::solana_safety_dog::SolanaSafetyReport;
 use async_trait::async_trait;
 use crate::domain::solana::{
     AllowanceGrant, SolanaPayRequest, SopSanitizationInput, SopSanitizationResult,

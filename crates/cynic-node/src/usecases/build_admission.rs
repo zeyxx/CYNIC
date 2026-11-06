@@ -200,7 +200,7 @@ pub fn admit_build_check(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
+    use super::super::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static ADMISSION_SEQ: AtomicU64 = AtomicU64::new(0);

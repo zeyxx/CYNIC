@@ -3,7 +3,7 @@
 //! It probes local ports to find active services (Ollama, llama-server) and pushes
 //! them to all configured targets (such as inference.toml, Open WebUI, etc.) in parallel.
 
-use crate::ods_discovery::discover_ods_services;
+use super::super::ods_discovery::discover_ods_services;
 use crate::ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, PublishResult};
 use std::fmt;
 use std::sync::Arc;

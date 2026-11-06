@@ -15,123 +15,12 @@
     "edges": 107,
     "by_crate": {
       "cynic-host": 0,
-      "cynic-inference": 5,
-      "cynic-intel": 2,
-      "cynic-node": 13,
-      "cynic-release": 1,
-      "cynic-storage": 2
+      "cynic-inference": 0,
+      "cynic-intel": 0,
+      "cynic-node": 0,
+      "cynic-release": 0,
+      "cynic-storage": 0
     }
   },
-  "entries": [
-    {
-      "identity": "cynic-inference|application -> adapters",
-      "count": 18,
-      "evidence": "crates/cynic-inference/src/application/hf_discovery.rs:6"
-    },
-    {
-      "identity": "cynic-inference|application -> config_loader",
-      "count": 1,
-      "evidence": "crates/cynic-inference/src/application/chat_endpoint.rs:16"
-    },
-    {
-      "identity": "cynic-inference|application -> infra",
-      "count": 14,
-      "evidence": "crates/cynic-inference/src/application/hf_discovery.rs:12"
-    },
-    {
-      "identity": "cynic-inference|application -> ods_discovery",
-      "count": 2,
-      "evidence": "crates/cynic-inference/src/application/model_sync_pipeline.rs:6"
-    },
-    {
-      "identity": "cynic-inference|ports -> ods_discovery",
-      "count": 1,
-      "evidence": "crates/cynic-inference/src/ports/model_publisher_port.rs:12"
-    },
-    {
-      "identity": "cynic-intel|ports -> domain_enrichment",
-      "count": 1,
-      "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:3"
-    },
-    {
-      "identity": "cynic-intel|ports -> solana_safety_dog",
-      "count": 1,
-      "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:4"
-    },
-    {
-      "identity": "cynic-node|ports -> network_actuator",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/ports/network_command_runner_port.rs:2"
-    },
-    {
-      "identity": "cynic-node|ports -> network_command_surface",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/ports/network_command_runner_port.rs:3"
-    },
-    {
-      "identity": "cynic-node|ports -> network_mesh_plan",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/ports/network_mesh_registry_port.rs:3"
-    },
-    {
-      "identity": "cynic-node|ports -> websocket",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/ports/runtime_federation_queue_store_port.rs:3"
-    },
-    {
-      "identity": "cynic-node|usecases -> adapters",
-      "count": 15,
-      "evidence": "crates/cynic-node/src/usecases/storage_controller_uc.rs:6"
-    },
-    {
-      "identity": "cynic-node|usecases -> build_attestation",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/observe_node_uc.rs:9"
-    },
-    {
-      "identity": "cynic-node|usecases -> config",
-      "count": 2,
-      "evidence": "crates/cynic-node/src/usecases/node_enrollment_lifecycle_uc.rs:7"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_actuator",
-      "count": 2,
-      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:19"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_actuator_status",
-      "count": 2,
-      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:20"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_command_surface",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:21"
-    },
-    {
-      "identity": "cynic-node|usecases -> observe",
-      "count": 3,
-      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:22"
-    },
-    {
-      "identity": "cynic-node|usecases -> watchdog",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_watchdog_uc.rs:19"
-    },
-    {
-      "identity": "cynic-release|ports -> types",
-      "count": 1,
-      "evidence": "crates/cynic-release/src/ports.rs:3"
-    },
-    {
-      "identity": "cynic-storage|ports -> error",
-      "count": 1,
-      "evidence": "crates/cynic-storage/src/ports.rs:3"
-    },
-    {
-      "identity": "cynic-storage|ports -> types",
-      "count": 1,
-      "evidence": "crates/cynic-storage/src/ports.rs:4"
-    }
-  ]
+  "entries": []
 }
