@@ -1,4 +1,4 @@
-use cynic_host::runtime_seed::{SshRuntimeSeedSignatureVerifier, observe_runtime_seed};
+use cynic_registry::runtime_seed::{SshRuntimeSeedSignatureVerifier, observe_runtime_seed};
 use cynic_node_protocol::{
     NODE_CONTROL_OBSERVATION_SCHEMA, NodeControlConnectionState, NodeControlObservation,
     NodeDesiredState,

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cynic_host::runtime_seed::{
+use cynic_registry::runtime_seed::{
     RuntimeSeedApplyReport, SshRuntimeSeedSignatureVerifier, apply_runtime_seed,
     persist_runtime_seed_evidence,
 };

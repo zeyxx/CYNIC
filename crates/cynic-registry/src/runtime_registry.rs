@@ -4,22 +4,7 @@ use std::path::{Path, PathBuf};
 use cynic_types::paths::CynicPaths;
 
 use crate::project_root::current_project_root;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuntimeProjectionClass {
-    RuntimeAuthority,
-    OperatorProjection,
-    DevWorktreeFallback,
-}
-
-impl RuntimeProjectionClass {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::RuntimeAuthority => "runtime_authority",
-            Self::OperatorProjection => "operator_projection",
-            Self::DevWorktreeFallback => "dev_worktree_fallback",
-        }
-    }
-}
+pub use crate::runtime_authority::RuntimeProjectionClass;
 
 const ALLOW_LOCAL_DEV_BUILD_ENV: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";
 

@@ -8,7 +8,7 @@ use cynic_registry::process_observation::command_json;
 use crate::project_root::current_project_root;
 use cynic_registry::runtime_harness::{RuntimeHarnessContext, conformance_context};
 use cynic_registry::runtime_layout::HostRuntimeLayout;
-use crate::runtime_network_preflight::{
+use cynic_registry::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
 };
 use cynic_types::paths::CynicPaths;
@@ -541,7 +541,7 @@ mod tests {
             sandbox_env,
         };
         let mut network_preflight =
-            crate::runtime_network_preflight::observe_runtime_network_preflight(&[
+            cynic_registry::runtime_network_preflight::observe_runtime_network_preflight(&[
                 "example.invalid".to_string(),
             ]);
         network_preflight.status = "blocked";

@@ -250,11 +250,6 @@ const KNOWN: &[&str] = &[
     // otherwise). No registry can relocate systemd/openrc; the code
     // branches on the manager kind, which is the honest shape.
     "crates/cynic-host/src/runtime_layout.rs",
-    // Operator-facing error text, not a placement: the resolution failure
-    // tells the operator to install /etc/cynic/registry.json (or set the
-    // env override). Multi-line Err, so the rule's line-scoped Err filter
-    // cannot see it — recorded here instead.
-    "crates/cynic-host/src/runtime_registry.rs",
     // Presence search order, not placement: the secret checker probes
     // principal-owned then installed (/etc/cynic/secrets) candidates and
     // reports which exists. Same lookup-table shape as the registry scan.

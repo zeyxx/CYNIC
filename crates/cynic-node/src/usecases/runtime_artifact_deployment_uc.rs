@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cynic_host::runtime_seed::RuntimeSeedApplyReport;
+use cynic_registry::runtime_seed::RuntimeSeedApplyReport;
 use cynic_protocol::{RuntimeSeedAction, RuntimeSeedPlan, RuntimeSeedRequest};
 use serde::Serialize;
 
@@ -183,7 +183,7 @@ fn report(
 mod tests {
     use std::{cell::RefCell, path::PathBuf};
 
-    use cynic_host::runtime_seed::RuntimeSeedApplyReport;
+    use cynic_registry::runtime_seed::RuntimeSeedApplyReport;
     use cynic_protocol::{
         RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_PLAN_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA,
         RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedObservation,

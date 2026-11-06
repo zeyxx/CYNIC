@@ -18,7 +18,7 @@ pub mod resolve {
     use super::*;
     use crate::profiles::HostProfile;
     use cynic_registry::runtime_layout::current_runtime_layout;
-    use crate::runtime_registry::resolve_runtime_registry_path;
+    use cynic_registry::runtime_registry::resolve_runtime_registry_path;
     use cynic_protocol::{NodeSubstrateDesiredState, NodeSubstratePower};
     use cynic_registry::types::*;
     use std::path::{Path, PathBuf};
