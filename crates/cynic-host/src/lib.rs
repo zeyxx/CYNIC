@@ -34,16 +34,12 @@ pub mod host_substrate;
 mod identity_database;
 pub mod install_contract;
 pub mod lab;
-pub mod lease_manager;
 
 pub mod mcp_tool;
-pub mod node_identity_workflow;
 pub mod node_substrate;
 pub mod one_shot_authority;
 pub mod os_health;
 pub mod peer_resolver_mesh;
-pub mod peer_validator;
-pub mod plan_verifier;
 pub mod ports;
 pub mod project_root;
 pub mod pre_os_control;
