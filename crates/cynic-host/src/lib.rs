@@ -49,12 +49,9 @@ pub mod registry;
 pub mod runtime_context;
 pub mod runtime_execution_context;
 pub mod runtime_metrics;
-pub mod runtime_network_preflight;
 pub mod runtime_proof;
-pub mod runtime_registry;
 pub mod runtime_resolver_plan;
 mod runtime_secret_install;
-pub mod runtime_seed;
 pub mod service_supervisor_observation;
 pub mod space_gc;
 

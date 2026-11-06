@@ -8,9 +8,10 @@ use crate::{
         args::{flag_value, has_flag},
         io::emit_json,
     },
-    runtime_seed::{
-        LocalRuntimeSeedActivation, RuntimeSeedActivationPort, SshRuntimeSeedSignatureVerifier,
-    },
+};
+
+use cynic_registry::runtime_seed::{
+    LocalRuntimeSeedActivation, RuntimeSeedActivationPort, SshRuntimeSeedSignatureVerifier,
 };
 
 pub(crate) fn execute_plan(args: &[String]) -> Result<ExitCode, String> {

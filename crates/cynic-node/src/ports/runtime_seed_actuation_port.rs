@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cynic_host::runtime_seed::RuntimeSeedApplyReport;
+use cynic_registry::runtime_seed::RuntimeSeedApplyReport;
 use cynic_protocol::RuntimeSeedRequest;
 
 pub trait RuntimeSeedActuationPort {

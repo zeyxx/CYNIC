@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::clock::now_unix_ms;
+use std::time::{SystemTime, UNIX_EPOCH};
 use cynic_process::ArgvRunner;
 use cynic_protocol::{
     RUNTIME_SEED_OBSERVATION_SCHEMA, RuntimeSeedObservation, RuntimeSeedRequest,
@@ -146,7 +146,10 @@ pub fn observe_runtime_seed(
 
     RuntimeSeedObservation {
         schema: RUNTIME_SEED_OBSERVATION_SCHEMA.to_string(),
-        observed_at_unix_ms: now_unix_ms(),
+        observed_at_unix_ms: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0),
         node_id: observed_node,
         seed_contract_revision: Some(RUNTIME_SEED_CONTRACT_REVISION),
         trust_root: if regular_file(&request.allowed_signers_path, "allowed_signers").is_ok() {
@@ -226,7 +229,13 @@ pub fn persist_runtime_seed_evidence(
         .as_ref()
         .and_then(|observation| observation.current_release_id.as_deref())
         .unwrap_or("unactivated");
-    let path = evidence_root.join(format!("{}-{release_id}.json", now_unix_ms()));
+let path = evidence_root.join(format!(
+        "{}-{release_id}.json",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
+    ));
     let bytes = serde_json::to_vec_pretty(report)
         .map_err(|error| format!("runtime_seed_evidence_encode_failed:{error}"))?;
     let mut file = fs::OpenOptions::new()

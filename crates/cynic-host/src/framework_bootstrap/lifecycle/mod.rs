@@ -11,7 +11,7 @@ pub fn audit_framework_lifecycle(
     if role.trim().is_empty() {
         return Err("framework lifecycle role is required".to_string());
     }
-    let path = crate::runtime_registry::resolve_runtime_registry_path(
+    let path = cynic_registry::runtime_registry::resolve_runtime_registry_path(
         registry_path.map(std::path::Path::new),
     )?;
     let bytes = std::fs::read(&path).map_err(|error| {

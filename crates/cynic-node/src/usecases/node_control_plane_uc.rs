@@ -467,7 +467,7 @@ mod tests {
         path::{Path, PathBuf},
     };
 
-    use cynic_host::runtime_seed::RuntimeSeedApplyReport;
+    use cynic_registry::runtime_seed::RuntimeSeedApplyReport;
     use cynic_protocol::{RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedObservation, RuntimeSeedRequest, SecurityEvidenceState};
 use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SCHEMA, NodeControlConnectionState, NodeControlObservation, NodeDesiredState};
 

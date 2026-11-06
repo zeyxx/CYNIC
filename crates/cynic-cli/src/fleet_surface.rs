@@ -265,7 +265,7 @@ fn execute_observe(default_user: &str, no_ssh: bool, json: bool) -> ExitCode {
 
     // Nodes answer for themselves over HTTP; SSH only fills what they do not
     // report (a node that predates the field, or a runner with no node).
-    let pool = cynic_host::runtime_registry::load_runtime_registry(None)
+    let pool = cynic_registry::runtime_registry::load_runtime_registry(None)
         .map(|registry| cynic_build::builder_pool::resolve_builder_pool(&registry))
         .unwrap_or_default();
 
