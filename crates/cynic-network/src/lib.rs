@@ -18,6 +18,8 @@ pub mod firewall_policy;
 pub mod freebox;
 pub mod peer_handshake;
 pub use peer_handshake::*;
+pub mod peer_validator;
+pub use peer_validator::*;
 pub mod mesh;
 pub mod mesh_bundle;
 pub mod notification_outbox;

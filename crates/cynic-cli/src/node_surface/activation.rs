@@ -13,7 +13,7 @@ use cynic_types::paths::CynicPaths;
 
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_node::node_activation::NodeActivationPort;
-use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
+use cynic_node::node_identity_workflow::NodeIdentityWorkflow;
 use cynic_node_protocol::{MachineEnrollmentAuthority, NodeEnrollmentRequest};
 use sha2::{Digest, Sha256};
 

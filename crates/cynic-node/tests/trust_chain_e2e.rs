@@ -9,10 +9,10 @@
 use std::sync::Arc;
 
 use cynic_protocol::crypto::{CryptoProvider, Ed25519Provider};
-use cynic_host::lease_manager::LeaseManager;
-use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
-use cynic_host::peer_validator::PeerValidator;
-use cynic_host::plan_verifier::PlanVerifier;
+use cynic_node::lease_manager::LeaseManager;
+use cynic_node::node_identity_workflow::NodeIdentityWorkflow;
+use cynic_network::peer_validator::PeerValidator;
+use cynic_node::plan_verifier::PlanVerifier;
 use cynic_protocol::RuntimeSeedRequest;
 use cynic_protocol::fleet_discovery::FleetNodeStatus;
 use cynic_protocol::fleet_heartbeat::{
