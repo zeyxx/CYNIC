@@ -7,7 +7,7 @@
 //! durable. Authority: `cynic_network::TRANSPORT_READBACK_SCHEMA` — the typed
 //! proof is the authority, not the design note that proposed it.
 
-use cynic_network::{
+use crate::{
     TRANSPORT_FLEET_READBACK_SCHEMA, TRANSPORT_READBACK_SCHEMA, TransportFleetReadback,
     TransportKind, TransportReadback, TransportState, parse_wg_dump,
 };
@@ -87,7 +87,7 @@ impl<'a> WgReadbackObserver<'a> {
                 },
                 None => match peers.iter().find(|p| p.public_key == want.public_key) {
                     Some(peer) => {
-                        let mut rb = cynic_network::readback_from_wg_peer(
+                        let mut rb = crate::readback_from_wg_peer(
                             &want.node_id,
                             peer,
                             now_unix_ms,

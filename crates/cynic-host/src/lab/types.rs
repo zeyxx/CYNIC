@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::runtime_harness::RuntimeHarnessContext;
+use cynic_registry::runtime_harness::RuntimeHarnessContext;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LabPlanReport {

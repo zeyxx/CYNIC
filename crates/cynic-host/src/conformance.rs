@@ -14,7 +14,7 @@ use crate::ports::{
 use crate::profiles::HostProfile;
 use cynic_registry::HostProfileResolution;
 use crate::project_root::current_project_root;
-use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
+use cynic_registry::runtime_harness::{RuntimeHarnessContext, conformance_context};
 use cynic_registry::runtime_layout::current_runtime_layout;
 use crate::runtime_proof::{
     assemble_runtime_proof_bundle, assemble_runtime_proof_persistence_record,
@@ -938,7 +938,7 @@ fn gate_status(gates: &[HostConformanceGate], id: &str) -> &'static str {
 #[cfg(test)]
 mod conformance_tests {
     use super::*;
-    use crate::runtime_harness::conformance_context;
+    use cynic_registry::runtime_harness::conformance_context;
 
     #[test]
     fn local_vertical_report_preserves_unknown_provider_and_orchestrator() {

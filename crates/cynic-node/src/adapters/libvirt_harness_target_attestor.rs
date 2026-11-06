@@ -1,4 +1,4 @@
-use cynic_host::runtime_harness::{
+use cynic_registry::runtime_harness::{
     RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessContext,
     RuntimeHarnessTargetAttestation,
 };
@@ -159,7 +159,7 @@ fn proof_ref(kind: &str, observed: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use cynic_host::runtime_harness::{
+    use cynic_registry::runtime_harness::{
         closed_local_lab_context, validate_runtime_harness_target_attestation,
     };
     use cynic_process::{ArgvOutput, MapArgvRunner};

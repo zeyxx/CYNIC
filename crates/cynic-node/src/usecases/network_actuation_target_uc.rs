@@ -13,10 +13,10 @@ use cynic_network::actuator::{
     NetworkActuationProofReport, NetworkActuationRequest, execute_network_actuation_with_readback,
     gate_network_actuation_request,
 };
-use cynic_host::runtime_harness::{
+use cynic_registry::runtime_harness::{
     RuntimeHarnessContext, RuntimeHarnessTargetAttestation, validate_runtime_harness_target_attestation,
 };
-use cynic_host::runtime_harness::runtime_harness_catalog;
+use cynic_registry::runtime_harness::runtime_harness_catalog;
 use cynic_process::ArgvRunner;
 use cynic_process::LocalArgvRunner;
 
@@ -110,7 +110,7 @@ mod tests {
         NETWORK_ACTUATION_REQUEST_SCHEMA, NetworkActuationPlan, NetworkActuationRequest,
         admit_network_actuation_plan,
     };
-    use cynic_host::runtime_harness::{
+    use cynic_registry::runtime_harness::{
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };

@@ -1,4 +1,4 @@
-use cynic_host::runtime_harness::{
+use cynic_registry::runtime_harness::{
     HarnessAuthority, RuntimeHarnessContext, RuntimeHarnessTargetAttestation,
     validate_runtime_harness_target_attestation,
 };
@@ -146,7 +146,7 @@ fn violation(code: &'static str, message: &'static str) -> NetworkExecutionViola
 
 #[cfg(test)]
 mod tests {
-    use cynic_host::runtime_harness::{
+    use cynic_registry::runtime_harness::{
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context, production_context,
     };

@@ -13,7 +13,7 @@ use crate::runtime_surface::report::types::{
 pub(crate) fn build_runtime_report(
     default_runtime_report_path: &std::path::Path,
 ) -> Result<RuntimeReport, String> {
-    let harness = cynic_host::runtime_harness::runtime_harness_catalog(None)?;
+    let harness = cynic_registry::runtime_harness::runtime_harness_catalog(None)?;
     let phases = harness
         .contexts
         .iter()
@@ -21,15 +21,15 @@ pub(crate) fn build_runtime_report(
             phase: context.kind.as_str(),
             environment: context.role,
             authority: match context.authority {
-                cynic_host::runtime_harness::HarnessAuthority::TestProjection => "test_projection",
-                cynic_host::runtime_harness::HarnessAuthority::ConformanceGate => {
+                cynic_registry::runtime_harness::HarnessAuthority::TestProjection => "test_projection",
+                cynic_registry::runtime_harness::HarnessAuthority::ConformanceGate => {
                     "conformance_gate"
                 }
-                cynic_host::runtime_harness::HarnessAuthority::ReleaseCandidate => {
+                cynic_registry::runtime_harness::HarnessAuthority::ReleaseCandidate => {
                     "release_candidate"
                 }
-                cynic_host::runtime_harness::HarnessAuthority::FleetCanary => "fleet_canary",
-                cynic_host::runtime_harness::HarnessAuthority::RuntimeAuthority => {
+                cynic_registry::runtime_harness::HarnessAuthority::FleetCanary => "fleet_canary",
+                cynic_registry::runtime_harness::HarnessAuthority::RuntimeAuthority => {
                     "runtime_authority"
                 }
             },

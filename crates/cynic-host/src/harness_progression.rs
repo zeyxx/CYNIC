@@ -8,7 +8,7 @@
 use cynic_protocol::build::HarnessAuthority;
 use serde::Serialize;
 
-pub use crate::runtime_harness::RuntimeHarnessKind;
+pub use cynic_registry::runtime_harness::RuntimeHarnessKind;
 pub use cynic_protocol::deployment_tier::{
     DeploymentTier, ProofCategory as TierProofCategory,
     TierProgressionEvidence, TierProgressionVerdict,
