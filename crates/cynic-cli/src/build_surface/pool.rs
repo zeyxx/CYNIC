@@ -9,11 +9,11 @@ use cynic_host::adapters::forgejo_run_observer::{
     observations_from_runs, RunRecord as ForgejoRunRecord,
 };
 use cynic_host::adapters::local_toolchain_probe::LocalToolchainProbe;
-use cynic_host::domain::pool_eligibility::{
+use cynic_build::domain::pool_eligibility::{
     evaluate_pool_eligibility, EnrollmentEvidence, PoolDeclaration, PoolEligibility, ToolKind,
     ToolRequirement,
 };
-use cynic_host::domain::pool_metrics::measure_pool;
+use cynic_build::domain::pool_metrics::measure_pool;
 use cynic_build::build_memory_capacity::{
     decide_memory_capacity_with_cores, stamp_source_digest, MemoryCapacityAssessment,
     MemoryCapacityDecision, DEFAULT_RESERVED_BYTES, DEFAULT_UNIT_RSS_BYTES,

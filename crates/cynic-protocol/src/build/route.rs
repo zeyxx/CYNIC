@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::SecurityEvidenceState;
+#[cfg(test)]
 use super::BUILD_RUNNER_ROLE;
 use super::bootstrap::{
     BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,

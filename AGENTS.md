@@ -39,8 +39,14 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 - **Sovereign merges**: Forgejo is the sovereign store, GitHub the public projection. Merge only via `cynic source pr merge` on the sovereign side; never `gh pr merge` (it writes to the projection and splits the line — 2026-10-23). The hourly drift watch pages on divergence; converge before any further merge.
 - **Never push to GitHub directly**: Direct `git push github ...` is strictly forbidden. The automated mirror handles replication from sovereign Forgejo to GitHub. Agents interact exclusively with Forgejo (`origin`).
 - **Claims**: Scope claim before mutation; release with proof reference.
+- **Upstream freshness (external projects)**: Before reading or modifying any external project (TrenchScanner, TokenSage, GASdf, XSCanner, etc.), always run `git fetch origin && git pull origin main` first. Local clones can be hundreds of commits behind. Stale code = false conclusions. Verify `git log --oneline -1` matches `origin/main` before any analysis.
+- **No duplicate upstream logic**: Before implementing a feature, verify the upstream project doesn't already do it. Reimplementing on-chain discovery, rug screening, or scoring in a downstream project is a defect.
+- **Trace data flows before coding**: Before writing code for a multi-project integration, map who sends what to whom (prefetch vs webhook, sync vs async). No code without a documented data flow.
+- **Honest progress**: A component is "done" only when tested AND connected. Written but untested/unconnected code is "draft", not "done".
 
 ## Convergence Procedure (Git & Worktree Hygiene)
+
+- **Methodology (project creation)**: Before writing code for a new project or feature, follow the sequence: Research → Whiteboard (architecture diagram + data flow doc) → Grill (stress-test the plan with adversarial questions) → PRD (formalize scope, IS/ISN'T, success metrics) → Build+QA (milestone by milestone, tested + connected) → Ship in public. Do not skip Whiteboard or Grill. No code without a documented data flow.
 
 1. **Observe**: `cynic source git branch status --json` + `cynic source worktree --json`.
 2. **Triate**: `cynic source git reconcile --json` → classify branches (ReadyForPr/NeedsRebase/Archive/GcWorktree).

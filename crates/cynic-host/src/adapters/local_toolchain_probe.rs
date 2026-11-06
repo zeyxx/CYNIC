@@ -4,7 +4,7 @@
 //! cannot be resolved in `PATH` (or reports a version below the declared
 //! minimum) is absent, whatever the registry claims.
 
-use crate::domain::pool_eligibility::{ToolKind, ToolObservation};
+use cynic_build::domain::pool_eligibility::{ToolKind, ToolObservation};
 use cynic_process::ArgvRunner;
 
 /// Probe the local host for the given tool names.

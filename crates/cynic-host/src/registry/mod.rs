@@ -945,7 +945,7 @@ pub mod resolve {
             "node {name} declares host_family {family}, which the host profile resolver does not \
              recognise; it would otherwise resolve under the default profile instead of the \
              declared one. Use one of: {}.",
-            crate::domain::host_family_drift::RESOLVED_FAMILIES.join(", ")
+            crate::domain::host_profile::drift::RESOLVED_FAMILIES.join(", ")
         ))
     }
 

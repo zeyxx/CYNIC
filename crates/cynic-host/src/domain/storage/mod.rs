@@ -1,4 +1,5 @@
 pub mod apply;
+pub mod drift;
 pub mod local_adapter;
 pub mod probe;
 pub mod reconcile;
