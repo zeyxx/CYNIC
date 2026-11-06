@@ -12,6 +12,8 @@ pub mod topology;
 pub mod command_surface;
 pub mod discovery;
 pub mod dns;
+pub mod endpoint_observation;
+pub use endpoint_observation::*;
 pub use dns as dns_resolver;
 pub use dns::activation as dns_activation;
 pub mod firewall_policy;

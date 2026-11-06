@@ -1,5 +1,4 @@
 pub mod adapters;
-pub mod bucket_signatures;
 pub mod capacity;
 pub mod domain;
 pub mod ecosystem_package;
@@ -17,7 +16,6 @@ pub mod rate_classify_scan;
 // it, and both test suites failed at E0432 rather than exercising it.
 pub mod coordination_lease_store;
 pub mod infra;
-pub mod endpoint_observation;
 pub mod execution;
 
 pub mod federation_runtime;
@@ -57,7 +55,6 @@ pub mod runtime_registry;
 pub mod runtime_resolver_plan;
 mod runtime_secret_install;
 pub mod runtime_seed;
-pub mod service_catalog;
 pub mod service_supervisor_observation;
 pub mod space_gc;
 

@@ -1,5 +1,7 @@
 pub mod agent;
 pub mod agent_citizenship;
+pub mod bucket_signatures;
+pub use bucket_signatures::*;
 pub mod cargo_metadata;
 pub mod fleet;
 pub use fleet::consensus::*;

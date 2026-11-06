@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use cynic_registry::process_observation::{resolve_socket_addresses, tcp_probe};
+use crate::preflight::TcpObservation;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EndpointObservation {
@@ -42,6 +42,46 @@ pub fn observe_tcp_endpoint(endpoint: &str, declared_port: Option<u16>) -> Endpo
             .collect(),
         resolution_status: resolution_status.to_string(),
         tcp_reachability_status: tcp_reachability_status.to_string(),
+    }
+}
+
+fn resolve_socket_addresses(host: &str, port: u16) -> Vec<std::net::SocketAddr> {
+    std::net::ToSocketAddrs::to_socket_addrs(&(host, port))
+        .map(|addresses| addresses.collect())
+        .unwrap_or_default()
+}
+
+fn tcp_probe(host: &str, port: u16) -> TcpObservation {
+    let addresses = resolve_socket_addresses(host, port);
+    let status = if addresses.is_empty() {
+        "unresolved".to_string()
+    } else {
+        let mut saw_timeout = false;
+        let mut open = false;
+        for address in addresses {
+            match std::net::TcpStream::connect_timeout(&address, std::time::Duration::from_secs(2)) {
+                Ok(_) => {
+                    open = true;
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+                    saw_timeout = true;
+                }
+                Err(_) => {}
+            }
+        }
+        if open {
+            "open".to_string()
+        } else if saw_timeout {
+            "timeout".to_string()
+        } else {
+            "closed".to_string()
+        }
+    };
+    TcpObservation {
+        host: host.to_string(),
+        port,
+        status,
     }
 }
 

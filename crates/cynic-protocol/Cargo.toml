@@ -17,6 +17,8 @@ ed25519-dalek.workspace = true
 rand.workspace = true
 thiserror = "2.0.18"
 
+regex = "1"
+
 async-trait.workspace = true
 
 [dev-dependencies]

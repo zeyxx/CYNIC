@@ -19,7 +19,7 @@ use cynic_protocol::rate_classify::{
     RateReport, WindowedCount, Thresholds, build_report, window_events,
 };
 
-use crate::bucket_signatures;
+use cynic_protocol::bucket_signatures;
 use cynic_protocol::autoresearch_port::AutoresearchPortError;
 
 /// Schema of the scan projection emitted by this adapter.

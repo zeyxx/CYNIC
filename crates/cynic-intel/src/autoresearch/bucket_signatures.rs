@@ -2,4 +2,4 @@
 //! `cynic_host::bucket_signatures` (moved to break ARCH-004 upward edge).
 //! Re-exported for backward compatibility.
 
-pub use cynic_host::bucket_signatures::*;
+pub use cynic_protocol::bucket_signatures::*;
