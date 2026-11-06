@@ -258,7 +258,7 @@ const KNOWN: &[&str] = &[
     // Presence search order, not placement: the secret checker probes
     // principal-owned then installed (/etc/cynic/secrets) candidates and
     // reports which exists. Same lookup-table shape as the registry scan.
-    "crates/cynic-host/src/secret_presence.rs",
+    "crates/cynic-secrets/src/secret_presence.rs",
     // Read-only sync check: storage credential sync verifies presence and
     // content-match of the runtime password file, gracefully absent. The
     // file is read to decide whether a sync is needed; nothing is created

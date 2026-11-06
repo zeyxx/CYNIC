@@ -21,7 +21,7 @@ pub mod identity;
 pub mod ports;
 pub mod protocol;
 pub mod types;
-
+pub mod secret_presence;
 // Re-export canonical secret types from cynic-protocol — no duplication.
 pub use cynic_protocol::secret_reference::{
     SecretClass, SecretProvider as SecretProviderKind, SecretReference,
@@ -41,6 +41,8 @@ pub use protocol::{
 // Re-export identity types (merged from cynic-identity).
 pub use error::IdentityError;
 pub use types::{NodeId, NodeIdentity, SigningMaterial};
+
+pub use secret_presence::*;
 
 /// V1 resolution helper — resolves an env var through the standard provider.
 ///
