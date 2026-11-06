@@ -9,7 +9,8 @@ pub mod actuator;
 pub mod adapters;
 pub mod ports;
 pub mod topology;
-pub mod command_surface;
+pub use cynic_protocol::command_surface;
+pub use cynic_protocol::command_surface::*;
 pub mod discovery;
 pub mod dns;
 pub mod endpoint_observation;
@@ -60,7 +61,6 @@ pub use adapters::finance as finance_adapters;
 pub use adapters::headscale as headscale_client;
 
 pub use actuator::*;
-pub use command_surface::*;
 pub use discovery::*;
 pub use topology::*;
 pub use dns::*;

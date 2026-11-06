@@ -232,7 +232,7 @@ mod tests {
         );
         assert!(hf.execution.apply.iter().any(|step| matches!(
             step.invocation,
-            cynic_network::command_surface::HostCommandInvocation::Expectation { .. }
+            cynic_protocol::command_surface::HostCommandInvocation::Expectation { .. }
         )));
     }
 

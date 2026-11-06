@@ -1,1 +1,1 @@
-pub use cynic_network::command_surface::*;
+pub use cynic_protocol::command_surface::*;

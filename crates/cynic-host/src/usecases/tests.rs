@@ -6,7 +6,7 @@ use super::{
     execute_admitted_service_apply, execute_host_apply, execute_runtime_service_reconcile,
     execute_service_apply_with_admission, observe_host, service_apply_satisfied_preconditions,
 };
-use cynic_network::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
+use cynic_protocol::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackagePolicy;
 use crate::domain::packages::{PackageCommandContext, PackageObservedState};

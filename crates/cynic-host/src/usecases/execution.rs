@@ -1,6 +1,6 @@
 use cynic_protocol::{ExecutionAuthorization, PolicyAdmissionReport, RequiredProof};
 
-use cynic_network::command_surface::HostCommandSurface;
+use cynic_protocol::command_surface::HostCommandSurface;
 use crate::domain::services::{ServiceObservedState, ServicePolicy};
 use crate::domain::shared::SurfaceStatus;
 use crate::ports::{
