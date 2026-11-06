@@ -4,7 +4,7 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 use super::types::{GcScope, SpaceGcObservation};
-use crate::scan_exclusions::excluded_dirs;
+use cynic_registry::scan_exclusions::excluded_dirs;
 
 pub fn observe_space_usage(root: &Path, scope: GcScope) -> SpaceGcObservation {
     let mut total_bytes = 0u64;

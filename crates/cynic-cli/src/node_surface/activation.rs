@@ -12,7 +12,7 @@ use serde::Serialize;
 use cynic_types::paths::CynicPaths;
 
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
-use cynic_host::node_activation::NodeActivationPort;
+use cynic_node::node_activation::NodeActivationPort;
 use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
 use cynic_node_protocol::{MachineEnrollmentAuthority, NodeEnrollmentRequest};
 use sha2::{Digest, Sha256};
@@ -71,7 +71,7 @@ pub(crate) fn execute_status(node_id: String, json: bool) -> ExitCode {
     }
     let registry_path =
         resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
-    let adapter = cynic_host::node_activation::NodeActivationAdapter::new(
+    let adapter = cynic_node::node_activation::NodeActivationAdapter::new(
         registry_path.to_string_lossy().to_string(),
     );
     let verdict = adapter.observe(&node_id);
@@ -81,7 +81,7 @@ pub(crate) fn execute_status(node_id: String, json: bool) -> ExitCode {
 pub(crate) fn execute_activate(node_id: String, yes: bool, json: bool) -> ExitCode {
     let registry_path =
         resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
-    let adapter = cynic_host::node_activation::NodeActivationAdapter::new(
+    let adapter = cynic_node::node_activation::NodeActivationAdapter::new(
         registry_path.to_string_lossy().to_string(),
     );
     let report = adapter.activate(&node_id, yes);

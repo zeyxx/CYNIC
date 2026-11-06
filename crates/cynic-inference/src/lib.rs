@@ -4,6 +4,7 @@ pub mod config_loader;
 pub mod domain;
 pub mod embedding;
 pub mod hf;
+pub mod inference_observation;
 pub mod infra;
 pub mod math;
 pub mod ods_discovery;
@@ -106,3 +107,4 @@ pub use math::roofline::{BandwidthTier, assess_roofline};
 
 // Adapter re-exports
 pub use adapters::inference::token_entropy::TokenEntropyAdapter;
+pub use inference_observation::*;
