@@ -14,7 +14,7 @@ use cynic_node_protocol::peer_resolver::PeerResolver;
 use cynic_types::paths::CynicPaths;
 
 use crate::os_health::{LocalOsHealthObserver, OsHealthObserver};
-use crate::peer_resolver_mesh::MeshPeerResolver;
+use cynic_network::peer_resolver_mesh::MeshPeerResolver;
 
 /// Local autonomy runtime — wires observation sources to the pure decision.
 pub struct LocalAutonomyRuntime {

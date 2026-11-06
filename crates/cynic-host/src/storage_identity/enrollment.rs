@@ -3,7 +3,7 @@ use cynic_persistence::identity::{
     StorageIdentityObservation, StorageIdentitySpec, reconcile_storage_identity,
 };
 
-use crate::runtime_secret_install::RuntimeSecretInstallSpec;
+use cynic_secrets::runtime_secret_install::RuntimeSecretInstallSpec;
 use cynic_secrets::SecretMaterial;
 
 use super::{
@@ -311,7 +311,7 @@ mod tests {
 
     use cynic_persistence::identity::{STORAGE_IDENTITY_SPEC_SCHEMA, StorageIdentityRole};
 
-    use crate::runtime_secret_install::{RuntimeSecretInstallReport, RuntimeSecretObservation};
+    use cynic_secrets::runtime_secret_install::{RuntimeSecretInstallReport, RuntimeSecretObservation};
 
     use super::*;
 

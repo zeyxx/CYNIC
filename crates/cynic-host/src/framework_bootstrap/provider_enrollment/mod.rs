@@ -29,7 +29,7 @@ pub fn resolve_local_provider_control_enrollment_spec(
     )
     .ok_or_else(|| "provider_enrollment_runtime_group_unresolved".to_string())?;
     let secret =
-        crate::runtime_secret_install::RuntimeSecretInstallSpec::provider_control(provider)?;
+        cynic_secrets::runtime_secret_install::RuntimeSecretInstallSpec::provider_control(provider)?;
     let config_target = authority.config_root.join("proxmox-control.toml");
     let ca_target = authority.config_root.join("proxmox-ca.pem");
     let desired = cynic_protocol::provider::ProviderControlDesiredState {

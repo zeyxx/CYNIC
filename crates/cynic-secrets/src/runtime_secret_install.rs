@@ -18,7 +18,7 @@ pub struct RuntimeSecretInstallSpec {
 
 impl RuntimeSecretInstallSpec {
     pub fn storage_runtime() -> Self {
-        let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
+        let authority = default_runtime_authority_paths();
         let group = authority.principal.runtime_group;
         Self {
             identity_id: "storage-runtime".to_string(),
@@ -26,7 +26,7 @@ impl RuntimeSecretInstallSpec {
                 .config_root
                 .join("secrets/storage-runtime-password"),
             owner_id: 0,
-            group_id: crate::identity_database::resolve_identity_id("/etc/group", &group),
+            group_id: resolve_identity_id("/etc/group", &group),
             mode: 0o640,
         }
     }
@@ -35,13 +35,13 @@ impl RuntimeSecretInstallSpec {
         if provider != "proxmox" {
             return Err("provider runtime secret adapter is unavailable".to_string());
         }
-        let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
+        let authority = default_runtime_authority_paths();
         let group = authority.principal.runtime_group;
         Ok(Self {
             identity_id: "provider-control:proxmox".to_string(),
             target: authority.config_root.join("secrets/proxmox-token"),
             owner_id: 0,
-            group_id: crate::identity_database::resolve_identity_id("/etc/group", &group),
+            group_id: resolve_identity_id("/etc/group", &group),
             mode: 0o640,
         })
     }
@@ -77,7 +77,7 @@ pub struct RuntimeSecretInstallReport {
     pub unknowns: Vec<String>,
 }
 
-pub(crate) fn observe_runtime_secret(spec: &RuntimeSecretInstallSpec) -> RuntimeSecretObservation {
+pub fn observe_runtime_secret(spec: &RuntimeSecretInstallSpec) -> RuntimeSecretObservation {
     let mut unknowns = Vec::new();
     let metadata = match fs::symlink_metadata(&spec.target) {
         Ok(metadata) => Some(metadata),
@@ -106,9 +106,9 @@ pub(crate) fn observe_runtime_secret(spec: &RuntimeSecretInstallSpec) -> Runtime
     }
 }
 
-pub(crate) fn install_runtime_secret(
+pub fn install_runtime_secret(
     spec: &RuntimeSecretInstallSpec,
-    material: &cynic_secrets::SecretMaterial,
+    material: &crate::SecretMaterial,
 ) -> Result<RuntimeSecretInstallReport, String> {
     validate_spec(spec)?;
     if unsafe { libc::geteuid() } != 0 {
@@ -168,9 +168,9 @@ pub(crate) fn install_runtime_secret(
     })
 }
 
-pub(crate) fn remove_runtime_secret_if_matches(
+pub fn remove_runtime_secret_if_matches(
     spec: &RuntimeSecretInstallSpec,
-    material: &cynic_secrets::SecretMaterial,
+    material: &crate::SecretMaterial,
 ) -> Result<RuntimeSecretObservation, String> {
     validate_spec(spec)?;
     if unsafe { libc::geteuid() } != 0 {
@@ -197,7 +197,7 @@ fn validate_spec(spec: &RuntimeSecretInstallSpec) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn install_protected_runtime_file(
+pub fn install_protected_runtime_file(
     identity_id: &str,
     target: &Path,
     owner_id: u32,
@@ -211,7 +211,7 @@ pub(crate) fn install_protected_runtime_file(
     if material.is_empty() || material.len() > 64 * 1024 {
         return Err("protected runtime file material is empty or exceeds the bound".to_string());
     }
-    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
+    let authority = default_runtime_authority_paths();
     if !target.starts_with(&authority.config_root)
         || target
             .components()
@@ -247,7 +247,7 @@ pub(crate) fn install_protected_runtime_file(
     sync_directory(parent)
 }
 
-pub(crate) fn remove_protected_runtime_file_if_matches(
+pub fn remove_protected_runtime_file_if_matches(
     target: &Path,
     material: &[u8],
 ) -> Result<(), String> {
@@ -287,7 +287,7 @@ pub(crate) fn remove_protected_runtime_file_if_matches(
 }
 
 fn prepare_secret_directory(spec: &RuntimeSecretInstallSpec, parent: &Path) -> Result<(), String> {
-    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
+    let authority = default_runtime_authority_paths();
     let root_metadata = fs::symlink_metadata(&authority.config_root)
         .map_err(|error| format!("runtime config authority is unavailable: {error}"))?;
     if !root_metadata.file_type().is_dir()
@@ -440,5 +440,38 @@ mod tests {
 
         let error = validate_spec(&tampered).unwrap_err();
         assert!(error.contains("differs from runtime authority"));
+    }
+}
+
+
+fn resolve_identity_id(database: &str, expected: &str) -> Option<u32> {
+    std::fs::read_to_string(database)
+        .ok()?
+        .lines()
+        .find_map(|line| {
+            let mut fields = line.split(':');
+            (fields.next()? == expected)
+                .then(|| fields.nth(1)?.parse::<u32>().ok())
+                .flatten()
+        })
+}
+
+use cynic_types::paths::CynicPaths;
+
+struct RuntimePrincipalLayout {
+    runtime_group: String,
+}
+
+struct RuntimeAuthorityPaths {
+    config_root: std::path::PathBuf,
+    principal: RuntimePrincipalLayout,
+}
+
+fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
+    RuntimeAuthorityPaths {
+        config_root: CynicPaths::system_config_dir(),
+        principal: RuntimePrincipalLayout {
+            runtime_group: "cynic".to_string(),
+        },
     }
 }

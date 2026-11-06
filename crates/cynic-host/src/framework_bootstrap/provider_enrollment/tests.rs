@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use cynic_types::paths::CynicPaths;
 
 use super::*;
-use crate::runtime_secret_install::RuntimeSecretInstallSpec;
+use cynic_secrets::runtime_secret_install::RuntimeSecretInstallSpec;
 
 fn spec() -> ProviderControlEnrollmentSpec {
     ProviderControlEnrollmentSpec {

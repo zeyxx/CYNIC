@@ -34,10 +34,8 @@ pub mod install_contract;
 pub mod lab;
 
 pub mod mcp_tool;
-pub mod node_substrate;
 pub mod one_shot_authority;
 pub mod os_health;
-pub mod peer_resolver_mesh;
 pub mod ports;
 pub mod project_root;
 pub mod pre_os_control;
@@ -51,7 +49,6 @@ pub use cynic_registry::runtime_execution_context as runtime_execution_context;
 pub mod runtime_metrics;
 pub mod runtime_proof;
 pub mod runtime_resolver_plan;
-mod runtime_secret_install;
 pub mod service_supervisor_observation;
 pub mod space_gc;
 

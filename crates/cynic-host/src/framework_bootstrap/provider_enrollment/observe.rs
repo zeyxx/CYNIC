@@ -5,7 +5,7 @@ use std::path::Path;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use crate::runtime_secret_install::observe_runtime_secret;
+use cynic_secrets::runtime_secret_install::observe_runtime_secret;
 
 use super::types::{ProviderControlEnrollmentObservation, ProviderControlEnrollmentSpec};
 

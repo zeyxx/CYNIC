@@ -3,7 +3,7 @@ use std::io::Read;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
-use crate::runtime_secret_install::{
+use cynic_secrets::runtime_secret_install::{
     install_protected_runtime_file, install_runtime_secret,
     remove_protected_runtime_file_if_matches, remove_runtime_secret_if_matches,
 };
@@ -238,7 +238,7 @@ fn report(
     after: super::types::ProviderControlEnrollmentObservation,
     mutates: bool,
     requested_apply: bool,
-    secret_install: Option<crate::runtime_secret_install::RuntimeSecretInstallReport>,
+    secret_install: Option<cynic_secrets::runtime_secret_install::RuntimeSecretInstallReport>,
     blockers: Vec<String>,
     rollback_performed: bool,
 ) -> ProviderControlEnrollmentReport {

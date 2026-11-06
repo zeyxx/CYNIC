@@ -13,7 +13,7 @@ use cynic_node_protocol::peer_resolver::{
 use cynic_protocol::error_catalog::CynicErrorCode;
 use cynic_protocol::health_signal::OsHealthAnomaly;
 
-use crate::os_health::probes::{read_available_mem_mib, read_bool, read_reclaim_pressure_pct};
+// (inlined from cynic-host os_health::probes — portable /proc readers)
 
 /// Concrete resolver: reads registry, probes TCP, observes OS health.
 pub struct MeshPeerResolver {
@@ -159,7 +159,7 @@ impl MeshPeerResolver {
             }
 
             // OS health: local observation only (remote observation requires SSH/agent).
-            let available_mem_mib = crate::os_health::probes::read_available_mem_mib();
+            let available_mem_mib = read_available_mem_mib();
             let os_health = if node.id == self.local_node_id {
                 let anomalies = self.observe_local_os_health();
                 NodeHealthView::from_anomalies(&anomalies, available_mem_mib)
@@ -214,10 +214,10 @@ fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
                 .to_string();
             // Canonical plane reads (RFC-NET-001 §2). Read path only: the struct field
             // names stay historical so this does not restructure T6 territory.
-            let synapse_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
+            let synapse_ip = crate::plane_vocabulary::plane_address(reservation, "service")
                 .map(String::from);
             let management_ip =
-                cynic_network::plane_vocabulary::plane_address(reservation, "admin")
+                crate::plane_vocabulary::plane_address(reservation, "admin")
                     .map(String::from);
 
             if let Some(management) = management_ip {
@@ -328,5 +328,57 @@ mod tests {
         assert_eq!(by_role.len(), 1);
         assert_eq!(all.len(), 1);
         assert_eq!(by_role[0], all[0]);
+    }
+}
+
+fn read_bool(path: &str) -> bool {
+    std::fs::read_to_string(path)
+        .map(|c| c.trim() == "1")
+        .unwrap_or(false)
+}
+
+fn read_available_mem_mib() -> u64 {
+    let content = match std::fs::read_to_string("/proc/meminfo") {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+    for line in content.lines() {
+        if let Some(rest) = line.strip_prefix("MemAvailable:") {
+            if let Some(kb) = rest.split_whitespace().next() {
+                if let Ok(kb_val) = kb.parse::<u64>() {
+                    return kb_val / 1024;
+                }
+            }
+        }
+    }
+    0
+}
+
+fn read_reclaim_pressure_pct() -> u8 {
+    let content = match std::fs::read_to_string("/proc/meminfo") {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+    let mut avail = 0u64;
+    let mut total = 0u64;
+    for line in content.lines() {
+        if let Some(r) = line.strip_prefix("MemAvailable:") {
+            avail = r
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+        } else if let Some(r) = line.strip_prefix("MemTotal:") {
+            total = r
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+        }
+    }
+    if total == 0 {
+        0
+    } else {
+        ((total.saturating_sub(avail)) * 100 / total) as u8
     }
 }
