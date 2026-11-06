@@ -51,6 +51,7 @@ pub mod pipeline_proof;
 pub mod ports;
 pub mod release_publication;
 pub mod runner;
+pub mod resilient_runner;
 pub mod runtime_release;
 pub mod types;
 
@@ -97,5 +98,6 @@ pub use pipeline_proof::*;
 pub use ports::{BuildCommandOutput, BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest, BuildRunner, BuildWorkspacePort, BuildWorkspaceReadBack, DetachedReleaseSignature, FilesystemPort, IdentityPort, PackagedReleaseBasket, ReleaseArtifactPublicationPort, ReleaseBasketPackagingPort, ReleaseBasketSigningPort, ReleasePublicationError, ReleasePublicationFuture, ReleasePublicationResult, ReleasePublicationTargets};
 pub use release_publication::*;
 pub use runner::{install_artifact, run_build};
+pub use resilient_runner::*;
 pub use runtime_release::*;
 pub use types::*;

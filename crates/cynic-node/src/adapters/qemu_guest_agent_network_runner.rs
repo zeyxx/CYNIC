@@ -5,7 +5,7 @@ use base64::Engine;
 use cynic_network::actuator::{
     NetworkActuationExecutor, NetworkActuationObservation, NetworkActuationObserver,
 };
-use cynic_host::runtime_harness::{
+use cynic_registry::runtime_harness::{
     RuntimeHarnessContext, RuntimeHarnessTargetAttestation,
     validate_runtime_harness_target_attestation,
 };
@@ -322,7 +322,7 @@ mod tests {
     use std::time::Duration;
 
     use base64::Engine;
-    use cynic_host::runtime_harness::{
+    use cynic_registry::runtime_harness::{
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };

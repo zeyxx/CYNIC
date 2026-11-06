@@ -158,7 +158,7 @@ mod tests {
     };
     use cynic_network::build_network_mesh_bundle;
     use crate::ports::network_command_runner_port::NetworkCommandRunnerPort;
-    use cynic_host::runtime_harness::{
+    use cynic_registry::runtime_harness::{
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };

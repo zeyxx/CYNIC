@@ -41,6 +41,7 @@ pub mod types;
 pub mod usecases;
 pub mod kernel_tunnel;
 pub mod watchdog_alerter;
+pub mod wireguard_readback;
 
 // Re-export adapters for direct and legacy access
 pub use adapters::finance::NetworkFinanceMeter;
@@ -85,3 +86,4 @@ pub use probe::{
 };
 pub use watchdog_alerter::reconcile_network_watchdog_outbox;
 pub use kernel_tunnel::*;
+pub use wireguard_readback::*;

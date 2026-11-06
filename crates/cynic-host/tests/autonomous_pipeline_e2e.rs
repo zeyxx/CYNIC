@@ -279,7 +279,7 @@ fn e2e_step2_build_workflow_blocks_on_dirty_source() {
 /// E2E step 3: Harness progression lab → conformance blocked without proof
 #[test]
 fn e2e_step3_harness_blocked_without_proof() {
-    use cynic_host::runtime_harness::RuntimeHarnessKind::*;
+    use cynic_registry::runtime_harness::RuntimeHarnessKind::*;
     let evidence = HarnessProgressionEvidence {
         current_kind: ClosedLocalLab,
         target_kind: Conformance,
@@ -300,7 +300,7 @@ fn e2e_step3_harness_blocked_without_proof() {
 /// E2E step 3: Harness progression lab → conformance allowed with all proofs
 #[test]
 fn e2e_step3_harness_allowed_with_proofs() {
-    use cynic_host::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
+    use cynic_registry::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
     let evidence = HarnessProgressionEvidence {
         current_kind: RuntimeHarnessKind::ClosedLocalLab,
         target_kind: RuntimeHarnessKind::Conformance,

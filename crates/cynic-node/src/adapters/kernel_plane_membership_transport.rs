@@ -4,7 +4,7 @@
 //! config) answers a connect probe, and projects the result as typed
 //! [`TransportReadback`]s for the membership tick. This is the minimal honest
 //! plane every node already has; the WireGuard observer
-//! (`cynic_host::wireguard_readback`) composes alongside it where an overlay
+//! (`cynic_network::wireguard_readback`) composes alongside it where an overlay
 //! is declared. No new config surface: the kernel URL is the one the node
 //! already needs to run.
 //!

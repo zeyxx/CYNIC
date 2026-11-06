@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cynic_host::runtime_harness::RuntimeHarnessContext;
+use cynic_registry::runtime_harness::RuntimeHarnessContext;
 use serde::Serialize;
 
 use super::NetworkMeshApplyPlanReport;
@@ -33,7 +33,7 @@ pub(super) fn apply_network_mesh_profile_from_plan(
     closed_environment: bool,
     plan: NetworkMeshApplyPlanReport,
 ) -> NetworkMeshApplyProfileReport {
-    let harness = closed_environment.then(cynic_host::runtime_harness::closed_local_lab_context);
+    let harness = closed_environment.then(cynic_registry::runtime_harness::closed_local_lab_context);
     apply_network_mesh_profile_from_plan_with_runner(
         bundle_dir,
         profile,

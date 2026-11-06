@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
-use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
+use cynic_registry::runtime_harness::{RuntimeHarnessContext, conformance_context};
 use crate::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
 };

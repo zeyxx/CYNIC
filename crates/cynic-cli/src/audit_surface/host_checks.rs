@@ -10,7 +10,7 @@ pub(crate) fn execute_harness(json: bool, kind: Option<&str>) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    match cynic_host::runtime_harness::runtime_harness_catalog(kind) {
+    match cynic_registry::runtime_harness::runtime_harness_catalog(kind) {
         Ok(report) => emit_json(&report, false),
         Err(error) => fail(error),
     }

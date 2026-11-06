@@ -59,10 +59,8 @@ pub mod privilege;
 pub mod process_convergence;
 pub mod profiles;
 pub mod registry;
-pub mod resilient_runner;
 pub mod runtime_context;
 pub mod runtime_execution_context;
-pub mod runtime_harness;
 pub mod runtime_metrics;
 pub mod runtime_network_preflight;
 pub mod runtime_proof;
@@ -83,7 +81,6 @@ pub(crate) mod storage_identity;
 pub mod storage_primary;
 pub mod transport;
 pub mod usecases;
-pub mod wireguard_readback;
 
 #[cfg(test)]
 pub(crate) mod test_support;

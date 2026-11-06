@@ -476,7 +476,7 @@ use cynic_node::provider_fallback_status;
 use cynic_node::usecases::network_actuation_target_uc::{
     QemuNetworkActuationConfig, execute_target_actuation_orchestration,
 };
-use cynic_host::runtime_harness::runtime_harness_catalog;
+use cynic_registry::runtime_harness::runtime_harness_catalog;
 use cynic_process::LocalArgvRunner;
 
 pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
@@ -1233,7 +1233,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
 
 fn selected_harness_context(
     harness_kind: &str,
-) -> Result<cynic_host::runtime_harness::RuntimeHarnessContext, String> {
+) -> Result<cynic_registry::runtime_harness::RuntimeHarnessContext, String> {
     runtime_harness_catalog(Some(harness_kind))?
         .contexts
         .pop()

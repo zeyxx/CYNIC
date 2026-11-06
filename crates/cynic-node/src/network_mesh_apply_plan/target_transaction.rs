@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use chrono::Utc;
-use cynic_host::runtime_harness::RuntimeHarnessContext;
+use cynic_registry::runtime_harness::RuntimeHarnessContext;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 

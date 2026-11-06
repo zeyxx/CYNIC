@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
 use cynic_registry::process_observation::{CommandObservation, TcpObservation, resolve_host, tcp_probe};
-use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
+use cynic_registry::runtime_harness::{RuntimeHarnessContext, conformance_context};
 
 use cynic_network::preflight::{
     NetworkProbe, NetworkRemediationPlan, NetworkRemediationStep, ResolverBaseline, parse_resolver_baseline,
