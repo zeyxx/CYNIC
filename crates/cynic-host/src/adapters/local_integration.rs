@@ -276,14 +276,13 @@ impl<'a> LocalIntegrationObservationAdapter<'a> {
                     document.get("remotes")?.as_array()?.iter().find(|remote| {
                         remote.get("id").and_then(Value::as_str) == Some("forgejo")
                     })?;
-                let service_ref: crate::service_catalog::ServiceRef =
-                    serde_json::from_value(remote.get("admin_service_ref")?.clone()).ok()?;
-                crate::service_catalog::resolve_service_ref(
-                    &root.join("infra/registry.json"),
-                    &service_ref,
+                let service_ref: ServiceRef = serde_json::from_value(
+                    remote.get("admin_service_ref")?.clone(),
                 )
-                .ok()
-                .map(|resolved| resolved.endpoint)
+                .ok()?;
+                resolve_service_ref(&root.join("infra/registry.json"), &service_ref)
+                    .ok()
+                    .map(|resolved| resolved.endpoint)
             })
     }
 }
@@ -397,6 +396,126 @@ fn concise_failure(prefix: &str, output: &ArgvOutput) -> String {
         .or_else(|| first_nonempty_line(&output.stderr))
         .unwrap_or_else(|| format!("exit_code={:?}", output.exit_code));
     format!("{prefix}: {detail}")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+struct ServiceRef {
+    node: String,
+    service: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+struct ResolvedServiceEndpoint {
+    #[allow(dead_code)]
+    service_ref: ServiceRef,
+    #[allow(dead_code)]
+    scheme: String,
+    #[allow(dead_code)]
+    host: String,
+    #[allow(dead_code)]
+    port: u16,
+    endpoint: String,
+}
+
+#[derive(serde::Deserialize)]
+struct Registry {
+    network_policy: Option<NetworkPolicy>,
+    nodes: Option<Vec<Node>>,
+}
+
+#[derive(serde::Deserialize)]
+struct NetworkPolicy {
+    reservations: Option<Vec<Reservation>>,
+}
+
+#[derive(serde::Deserialize)]
+struct Reservation {
+    name: Option<String>,
+    dns: Option<Vec<String>>,
+}
+
+#[derive(serde::Deserialize)]
+struct Node {
+    id: Option<String>,
+    name: Option<String>,
+    services: Option<Vec<Service>>,
+}
+
+#[derive(serde::Deserialize)]
+struct Service {
+    name: Option<String>,
+    scheme: Option<String>,
+    port: Option<u16>,
+}
+
+fn resolve_service_ref(
+    registry_path: &std::path::Path,
+    reference: &ServiceRef,
+) -> Result<ResolvedServiceEndpoint, String> {
+    let raw = std::fs::read_to_string(registry_path)
+        .map_err(|error| format!("read {}: {error}", registry_path.display()))?;
+    let registry: Registry = serde_json::from_str(&raw)
+        .map_err(|error| format!("parse {}: {error}", registry_path.display()))?;
+    let nodes = registry.nodes.unwrap_or_default();
+    let node = nodes
+        .iter()
+        .find(|node| {
+            node.id.as_deref() == Some(reference.node.as_str())
+                || node.name.as_deref() == Some(reference.node.as_str())
+        })
+        .ok_or_else(|| format!("service node not declared: {}", reference.node))?;
+    let service = node
+        .services
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .find(|service| service.name.as_deref() == Some(reference.service.as_str()))
+        .ok_or_else(|| {
+            format!(
+                "service not declared: {}/{}",
+                reference.node, reference.service
+            )
+        })?;
+    let scheme = required(service.scheme.clone(), "service.scheme")?;
+    let port = service
+        .port
+        .ok_or_else(|| "service.port missing".to_string())?;
+    let host = registry
+        .network_policy
+        .and_then(|policy| policy.reservations)
+        .unwrap_or_default()
+        .into_iter()
+        .find(|reservation| reservation.name.as_deref() == Some(reference.node.as_str()))
+        .and_then(|reservation| reservation.dns)
+        .and_then(|names| names.into_iter().find(|name| !name.trim().is_empty()))
+        .ok_or_else(|| format!("service DNS reservation missing: {}", reference.node))?;
+    let endpoint = if default_port(&scheme) == Some(port) {
+        format!("{scheme}://{host}")
+    } else {
+        format!("{scheme}://{host}:{port}")
+    };
+    Ok(ResolvedServiceEndpoint {
+        service_ref: reference.clone(),
+        scheme,
+        host,
+        port,
+        endpoint,
+    })
+}
+
+fn required(value: Option<String>, field: &str) -> Result<String, String> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| format!("{field} missing"))
+}
+
+fn default_port(scheme: &str) -> Option<u16> {
+    match scheme {
+        "http" => Some(80),
+        "https" => Some(443),
+        "ssh" => Some(22),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

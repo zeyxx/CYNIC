@@ -64,6 +64,7 @@ pub mod ports;
 pub mod provider_fallback_hosts;
 pub mod provider_fallback_status;
 pub mod runtime_supervision;
+pub mod service_catalog;
 pub mod shutdown;
 pub(crate) mod source_change_transaction;
 
@@ -90,3 +91,4 @@ pub use node_activation::*;
 pub use lease_manager::*;
 pub use node_identity_workflow::*;
 pub use plan_verifier::*;
+pub use service_catalog::*;
