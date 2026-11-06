@@ -1,4 +1,4 @@
-use crate::command_surface::HostCommandInvocation;
+use cynic_network::command_surface::HostCommandInvocation;
 use crate::execution::{
     HostExecutionPlan, HostExecutionPlanReport, HostExecutionStep, HostExecutionStepExecution,
     command_to_argv, host_execution_plan_from_commands,
@@ -99,7 +99,7 @@ fn execution_plan_for(
     id: &str,
     context: &IntegrationObservationContext,
     decision_surface: IntegrationDecisionSurface,
-    commands: Vec<crate::command_surface::HostCommandSurface>,
+    commands: Vec<cynic_network::command_surface::HostCommandSurface>,
     blockers: &mut Vec<String>,
 ) -> HostExecutionPlan {
     match id {

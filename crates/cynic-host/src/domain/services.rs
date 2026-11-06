@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::command_surface::{HostCommandSurface, argv_command, install_dir_command};
+use cynic_network::command_surface::{HostCommandSurface, argv_command, install_dir_command};
 use crate::domain::shared::{
     BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
     SurfaceStatus,
 };
-use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
+use cynic_protocol::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
 use cynic_registry::runtime_layout::current_runtime_layout;
 
@@ -488,7 +488,7 @@ mod tests {
         ServiceCommandContext, ServiceManagerKind, ServicePolicy, ServicePolicyExt, ServiceUnitPolicy,
         openrc_service_name,
     };
-    use crate::command_surface::render_command;
+    use cynic_network::command_surface::render_command;
 
     fn context() -> ServiceCommandContext {
         ServiceCommandContext {

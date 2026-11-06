@@ -83,7 +83,7 @@ pub fn connect_integration(
 fn execution_plan_for(
     id: &str,
     context: &IntegrationObservationContext,
-    commands: Vec<crate::command_surface::HostCommandSurface>,
+    commands: Vec<cynic_network::command_surface::HostCommandSurface>,
 ) -> HostExecutionPlan {
     let requires_privilege = id == "huggingface" && context.operator_user != context.runtime_user;
     host_execution_plan_from_commands(

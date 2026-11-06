@@ -1,4 +1,4 @@
-use crate::command_surface::{HostCommandSurface, argv_command, expectation};
+use cynic_network::command_surface::{HostCommandSurface, argv_command, expectation};
 
 use super::integration_plan_types::{IntegrationExecutionPlan, IntegrationPlanAction};
 use super::integration_types::{IntegrationObservation, IntegrationObservationContext};

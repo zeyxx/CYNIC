@@ -24,24 +24,9 @@
   },
   "entries": [
     {
-      "identity": "cynic-host|domain -> command_surface",
-      "count": 7,
-      "evidence": "crates/cynic-host/src/domain/services.rs:3"
-    },
-    {
       "identity": "cynic-host|domain -> execution",
       "count": 4,
       "evidence": "crates/cynic-host/src/domain/ecosystem_package/integration_apply.rs:2"
-    },
-    {
-      "identity": "cynic-host|domain -> install_contract",
-      "count": 4,
-      "evidence": "crates/cynic-host/src/domain/services.rs:9"
-    },
-    {
-      "identity": "cynic-host|domain -> runtime_layout",
-      "count": 5,
-      "evidence": "crates/cynic-host/src/domain/services.rs:11"
     },
     {
       "identity": "cynic-host|usecases -> command_surface",

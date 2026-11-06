@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
+use cynic_network::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
 use cynic_registry::package_provenance::{
     PackagePromotionObservation, PackagePromotionPolicy, PackageProvenancePolicy,
     assess_package_promotion,
@@ -10,7 +10,7 @@ use crate::domain::shared::{
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
     SurfaceStatus,
 };
-use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
+use cynic_protocol::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
 use cynic_registry::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
@@ -558,7 +558,7 @@ fn package_install_argv(
 #[cfg(test)]
 mod tests {
     use super::{PackageCommandContext, PackagePolicy};
-    use crate::command_surface::render_command;
+    use cynic_network::command_surface::render_command;
     use cynic_registry::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
     use cynic_registry::runtime_layout::PackageManagerKind;
 
