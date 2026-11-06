@@ -1,4 +1,4 @@
-pub(crate) use cynic_network::command_surface::{
+pub(crate) use cynic_protocol::command_surface::{
     HostCommandInvocation as NetworkCommandInvocation,
     HostCommandSurface as NetworkCommandSurface,
     argv_command, expectation, install_dir_command, install_file_command,

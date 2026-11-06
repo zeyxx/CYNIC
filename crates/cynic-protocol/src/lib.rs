@@ -3,6 +3,8 @@ pub mod agent_citizenship;
 pub mod bucket_signatures;
 pub use bucket_signatures::*;
 pub mod cargo_metadata;
+pub mod command_surface;
+pub use command_surface::*;
 pub mod fleet;
 pub use fleet::consensus::*;
 pub mod fleet_target;

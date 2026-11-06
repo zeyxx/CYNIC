@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_network::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
+use cynic_protocol::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
 use cynic_registry::package_provenance::{
     PackagePromotionObservation, PackagePromotionPolicy, PackageProvenancePolicy,
     assess_package_promotion,
@@ -558,7 +558,7 @@ fn package_install_argv(
 #[cfg(test)]
 mod tests {
     use super::{PackageCommandContext, PackagePolicy};
-    use cynic_network::command_surface::render_command;
+    use cynic_protocol::command_surface::render_command;
     use cynic_registry::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
     use cynic_registry::runtime_layout::PackageManagerKind;
 

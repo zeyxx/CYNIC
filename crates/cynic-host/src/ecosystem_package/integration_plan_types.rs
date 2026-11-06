@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use cynic_network::command_surface::HostCommandSurface;
+use cynic_protocol::command_surface::HostCommandSurface;
 
 use super::integration_types::{
     IntegrationDependencyView, IntegrationPrincipal, IntegrationToolingAuthorityView,
