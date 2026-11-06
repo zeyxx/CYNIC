@@ -2,7 +2,7 @@ use chrono::Utc;
 use cynic_host::bridge;
 use cynic_host::domain::shared::SurfaceStatus;
 use cynic_host::runtime_context::observe_current_host_runtime_context;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -22,7 +22,7 @@ pub struct NetworkActivationChainReport {
     pub status: &'static str,
     host_profile: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    host_resolution: Option<cynic_host::registry::HostProfileResolution>,
+    host_resolution: Option<cynic_registry::HostProfileResolution>,
     stages: Vec<ActivationStage>,
     host_context: Value,
     bridge_status: Value,
@@ -132,7 +132,7 @@ pub fn build_activation_chain_report(
 fn build_activation_chain_report_with_runtime(
     registry: &str,
     host_profile: &'static str,
-    host_resolution: Option<cynic_host::registry::HostProfileResolution>,
+    host_resolution: Option<cynic_registry::HostProfileResolution>,
     host_substrate_active: bool,
     host_bootstrap_active: bool,
     bridge_active: bool,

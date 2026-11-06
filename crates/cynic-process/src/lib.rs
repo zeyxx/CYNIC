@@ -3,6 +3,7 @@
 
 pub mod local;
 pub mod mock;
+pub mod process;
 
 pub use local::LocalArgvRunner;
 pub use mock::MapArgvRunner;

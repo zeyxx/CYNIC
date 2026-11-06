@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use cynic_types::paths::CynicPaths;
 use serde::Serialize;
 

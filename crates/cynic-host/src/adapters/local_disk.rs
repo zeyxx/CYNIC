@@ -18,7 +18,7 @@ use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
     DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
-use crate::process_observation::capture_command;
+use cynic_registry::process_observation::capture_command;
 use crate::scan_exclusions::excluded_dirs_for_cwd;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -53,7 +53,7 @@ impl DiskObservationPort for LocalDiskAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::process_observation::capture_command;
+    use cynic_registry::process_observation::capture_command;
 
     /// Integration check: real `lsblk` spawn + parser must agree on at least one
     /// device when run on a host that actually has block devices. This isolates

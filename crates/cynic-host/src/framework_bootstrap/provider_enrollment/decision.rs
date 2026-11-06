@@ -89,7 +89,7 @@ fn validate_spec(spec: &ProviderControlEnrollmentSpec) -> Vec<String> {
     if spec.desired.provider != "proxmox" {
         blockers.push("provider_enrollment_adapter_unavailable".to_string());
     }
-    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     let canonical_secret =
         crate::runtime_secret_install::RuntimeSecretInstallSpec::provider_control("proxmox").ok();
     if spec.config_target != authority.config_root.join("proxmox-control.toml")

@@ -20,7 +20,7 @@ pub fn resolve_local_provider_control_enrollment_spec(
     token_secret_source: &Path,
     ca_source: Option<&Path>,
 ) -> Result<ProviderControlEnrollmentSpec, String> {
-    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     let owner_id = crate::identity_database::resolve_identity_id("/etc/passwd", "root")
         .ok_or_else(|| "provider_enrollment_root_identity_unresolved".to_string())?;
     let group_id = crate::identity_database::resolve_identity_id(

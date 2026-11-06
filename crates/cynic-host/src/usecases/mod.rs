@@ -4,7 +4,7 @@ use crate::ports::{
     HostContractPort, HostPackageObservationPort, HostPrincipalObservationPort,
     HostPrivilegeObservationPort, HostServiceObservationPort,
 };
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 mod command_context;
 mod execution;

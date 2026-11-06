@@ -4,8 +4,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_host::process_observation::capture_command;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 pub use cynic_network::peer_handshake::*;
 pub use cynic_network::PEER_HANDSHAKE_SCHEMA;

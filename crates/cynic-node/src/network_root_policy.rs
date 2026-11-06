@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
 use crate::domain::node_observation::{NodeRuntimeAction, NodeRuntimeRemediation};

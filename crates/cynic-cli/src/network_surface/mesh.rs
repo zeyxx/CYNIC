@@ -96,7 +96,7 @@ pub(crate) fn try_execute_mesh(
                 expected_network_boundary,
                 virsh_bin,
                 ip_bin: ip_bin.unwrap_or_else(|| {
-                    cynic_host::runtime_layout::current_runtime_layout()
+                    cynic_registry::runtime_layout::current_runtime_layout()
                         .capabilities()
                         .route_tool
                         .command

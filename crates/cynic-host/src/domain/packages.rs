@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
-use crate::domain::package_provenance::{
+use cynic_network::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
+use cynic_registry::package_provenance::{
     PackagePromotionObservation, PackagePromotionPolicy, PackageProvenancePolicy,
     assess_package_promotion,
 };
@@ -10,9 +10,9 @@ use crate::domain::shared::{
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
     SurfaceStatus,
 };
-use crate::install_contract::{MODE_0644, MODE_0755, root_owned_path};
+use cynic_protocol::install_contract::{MODE_0644, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
-use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
+use cynic_registry::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
 const DEFAULT_OS_RELEASE_PATH: &str = "/etc/os-release";
 
@@ -558,9 +558,9 @@ fn package_install_argv(
 #[cfg(test)]
 mod tests {
     use super::{PackageCommandContext, PackagePolicy};
-    use crate::command_surface::render_command;
-    use crate::domain::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
-    use crate::runtime_layout::PackageManagerKind;
+    use cynic_network::command_surface::render_command;
+    use cynic_registry::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
+    use cynic_registry::runtime_layout::PackageManagerKind;
 
     fn context() -> PackageCommandContext {
         PackageCommandContext {

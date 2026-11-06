@@ -1,4 +1,4 @@
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use cynic_network::actuator::membrane_admission as pure_membrane_admission;
 
 pub(crate) use cynic_network::actuator::{

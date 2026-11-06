@@ -9,7 +9,7 @@ use crate::network_actuator_status::{NetworkActuatorActivationStatus, activation
 use crate::network_host_substrate;
 use crate::observe::{NodeObservation, observe_payload};
 use crate::provider_fallback_status::build_provider_fallback_status;
-use cynic_host::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NetworkRuntimeStatus {

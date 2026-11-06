@@ -2,7 +2,7 @@ use std::fs;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::Path;
 
-use cynic_host::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 use serde::Serialize;
 use serde_json::Value;
 

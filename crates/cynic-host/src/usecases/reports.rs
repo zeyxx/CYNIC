@@ -1,9 +1,9 @@
 use cynic_protocol::{PolicyAdmissionReport, RequiredProof};
 use serde::Serialize;
 
-use crate::command_surface::HostCommandSurface;
+use cynic_network::command_surface::HostCommandSurface;
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 pub const HOST_OBSERVATION_SCHEMA: &str = "cynic.host_substrate.observation.v1";
 pub const HOST_BUNDLE_SCHEMA: &str = "cynic.host_substrate.bundle.v1";
@@ -126,7 +126,7 @@ pub(crate) fn rendered_dry_run_command(
 ) -> ExecutedHostCommand {
     ExecutedHostCommand {
         domain,
-        command: crate::command_surface::render_command(command),
+        command: cynic_network::command_surface::render_command(command),
         executed: false,
         result: None,
     }

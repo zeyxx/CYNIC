@@ -1,11 +1,11 @@
-use crate::domain::package_provenance::PackagePromotionPolicy;
+use cynic_registry::package_provenance::PackagePromotionPolicy;
 use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
 use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
-use crate::runtime_authority::default_runtime_principal_layout;
-use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
+use cynic_registry::runtime_authority::default_runtime_principal_layout;
+use cynic_registry::runtime_layout::{PackageManagerKind, current_runtime_layout};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostFamilyKind {
@@ -303,7 +303,7 @@ impl HostFamilyProfile {
 #[cfg(test)]
 mod tests {
     use super::{HostFamilyKind, HostFamilyProfile};
-    use crate::runtime_layout::current_runtime_layout;
+    use cynic_registry::runtime_layout::current_runtime_layout;
 
     #[test]
     fn debian_systemd_family_declares_expected_runtime_surfaces() {
@@ -351,7 +351,7 @@ mod tests {
         );
         assert_eq!(
             family.package_policy().manager,
-            crate::runtime_layout::PackageManagerKind::Apk
+            cynic_registry::runtime_layout::PackageManagerKind::Apk
         );
         assert!(family.bootstrap_packages.contains(&"openrc".to_string()));
         assert!(
@@ -368,7 +368,7 @@ mod tests {
         assert_eq!(family.kind, HostFamilyKind::WindowsService);
         assert_eq!(
             family.package_policy().manager,
-            crate::runtime_layout::PackageManagerKind::Winget
+            cynic_registry::runtime_layout::PackageManagerKind::Winget
         );
         assert!(
             family

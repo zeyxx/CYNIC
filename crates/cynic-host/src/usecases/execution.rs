@@ -1,15 +1,13 @@
 use cynic_protocol::{ExecutionAuthorization, PolicyAdmissionReport, RequiredProof};
 
-use crate::command_surface::HostCommandSurface;
+use cynic_network::command_surface::HostCommandSurface;
 use crate::domain::services::{ServiceObservedState, ServicePolicy};
 use crate::domain::shared::SurfaceStatus;
-use crate::execution::{
-    admit_host_operation_plan, build_service_operation_plan,
-    runtime_service_operation_policy_admission, service_operation_policy_admission,
-};
 use crate::ports::{
     HostCommandResult, HostCommandRunnerPort, HostContractPort, HostOperation,
-    HostServiceObservationPort,
+    HostOperationPlan, HostServiceObservationPort,
+    admit_host_operation_plan, build_service_operation_plan,
+    runtime_service_operation_policy_admission, service_operation_policy_admission,
 };
 
 use super::reports::{
@@ -123,7 +121,7 @@ pub fn execute_runtime_service_reconcile_with_policy(
 pub(crate) fn execute_service_apply_with_admission(
     observed: &HostObservationReports,
     policy: &ServicePolicy,
-    plan: crate::execution::HostOperationPlan,
+    plan: HostOperationPlan,
     admission: PolicyAdmissionReport,
     authorization: ExecutionAuthorization,
     runner: &impl HostCommandRunnerPort,

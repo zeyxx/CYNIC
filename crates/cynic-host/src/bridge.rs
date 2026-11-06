@@ -4,8 +4,8 @@ use crate::command_surface::{
 use crate::install_contract::{
     InstallMode, InstallOwnership, InstallPathPolicy, MODE_0440, MODE_0755,
 };
-use crate::process_observation::capture_argv;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_argv;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
@@ -237,4 +237,11 @@ fn observed_group() -> String {
         .filter(|output| output.success && !output.stdout.is_empty())
         .map(|output| output.stdout)
         .unwrap_or_else(observed_user)
+}
+
+pub trait HostPrivilegeBridgeObservationPort {
+    fn observe_privilege_bridge(
+        &self,
+        spec: &PrivilegeBridgeInstallSpec,
+    ) -> PrivilegeBridgeObservedState;
 }

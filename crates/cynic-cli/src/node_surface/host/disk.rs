@@ -103,7 +103,7 @@ fn execute_build_runner_cache(
     node: Option<&str>,
     state_root: &str,
 ) -> ExitCode {
-    let observed_hostname = cynic_host::runtime_layout::observed_hostname();
+    let observed_hostname = cynic_registry::runtime_layout::observed_hostname();
     let node_id = node.unwrap_or(&observed_hostname);
     let temporary_root = std::env::temp_dir();
     let desired = match load_build_cache_desired_state(

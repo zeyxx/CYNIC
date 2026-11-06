@@ -62,7 +62,7 @@ impl HostContractPort for ProxmoxHypervisorHostProfile {
 mod tests {
     use super::ProxmoxHypervisorHostProfile;
     use crate::ports::{HostPackagePort, HostPrivilegePort, HostServicePort};
-    use crate::runtime_layout::current_runtime_layout;
+    use cynic_registry::runtime_layout::current_runtime_layout;
 
     #[test]
     fn proxmox_hypervisor_profile_derives_hypervisor_runtime_from_family() {

@@ -7,7 +7,7 @@
 
 use serde::Deserialize;
 
-use crate::domain::pool_metrics::JobObservation;
+use cynic_build::domain::pool_metrics::JobObservation;
 
 /// One workflow run as returned by the Forgejo tasks endpoint.
 #[derive(Debug, Clone, Deserialize)]

@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-use crate::command_surface::{HostCommandSurface, argv_command, install_dir_command};
+use cynic_network::command_surface::{HostCommandSurface, argv_command, install_dir_command};
 use crate::domain::shared::{
     BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
     SurfaceStatus,
 };
-use crate::install_contract::{InstallOwnership, InstallPathPolicy, MODE_0755};
+use cynic_protocol::install_contract::{InstallOwnership, InstallPathPolicy, MODE_0755};
 use crate::ports::{HostOperation, PrincipalLoginShell};
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrincipalPolicy {
@@ -371,9 +371,9 @@ impl PrincipalPolicy {
 #[cfg(test)]
 mod tests {
     use super::{PrincipalCommandContext, PrincipalObservedState, PrincipalPolicy};
-    use crate::command_surface::render_command;
+    use cynic_network::command_surface::render_command;
     use crate::domain::shared::{LifecycleStatus, SurfaceStatus};
-    use crate::runtime_authority::default_runtime_principal_layout;
+    use cynic_registry::runtime_authority::default_runtime_principal_layout;
 
     fn context() -> PrincipalCommandContext {
         PrincipalCommandContext {

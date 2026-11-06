@@ -9,5 +9,5 @@ layer = "L1"
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
-serde = { workspace = true, features = ["derive"], optional = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

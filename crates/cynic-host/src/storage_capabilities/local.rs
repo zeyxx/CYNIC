@@ -1,4 +1,4 @@
-use crate::process_observation::capture_command;
+use cynic_registry::process_observation::capture_command;
 
 use super::port::StorageCapabilityObservationPort;
 use super::types::ProbeObservation;

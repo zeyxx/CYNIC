@@ -2,8 +2,8 @@ use std::fs;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
 use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
-use crate::process_observation::{command_exit_success, command_stdout};
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::{command_exit_success, command_stdout};
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 pub(super) fn observe(spec: &PrivilegeBridgeInstallSpec) -> PrivilegeBridgeObservedState {
     let layout = current_runtime_layout();

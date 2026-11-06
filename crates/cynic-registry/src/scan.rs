@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::registry::types::{RegistryDocument, RegistryNode};
+use crate::types::{RegistryDocument, RegistryNode};
 use crate::runtime_registry::resolve_runtime_registry_path;
 use cynic_types::paths::CynicPaths;
 

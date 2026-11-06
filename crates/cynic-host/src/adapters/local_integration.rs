@@ -7,14 +7,14 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::domain::ecosystem_package::{
+use crate::ecosystem_package::{
     ConnectionState, IntegrationApplyReport, IntegrationConnectReport,
     IntegrationObservationContext, IntegrationObservationPort, IntegrationPrincipal,
     IntegrationSpec, IntegrationsPlanReport, IntegrationsStatusReport, RawIntegrationObservation,
     connect_integration, observe_integrations, plan_integrations,
 };
 use crate::project_root::current_project_root;
-use crate::runtime_authority::default_runtime_principal_layout;
+use cynic_registry::runtime_authority::default_runtime_principal_layout;
 use cynic_process::{ArgvOutput, ArgvRunner, LocalArgvRunner};
 
 pub struct LocalIntegrationObservationAdapter<'a> {
@@ -329,7 +329,7 @@ pub fn connect_local_integration(
 pub fn apply_local_integration(id: &str, apply: bool) -> Result<IntegrationApplyReport, String> {
     let runner = LocalArgvRunner;
     let adapter = LocalIntegrationObservationAdapter::new(&runner);
-    crate::domain::ecosystem_package::integration_apply::apply_integration(
+    crate::ecosystem_package::integration_apply::apply_integration(
         id,
         apply,
         &runner,

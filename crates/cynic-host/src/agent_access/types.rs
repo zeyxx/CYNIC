@@ -19,7 +19,7 @@ pub struct AgentAccessPolicy {
 
 impl AgentAccessPolicy {
     pub fn desired(authorized_principals: Vec<String>) -> Self {
-        let authority = crate::runtime_authority::default_runtime_authority_paths();
+        let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
         let runtime_directory = authority
             .kernel_socket_path
             .parent()

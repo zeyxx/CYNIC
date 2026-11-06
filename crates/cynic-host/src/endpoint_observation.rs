@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::process_observation::{resolve_socket_addresses, tcp_probe};
+use cynic_registry::process_observation::{resolve_socket_addresses, tcp_probe};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EndpointObservation {

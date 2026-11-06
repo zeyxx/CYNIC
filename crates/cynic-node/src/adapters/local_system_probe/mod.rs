@@ -61,7 +61,7 @@ impl SystemProbePlatformPort for LinuxPlatformProbe {
     fn observe_platform(&self) -> PlatformObservation {
         #[cfg(target_os = "linux")]
         {
-            use cynic_host::process_observation::capture_command;
+            use cynic_registry::process_observation::capture_command;
 
             let mut zfs_health = serde_json::Value::Null;
             let mut proxmox_resources = serde_json::Value::Null;
@@ -110,7 +110,7 @@ impl SystemProbePlatformPort for LinuxPlatformProbe {
     fn restart_critical_vmid(&self, vmid: &str) {
         #[cfg(target_os = "linux")]
         {
-            use cynic_host::process_observation::capture_command;
+            use cynic_registry::process_observation::capture_command;
 
             let _ = capture_command("sudo", &["-n", "qm", "start", vmid]);
         }

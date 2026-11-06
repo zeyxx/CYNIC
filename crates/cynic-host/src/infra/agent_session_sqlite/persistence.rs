@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use crate::domain::agent_session::AgentSessionStoreError;
+use cynic_agent::session::AgentSessionStoreError;
 use cynic_protocol::{AgentSessionRecord, AgentSessionState, validate_agent_session_record};
 
 pub(super) fn insert(

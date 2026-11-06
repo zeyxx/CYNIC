@@ -1,5 +1,5 @@
 use crate::ports::HostCommandResult;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 use super::local_command_runner::run_command;
 

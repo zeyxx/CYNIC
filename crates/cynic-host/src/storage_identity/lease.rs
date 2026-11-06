@@ -53,7 +53,7 @@ impl StorageIdentityEnrollmentLease {
 }
 
 fn lock_path() -> PathBuf {
-    crate::runtime_authority::default_runtime_authority_paths()
+    cynic_registry::runtime_authority::default_runtime_authority_paths()
         .config_root
         .join(".storage-identity-enroll.lock")
 }

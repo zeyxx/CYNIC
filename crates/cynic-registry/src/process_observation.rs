@@ -1,4 +1,4 @@
-use crate::runtime_layout::current_runtime_layout;
+use std::env;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -156,10 +156,7 @@ pub fn resolved_ip_from_command(value: &CommandObservation) -> Option<String> {
 }
 
 pub fn resolve_host(name: &str) -> CommandObservation {
-    let resolver_command = current_runtime_layout()
-        .capabilities()
-        .name_service
-        .resolver_command;
+    let resolver_command = env::var("CYNIC_GETENT_BIN").unwrap_or_else(|_| "getent".to_string());
     command_json(&resolver_command, &["hosts", name])
 }
 

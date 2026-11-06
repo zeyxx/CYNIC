@@ -1,6 +1,8 @@
 //! Pipeline metrics — atomic counters for Prometheus-compatible /metrics endpoint.
 //! No external crate — pure atomics + text format.
 
+pub mod trajectory;
+
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 

@@ -13,9 +13,9 @@ use crate::ports::{
     HostServiceObservationPort,
 };
 use crate::profiles::HostProfile;
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 use crate::runtime_context::{HostRuntimeContext, observe_host_runtime_context_with_observer};
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use crate::usecases::{
     build_host_activation_plan_with_resolution, build_host_apply_report_with_resolution,
     build_host_bundle_with_resolution, observe_host_with_resolution,

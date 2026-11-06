@@ -1,6 +1,6 @@
 use chrono::Utc;
 use cynic_network::actuator::{NetworkActuationRuntime, build_network_actuation_commands};
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 use crate::network_actuator::execution::run_command;
 use crate::network_actuator::policy::build_policy_document;

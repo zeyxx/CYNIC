@@ -14,7 +14,7 @@
     "identities": 34,
     "edges": 107,
     "by_crate": {
-      "cynic-host": 12,
+      "cynic-host": 0,
       "cynic-inference": 5,
       "cynic-intel": 2,
       "cynic-node": 13,
@@ -23,66 +23,6 @@
     }
   },
   "entries": [
-    {
-      "identity": "cynic-host|domain -> command_surface",
-      "count": 7,
-      "evidence": "crates/cynic-host/src/domain/services.rs:3"
-    },
-    {
-      "identity": "cynic-host|domain -> execution",
-      "count": 4,
-      "evidence": "crates/cynic-host/src/domain/ecosystem_package/integration_apply.rs:2"
-    },
-    {
-      "identity": "cynic-host|domain -> install_contract",
-      "count": 4,
-      "evidence": "crates/cynic-host/src/domain/services.rs:9"
-    },
-    {
-      "identity": "cynic-host|domain -> runtime_layout",
-      "count": 5,
-      "evidence": "crates/cynic-host/src/domain/services.rs:11"
-    },
-    {
-      "identity": "cynic-host|ports -> bridge",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/ports/mod.rs:32"
-    },
-    {
-      "identity": "cynic-host|ports -> execution",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/ports/mod.rs:43"
-    },
-    {
-      "identity": "cynic-host|ports -> hardware_conformance",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/ports/mod.rs:44"
-    },
-    {
-      "identity": "cynic-host|usecases -> command_surface",
-      "count": 3,
-      "evidence": "crates/cynic-host/src/usecases/tests.rs:9"
-    },
-    {
-      "identity": "cynic-host|usecases -> execution",
-      "count": 2,
-      "evidence": "crates/cynic-host/src/usecases/tests.rs:22"
-    },
-    {
-      "identity": "cynic-host|usecases -> registry",
-      "count": 3,
-      "evidence": "crates/cynic-host/src/usecases/planning.rs:3"
-    },
-    {
-      "identity": "cynic-host|usecases -> runtime_authority",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/usecases/tests.rs:28"
-    },
-    {
-      "identity": "cynic-host|usecases -> runtime_layout",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/usecases/tests.rs:29"
-    },
     {
       "identity": "cynic-inference|application -> adapters",
       "count": 18,

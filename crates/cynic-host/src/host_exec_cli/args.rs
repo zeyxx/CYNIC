@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 pub(crate) fn usage() -> String {
     concat!(

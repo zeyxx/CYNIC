@@ -1,5 +1,5 @@
-use cynic_host::process_observation::capture_command;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::capture_command;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 use crate::network_actuator_status::types::{NetworkActuatorProofRequirement, RootAuthorityCheck};
 use crate::network_root_policy::NetworkRootPolicy;

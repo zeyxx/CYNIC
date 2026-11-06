@@ -4,7 +4,7 @@
 //! /proc/pressure/memory) and returns the canonical protocol types. They are
 //! testable without a host and used by LocalMemoryAdapter.
 
-use crate::domain::memory::types::{MemoryPressure, MemoryReport, MemoryUsage, MemoryVolume};
+use cynic_protocol::host_substrate::memory::{MemoryPressure, MemoryReport, MemoryUsage, MemoryVolume};
 
 fn parse_kb_line(key: &str, lines: &[&str]) -> Option<u64> {
     for line in lines {

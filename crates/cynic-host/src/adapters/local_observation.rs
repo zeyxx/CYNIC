@@ -2,7 +2,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::domain::package_provenance::{
+use cynic_registry::package_provenance::{
     PackageRepositoryObservation, promotion_observation_for_repository,
 };
 use crate::domain::packages::PackageObservedState;
@@ -15,8 +15,8 @@ use crate::ports::{
     HostPrivilegeBridgeObservationPort, HostPrivilegeObservationPort, HostServiceObservationPort,
     PreOsPlatformObservationPort,
 };
-use crate::process_observation::{command_exit_success, command_stdout};
-use crate::runtime_layout::{PackageManagerKind, PackageManagerKindExt, current_runtime_layout};
+use cynic_registry::process_observation::{command_exit_success, command_stdout};
+use cynic_registry::runtime_layout::{PackageManagerKind, PackageManagerKindExt, current_runtime_layout};
 use crate::service_supervisor_observation::observe_service_supervisor;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -360,7 +360,7 @@ impl HostPackageObservationPort for LocalHostObservationAdapter {
 
 fn observe_package_promotion(
     policy: &crate::domain::packages::PackagePolicy,
-) -> crate::domain::package_provenance::PackagePromotionObservation {
+) -> cynic_registry::package_provenance::PackagePromotionObservation {
     let Ok(raw) = std::fs::read_to_string(&policy.source_projection_path) else {
         return Default::default();
     };

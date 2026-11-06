@@ -1,35 +1,6 @@
-//! Registry module — split into focused submodules
-//!
-//! - `types`: Pure data structures (no I/O, no policy)
-//! - `scan`: Discovery and loading (read-only)
-//! - `validate`: Pure validation functions
-//! - `persist`: I/O operations with atomic write + read-back proof
+//! Registry module — types/scan/validate/persist extracted to cynic-registry;
+//! `resolve` remains here (depends on host profiles & runtime layout).
 
-pub mod persist;
-pub mod scan;
-pub mod types;
-pub mod validate;
-
-// Re-export main public API
-pub use persist::{
-    PersistError, WriteProof, load_and_validate_registry, write_registry, write_registry_atomic,
-};
-pub use scan::{
-    ScanError, discover_registry_sources, find_node, load_registry, resolve_registry_path,
-};
-pub use types::{
-    HostProfileResolution, ObservedManagementLink, RegistryDocument, RegistryFleetDesired,
-    RegistryFleetTarget, RegistryHostBootstrap, RegistryHostBootstrapRoleProfile,
-    RegistryKernelRelease, RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane,
-    RegistryNetworkPolicy, RegistryNode, RegistryNodeService, RegistryNodeSubstrate,
-    RegistryNodeTransports, RegistryServiceHealth, RegistryServiceSupervisor,
-    RegistrySourceRepository, RegistrySourceWorkspaceLayout, RegistrySshEnrollmentAuthority,
-    RegistrySshTransport, ResolvedBuildRunnerTransport, ResolvedDirectManagementLink,
-    ResolvedHostIdentity, ResolvedNodeSubstrateTarget, ResolvedProviderControlTransport,
-};
-pub use validate::{
-    ValidationError, check_role_consistency, validate_registry, validate_registry_or_error,
-};
 
 // Keep existing public functions for backward compatibility
 pub use crate::registry::resolve::{
@@ -46,9 +17,10 @@ pub use crate::registry::resolve::{
 pub mod resolve {
     use super::*;
     use crate::profiles::HostProfile;
-    use crate::runtime_layout::current_runtime_layout;
+    use cynic_registry::runtime_layout::current_runtime_layout;
     use crate::runtime_registry::resolve_runtime_registry_path;
     use cynic_protocol::{NodeSubstrateDesiredState, NodeSubstratePower};
+    use cynic_registry::types::*;
     use std::path::{Path, PathBuf};
 
     // Re-export the resolution functions from the original registry.rs
@@ -59,7 +31,7 @@ pub mod resolve {
     }
 
     fn current_hostname() -> Result<String, String> {
-        let trimmed = crate::runtime_layout::observed_hostname();
+        let trimmed = cynic_registry::runtime_layout::observed_hostname();
         if trimmed.is_empty() {
             Err("hostname resolution returned empty output".to_string())
         } else {
@@ -973,7 +945,7 @@ pub mod resolve {
             "node {name} declares host_family {family}, which the host profile resolver does not \
              recognise; it would otherwise resolve under the default profile instead of the \
              declared one. Use one of: {}.",
-            crate::domain::host_family_drift::RESOLVED_FAMILIES.join(", ")
+            crate::domain::host_profile::drift::RESOLVED_FAMILIES.join(", ")
         ))
     }
 
@@ -1004,7 +976,7 @@ pub mod resolve {
 
     fn current_service_manager_kind() -> crate::domain::services::ServiceManagerKind {
         service_manager_kind_from_runtime_kind(
-            &crate::runtime_layout::current_runtime_layout().service_manager_kind(),
+            &cynic_registry::runtime_layout::current_runtime_layout().service_manager_kind(),
         )
     }
 
@@ -1081,7 +1053,7 @@ pub mod resolve {
     #[cfg(test)]
     mod host_family_resolution_tests {
         use super::*;
-        use crate::registry::types::RegistryNode;
+        use cynic_registry::RegistryNode;
 
         fn node_with_family(name: &str, role: Option<&str>, family: Option<&str>) -> RegistryNode {
             RegistryNode {

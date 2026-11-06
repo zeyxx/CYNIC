@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::command_surface::{
+use cynic_network::command_surface::{
     HostCommandSurface, argv_command, install_dir_command, render_command, validate_sudoers_command,
 };
 use crate::domain::shared::{
@@ -8,9 +8,9 @@ use crate::domain::shared::{
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
     SurfaceStatus,
 };
-use crate::install_contract::{MODE_0440, MODE_0755, root_owned_path};
+use cynic_protocol::install_contract::{MODE_0440, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 const DEFAULT_DENIED_SHELL_BIN: &str = "/bin/sh";
 
@@ -375,7 +375,7 @@ impl PrivilegePolicy {
 #[cfg(test)]
 mod tests {
     use super::{PrivilegeCommandContext, PrivilegeObservedState, PrivilegePolicy};
-    use crate::command_surface::render_command;
+    use cynic_network::command_surface::render_command;
     use crate::domain::shared::SurfaceStatus;
 
     fn context() -> PrivilegeCommandContext {

@@ -8,8 +8,8 @@ use crate::ports::{
     PreOsArtifactObservationPort, PreOsAttestationObservationPort, PreOsPlatformObservationPort,
 };
 use crate::pre_os_control::{PreOsArtifactObservation, PreOsAttestationSinkObservation};
-use crate::process_observation::command_exit_success;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::process_observation::command_exit_success;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalPreOsAdapter;

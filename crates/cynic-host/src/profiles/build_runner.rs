@@ -11,7 +11,7 @@ use crate::ports::{
     HostServicePort,
 };
 use crate::profiles::families::HostFamilyProfile;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BuildRunnerHostProfile;

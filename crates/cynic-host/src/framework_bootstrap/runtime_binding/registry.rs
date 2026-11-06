@@ -42,7 +42,7 @@ pub fn resolve_local_runtime_binding_spec(
     super::super::placement::ensure_local_placement(
         nodes,
         authority_node,
-        &crate::runtime_layout::observed_hostname(),
+        &cynic_registry::runtime_layout::observed_hostname(),
         "runtime_binding_authority",
     )?;
     let services = authority_node
@@ -84,7 +84,7 @@ pub fn resolve_local_runtime_binding_spec(
         .and_then(Value::as_str)
         .filter(|unit| !unit.trim().is_empty() && !unit.contains('/'))
         .ok_or_else(|| "runtime_binding_service_unit_invalid".to_string())?;
-    let authority = crate::runtime_authority::default_runtime_authority_paths();
+    let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     let owner_id = crate::identity_database::resolve_identity_id("/etc/passwd", "root")
         .ok_or_else(|| "runtime_binding_root_identity_unresolved".to_string())?;
     let group_id = crate::identity_database::resolve_identity_id(
@@ -92,7 +92,7 @@ pub fn resolve_local_runtime_binding_spec(
         &authority.principal.runtime_group,
     )
     .ok_or_else(|| "runtime_binding_runtime_group_unresolved".to_string())?;
-    let layout = crate::runtime_layout::current_runtime_layout();
+    let layout = cynic_registry::runtime_layout::current_runtime_layout();
 
     Ok(RuntimeBindingSpec {
         authority_role: desired.authority_role,

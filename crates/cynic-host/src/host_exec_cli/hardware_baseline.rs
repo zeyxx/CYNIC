@@ -8,7 +8,7 @@ use crate::hardware_baseline_apply::{HardwareBaselineBundle, apply_hardware_base
 use crate::hardware_conformance::observe_hardware_conformance;
 use crate::host_exec_cli::args::has_flag;
 use crate::host_exec_cli::io::emit_json;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
     if !has_flag(args, "--apply") || args.len() != 1 {

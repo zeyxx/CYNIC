@@ -1,6 +1,6 @@
 use crate::domain::shared::SurfaceStatus;
 use crate::ports::HostContractPort;
-use crate::registry::HostProfileResolution;
+use cynic_registry::HostProfileResolution;
 
 use super::command_context::HostCommandContext;
 use super::reports::{

@@ -1,4 +1,4 @@
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 use super::command_plan::MeshApplyRuntimeContext;
 

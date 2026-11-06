@@ -62,7 +62,7 @@ impl HostContractPort for NetworkNodeHostProfile {
 mod tests {
     use super::NetworkNodeHostProfile;
     use crate::ports::{HostPackagePort, HostPrivilegePort, HostServicePort};
-    use crate::runtime_layout::current_runtime_layout;
+    use cynic_registry::runtime_layout::current_runtime_layout;
 
     #[test]
     fn network_node_profile_derives_distribution_runtime_from_family() {

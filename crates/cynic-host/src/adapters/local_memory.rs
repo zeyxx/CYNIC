@@ -8,7 +8,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::domain::memory::types::MemoryReport;
+use cynic_protocol::host_substrate::MemoryReport;
 use crate::domain::memory::{MemoryObservationPort, parse_meminfo, parse_pressure_memory};
 
 pub struct LocalMemoryAdapter;

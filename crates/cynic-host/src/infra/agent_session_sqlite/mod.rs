@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 
-use crate::domain::agent_session::{AgentSessionStoreError, AgentSessionStorePort};
+use cynic_agent::session::{AgentSessionStoreError, AgentSessionStorePort};
 use cynic_protocol::{AgentSessionRecord, AgentSessionState, validate_agent_session_record};
 
 mod persistence;

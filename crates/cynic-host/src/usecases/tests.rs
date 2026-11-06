@@ -6,7 +6,7 @@ use super::{
     execute_admitted_service_apply, execute_host_apply, execute_runtime_service_reconcile,
     execute_service_apply_with_admission, observe_host, service_apply_satisfied_preconditions,
 };
-use crate::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
+use cynic_network::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackagePolicy;
 use crate::domain::packages::{PackageCommandContext, PackageObservedState};
@@ -19,14 +19,14 @@ use crate::domain::services::{
     ServicePolicy, ServiceUnitPolicy,
 };
 use crate::domain::shared::{SubstrateBundleFile, SubstrateDomainContract, SurfaceStatus};
-use crate::execution::AdmittedHostOperation;
+use crate::ports::AdmittedHostOperation;
 use crate::ports::{
     HostCommandResult, HostCommandRunnerPort, HostContractPort, HostFilesystemPort, HostOperation,
     HostPackageObservationPort, HostPackagePort, HostPrincipalObservationPort, HostPrincipalPort,
     HostPrivilegeObservationPort, HostPrivilegePort, HostServiceObservationPort, HostServicePort,
 };
-use crate::runtime_authority::default_runtime_principal_layout;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_authority::default_runtime_principal_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority, PolicyDecision};
 use std::cell::Cell;
 
@@ -46,9 +46,9 @@ const PROMOTION_NOW_UNIX_S: u64 = 1_800_000_000;
 /// Blocked. A fake that wants to exercise the *service* apply path must supply
 /// the promotion evidence explicitly rather than inherit an unapproved default.
 fn satisfied_promotion_observation()
--> crate::domain::package_provenance::PackagePromotionObservation {
+-> cynic_registry::package_provenance::PackagePromotionObservation {
     const WEEK: u64 = 7 * 24 * 60 * 60;
-    crate::domain::package_provenance::PackagePromotionObservation {
+    cynic_registry::package_provenance::PackagePromotionObservation {
         // Metadata fresh enough, candidate aged past the minimum.
         metadata_observed_at_unix_s: Some(PROMOTION_NOW_UNIX_S - 60),
         candidate_observed_at_unix_s: Some(PROMOTION_NOW_UNIX_S - (WEEK + 60)),
@@ -125,17 +125,17 @@ impl HostPackagePort for StaticHostContractPort {
     fn desired_packages(&self) -> PackagePolicy {
         let layout = current_runtime_layout();
         PackagePolicy {
-            manager: crate::runtime_layout::PackageManagerKind::Apt,
+            manager: cynic_registry::runtime_layout::PackageManagerKind::Apt,
             policy_dir: layout.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", layout.config_dir),
             approved_sources: vec!["distribution_package".to_string()],
-            provenance: crate::domain::package_provenance::PackageProvenancePolicy::Repository {
+            provenance: cynic_registry::package_provenance::PackageProvenancePolicy::Repository {
                 source_id: "distribution_package".to_string(),
                 trusted_key_fingerprint: "test-key".to_string(),
                 max_metadata_age_secs: 86_400,
             },
             promotion_policy:
-                crate::domain::package_provenance::PackagePromotionPolicy::critical_infrastructure(),
+                cynic_registry::package_provenance::PackagePromotionPolicy::critical_infrastructure(),
             bootstrap_packages: vec!["wireguard-tools".to_string(), "iproute2".to_string()],
         }
     }
@@ -852,9 +852,9 @@ fn successful_mutation_without_postflight_proof_remains_blocked() {
 fn denied_unknown_tampered_or_under_authorized_plan_never_reaches_runner() {
     let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
     let policy = StaticHostContractPort.desired_services();
-    let base_plan = crate::execution::build_service_operation_plan(&policy, "local-host");
+    let base_plan = crate::ports::build_service_operation_plan(&policy, "local-host");
     let base_admission =
-        crate::execution::service_operation_policy_admission(&base_plan, "operator-a");
+        crate::ports::service_operation_policy_admission(&base_plan, "operator-a");
 
     for decision in [
         PolicyDecision::Deny {
@@ -931,8 +931,8 @@ fn denied_unknown_tampered_or_under_authorized_plan_never_reaches_runner() {
     };
     let mut no_apply = valid_service_authorization(&observed);
     no_apply.explicit_apply = false;
-    let plan = crate::execution::build_service_operation_plan(&policy, "local-host");
-    let admission = crate::execution::service_operation_policy_admission(&plan, "operator-a");
+    let plan = crate::ports::build_service_operation_plan(&policy, "local-host");
+    let admission = crate::ports::service_operation_policy_admission(&plan, "operator-a");
     let report = execute_service_apply_with_admission(
         &observed,
         &policy,

@@ -1,7 +1,10 @@
 //! Re-exported from `cynic-protocol` (L0).
 pub use cynic_protocol::host_substrate::conformance::*;
 
-use crate::ports::HostHardwareObservationPort;
+
+pub trait HostHardwareObservationPort {
+    fn observe_hardware(&self) -> HardwareObservation;
+}
 
 pub fn observe_hardware_conformance(
     observer: &impl HostHardwareObservationPort,

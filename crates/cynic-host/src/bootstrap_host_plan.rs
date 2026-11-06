@@ -5,8 +5,8 @@ use crate::hardware_baseline_reconcile::HardwareBaselineReconcileReport;
 use crate::hardware_conformance::observe_hardware_conformance;
 use crate::ports::HostHardwareObservationPort;
 use crate::profiles::HostProfile;
-use crate::registry::HostProfileResolution;
-use crate::runtime_layout::current_runtime_layout;
+use cynic_registry::HostProfileResolution;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use crate::usecases::{
     HostActivationPlanReport, HostApplyExecutionReport, HostObservationReports,
     build_host_activation_plan,

@@ -4,7 +4,7 @@ use super::{
     SURFACE_NETWORK_MESH_DNS_ACTIVATION_STATUS, SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_HOSTS,
     SURFACE_NETWORK_MESH_PROVIDER_FALLBACK_STATUS, SURFACE_NETWORK_MESH_STATUS,
 };
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 
 pub fn classify_runtime(capabilities: NodeRuntimeCapabilities) -> NodeRuntimeVerdict {
     let mut blockers = Vec::new();

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::Subcommand;
-use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_registry::runtime_layout::current_runtime_layout;
 use cynic_types::paths::CynicPaths;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -540,7 +540,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 }
             };
 
-            let hostname = cynic_host::runtime_layout::observed_hostname();
+            let hostname = cynic_registry::runtime_layout::observed_hostname();
             let observer_node_id = cynic_host::registry::resolve_host_profile_resolution(
                 &hostname,
                 Some(registry_path),
@@ -629,7 +629,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let target_node = match node_id {
                 Some(id) => id.clone(),
                 None => {
-                    let hostname = cynic_host::runtime_layout::observed_hostname();
+                    let hostname = cynic_registry::runtime_layout::observed_hostname();
                     cynic_host::registry::resolve_host_profile_resolution(
                         &hostname,
                         Some(registry_path),
@@ -744,7 +744,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
         NetworkCommands::ActuationObservation { json: _, registry } => {
             let observation = observe::observe_payload(Some(registry));
             let projection = observation.network_actuation_observation(
-                cynic_host::runtime_layout::current_runtime_layout()
+                cynic_registry::runtime_layout::current_runtime_layout()
                     .capabilities()
                     .wireguard_tool
                     .mesh_interface,
@@ -1008,7 +1008,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                     .unwrap_or_default();
 
                 let self_node_id =
-                    cynic_host::process_observation::capture_command("hostname", &[])
+                    cynic_registry::process_observation::capture_command("hostname", &[])
                         .ok()
                         .filter(|o| o.success)
                         .map(|o| o.stdout.trim().to_string());

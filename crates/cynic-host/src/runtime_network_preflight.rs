@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
-use crate::process_observation::{CommandObservation, TcpObservation, resolve_host, tcp_probe};
+use cynic_registry::process_observation::{CommandObservation, TcpObservation, resolve_host, tcp_probe};
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
 
 use cynic_network::preflight::{
@@ -42,7 +42,7 @@ fn observe_runtime_network_preflight_with_observer(
         .into_iter()
         .map(|(host, port)| {
             let resolution = observer.resolve_host(host);
-            let resolved_ip = crate::process_observation::resolved_ip_from_command(&resolution);
+            let resolved_ip = cynic_registry::process_observation::resolved_ip_from_command(&resolution);
             let tcp = observer.tcp_probe(host, port);
             let status = if resolution.exit_code == Some(0) && tcp.status != "unresolved" {
                 "reachable"

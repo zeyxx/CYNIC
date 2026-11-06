@@ -7,7 +7,7 @@ use super::integration_types::{
     IntegrationStatusSummary, IntegrationToolingAuthorityView, IntegrationsStatusReport,
     RawIntegrationObservation,
 };
-use crate::domain::ecosystem_package::{
+use crate::ecosystem_package::{
     observe_python_install_authority, observe_tooling_authority, plan_for_dep, python_cli_policy,
     resolve_binary, resolve_principal_install_layout,
 };
@@ -210,22 +210,22 @@ fn effective_observation(
 }
 
 fn format_python_provenance(
-    provenance: crate::domain::ecosystem_package::PythonInstallProvenance,
+    provenance: crate::ecosystem_package::PythonInstallProvenance,
 ) -> String {
     match provenance {
-        crate::domain::ecosystem_package::PythonInstallProvenance::UvTool => "uv_tool",
-        crate::domain::ecosystem_package::PythonInstallProvenance::UvVenv => "uv_venv",
-        crate::domain::ecosystem_package::PythonInstallProvenance::VirtualEnv => "virtual_env",
-        crate::domain::ecosystem_package::PythonInstallProvenance::Pipx => "pipx",
-        crate::domain::ecosystem_package::PythonInstallProvenance::PipUserSite => "pip_user_site",
-        crate::domain::ecosystem_package::PythonInstallProvenance::SystemPython => "system_python",
-        crate::domain::ecosystem_package::PythonInstallProvenance::Unknown => "unknown",
+        crate::ecosystem_package::PythonInstallProvenance::UvTool => "uv_tool",
+        crate::ecosystem_package::PythonInstallProvenance::UvVenv => "uv_venv",
+        crate::ecosystem_package::PythonInstallProvenance::VirtualEnv => "virtual_env",
+        crate::ecosystem_package::PythonInstallProvenance::Pipx => "pipx",
+        crate::ecosystem_package::PythonInstallProvenance::PipUserSite => "pip_user_site",
+        crate::ecosystem_package::PythonInstallProvenance::SystemPython => "system_python",
+        crate::ecosystem_package::PythonInstallProvenance::Unknown => "unknown",
     }
     .to_string()
 }
 
 fn which_uv_available(
-    layout: &crate::domain::ecosystem_package::PrincipalInstallLayout,
+    layout: &crate::ecosystem_package::PrincipalInstallLayout,
     dep_id: &str,
 ) -> bool {
     python_cli_policy(dep_id)

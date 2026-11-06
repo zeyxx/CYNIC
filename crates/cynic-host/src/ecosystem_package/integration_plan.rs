@@ -169,7 +169,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::domain::ecosystem_package::{
+    use crate::ecosystem_package::{
         ConnectionState, IntegrationObservationPort, IntegrationPrincipal, IntegrationSpec,
         RawIntegrationObservation,
     };
@@ -232,7 +232,7 @@ mod tests {
         );
         assert!(hf.execution.apply.iter().any(|step| matches!(
             step.invocation,
-            crate::command_surface::HostCommandInvocation::Expectation { .. }
+            cynic_network::command_surface::HostCommandInvocation::Expectation { .. }
         )));
     }
 
