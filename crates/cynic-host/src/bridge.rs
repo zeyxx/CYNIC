@@ -238,3 +238,10 @@ fn observed_group() -> String {
         .map(|output| output.stdout)
         .unwrap_or_else(observed_user)
 }
+
+pub trait HostPrivilegeBridgeObservationPort {
+    fn observe_privilege_bridge(
+        &self,
+        spec: &PrivilegeBridgeInstallSpec,
+    ) -> PrivilegeBridgeObservedState;
+}

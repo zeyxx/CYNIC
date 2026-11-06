@@ -29,7 +29,6 @@ pub mod causal_epoch_index;
 pub mod evidence_store;
 // provider_substrate ports moved to cynic-protocol::provider::ports (pure, zero I/O).
 // remote_execution port moved to cynic-protocol::host_substrate::remote_execution (pure, zero I/O).
-use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackageObservedState;
 use crate::domain::packages::PackagePolicy;
@@ -40,13 +39,16 @@ use crate::domain::privilege::PrivilegePolicy;
 use crate::domain::services::ServiceObservedState;
 use crate::domain::services::ServicePolicy;
 use crate::domain::shared::SubstrateDomainContract;
-use crate::execution::AdmittedHostOperation;
-use crate::hardware_conformance::HardwareObservation;
 use cynic_node_protocol::PreOsPlatformObservation;
 // Re-exported from cynic-protocol (canonical home of the pure ports).
 pub use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 // Re-exported from cynic-protocol (canonical home of the pure port).
 pub use crate::host_substrate::remote_execution::RemoteExecutionPort;
+// Re-exported from their owning modules (inversion removal: ports no longer
+// imports from bridge/execution/hardware_conformance).
+pub use crate::bridge::HostPrivilegeBridgeObservationPort;
+pub use crate::execution::HostCommandRunnerPort;
+pub use crate::hardware_conformance::HostHardwareObservationPort;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -135,13 +137,6 @@ pub trait HostPrivilegeObservationPort {
     fn observe_privilege(&self, policy: &PrivilegePolicy) -> PrivilegeObservedState;
 }
 
-pub trait HostPrivilegeBridgeObservationPort {
-    fn observe_privilege_bridge(
-        &self,
-        spec: &PrivilegeBridgeInstallSpec,
-    ) -> PrivilegeBridgeObservedState;
-}
-
 pub trait HostPackagePort {
     fn desired_packages(&self) -> PackagePolicy;
 }
@@ -160,10 +155,6 @@ pub trait HostServicePort {
 
 pub trait HostServiceObservationPort {
     fn observe_services(&self, policy: &ServicePolicy) -> ServiceObservedState;
-}
-
-pub trait HostHardwareObservationPort {
-    fn observe_hardware(&self) -> HardwareObservation;
 }
 
 pub trait PreOsPlatformObservationPort {
@@ -187,10 +178,6 @@ pub struct HostCommandResult {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
-}
-
-pub trait HostCommandRunnerPort {
-    fn run_operation(&self, operation: &AdmittedHostOperation) -> HostCommandResult;
 }
 
 pub trait HostContractPort:

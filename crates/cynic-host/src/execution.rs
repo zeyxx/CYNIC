@@ -4,6 +4,9 @@ pub mod engine;
 pub mod principal_admission;
 pub mod types;
 
+// Re-exported from ports (canonical home of HostCommandResult).
+use crate::ports::HostCommandResult;
+
 #[cfg(test)]
 mod admission_tests;
 #[cfg(test)]
@@ -33,3 +36,7 @@ pub use types::{
     HostExecutionReport, HostExecutionStep, HostExecutionStepExecution,
     host_execution_plan_from_commands,
 };
+
+pub trait HostCommandRunnerPort {
+    fn run_operation(&self, operation: &AdmittedHostOperation) -> HostCommandResult;
+}
