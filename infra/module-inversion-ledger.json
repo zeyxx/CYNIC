@@ -44,21 +44,6 @@
       "evidence": "crates/cynic-host/src/domain/services.rs:11"
     },
     {
-      "identity": "cynic-host|ports -> bridge",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/ports/mod.rs:32"
-    },
-    {
-      "identity": "cynic-host|ports -> execution",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/ports/mod.rs:43"
-    },
-    {
-      "identity": "cynic-host|ports -> hardware_conformance",
-      "count": 1,
-      "evidence": "crates/cynic-host/src/ports/mod.rs:44"
-    },
-    {
       "identity": "cynic-host|usecases -> command_surface",
       "count": 3,
       "evidence": "crates/cynic-host/src/usecases/tests.rs:9"
