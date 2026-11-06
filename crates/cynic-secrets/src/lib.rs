@@ -21,6 +21,7 @@ pub mod identity;
 pub mod ports;
 pub mod protocol;
 pub mod types;
+pub mod runtime_secret_install;
 pub mod secret_presence;
 // Re-export canonical secret types from cynic-protocol — no duplication.
 pub use cynic_protocol::secret_reference::{

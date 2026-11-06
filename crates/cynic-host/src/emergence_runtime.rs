@@ -17,7 +17,7 @@ use cynic_node_protocol::peer_resolver::PeerResolver;
 
 use crate::local_autonomy_runtime::LocalAutonomyRuntime;
 use crate::os_health::{LocalOsHealthObserver, OsHealthObserver};
-use crate::peer_resolver_mesh::MeshPeerResolver;
+use cynic_network::peer_resolver_mesh::MeshPeerResolver;
 
 /// Emergence runtime — wires discovery + autonomy to the election rule.
 pub struct EmergenceRuntime {

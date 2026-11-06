@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use cynic_protocol::provider::ProviderControlDesiredState;
 use serde::Serialize;
 
-use crate::runtime_secret_install::{RuntimeSecretInstallReport, RuntimeSecretInstallSpec};
+use cynic_secrets::runtime_secret_install::{RuntimeSecretInstallReport, RuntimeSecretInstallSpec};
 
 pub const PROVIDER_CONTROL_ENROLLMENT_PLAN_SCHEMA: &str =
     "cynic.provider_control.enrollment_plan.v1";

@@ -1,4 +1,4 @@
-use crate::runtime_secret_install::{
+use cynic_secrets::runtime_secret_install::{
     RuntimeSecretInstallReport, RuntimeSecretInstallSpec, RuntimeSecretObservation,
     install_runtime_secret, observe_runtime_secret, remove_runtime_secret_if_matches,
 };

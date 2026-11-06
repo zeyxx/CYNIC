@@ -8,7 +8,7 @@ use cynic_persistence::{
     reconcile_storage_identity,
 };
 
-use crate::runtime_secret_install::RuntimeSecretInstallSpec;
+use cynic_secrets::runtime_secret_install::RuntimeSecretInstallSpec;
 use cynic_secrets::SecretMaterial;
 use crate::storage_identity::{
     LocalStorageIdentitySecretAdapter, StorageIdentityEnrollmentLease, StorageIdentitySecretPort,

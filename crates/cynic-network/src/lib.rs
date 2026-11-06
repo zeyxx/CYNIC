@@ -23,6 +23,7 @@ pub mod peer_handshake;
 pub use peer_handshake::*;
 pub mod peer_validator;
 pub use peer_validator::*;
+pub mod peer_resolver_mesh;
 pub mod mesh;
 pub mod mesh_bundle;
 pub mod notification_outbox;

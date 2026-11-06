@@ -4,8 +4,8 @@ use cynic_protocol::{
 };
 use serde::Serialize;
 
-use crate::ports::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
-use crate::registry::resolve_node_substrate_desired_state;
+use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
+use cynic_host::registry::resolve_node_substrate_desired_state;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeSubstrateAssessment {

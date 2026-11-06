@@ -91,7 +91,7 @@ fn validate_spec(spec: &ProviderControlEnrollmentSpec) -> Vec<String> {
     }
     let authority = cynic_registry::runtime_authority::default_runtime_authority_paths();
     let canonical_secret =
-        crate::runtime_secret_install::RuntimeSecretInstallSpec::provider_control("proxmox").ok();
+        cynic_secrets::runtime_secret_install::RuntimeSecretInstallSpec::provider_control("proxmox").ok();
     if spec.config_target != authority.config_root.join("proxmox-control.toml")
         || spec.ca_target != authority.config_root.join("proxmox-ca.pem")
         || canonical_secret.as_ref() != Some(&spec.secret)

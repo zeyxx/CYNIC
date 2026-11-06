@@ -1,6 +1,6 @@
 use cynic_persistence::identity::StorageIdentitySpec;
 
-use crate::runtime_secret_install::{
+use cynic_secrets::runtime_secret_install::{
     RuntimeSecretInstallReport, RuntimeSecretInstallSpec, RuntimeSecretObservation,
 };
 use cynic_secrets::SecretMaterial;
