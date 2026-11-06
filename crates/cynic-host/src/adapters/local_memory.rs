@@ -9,7 +9,8 @@ use std::fs;
 use std::path::Path;
 
 use cynic_protocol::host_substrate::MemoryReport;
-use crate::domain::memory::{MemoryObservationPort, parse_meminfo, parse_pressure_memory};
+use crate::adapters::memory_probe::{parse_meminfo, parse_pressure_memory};
+use crate::ports::memory_port::{MemoryObservationError, MemoryObservationPort};
 
 pub struct LocalMemoryAdapter;
 
@@ -26,11 +27,11 @@ impl LocalMemoryAdapter {
 impl MemoryObservationPort for LocalMemoryAdapter {
     fn observe_memory(
         &self,
-    ) -> Result<MemoryReport, crate::domain::memory::port::MemoryObservationError> {
+    ) -> Result<MemoryReport, MemoryObservationError> {
         let meminfo = Self::read_to_string(Path::new("/proc/meminfo"))
-            .map_err(crate::domain::memory::port::MemoryObservationError::MeminfoRead)?;
+            .map_err(MemoryObservationError::MeminfoRead)?;
         let report = parse_meminfo(&meminfo)
-            .map_err(crate::domain::memory::port::MemoryObservationError::MeminfoRead)?;
+            .map_err(MemoryObservationError::MeminfoRead)?;
 
         // Layer 4: pressure stalls (best-effort — unknown stays unknown).
         let report = match Self::read_to_string(Path::new("/proc/pressure/memory")) {

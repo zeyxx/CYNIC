@@ -2,9 +2,11 @@ pub mod agent_access;
 pub mod argv_runner;
 pub mod jsonl_append;
 pub mod meminfo_reader;
-pub mod artifact_publisher_http;
+pub mod disk_attribution;
+pub mod disk_probe;
 pub mod artifact_publisher_ssh;
 pub mod cpu_usage_meter;
+pub mod cpu_probe;
 pub mod cgroup_isolation;
 pub mod forgejo_run_observer;
 pub mod fs_window_journal;
@@ -19,6 +21,7 @@ pub mod local_evidence_store;
 pub mod local_hardware_baseline;
 pub mod local_hardware_baseline_bundle;
 pub mod local_integration;
+pub mod memory_probe;
 pub mod local_memory;
 pub mod local_network;
 pub mod local_observation;
@@ -32,6 +35,11 @@ pub mod privilege_projection;
 // Proxmox adapters moved to cynic-proxmox (L1, canonical home).
 // Consumers import via cynic_proxmox::adapters::{ProxmoxSshCloneAdapter, ...} directly.
 
+pub mod storage_apply;
+pub mod storage_local_adapter;
+pub mod storage_probe;
+pub mod storage_reconcile;
+pub mod storage_remote_adapter;
 pub mod remote_execution;
 pub mod secret_use_policy_loader;
 pub mod window_runner;

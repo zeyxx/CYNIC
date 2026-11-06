@@ -6,7 +6,7 @@ use std::process::ExitCode;
 
 use cynic_host::adapters::local_cpu::LocalCpuAdapter;
 use cynic_host::domain::cpu::CpuReport;
-use cynic_host::domain::cpu::port::CpuObservationPort;
+use cynic_host::ports::cpu_port::CpuObservationPort;
 
 use crate::emit_json;
 

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use cynic_proxmox::storage::topology::StorageTopologyObserved;
 
-use super::probe::StorageTopologyObservationPort;
+use crate::ports::storage_port::StorageTopologyObservationPort;
 use cynic_process::ArgvRunner;
 use cynic_ssh::argv::ssh_argv;
 use std::time::Instant;

@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use cynic_host::domain::storage::apply_client_policy_file;
+use cynic_host::adapters::storage_apply::apply_client_policy_file;
 use cynic_persistence::client_policy::{
     ClientPolicy, STORAGE_CLIENT_POLICY_SCHEMA, StorageClientPolicy,
 };

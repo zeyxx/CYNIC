@@ -10,14 +10,14 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 use cynic_types::paths::CynicPaths;
 
-use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
-use crate::domain::disk::probe::{
+use crate::adapters::disk_probe::{
     ROTATED_SYSLOG_FILES, build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks,
 };
 use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
     DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
+use crate::ports::disk_port::{DiskCleanupExecutionPort, DiskObservationPort};
 use cynic_registry::process_observation::capture_command;
 use cynic_registry::scan_exclusions::excluded_dirs_for_cwd;
 
