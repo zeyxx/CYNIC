@@ -6,7 +6,7 @@ use super::{
     execute_admitted_service_apply, execute_host_apply, execute_runtime_service_reconcile,
     execute_service_apply_with_admission, observe_host, service_apply_satisfied_preconditions,
 };
-use crate::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
+use cynic_network::command_surface::{HostCommandInvocation, HostCommandSurface, render_command};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackagePolicy;
 use crate::domain::packages::{PackageCommandContext, PackageObservedState};
@@ -19,7 +19,7 @@ use crate::domain::services::{
     ServicePolicy, ServiceUnitPolicy,
 };
 use crate::domain::shared::{SubstrateBundleFile, SubstrateDomainContract, SurfaceStatus};
-use crate::execution::AdmittedHostOperation;
+use crate::ports::AdmittedHostOperation;
 use crate::ports::{
     HostCommandResult, HostCommandRunnerPort, HostContractPort, HostFilesystemPort, HostOperation,
     HostPackageObservationPort, HostPackagePort, HostPrincipalObservationPort, HostPrincipalPort,
@@ -852,9 +852,9 @@ fn successful_mutation_without_postflight_proof_remains_blocked() {
 fn denied_unknown_tampered_or_under_authorized_plan_never_reaches_runner() {
     let observed = observe_host(&StaticHostContractPort, &ReadyForServiceObservation);
     let policy = StaticHostContractPort.desired_services();
-    let base_plan = crate::execution::build_service_operation_plan(&policy, "local-host");
+    let base_plan = crate::ports::build_service_operation_plan(&policy, "local-host");
     let base_admission =
-        crate::execution::service_operation_policy_admission(&base_plan, "operator-a");
+        crate::ports::service_operation_policy_admission(&base_plan, "operator-a");
 
     for decision in [
         PolicyDecision::Deny {
@@ -931,8 +931,8 @@ fn denied_unknown_tampered_or_under_authorized_plan_never_reaches_runner() {
     };
     let mut no_apply = valid_service_authorization(&observed);
     no_apply.explicit_apply = false;
-    let plan = crate::execution::build_service_operation_plan(&policy, "local-host");
-    let admission = crate::execution::service_operation_policy_admission(&plan, "operator-a");
+    let plan = crate::ports::build_service_operation_plan(&policy, "local-host");
+    let admission = crate::ports::service_operation_policy_admission(&plan, "operator-a");
     let report = execute_service_apply_with_admission(
         &observed,
         &policy,

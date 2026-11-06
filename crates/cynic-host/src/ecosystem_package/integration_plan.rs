@@ -169,7 +169,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::domain::ecosystem_package::{
+    use crate::ecosystem_package::{
         ConnectionState, IntegrationObservationPort, IntegrationPrincipal, IntegrationSpec,
         RawIntegrationObservation,
     };

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::domain::ecosystem_package::{
+use crate::ecosystem_package::{
     ConnectionState, IntegrationApplyReport, IntegrationConnectReport,
     IntegrationObservationContext, IntegrationObservationPort, IntegrationPrincipal,
     IntegrationSpec, IntegrationsPlanReport, IntegrationsStatusReport, RawIntegrationObservation,
@@ -329,7 +329,7 @@ pub fn connect_local_integration(
 pub fn apply_local_integration(id: &str, apply: bool) -> Result<IntegrationApplyReport, String> {
     let runner = LocalArgvRunner;
     let adapter = LocalIntegrationObservationAdapter::new(&runner);
-    crate::domain::ecosystem_package::integration_apply::apply_integration(
+    crate::ecosystem_package::integration_apply::apply_integration(
         id,
         apply,
         &runner,

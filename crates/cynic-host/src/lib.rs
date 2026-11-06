@@ -2,6 +2,7 @@ pub mod adapters;
 pub mod bucket_signatures;
 pub mod capacity;
 pub mod domain;
+pub mod ecosystem_package;
 pub mod agent_access;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;

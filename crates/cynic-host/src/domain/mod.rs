@@ -2,7 +2,6 @@ pub mod metrics;
 pub mod bootstrap;
 pub mod cpu;
 pub mod disk;
-pub mod ecosystem_package;
 pub mod filesystem;
 pub mod host_profile;
 pub mod memory;

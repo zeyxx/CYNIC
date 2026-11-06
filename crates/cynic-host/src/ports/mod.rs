@@ -47,7 +47,11 @@ pub use crate::host_substrate::remote_execution::RemoteExecutionPort;
 // Re-exported from their owning modules (inversion removal: ports no longer
 // imports from bridge/execution/hardware_conformance).
 pub use crate::bridge::HostPrivilegeBridgeObservationPort;
-pub use crate::execution::HostCommandRunnerPort;
+pub use crate::execution::{AdmittedHostOperation, HostCommandRunnerPort, HostOperationPlan};
+pub(crate) use crate::execution::{
+    admit_host_operation_plan, build_service_operation_plan,
+    runtime_service_operation_policy_admission, service_operation_policy_admission,
+};
 pub use crate::hardware_conformance::HostHardwareObservationPort;
 use serde::Serialize;
 
