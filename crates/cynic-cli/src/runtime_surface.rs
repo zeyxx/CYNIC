@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
+use cynic_registry::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_types::paths::CynicPaths;
 
 use crate::fail;
@@ -710,9 +710,9 @@ impl From<RuntimeHarnessKindArg> for RuntimeHarnessKind {
     }
 }
 
-impl From<ProofCategoryArg> for cynic_host::harness_progression::ProofCategory {
+impl From<ProofCategoryArg> for cynic_registry::harness_progression::ProofCategory {
     fn from(arg: ProofCategoryArg) -> Self {
-        use cynic_host::harness_progression::ProofCategory;
+        use cynic_registry::harness_progression::ProofCategory;
         match arg {
             ProofCategoryArg::Bootstrap => ProofCategory::Bootstrap,
             ProofCategoryArg::Hardware => ProofCategory::Hardware,
@@ -732,14 +732,14 @@ pub(crate) fn execute_harness_progress(
     unknown: Vec<ProofCategoryArg>,
     json: bool,
 ) -> Result<(), String> {
-    let evidence = cynic_host::harness_progression::HarnessProgressionEvidence {
+    let evidence = cynic_registry::harness_progression::HarnessProgressionEvidence {
         current_kind: current_kind.into(),
         target_kind: target_kind.into(),
         satisfied: satisfied.into_iter().map(Into::into).collect(),
         pending: vec![],
         unknown: unknown.into_iter().map(Into::into).collect(),
     };
-    let verdict = cynic_host::harness_progression::decide_harness_progression(&evidence);
+    let verdict = cynic_registry::harness_progression::decide_harness_progression(&evidence);
     if json {
         let s =
             serde_json::to_string_pretty(&verdict).map_err(|e| format!("serialize failed: {e}"))?;

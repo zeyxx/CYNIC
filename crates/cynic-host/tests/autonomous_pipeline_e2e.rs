@@ -20,7 +20,7 @@ use cynic_build::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_
 use cynic_vcs::providers::forgejo_webhook::{
     ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
 };
-use cynic_host::harness_progression::{
+use cynic_registry::harness_progression::{
     HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
     decide_harness_progression,
 };

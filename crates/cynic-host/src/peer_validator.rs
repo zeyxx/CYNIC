@@ -12,7 +12,7 @@ use cynic_protocol::fleet_heartbeat::{
 };
 use cynic_node_protocol::node_identity::NodeEnrollmentCertificate;
 
-use crate::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
+use cynic_protocol::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
 
 /// Validator for peer heartbeats backed by Kernel-signed enrollment certificates.
 /// Supports multiple federated root authorities to eliminate any Single Point of Failure (SPOF).

@@ -22,6 +22,8 @@ pub mod allowance;
 pub mod argv;
 pub mod argv_allow;
 pub mod command_registry;
+pub mod crypto;
+pub use crypto::*;
 pub mod artifact_release;
 pub mod artifact_transport;
 pub mod audit;

@@ -12,7 +12,7 @@ use cynic_node_protocol::node_control::{
     verify_control_plan_preconditions,
 };
 
-use crate::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
+use cynic_protocol::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
 
 /// Cryptographic verifier for Kernel control plans.
 pub struct PlanVerifier {
