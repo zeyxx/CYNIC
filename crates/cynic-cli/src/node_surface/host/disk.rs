@@ -6,7 +6,7 @@ use cynic_host::adapters::local_disk::LocalDiskAdapter;
 use cynic_build::cache::{
     load_build_cache_desired_state, reconcile_build_cache_resources,
 };
-use cynic_host::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
+use cynic_host::ports::disk_port::{DiskCleanupExecutionPort, DiskObservationPort};
 use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
 use cynic_protocol::host_substrate::disk::bytes_to_human;
 

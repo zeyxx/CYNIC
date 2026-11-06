@@ -2,7 +2,7 @@
 //!
 //! `observe_cpu` is implemented by `LocalCpuAdapter` (reads `/proc`/`/sys`).
 
-use crate::domain::cpu::CpuReport;
+use cynic_protocol::host_substrate::cpu::CpuReport;
 
 pub type CpuObservationError = String;
 

@@ -6,7 +6,9 @@ use std::path::Path;
 use cynic_persistence::client_policy::StorageClientPolicy;
 use cynic_proxmox::storage::topology::StorageTopologyObserved;
 
-use super::probe::{StorageClientPolicyObservationPort, StorageTopologyObservationPort};
+use crate::ports::storage_port::{
+    StorageClientPolicyObservationPort, StorageTopologyObservationPort,
+};
 
 pub struct LocalStorageTopologyAdapter {
     pub topology_path: String,

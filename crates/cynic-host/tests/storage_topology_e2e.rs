@@ -1,9 +1,13 @@
-use cynic_host::domain::storage::{
-    InMemoryStorageClientPolicyAdapter, InMemoryStorageTopologyAdapter,
-    LocalStorageTopologyAdapter, RemoteStorageTopologyAdapter, StorageTopologyAction,
-    StorageTopologyObservationPort, apply_and_prove_storage_topology, apply_client_policy_file,
-    plan_storage_topology_apply, reconcile_storage_topology, storage_topology_report,
+use cynic_host::adapters::storage_apply::{
+    apply_and_prove_storage_topology, apply_client_policy_file, plan_storage_topology_apply,
 };
+use cynic_host::adapters::storage_local_adapter::LocalStorageTopologyAdapter;
+use cynic_host::adapters::storage_probe::{
+    InMemoryStorageClientPolicyAdapter, InMemoryStorageTopologyAdapter, storage_topology_report,
+};
+use cynic_host::adapters::storage_reconcile::{StorageTopologyAction, reconcile_storage_topology};
+use cynic_host::adapters::storage_remote_adapter::RemoteStorageTopologyAdapter;
+use cynic_host::ports::storage_port::StorageTopologyObservationPort;
 use cynic_process::{ArgvOutput, MapArgvRunner};
 use cynic_persistence::client_policy::{
     ClientPolicy, STORAGE_CLIENT_POLICY_SCHEMA, StorageClientPolicy,

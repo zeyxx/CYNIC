@@ -26,7 +26,11 @@
 
 pub mod argv_execution;
 pub mod causal_epoch_index;
+pub mod cpu_port;
+pub mod disk_port;
 pub mod evidence_store;
+pub mod memory_port;
+pub mod storage_port;
 // provider_substrate ports moved to cynic-protocol::provider::ports (pure, zero I/O).
 // remote_execution port moved to cynic-protocol::host_substrate::remote_execution (pure, zero I/O).
 use crate::domain::filesystem::FilesystemPolicy;

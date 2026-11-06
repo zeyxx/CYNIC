@@ -5,7 +5,7 @@
 use std::process::ExitCode;
 
 use cynic_host::adapters::local_memory::LocalMemoryAdapter;
-use cynic_host::domain::memory::MemoryObservationPort;
+use cynic_host::ports::memory_port::MemoryObservationPort;
 use cynic_protocol::host_substrate::MemoryReport;
 
 use crate::emit_json;

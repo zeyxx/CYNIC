@@ -8,10 +8,11 @@ use cynic_proxmox::storage::topology::{
 
 use cynic_process::ArgvRunner;
 
-use super::probe::{
-    StorageClientPolicyObservationPort, StorageTopologyObservationPort, storage_topology_report,
+use crate::adapters::storage_probe::storage_topology_report;
+use crate::ports::storage_port::{
+    StorageClientPolicyObservationPort, StorageTopologyObservationPort,
 };
-use super::reconcile::{StorageTopologyAction, StorageTopologyPlan};
+use crate::adapters::storage_reconcile::{StorageTopologyAction, StorageTopologyPlan};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageTopologyArgvAction {

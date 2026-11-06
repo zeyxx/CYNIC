@@ -9,8 +9,8 @@ use crate::capacity::{CapacityAssessmentV1, LoadPolicy, assess_load_tier};
 
 use crate::adapters::local_cpu::LocalCpuAdapter;
 use crate::adapters::local_memory::LocalMemoryAdapter;
-use crate::domain::cpu::port::CpuObservationPort;
-use crate::domain::memory::MemoryObservationPort;
+use crate::ports::memory_port::MemoryObservationPort;
+use crate::ports::cpu_port::CpuObservationPort;
 
 pub struct LocalCapacityAdapter;
 

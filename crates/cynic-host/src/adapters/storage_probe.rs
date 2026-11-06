@@ -1,16 +1,10 @@
 //! Storage topology probe — pure parsers, no I/O
-//! Lives in cynic_host::domain::storage::probe per Host substrate observation layering
 
+use crate::ports::storage_port::{
+    StorageClientPolicyObservationPort, StorageTopologyObservationPort,
+};
 use cynic_persistence::client_policy::StorageClientPolicy;
 use cynic_proxmox::storage::topology::{StorageTopologyObserved, StorageTopologyReport};
-
-pub trait StorageTopologyObservationPort {
-    fn observe_topology(&self) -> StorageTopologyObserved;
-}
-
-pub trait StorageClientPolicyObservationPort {
-    fn observe_client_policy(&self) -> StorageClientPolicy;
-}
 
 pub struct InMemoryStorageTopologyAdapter {
     pub observed: StorageTopologyObserved,

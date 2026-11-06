@@ -9,8 +9,9 @@ use std::path::Path;
 
 use chrono::Utc;
 
-use crate::domain::cpu::port::{CpuObservationError, CpuObservationPort};
-use crate::domain::cpu::{CpuReport, parse_cpuinfo, parse_pressure_cpu, parse_stat};
+use crate::adapters::cpu_probe::{parse_cpuinfo, parse_pressure_cpu, parse_stat};
+use crate::domain::cpu::CpuReport;
+use crate::ports::cpu_port::{CpuObservationError, CpuObservationPort};
 
 /// Local CPU adapter. Stateless — reads `/proc` on each call.
 pub struct LocalCpuAdapter;
