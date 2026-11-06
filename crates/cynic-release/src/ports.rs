@@ -1,6 +1,6 @@
 //! Driven ports for release gating and relay actuation.
 
-use crate::types::{GateProofRecord, RelayActionKind};
+use super::types::{GateProofRecord, RelayActionKind};
 
 /// Port implemented by build & inspection adapters (e.g. `cynic-build`) to provide gate evidence.
 pub trait GateProofProvider {

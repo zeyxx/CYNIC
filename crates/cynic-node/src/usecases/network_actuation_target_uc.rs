@@ -20,9 +20,9 @@ use cynic_host::runtime_harness::runtime_harness_catalog;
 use cynic_process::ArgvRunner;
 use cynic_process::LocalArgvRunner;
 
-use crate::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
-use crate::adapters::local_network_actuation_request_reader::read_network_actuation_request;
-use crate::adapters::qemu_guest_agent_network_runner::{
+use super::super::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
+use super::super::adapters::local_network_actuation_request_reader::read_network_actuation_request;
+use super::super::adapters::qemu_guest_agent_network_runner::{
     QemuGuestAgentNetworkObserver, QemuGuestAgentNetworkRunner,
 };
 use crate::ports::harness_target_attestation_reader_port::HarnessTargetAttestationReaderPort;

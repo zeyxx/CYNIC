@@ -560,7 +560,7 @@ mod context_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::local::session_store::FsChatSessionStore;
+    use super::super::adapters::local::session_store::FsChatSessionStore;
     use crate::application::chat_support::{
         BuiltinToolInvoker, MockChatClient, default_tool_specs,
     };

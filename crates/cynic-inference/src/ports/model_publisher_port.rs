@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::ods_discovery::DiscoveredService;
+use super::super::ods_discovery::DiscoveredService;
 
 // ── Publication target result ────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@
 //! `CYNIC_INFERENCE_SUPERVISOR=process|systemd` (see
 //! [`crate::adapters::local::process_supervisor::InferenceSupervisorKind`]).
 
-use crate::adapters::local::{
+use super::super::adapters::local::{
     DockerLocalRuntime, FsLocalModelInventory, InferenceSupervisorKind, ProcessLocalRuntime,
     SystemdUserLocalRuntime,
 };

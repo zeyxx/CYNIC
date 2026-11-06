@@ -1,10 +1,10 @@
 //! Application service: centralized model store + HF CLI.
 
-use crate::adapters::local::FsModelStore;
+use super::super::adapters::local::FsModelStore;
 use crate::domain::model_store::ModelStoreReport;
-use crate::hf::HfCliAdapter;
-use crate::hf::{HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort};
-use crate::infra::model_layout::ModelLayout;
+use super::super::hf::HfCliAdapter;
+use super::super::hf::{HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort};
+use super::super::infra::model_layout::ModelLayout;
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
 

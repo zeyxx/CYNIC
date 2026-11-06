@@ -13,12 +13,12 @@ use std::process::Command;
 
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::ods::{ODS_SURFACE, ODS_UPSTREAM, discover_ods_services};
-use crate::config_loader::{
+use super::super::adapters::ods::{ODS_SURFACE, ODS_UPSTREAM, discover_ods_services};
+use super::super::config_loader::{
     InferenceConfigError, LoadedInferenceConfig, load_inference_config_from_path_public,
 };
-use crate::infra::model_layout::default_ods_probe_bases;
-use crate::infra::principal_paths::PrincipalPaths;
+use super::super::infra::model_layout::default_ods_probe_bases;
+use super::super::infra::principal_paths::PrincipalPaths;
 use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

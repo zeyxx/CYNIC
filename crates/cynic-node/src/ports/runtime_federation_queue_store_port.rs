@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::websocket::{PendingStimulus, PendingVerdict};
+use super::super::websocket::{PendingStimulus, PendingVerdict};
 
 pub trait RuntimeFederationQueueStorePort: Send + Sync {
     fn load_queues(
