@@ -29,6 +29,7 @@ pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;
 pub mod host_substrate;
+pub(crate) mod atomic_file;
 mod identity_database;
 pub mod install_contract;
 pub mod lab;

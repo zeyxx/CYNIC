@@ -439,20 +439,10 @@ fn tool_gateway_node(status: &str) -> CapabilityNode {
     }
 }
 
-fn parse_passwd_uid(database: &str, expected: &str) -> Option<u32> {
-    database.lines().find_map(|line| {
-        let mut fields = line.split(':');
-        let name = fields.next()?;
-        let _password = fields.next()?;
-        let uid = fields.next()?.parse::<u32>().ok()?;
-        (name == expected).then_some(uid)
-    })
-}
-
 fn observe_linux_uid(principal: &str) -> Result<u32, String> {
     let database = std::fs::read_to_string("/etc/passwd")
         .map_err(|error| format!("principal database is unreadable: {error}"))?;
-    parse_passwd_uid(&database, principal)
+    cynic_types::identity_database::lookup_identity_id(&database, principal)
         .ok_or_else(|| format!("principal `{principal}` is not observable"))
 }
 fn first_line(output: &str) -> String {

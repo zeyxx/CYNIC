@@ -168,36 +168,40 @@ fn issue_authority(
         allowed_capabilities: spec.requested_capabilities.clone(),
     };
 
-    atomic_write(
+    crate::atomic_file::write_atomic(
         Path::new(&spec.signing_key_path()),
         format!("{}\n", signing_material.expose_str()).as_bytes(),
-        0o640,
-        spec.owner_id,
-        spec.group_id,
+        Some(0o640),
+        Some((spec.owner_id, spec.group_id)),
+        false,
+        "machine_enrollment_atomic_write_failed",
     )?;
-    atomic_write(
+    crate::atomic_file::write_atomic(
         Path::new(&spec.staged_public_key_path()),
         format!("{}\n", hex::encode(signing_key.verifying_key().as_bytes())).as_bytes(),
-        0o640,
-        spec.owner_id,
-        spec.group_id,
+        Some(0o640),
+        Some((spec.owner_id, spec.group_id)),
+        false,
+        "machine_enrollment_atomic_write_failed",
     )?;
-    atomic_write(
+    crate::atomic_file::write_atomic(
         Path::new(&spec.staged_token_path()),
         format!("{}\n", token.expose_str()).as_bytes(),
-        0o600,
-        spec.owner_id,
-        spec.group_id,
+        Some(0o600),
+        Some((spec.owner_id, spec.group_id)),
+        false,
+        "machine_enrollment_atomic_write_failed",
     )?;
     let mut authority_bytes = serde_json::to_vec_pretty(&authority)
         .map_err(|error| format!("machine_enrollment_authority_encode_failed:{error}"))?;
     authority_bytes.push(b'\n');
-    atomic_write(
+    crate::atomic_file::write_atomic(
         Path::new(&spec.authority_path()),
         &authority_bytes,
-        0o640,
-        spec.owner_id,
-        spec.group_id,
+        Some(0o640),
+        Some((spec.owner_id, spec.group_id)),
+        false,
+        "machine_enrollment_atomic_write_failed",
     )?;
     Ok(authority)
 }
@@ -209,40 +213,6 @@ fn ensure_directory(path: &Path, owner_id: u32, group_id: u32, mode: u32) -> Res
         .map_err(|error| format!("machine_enrollment_directory_mode_failed:{error}"))?;
     std::os::unix::fs::chown(path, Some(owner_id), Some(group_id))
         .map_err(|error| format!("machine_enrollment_directory_owner_failed:{error}"))
-}
-
-fn atomic_write(
-    path: &Path,
-    bytes: &[u8],
-    mode: u32,
-    owner_id: u32,
-    group_id: u32,
-) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "machine_enrollment_target_parent_missing".to_string())?;
-    let file_name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| "machine_enrollment_target_name_invalid".to_string())?;
-    let temporary = parent.join(format!(".{file_name}.next-{}", std::process::id()));
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temporary)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        file.set_permissions(fs::Permissions::from_mode(mode))?;
-        std::os::unix::fs::chown(&temporary, Some(owner_id), Some(group_id))?;
-        fs::rename(&temporary, path)?;
-        Ok::<(), std::io::Error>(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result.map_err(|error| format!("machine_enrollment_atomic_write_failed:{error}"))
 }
 
 #[derive(Debug)]
@@ -281,12 +251,13 @@ fn snapshot(path: &Path) -> Result<FileSnapshot, String> {
 fn restore_snapshots(snapshots: &[FileSnapshot]) -> Result<(), String> {
     for snapshot in snapshots.iter().rev() {
         if let Some(bytes) = &snapshot.bytes {
-            atomic_write(
+            crate::atomic_file::write_atomic(
                 &snapshot.path,
                 bytes,
-                snapshot.mode.unwrap_or(0o600),
-                snapshot.owner_id.unwrap_or(0),
-                snapshot.group_id.unwrap_or(0),
+                Some(snapshot.mode.unwrap_or(0o600)),
+                Some((snapshot.owner_id.unwrap_or(0), snapshot.group_id.unwrap_or(0))),
+                false,
+                "machine_enrollment_atomic_write_failed",
             )?;
         } else if snapshot.path.is_file() {
             fs::remove_file(&snapshot.path)
