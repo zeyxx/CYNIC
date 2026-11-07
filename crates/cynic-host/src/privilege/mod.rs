@@ -5,18 +5,17 @@
 
 pub mod capability_catalog;
 pub mod pve_helper;
-pub mod transport_caps;
 
 pub use capability_catalog::{
     CapabilityLoadError, CapabilityView, DEFAULT_CATALOG_PATH, catalog_path_from_env,
-    installed_path_from_env,
+    installed_path_from_env, load_transport_capabilities,
 };
 pub use pve_helper::{
     DEFAULT_POLICY_PATH, PVE_HELPER_BUNDLE_MANIFEST_SCHEMA, PVE_HELPER_POLICY_SCHEMA,
     PveHelperBundleManifest, PveHelperPolicy, PvePolicyError, pve_helper_bundle_manifest,
     pve_helper_install_commands, pve_helper_read_back_commands,
 };
-pub use transport_caps::{
+pub use cynic_protocol::privilege::{
     AuthorityClass, DEFAULT_TRANSPORT_POLICY_PATH, TRANSPORT_CAPABILITIES_SCHEMA,
     TransportCapabilities, TransportCapability, TransportCapabilityParam, TransportPolicyError,
 };

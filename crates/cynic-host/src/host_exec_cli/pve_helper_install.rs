@@ -25,6 +25,7 @@ use crate::host_exec_cli::args;
 use crate::host_exec_cli::io::emit_json;
 use crate::privilege::{
     DEFAULT_POLICY_PATH, DEFAULT_TRANSPORT_POLICY_PATH, PveHelperPolicy, TransportCapabilities,
+    load_transport_capabilities,
 };
 use cynic_ssh::argv::ssh_argv;
 
@@ -189,7 +190,7 @@ pub(crate) fn execute_pve_helper_install(
 }
 
 fn resolve_pve_endpoint(transport_policy_path: &str) -> Option<String> {
-    if let Ok(policy) = TransportCapabilities::load(transport_policy_path) {
+    if let Ok(policy) = load_transport_capabilities(transport_policy_path) {
         if let Some(endpoint) = policy.default_endpoint_overrides.get("cynic-host-proxmox") {
             return Some(endpoint.clone());
         }

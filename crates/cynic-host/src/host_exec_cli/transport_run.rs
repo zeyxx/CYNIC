@@ -14,6 +14,7 @@ use serde::Serialize;
 use crate::host_exec_cli::args;
 use crate::privilege::{
     AuthorityClass, DEFAULT_TRANSPORT_POLICY_PATH, TransportCapabilities, TransportPolicyError,
+    load_transport_capabilities,
 };
 
 const TRANSPORT_RUN_REPORT_SCHEMA: &str = "cynic.host.transport_run_report.v1";
@@ -84,7 +85,7 @@ pub(crate) fn execute_transport_run(
     let policy_path = args::flag_value(args_slice, "--policy")
         .unwrap_or_else(|| DEFAULT_TRANSPORT_POLICY_PATH.to_string());
 
-    let Ok(policy) = TransportCapabilities::load(&policy_path) else {
+    let Ok(policy) = load_transport_capabilities(&policy_path) else {
         report
             .blockers
             .push(format!("policy_unreadable_or_invalid: {policy_path}"));

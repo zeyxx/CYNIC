@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use cynic_protocol::privilege::{
     CapabilityCatalog, CapabilityDecision, InstalledCapabilities, admit_capability,
-    validate_install,
+    validate_install, TransportCapabilities, TransportPolicyError,
 };
 use cynic_types::paths::CynicPaths;
 
@@ -120,6 +120,18 @@ pub fn catalog_path_from_env() -> PathBuf {
     repo_default
 }
 
+/// Load a transport-capabilities policy from disk (I/O adapter).
+pub fn load_transport_capabilities(
+    path: impl AsRef<Path>,
+) -> Result<TransportCapabilities, TransportPolicyError> {
+    let path = path.as_ref();
+    let raw = std::fs::read_to_string(path)
+        .map_err(|error| TransportPolicyError(format!("read {}: {error}", path.display())))?;
+    let policy: TransportCapabilities = serde_json::from_str(&raw)
+        .map_err(|error| TransportPolicyError(format!("parse {}: {error}", path.display())))?;
+    policy.validate()?;
+    Ok(policy)
+}
 /// Resolve the installed-set path.
 pub fn installed_path_from_env() -> PathBuf {
     std::env::var_os("CYNIC_CAPABILITY_INSTALLED")
