@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use super::super::adapters::local_storage_lifecycle::LocalStorageLifecycleAdapter;
+use crate::adapters::local_storage_lifecycle::LocalStorageLifecycleAdapter;
 use crate::domain::storage_lifecycle::{
     RestartBudget, STORAGE_RECONCILE_SCHEMA, StorageDecision, StorageDesiredState,
     StorageObservation, reconcile_storage,

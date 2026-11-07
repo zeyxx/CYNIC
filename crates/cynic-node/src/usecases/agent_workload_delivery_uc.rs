@@ -275,9 +275,9 @@ fn now_unix_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
-    use super::super::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
-    use super::super::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
+    use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
+    use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
+    use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
     use cynic_build::{
         BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest, compose_build_agent_workload,
     };

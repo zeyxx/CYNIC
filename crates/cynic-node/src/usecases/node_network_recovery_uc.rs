@@ -14,12 +14,12 @@ use cynic_registry::runtime_layout::current_runtime_layout;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
-use super::super::adapters::local_network_command_runner::LocalNetworkCommandRunner;
+use crate::adapters::local_network_command_runner::LocalNetworkCommandRunner;
 use crate::domain::node_observation::{NodeRuntimeAction, NodeRuntimeSeverity, NodeRuntimeStatus};
-use super::super::network_actuator::CommandExecution;
-use super::super::network_actuator_status::activation_status;
-use super::super::network_command_surface::argv_command;
-use super::super::observe::{NodeObservation, observe_payload};
+use crate::network_actuator::CommandExecution;
+use crate::network_actuator_status::activation_status;
+use crate::network_command_surface::argv_command;
+use crate::observe::{NodeObservation, observe_payload};
 use crate::ports::network_command_runner_port::NetworkCommandRunnerPort;
 
 pub const NODE_NETWORK_RECOVERY_TICK_SCHEMA: &str = "cynic.node_network_recovery_tick.v1";
