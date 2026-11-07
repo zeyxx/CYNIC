@@ -262,6 +262,8 @@ mod tests {
                 "BatchMode=yes",
                 "-o",
                 "StrictHostKeyChecking=yes",
+                "-o",
+                "ConnectTimeout=10",
                 "proxmox-pve",
                 "sudo",
                 "-n",
@@ -281,7 +283,7 @@ mod tests {
     fn clone_and_destroy_with_mock_runner() {
         let mut outputs = HashMap::new();
         outputs.insert(
-            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes proxmox-pve sudo -n /usr/bin/pct clone 105 900105 --full 0 --target pve".to_string(),
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 proxmox-pve sudo -n /usr/bin/pct clone 105 900105 --full 0 --target pve".to_string(),
             ArgvOutput {
                 stdout: "".to_string(),
                 stderr: "".to_string(),
@@ -290,7 +292,7 @@ mod tests {
             },
         );
         outputs.insert(
-            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes proxmox-pve sudo -n /usr/bin/pct status 900105".to_string(),
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 proxmox-pve sudo -n /usr/bin/pct status 900105".to_string(),
             ArgvOutput {
                 stdout: "status: stopped\n".to_string(),
                 stderr: "".to_string(),
@@ -299,7 +301,7 @@ mod tests {
             },
         );
         outputs.insert(
-            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes proxmox-pve sudo -n /usr/bin/pct destroy 900105 --purge 1".to_string(),
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 proxmox-pve sudo -n /usr/bin/pct destroy 900105 --purge 1".to_string(),
             ArgvOutput {
                 stdout: "".to_string(),
                 stderr: "".to_string(),
@@ -327,20 +329,22 @@ mod tests {
 
         assert_eq!(plans.len(), 5);
         assert_eq!(
-            plans[1],
+            plans[0],
             vec![
                 "ssh",
                 "-o",
                 "BatchMode=yes",
                 "-o",
                 "StrictHostKeyChecking=yes",
+                "-o",
+                "ConnectTimeout=10",
                 "root@guest",
                 "find",
                 "/root/.ssh",
                 "-print",
             ],
         );
-        assert!(plans.iter().all(|argv| argv[0] == "ssh" && argv[5] == "root@guest"));
+        assert!(plans.iter().all(|argv| argv[0] == "ssh" && argv[7] == "root@guest"));
     }
 
     #[test]
@@ -348,7 +352,7 @@ mod tests {
         let mut outputs = HashMap::new();
         for root in ProxmoxSshCloneAdapter::<MapArgvRunner>::hygiene_scan_roots() {
             let key = format!(
-                "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@guest find {root} -print"
+                "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 root@guest find {root} -print"
             );
             let (stdout, stderr, exit_code) = if root == "/root/.bash_history" {
                 ("/root/.bash_history\n".to_string(), String::new(), Some(0))
