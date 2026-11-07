@@ -279,10 +279,10 @@ fn e2e_step2_build_workflow_blocks_on_dirty_source() {
 /// E2E step 3: Harness progression lab → conformance blocked without proof
 #[test]
 fn e2e_step3_harness_blocked_without_proof() {
-    use cynic_registry::runtime_harness::RuntimeHarnessKind::*;
+    use cynic_registry::runtime_harness::DeploymentTier::*;
     let evidence = HarnessProgressionEvidence {
-        current_kind: ClosedLocalLab,
-        target_kind: Conformance,
+        current_tier: LocalLab,
+        target_tier: Conformance,
         satisfied: vec![ProofCategory::Bootstrap],
         pending: vec![ProofCategory::Hardware],
         unknown: vec![],
@@ -300,10 +300,10 @@ fn e2e_step3_harness_blocked_without_proof() {
 /// E2E step 3: Harness progression lab → conformance allowed with all proofs
 #[test]
 fn e2e_step3_harness_allowed_with_proofs() {
-    use cynic_registry::runtime_harness::{HarnessAuthority, RuntimeHarnessKind};
+    use cynic_registry::runtime_harness::{Authority, DeploymentTier};
     let evidence = HarnessProgressionEvidence {
-        current_kind: RuntimeHarnessKind::ClosedLocalLab,
-        target_kind: RuntimeHarnessKind::Conformance,
+        current_tier: DeploymentTier::LocalLab,
+        target_tier: DeploymentTier::Conformance,
         satisfied: vec![ProofCategory::Bootstrap, ProofCategory::Hardware],
         pending: vec![],
         unknown: vec![],
@@ -314,9 +314,9 @@ fn e2e_step3_harness_allowed_with_proofs() {
     assert!(matches!(
         verdict,
         HarnessProgressionVerdict::Allowed {
-            target_kind, authority, ..
-        } if target_kind == RuntimeHarnessKind::Conformance
-            && authority == HarnessAuthority::ConformanceGate
+            target_tier, authority, ..
+        } if target_tier == DeploymentTier::Conformance
+            && authority == Authority::ConformanceGate
     ));
 }
 

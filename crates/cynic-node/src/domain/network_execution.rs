@@ -1,5 +1,5 @@
 use cynic_registry::runtime_harness::{
-    HarnessAuthority, RuntimeHarnessContext, RuntimeHarnessTargetAttestation,
+    Authority, RuntimeHarnessContext, RuntimeHarnessTargetAttestation,
     validate_runtime_harness_target_attestation,
 };
 use serde::Serialize;
@@ -110,7 +110,7 @@ pub(crate) fn admit_network_execution(
                     }
                     if !matches!(
                         context.authority,
-                        HarnessAuthority::FleetCanary | HarnessAuthority::RuntimeAuthority
+                        Authority::FleetCanary | Authority::RuntimeAuthority
                     ) {
                         violations.push(violation(
                             "runtime_network_authority_required",
@@ -133,7 +133,7 @@ pub(crate) fn admit_network_execution(
             NetworkExecutionBoundary::IsolatedHarnessTarget,
             NetworkExecutionBoundary::RuntimeHost,
         ],
-        harness_kind: harness.map(|context| context.kind.as_str()),
+        harness_kind: harness.map(|context| context.tier.as_str()),
         harness_mutates_host_network: harness.map(|context| context.mutates_host_network),
         target_attestation: target_attestation.cloned(),
         violations,
@@ -147,7 +147,7 @@ fn violation(code: &'static str, message: &'static str) -> NetworkExecutionViola
 #[cfg(test)]
 mod tests {
     use cynic_registry::runtime_harness::{
-        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, DeploymentTier,
         RuntimeHarnessTargetAttestation, closed_local_lab_context, production_context,
     };
 
@@ -157,7 +157,7 @@ mod tests {
         let context = closed_local_lab_context();
         RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            tier: DeploymentTier::LocalLab,
             observed_at_unix_ms: 1,
             expires_at_unix_ms: u64::MAX,
             target_id: "lab-kernel".to_string(),

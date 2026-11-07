@@ -323,7 +323,7 @@ mod tests {
 
     use base64::Engine;
     use cynic_registry::runtime_harness::{
-        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, DeploymentTier,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };
     use cynic_process::{ArgvOutput, ArgvRunner};
@@ -368,7 +368,7 @@ mod tests {
     fn attestation() -> RuntimeHarnessTargetAttestation {
         RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            tier: DeploymentTier::LocalLab,
             observed_at_unix_ms: 1,
             expires_at_unix_ms: u64::MAX,
             target_id: "lab-kernel".to_string(),

@@ -4,7 +4,8 @@ use cynic_protocol::build::{
 };
 use serde::{Deserialize, Serialize};
 
-pub use cynic_protocol::build::HarnessAuthority;
+pub use cynic_protocol::build::Authority;
+pub use cynic_protocol::deployment_tier::DeploymentTier;
 
 pub const RUNTIME_HARNESS_CONTEXT_SCHEMA: &str = "cynic.runtime_harness.context.v1";
 pub const RUNTIME_HARNESS_CATALOG_SCHEMA: &str = "cynic.runtime_harness.catalog.v1";
@@ -14,9 +15,9 @@ pub const RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA: &str =
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RuntimeHarnessContext {
     pub schema: &'static str,
-    pub kind: RuntimeHarnessKind,
+    pub tier: DeploymentTier,
     pub role: &'static str,
-    pub authority: HarnessAuthority,
+    pub authority: Authority,
     pub isolation_boundary: &'static str,
     pub target_scope: &'static str,
     pub mutates_host_network: bool,
@@ -26,7 +27,7 @@ pub struct RuntimeHarnessContext {
 pub struct RuntimeHarnessCatalogReport {
     pub schema: &'static str,
     pub status: &'static str,
-    pub selected_kind: Option<&'static str>,
+    pub selected_tier: Option<&'static str>,
     pub contexts: Vec<RuntimeHarnessContext>,
     pub progression: Vec<&'static str>,
     pub rules: Vec<&'static str>,
@@ -35,7 +36,7 @@ pub struct RuntimeHarnessCatalogReport {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RuntimeHarnessTargetAttestation {
     pub schema: String,
-    pub harness_kind: RuntimeHarnessKind,
+    pub tier: DeploymentTier,
     pub observed_at_unix_ms: u64,
     pub expires_at_unix_ms: u64,
     pub target_id: String,
@@ -58,22 +59,12 @@ pub struct RuntimeHarnessTargetAttestationViolation {
     pub message: &'static str,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum RuntimeHarnessKind {
-    ClosedLocalLab,
-    Conformance,
-    Staging,
-    Canary,
-    Production,
-}
-
 pub fn closed_local_lab_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,
-        kind: RuntimeHarnessKind::ClosedLocalLab,
+        tier: DeploymentTier::LocalLab,
         role: "ephemeral proof environment for bootstrap, network, and runtime evidence",
-        authority: HarnessAuthority::TestProjection,
+        authority: Authority::TestProjection,
         isolation_boundary: "local qemu/libvirt isolated network",
         target_scope: "single-host closed lab first, then N guest nodes",
         mutates_host_network: false,
@@ -83,9 +74,9 @@ pub fn closed_local_lab_context() -> RuntimeHarnessContext {
 pub fn conformance_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,
-        kind: RuntimeHarnessKind::Conformance,
+        tier: DeploymentTier::Conformance,
         role: "portable node qualification suite for execution, bootstrap, security, and observation contracts",
-        authority: HarnessAuthority::ConformanceGate,
+        authority: Authority::ConformanceGate,
         isolation_boundary: "bounded local or guest execution with no production authority",
         target_scope: "one candidate node first, then repeatable N-node qualification",
         mutates_host_network: false,
@@ -95,9 +86,9 @@ pub fn conformance_context() -> RuntimeHarnessContext {
 pub fn staging_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,
-        kind: RuntimeHarnessKind::Staging,
+        tier: DeploymentTier::Staging,
         role: "production-like release candidate validation before fleet rollout",
-        authority: HarnessAuthority::ReleaseCandidate,
+        authority: Authority::ReleaseCandidate,
         isolation_boundary: "declared staging VM or container boundary",
         target_scope: "release candidate node or staging constellation",
         mutates_host_network: false,
@@ -107,9 +98,9 @@ pub fn staging_context() -> RuntimeHarnessContext {
 pub fn canary_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,
-        kind: RuntimeHarnessKind::Canary,
+        tier: DeploymentTier::Canary,
         role: "bounded real-fleet rollout with observation and rollback requirements",
-        authority: HarnessAuthority::FleetCanary,
+        authority: Authority::FleetCanary,
         isolation_boundary: "declared canary node or fleet subset boundary",
         target_scope: "small declared subset of real runtime nodes",
         mutates_host_network: true,
@@ -119,9 +110,9 @@ pub fn canary_context() -> RuntimeHarnessContext {
 pub fn production_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,
-        kind: RuntimeHarnessKind::Production,
+        tier: DeploymentTier::Production,
         role: "declared runtime authority with persistent evidence and SLO tracking",
-        authority: HarnessAuthority::RuntimeAuthority,
+        authority: Authority::RuntimeAuthority,
         isolation_boundary: "production fleet boundary declared by runtime authority",
         target_scope: "declared active organism runtime",
         mutates_host_network: true,
@@ -158,7 +149,7 @@ pub fn validate_runtime_harness_target_attestation_at(
             "target attestation schema does not match the runtime harness contract",
         ));
     }
-    if attestation.harness_kind != context.kind {
+    if attestation.tier != context.tier {
         violations.push(target_violation(
             "harness_target_kind_mismatch",
             "target attestation was produced for a different runtime harness kind",
@@ -246,20 +237,21 @@ fn target_violation(
 }
 
 pub fn runtime_harness_catalog(
-    selected_kind: Option<&str>,
+    selected_tier: Option<&str>,
 ) -> Result<RuntimeHarnessCatalogReport, String> {
-    let selected_kind = selected_kind
-        .map(|kind| {
-            RuntimeHarnessKind::canonical_name(kind)
-                .ok_or_else(|| format!("unknown runtime harness kind: {kind}"))
+    let selected_tier = selected_tier
+        .map(|tier| {
+            DeploymentTier::parse_flexible(tier)
+                .map(|t| t.as_str())
+                .ok_or_else(|| format!("unknown runtime harness tier: {tier}"))
         })
         .transpose()?;
-    let contexts = match selected_kind {
-        Some(kind) => {
+    let contexts = match selected_tier {
+        Some(tier) => {
             let context = runtime_harness_contexts()
                 .into_iter()
-                .find(|context| context.kind.as_str() == kind)
-                .ok_or_else(|| format!("runtime harness kind is not modeled: {kind}"))?;
+                .find(|context| context.tier.as_str() == tier)
+                .ok_or_else(|| format!("runtime harness tier is not modeled: {tier}"))?;
             vec![context]
         }
         None => runtime_harness_contexts(),
@@ -268,10 +260,10 @@ pub fn runtime_harness_catalog(
     Ok(RuntimeHarnessCatalogReport {
         schema: RUNTIME_HARNESS_CATALOG_SCHEMA,
         status: "ok",
-        selected_kind,
+        selected_tier,
         contexts,
         progression: vec![
-            "closed_local_lab",
+            "local_lab",
             "conformance",
             "staging",
             "canary",
@@ -306,7 +298,7 @@ pub struct RuntimeHarnessBuildRunnerRouteReport {
     /// Verbatim projection of the route state — no second decision layer.
     pub status: &'static str,
     pub route: BuildRunnerRouteDecision,
-    pub harness_kind: &'static str,
+    pub tier: &'static str,
 }
 
 pub const RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA: &str =
@@ -316,7 +308,7 @@ pub fn observe_build_runner_route(
     desired: &BuildRunnerRouteDesiredState,
     observed: &BuildRunnerRouteObservation,
     now_unix_ms: u64,
-    harness_kind: RuntimeHarnessKind,
+    tier: DeploymentTier,
 ) -> RuntimeHarnessBuildRunnerRouteReport {
     let route = reconcile_build_runner_route(desired, observed, now_unix_ms);
     let status = match route.state {
@@ -332,30 +324,7 @@ pub fn observe_build_runner_route(
         schema: RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA,
         status,
         route,
-        harness_kind: harness_kind.as_str(),
-    }
-}
-
-impl RuntimeHarnessKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::ClosedLocalLab => "closed_local_lab",
-            Self::Conformance => "conformance",
-            Self::Staging => "staging",
-            Self::Canary => "canary",
-            Self::Production => "production",
-        }
-    }
-
-    fn canonical_name(kind: &str) -> Option<&'static str> {
-        match kind {
-            "closed_local_lab" | "lab" => Some("closed_local_lab"),
-            "conformance" => Some("conformance"),
-            "staging" => Some("staging"),
-            "canary" => Some("canary"),
-            "production" => Some("production"),
-            _ => None,
-        }
+        tier: tier.as_str(),
     }
 }
 
@@ -412,8 +381,8 @@ impl HarnessTargetAttestationReaderPort for LocalHarnessTargetAttestationReader 
 #[cfg(test)]
 mod tests {
     use super::{
-        HarnessAuthority, RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA,
-        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        Authority, RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA,
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, DeploymentTier,
         RuntimeHarnessTargetAttestation, closed_local_lab_context, conformance_context,
         observe_build_runner_route, runtime_harness_catalog,
         validate_runtime_harness_target_attestation,
@@ -433,7 +402,7 @@ mod tests {
         let context = closed_local_lab_context();
         RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            tier: DeploymentTier::LocalLab,
             observed_at_unix_ms: 1,
             expires_at_unix_ms: u64::MAX,
             target_id: "lab-kernel".to_string(),
@@ -458,8 +427,8 @@ mod tests {
         let context = closed_local_lab_context();
 
         assert_eq!(context.schema, "cynic.runtime_harness.context.v1");
-        assert_eq!(context.kind, RuntimeHarnessKind::ClosedLocalLab);
-        assert_eq!(context.authority, HarnessAuthority::TestProjection);
+        assert_eq!(context.tier, DeploymentTier::LocalLab);
+        assert_eq!(context.authority, Authority::TestProjection);
         assert!(!context.mutates_host_network);
     }
 
@@ -467,8 +436,8 @@ mod tests {
     fn conformance_is_portable_and_not_production_authority() {
         let context = conformance_context();
 
-        assert_eq!(context.kind, RuntimeHarnessKind::Conformance);
-        assert_eq!(context.authority, HarnessAuthority::ConformanceGate);
+        assert_eq!(context.tier, DeploymentTier::Conformance);
+        assert_eq!(context.authority, Authority::ConformanceGate);
         assert!(!context.mutates_host_network);
     }
 
@@ -478,9 +447,9 @@ mod tests {
 
         assert_eq!(report.schema, super::RUNTIME_HARNESS_CATALOG_SCHEMA);
         assert_eq!(report.status, "ok");
-        assert_eq!(report.selected_kind, Some("conformance"));
+        assert_eq!(report.selected_tier, Some("conformance"));
         assert_eq!(report.contexts.len(), 1);
-        assert_eq!(report.contexts[0].kind, RuntimeHarnessKind::Conformance);
+        assert_eq!(report.contexts[0].tier, DeploymentTier::Conformance);
     }
 
     #[test]
@@ -604,7 +573,7 @@ mod tests {
             &route_desired(),
             &fully_fenced_observation(),
             ROUTE_NOW,
-            RuntimeHarnessKind::ClosedLocalLab,
+            DeploymentTier::LocalLab,
         );
 
         assert_eq!(report.schema, RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA);
@@ -656,7 +625,7 @@ mod tests {
             &route_desired(),
             &observed,
             ROUTE_NOW,
-            RuntimeHarnessKind::ClosedLocalLab,
+            DeploymentTier::LocalLab,
         );
 
         assert_eq!(report.status, "converging");
@@ -677,7 +646,7 @@ mod tests {
             &route_desired(),
             &observed,
             ROUTE_NOW,
-            RuntimeHarnessKind::ClosedLocalLab,
+            DeploymentTier::LocalLab,
         );
 
         assert_eq!(report.status, "blocked_hard");
@@ -700,7 +669,7 @@ mod tests {
             &route_desired(),
             &observed,
             ROUTE_NOW,
-            RuntimeHarnessKind::ClosedLocalLab,
+            DeploymentTier::LocalLab,
         );
 
         assert_eq!(report.status, "blocked_hard");
@@ -725,10 +694,10 @@ mod tests {
             &route_desired(),
             &observed,
             ROUTE_NOW,
-            RuntimeHarnessKind::Conformance,
+            DeploymentTier::Conformance,
         );
 
-        assert_eq!(report.harness_kind, "conformance");
+        assert_eq!(report.tier, "conformance");
         assert_eq!(report.status, "converging");
         assert_eq!(report.route.state, BuildRunnerRouteState::SshTrustVerified);
         assert_eq!(report.route.next_path, Some(BuildRunnerRoutePath::SshSeed));
@@ -780,7 +749,7 @@ mod tests {
     fn attestation() -> RuntimeHarnessTargetAttestation {
         RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            tier: DeploymentTier::LocalLab,
             observed_at_unix_ms: 1,
             expires_at_unix_ms: u64::MAX,
             target_id: "lab-kernel".to_string(),

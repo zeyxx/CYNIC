@@ -1,7 +1,8 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_registry::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
+use cynic_registry::harness_progression::HarnessProgressionVerdict;
+use cynic_registry::runtime_harness::DeploymentTier;
 use cynic_types::paths::CynicPaths;
 
 use crate::fail;
@@ -698,14 +699,14 @@ pub(crate) enum ProofCategoryArg {
     RollbackIntent,
 }
 
-impl From<RuntimeHarnessKindArg> for RuntimeHarnessKind {
+impl From<RuntimeHarnessKindArg> for DeploymentTier {
     fn from(arg: RuntimeHarnessKindArg) -> Self {
         match arg {
-            RuntimeHarnessKindArg::Lab => RuntimeHarnessKind::ClosedLocalLab,
-            RuntimeHarnessKindArg::Conformance => RuntimeHarnessKind::Conformance,
-            RuntimeHarnessKindArg::Staging => RuntimeHarnessKind::Staging,
-            RuntimeHarnessKindArg::Canary => RuntimeHarnessKind::Canary,
-            RuntimeHarnessKindArg::Production => RuntimeHarnessKind::Production,
+            RuntimeHarnessKindArg::Lab => DeploymentTier::LocalLab,
+            RuntimeHarnessKindArg::Conformance => DeploymentTier::Conformance,
+            RuntimeHarnessKindArg::Staging => DeploymentTier::Staging,
+            RuntimeHarnessKindArg::Canary => DeploymentTier::Canary,
+            RuntimeHarnessKindArg::Production => DeploymentTier::Production,
         }
     }
 }
@@ -733,8 +734,8 @@ pub(crate) fn execute_harness_progress(
     json: bool,
 ) -> Result<(), String> {
     let evidence = cynic_registry::harness_progression::HarnessProgressionEvidence {
-        current_kind: current_kind.into(),
-        target_kind: target_kind.into(),
+        current_tier: current_kind.into(),
+        target_tier: target_kind.into(),
         satisfied: satisfied.into_iter().map(Into::into).collect(),
         pending: vec![],
         unknown: unknown.into_iter().map(Into::into).collect(),
@@ -747,11 +748,11 @@ pub(crate) fn execute_harness_progress(
     } else {
         match &verdict {
             HarnessProgressionVerdict::Allowed {
-                current_kind,
-                target_kind,
+                current_tier,
+                target_tier,
                 authority,
             } => {
-                println!("ALLOWED: {current_kind:?} -> {target_kind:?} (authority: {authority:?})");
+                println!("ALLOWED: {current_tier:?} -> {target_tier:?} (authority: {authority:?})");
             }
             HarnessProgressionVerdict::Blocked { reason, detail } => {
                 println!("BLOCKED: {reason} — {detail}");

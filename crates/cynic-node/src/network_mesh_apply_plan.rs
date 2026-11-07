@@ -159,7 +159,7 @@ mod tests {
     use cynic_network::build_network_mesh_bundle;
     use crate::ports::network_command_runner_port::NetworkCommandRunnerPort;
     use cynic_registry::runtime_harness::{
-        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, DeploymentTier,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };
     use std::cell::Cell;
@@ -262,7 +262,7 @@ mod tests {
         let context = closed_local_lab_context();
         RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            tier: DeploymentTier::LocalLab,
             observed_at_unix_ms: 1,
             expires_at_unix_ms: u64::MAX,
             target_id: "lab-kernel".to_string(),

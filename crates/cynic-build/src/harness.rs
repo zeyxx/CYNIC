@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use crate::harness_authority::HarnessAuthority;
+pub use crate::harness_authority::Authority;
 
 pub const HARNESS_SCENARIO_SCHEMA: &str = "cynic.build.harness_scenario.v1";
 pub const HARNESS_CELL_REPORT_SCHEMA: &str = "cynic.build.harness_cell_report.v1";
@@ -88,7 +88,7 @@ pub struct HarnessScenario {
     #[serde(default = "default_scenario_schema")]
     pub schema: String,
     pub id: HarnessScenarioId,
-    pub authority: HarnessAuthority,
+    pub authority: Authority,
     pub target_role: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -121,7 +121,7 @@ impl HarnessScenario {
         Self {
             schema: HARNESS_SCENARIO_SCHEMA.to_string(),
             id: HarnessScenarioId::ClosedLabVm,
-            authority: HarnessAuthority::ConformanceGate,
+            authority: Authority::ConformanceGate,
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["libvirt_socket_accessible".to_string()],
@@ -143,7 +143,7 @@ impl HarnessScenario {
         Self {
             schema: HARNESS_SCENARIO_SCHEMA.to_string(),
             id: HarnessScenarioId::LxcCloneConformance,
-            authority: HarnessAuthority::ConformanceGate,
+            authority: Authority::ConformanceGate,
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["proxmox_provider_control_ready".to_string()],
@@ -162,7 +162,7 @@ impl HarnessScenario {
         Self {
             schema: HARNESS_SCENARIO_SCHEMA.to_string(),
             id: HarnessScenarioId::BuilderStagingObserve,
-            authority: HarnessAuthority::ReleaseCandidate,
+            authority: Authority::ReleaseCandidate,
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["node_identity_attested".to_string()],
@@ -177,7 +177,7 @@ impl HarnessScenario {
         Self {
             schema: HARNESS_SCENARIO_SCHEMA.to_string(),
             id: HarnessScenarioId::BuilderCanaryApply,
-            authority: HarnessAuthority::FleetCanary,
+            authority: Authority::FleetCanary,
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["staging_proof_completed".to_string()],
@@ -196,7 +196,7 @@ impl HarnessScenario {
         Self {
             schema: HARNESS_SCENARIO_SCHEMA.to_string(),
             id: HarnessScenarioId::FailureRecovery,
-            authority: HarnessAuthority::ConformanceGate,
+            authority: Authority::ConformanceGate,
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["conformance_harness_ready".to_string()],
@@ -214,7 +214,7 @@ impl HarnessScenario {
         Self {
             schema: HARNESS_SCENARIO_SCHEMA.to_string(),
             id: HarnessScenarioId::ProofReplay,
-            authority: HarnessAuthority::TestProjection,
+            authority: Authority::TestProjection,
             target_role: "build_runner".to_string(),
             enabled: true,
             prerequisites: vec!["retained_proof_present".to_string()],
@@ -282,7 +282,7 @@ pub struct HarnessObservation {
 pub struct HarnessCellReport {
     pub schema: String,
     pub scenario_id: HarnessScenarioId,
-    pub authority: HarnessAuthority,
+    pub authority: Authority,
     pub status: HarnessStatus,
     pub action: Option<HarnessAction>,
     pub evidence_refs: Vec<String>,
@@ -308,7 +308,7 @@ pub fn validate_harness_scenario(scenario: &HarnessScenario) -> Result<(), Strin
     if scenario.allowed_actions.is_empty() {
         return Err("harness_scenario_allowed_actions_empty".to_string());
     }
-    if scenario.authority == HarnessAuthority::TestProjection
+    if scenario.authority == Authority::TestProjection
         && scenario
             .allowed_actions
             .iter()

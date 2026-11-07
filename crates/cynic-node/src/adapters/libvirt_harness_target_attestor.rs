@@ -91,7 +91,7 @@ impl<R: ArgvRunner> HarnessTargetAttestationPort for LibvirtHarnessTargetAttesto
         let observed_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
         Ok(RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: context.kind.clone(),
+            tier: context.tier.clone(),
             observed_at_unix_ms,
             expires_at_unix_ms: observed_at_unix_ms.saturating_add(TARGET_ATTESTATION_TTL_MS),
             target_id: request.target_id.clone(),

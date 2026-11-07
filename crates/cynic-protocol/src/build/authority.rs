@@ -1,14 +1,14 @@
-//! Canonical harness authority enum — the single source of truth for
-//! authority levels across build harness and runtime harness.
-//!
-//! This module exists to eliminate the duplicate `HarnessAuthority` enums
-//! that previously lived in `cynic-protocol::harness` (4 variants) and
-//! `cynic-host::runtime_harness` (5 variants). Those enums had only
-//! `ConformanceGate` in common, making authority comparison between build
-//! and runtime surfaces impossible.
+//! Canonical authority enum — the single source of truth for
+//! authority levels across build and runtime surfaces.
 //!
 //! Per AGENTS.md invariant #6: one canonical decision source per concern.
-//! Authority is one concern; it has one type.
+//! Authority is one concern; it has one type (`Authority`).
+//!
+//! The environment stage paired with this authority is the canonical
+//! [`DeploymentTier`](crate::deployment_tier::DeploymentTier)
+//! (`LocalLab` / `Conformance` / `Staging` / `Canary` / `Production`),
+//! not a parallel scope enum. The legacy `Observe` spelling maps to
+//! `LocalLab` through `DeploymentTier::parse_flexible`.
 //!
 //! # Mapping from legacy enums
 //!
@@ -23,7 +23,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Canonical authority level for any harness (build or runtime).
+use crate::deployment_tier::DeploymentTier;
+
+/// Canonical authority level for any build or runtime surface.
 ///
 /// Ordered from weakest to strongest. A stronger authority can always do
 /// everything a weaker one can, but not the reverse.
@@ -35,7 +37,7 @@ use serde::{Deserialize, Serialize};
 /// - `cynic-cli` surfaces (projection only)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum HarnessAuthority {
+pub enum Authority {
     /// Read-only test projection. No mutation authority.
     /// Maps from: `harness::ReadOnlyProjection`, `runtime_harness::TestProjection`.
     TestProjection,
@@ -57,7 +59,7 @@ pub enum HarnessAuthority {
     RuntimeAuthority,
 }
 
-impl HarnessAuthority {
+impl Authority {
     /// Weakest authority — read-only test projection.
     pub const WEAKEST: Self = Self::TestProjection;
 
@@ -79,34 +81,23 @@ impl HarnessAuthority {
         matches!(self, Self::RuntimeAuthority)
     }
 
-    /// Returns the minimum authority required for the given harness scope,
+    /// Returns the minimum authority required for the given deployment tier,
     /// per AGENTS.md § Runtime Harness progression rules.
-    pub fn minimum_for_scope(scope: HarnessScope) -> Self {
-        match scope {
-            HarnessScope::Observe => Self::TestProjection,
-            HarnessScope::Conformance => Self::ConformanceGate,
-            HarnessScope::Staging => Self::ReleaseCandidate,
-            HarnessScope::Canary => Self::FleetCanary,
-            HarnessScope::Production => Self::RuntimeAuthority,
+    pub fn minimum_for_scope(tier: DeploymentTier) -> Self {
+        match tier {
+            DeploymentTier::LocalLab => Self::TestProjection,
+            DeploymentTier::Conformance => Self::ConformanceGate,
+            DeploymentTier::Staging => Self::ReleaseCandidate,
+            DeploymentTier::Canary => Self::FleetCanary,
+            DeploymentTier::Production => Self::RuntimeAuthority,
         }
     }
-}
-
-/// Harness scope — what tier of mutation is being attempted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HarnessScope {
-    Observe,
-    Conformance,
-    Staging,
-    Canary,
-    Production,
 }
 
 /// Pure predicate: does `held` authority satisfy `required`?
 ///
 /// This is the single canonical check. Surfaces must not re-derive it.
-pub fn authority_satisfies(held: HarnessAuthority, required: HarnessAuthority) -> bool {
+pub fn authority_satisfies(held: Authority, required: Authority) -> bool {
     held >= required
 }
 
@@ -114,7 +105,7 @@ pub fn authority_satisfies(held: HarnessAuthority, required: HarnessAuthority) -
 ///
 /// Equivalent to `authority_satisfies`. Provided for symmetry with
 /// `AgentScope::contains` where containment is the semantic frame.
-pub fn authority_contains(held: HarnessAuthority, other: HarnessAuthority) -> bool {
+pub fn authority_contains(held: Authority, other: Authority) -> bool {
     held >= other
 }
 
@@ -124,61 +115,77 @@ mod tests {
 
     #[test]
     fn ordering_is_weak_to_strong() {
-        assert!(HarnessAuthority::TestProjection < HarnessAuthority::ConformanceGate);
-        assert!(HarnessAuthority::ConformanceGate < HarnessAuthority::ReleaseCandidate);
-        assert!(HarnessAuthority::ReleaseCandidate < HarnessAuthority::FleetCanary);
-        assert!(HarnessAuthority::FleetCanary < HarnessAuthority::RuntimeAuthority);
+        assert!(Authority::TestProjection < Authority::ConformanceGate);
+        assert!(Authority::ConformanceGate < Authority::ReleaseCandidate);
+        assert!(Authority::ReleaseCandidate < Authority::FleetCanary);
+        assert!(Authority::FleetCanary < Authority::RuntimeAuthority);
     }
 
     #[test]
     fn stronger_contains_weaker() {
         assert!(authority_contains(
-            HarnessAuthority::RuntimeAuthority,
-            HarnessAuthority::TestProjection
+            Authority::RuntimeAuthority,
+            Authority::TestProjection
         ));
         assert!(authority_contains(
-            HarnessAuthority::FleetCanary,
-            HarnessAuthority::ConformanceGate
+            Authority::FleetCanary,
+            Authority::ConformanceGate
         ));
         assert!(!authority_contains(
-            HarnessAuthority::TestProjection,
-            HarnessAuthority::RuntimeAuthority
+            Authority::TestProjection,
+            Authority::RuntimeAuthority
         ));
     }
 
     #[test]
     fn equal_authority_contains_itself() {
         assert!(authority_contains(
-            HarnessAuthority::ConformanceGate,
-            HarnessAuthority::ConformanceGate
+            Authority::ConformanceGate,
+            Authority::ConformanceGate
         ));
     }
 
     #[test]
     fn mutate_real_state_requires_canary_or_above() {
-        assert!(!HarnessAuthority::TestProjection.can_mutate_real_state());
-        assert!(!HarnessAuthority::ConformanceGate.can_mutate_real_state());
-        assert!(!HarnessAuthority::ReleaseCandidate.can_mutate_real_state());
-        assert!(HarnessAuthority::FleetCanary.can_mutate_real_state());
-        assert!(HarnessAuthority::RuntimeAuthority.can_mutate_real_state());
+        assert!(!Authority::TestProjection.can_mutate_real_state());
+        assert!(!Authority::ConformanceGate.can_mutate_real_state());
+        assert!(!Authority::ReleaseCandidate.can_mutate_real_state());
+        assert!(Authority::FleetCanary.can_mutate_real_state());
+        assert!(Authority::RuntimeAuthority.can_mutate_real_state());
     }
 
     #[test]
     fn minimum_for_mutation_class_matches_progression() {
         assert_eq!(
-            HarnessAuthority::minimum_for_scope(HarnessScope::Observe),
-            HarnessAuthority::TestProjection
+            Authority::minimum_for_scope(DeploymentTier::LocalLab),
+            Authority::TestProjection
         );
         assert_eq!(
-            HarnessAuthority::minimum_for_scope(HarnessScope::Production),
-            HarnessAuthority::RuntimeAuthority
+            Authority::minimum_for_scope(DeploymentTier::Production),
+            Authority::RuntimeAuthority
+        );
+    }
+
+    #[test]
+    fn legacy_observe_spelling_maps_to_local_lab() {
+        // `Observe` was the legacy first scope variant; its canonical
+        // replacement is `DeploymentTier::LocalLab` via parse_flexible.
+        assert_eq!(
+            DeploymentTier::parse_flexible("observe"),
+            Some(DeploymentTier::LocalLab)
+        );
+        assert_eq!(
+            Authority::minimum_for_scope(
+                DeploymentTier::parse_flexible("observe").expect("observe parses")
+            ),
+            Authority::TestProjection
         );
     }
 
     #[test]
     fn serde_round_trip() {
-        let json = serde_json::to_string(&HarnessAuthority::FleetCanary).unwrap();
-        let back: HarnessAuthority = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, HarnessAuthority::FleetCanary);
+        let json = serde_json::to_string(&Authority::FleetCanary).unwrap();
+        let back: Authority = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, Authority::FleetCanary);
     }
 }

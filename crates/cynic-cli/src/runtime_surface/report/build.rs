@@ -18,26 +18,26 @@ pub(crate) fn build_runtime_report(
         .contexts
         .iter()
         .map(|context| RuntimeReportPhase {
-            phase: context.kind.as_str(),
+            phase: context.tier.as_str(),
             environment: context.role,
             authority: match context.authority {
-                cynic_registry::runtime_harness::HarnessAuthority::TestProjection => "test_projection",
-                cynic_registry::runtime_harness::HarnessAuthority::ConformanceGate => {
+                cynic_registry::runtime_harness::Authority::TestProjection => "test_projection",
+                cynic_registry::runtime_harness::Authority::ConformanceGate => {
                     "conformance_gate"
                 }
-                cynic_registry::runtime_harness::HarnessAuthority::ReleaseCandidate => {
+                cynic_registry::runtime_harness::Authority::ReleaseCandidate => {
                     "release_candidate"
                 }
-                cynic_registry::runtime_harness::HarnessAuthority::FleetCanary => "fleet_canary",
-                cynic_registry::runtime_harness::HarnessAuthority::RuntimeAuthority => {
+                cynic_registry::runtime_harness::Authority::FleetCanary => "fleet_canary",
+                cynic_registry::runtime_harness::Authority::RuntimeAuthority => {
                     "runtime_authority"
                 }
             },
             isolation_boundary: context.isolation_boundary,
             target_scope: context.target_scope,
             mutates_host_network: context.mutates_host_network,
-            required_reports: required_reports_for_phase(context.kind.as_str()),
-            promotion_gate: promotion_gate_for_phase(context.kind.as_str()),
+            required_reports: required_reports_for_phase(context.tier.as_str()),
+            promotion_gate: promotion_gate_for_phase(context.tier.as_str()),
         })
         .collect();
 

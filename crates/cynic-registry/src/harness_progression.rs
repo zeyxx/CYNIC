@@ -1,14 +1,13 @@
 //! Pure harness progression decision — whether the system can advance
-//! from one RuntimeHarnessKind to the next.
+//! from one DeploymentTier to the next.
 //!
 //! From AGENTS.md Runtime Harness section:
 //!   lab → conformance → staging → canary → production
 //!
 //! Each step requires explicit proof. No silent promotion.
-use cynic_protocol::build::HarnessAuthority;
+use cynic_protocol::build::Authority;
 use serde::Serialize;
 
-pub use crate::runtime_harness::RuntimeHarnessKind;
 pub use cynic_protocol::deployment_tier::{
     DeploymentTier, ProofCategory as TierProofCategory,
     TierProgressionEvidence, TierProgressionVerdict,
@@ -36,27 +35,27 @@ pub enum ProofCategory {
 /// Evidence snapshot for progression evaluation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HarnessProgressionEvidence {
-    pub current_kind: RuntimeHarnessKind,
-    pub target_kind: RuntimeHarnessKind,
+    pub current_tier: DeploymentTier,
+    pub target_tier: DeploymentTier,
     pub satisfied: Vec<ProofCategory>,
     pub pending: Vec<ProofCategory>,
     /// Residual unknowns — categories that could not be observed.
     pub unknown: Vec<ProofCategory>,
 }
 
-/// Pure decision: can the system progress from current to target harness kind?
+/// Pure decision: can the system progress from current to target tier?
 ///
 /// Returns a structured verdict — never a silent yes.
 pub fn decide_harness_progression(
     evidence: &HarnessProgressionEvidence,
 ) -> HarnessProgressionVerdict {
     // Step must be exactly +1 in the progression ladder.
-    if !is_single_step(&evidence.current_kind, &evidence.target_kind) {
+    if !is_single_step(&evidence.current_tier, &evidence.target_tier) {
         return HarnessProgressionVerdict::Blocked {
             reason: "harness_progression_must_be_single_step".into(),
             detail: format!(
                 "cannot jump from {:?} to {:?}",
-                evidence.current_kind, evidence.target_kind
+                evidence.current_tier, evidence.target_tier
             ),
         };
     }
@@ -73,7 +72,7 @@ pub fn decide_harness_progression(
     }
 
     // Missing required categories block progression.
-    let required = required_proof_categories(&evidence.target_kind);
+    let required = required_proof_categories(&evidence.target_tier);
     let missing: Vec<_> = required
         .iter()
         .filter(|cat| !evidence.satisfied.contains(cat))
@@ -88,20 +87,20 @@ pub fn decide_harness_progression(
     }
 
     HarnessProgressionVerdict::Allowed {
-        current_kind: evidence.current_kind.clone(),
-        target_kind: evidence.target_kind.clone(),
-        authority: authority_for_kind(&evidence.target_kind),
+        current_tier: evidence.current_tier.clone(),
+        target_tier: evidence.target_tier.clone(),
+        authority: authority_for_tier(&evidence.target_tier),
     }
 }
 
-/// Which proof categories are required to enter a given harness kind.
-pub fn required_proof_categories(kind: &RuntimeHarnessKind) -> Vec<ProofCategory> {
-    match kind {
-        RuntimeHarnessKind::ClosedLocalLab => vec![],
-        RuntimeHarnessKind::Conformance => {
+/// Which proof categories are required to enter a given tier.
+pub fn required_proof_categories(tier: &DeploymentTier) -> Vec<ProofCategory> {
+    match tier {
+        DeploymentTier::LocalLab => vec![],
+        DeploymentTier::Conformance => {
             vec![ProofCategory::Bootstrap, ProofCategory::Hardware]
         }
-        RuntimeHarnessKind::Staging => {
+        DeploymentTier::Staging => {
             vec![
                 ProofCategory::Bootstrap,
                 ProofCategory::Hardware,
@@ -110,7 +109,7 @@ pub fn required_proof_categories(kind: &RuntimeHarnessKind) -> Vec<ProofCategory
                 ProofCategory::Network,
             ]
         }
-        RuntimeHarnessKind::Canary => {
+        DeploymentTier::Canary => {
             vec![
                 ProofCategory::Bootstrap,
                 ProofCategory::Hardware,
@@ -120,7 +119,7 @@ pub fn required_proof_categories(kind: &RuntimeHarnessKind) -> Vec<ProofCategory
                 ProofCategory::TargetAttestation,
             ]
         }
-        RuntimeHarnessKind::Production => {
+        DeploymentTier::Production => {
             vec![
                 ProofCategory::Bootstrap,
                 ProofCategory::Hardware,
@@ -134,23 +133,23 @@ pub fn required_proof_categories(kind: &RuntimeHarnessKind) -> Vec<ProofCategory
     }
 }
 
-/// Authority granted at each harness level.
-pub fn authority_for_kind(kind: &RuntimeHarnessKind) -> HarnessAuthority {
-    match kind {
-        RuntimeHarnessKind::ClosedLocalLab => HarnessAuthority::TestProjection,
-        RuntimeHarnessKind::Conformance => HarnessAuthority::ConformanceGate,
-        RuntimeHarnessKind::Staging => HarnessAuthority::ReleaseCandidate,
-        RuntimeHarnessKind::Canary => HarnessAuthority::FleetCanary,
-        RuntimeHarnessKind::Production => HarnessAuthority::RuntimeAuthority,
+/// Authority granted at each tier level.
+pub fn authority_for_tier(tier: &DeploymentTier) -> Authority {
+    match tier {
+        DeploymentTier::LocalLab => Authority::TestProjection,
+        DeploymentTier::Conformance => Authority::ConformanceGate,
+        DeploymentTier::Staging => Authority::ReleaseCandidate,
+        DeploymentTier::Canary => Authority::FleetCanary,
+        DeploymentTier::Production => Authority::RuntimeAuthority,
     }
 }
 
-/// Is the target exactly one step above the current kind?
-fn is_single_step(current: &RuntimeHarnessKind, target: &RuntimeHarnessKind) -> bool {
-    use RuntimeHarnessKind::*;
+/// Is the target exactly one step above the current tier?
+fn is_single_step(current: &DeploymentTier, target: &DeploymentTier) -> bool {
+    use DeploymentTier::*;
     matches!(
         (current, target),
-        (ClosedLocalLab, Conformance)
+        (LocalLab, Conformance)
             | (Conformance, Staging)
             | (Staging, Canary)
             | (Canary, Production)
@@ -162,9 +161,9 @@ fn is_single_step(current: &RuntimeHarnessKind, target: &RuntimeHarnessKind) -> 
 pub enum HarnessProgressionVerdict {
     /// Progression is allowed — target authority granted.
     Allowed {
-        current_kind: RuntimeHarnessKind,
-        target_kind: RuntimeHarnessKind,
-        authority: HarnessAuthority,
+        current_tier: DeploymentTier,
+        target_tier: DeploymentTier,
+        authority: Authority,
     },
     /// Progression is blocked — missing proof or invalid step.
     Blocked { reason: String, detail: String },
@@ -173,17 +172,17 @@ pub enum HarnessProgressionVerdict {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use RuntimeHarnessKind::*;
+    use DeploymentTier::*;
 
     fn evidence(
-        current: RuntimeHarnessKind,
-        target: RuntimeHarnessKind,
+        current: DeploymentTier,
+        target: DeploymentTier,
         satisfied: Vec<ProofCategory>,
         unknown: Vec<ProofCategory>,
     ) -> HarnessProgressionEvidence {
         HarnessProgressionEvidence {
-            current_kind: current,
-            target_kind: target,
+            current_tier: current,
+            target_tier: target,
             satisfied,
             pending: vec![],
             unknown,
@@ -193,14 +192,14 @@ mod tests {
     #[test]
     fn lab_to_conformance_allowed_with_bootstrap_and_hardware() {
         let ev = evidence(
-            ClosedLocalLab,
+            LocalLab,
             Conformance,
             vec![ProofCategory::Bootstrap, ProofCategory::Hardware],
             vec![],
         );
         let verdict = decide_harness_progression(&ev);
         assert!(
-            matches!(&verdict, HarnessProgressionVerdict::Allowed { target_kind, .. } if *target_kind == Conformance),
+            matches!(&verdict, HarnessProgressionVerdict::Allowed { target_tier, .. } if *target_tier == Conformance),
             "expected Allowed, got {:?}",
             verdict
         );
@@ -209,7 +208,7 @@ mod tests {
     #[test]
     fn lab_to_conformance_blocked_without_hardware() {
         let ev = evidence(
-            ClosedLocalLab,
+            LocalLab,
             Conformance,
             vec![ProofCategory::Bootstrap],
             vec![],
@@ -261,14 +260,14 @@ mod tests {
         );
         let verdict = decide_harness_progression(&ev);
         assert!(
-            matches!(&verdict, HarnessProgressionVerdict::Allowed { authority, .. } if *authority == HarnessAuthority::RuntimeAuthority)
+            matches!(&verdict, HarnessProgressionVerdict::Allowed { authority, .. } if *authority == Authority::RuntimeAuthority)
         );
     }
 
     #[test]
     fn multi_step_jump_blocked() {
         let ev = evidence(
-            ClosedLocalLab,
+            LocalLab,
             Production,
             vec![
                 ProofCategory::Bootstrap,
@@ -292,7 +291,7 @@ mod tests {
     #[test]
     fn unknown_categories_block_progression() {
         let ev = evidence(
-            ClosedLocalLab,
+            LocalLab,
             Conformance,
             vec![ProofCategory::Bootstrap],
             vec![ProofCategory::Hardware],

@@ -165,6 +165,129 @@
         "CollisionScore"
       ],
       "rationale": "A risk level is an assessment, not a deployment tier or a test harness. Canonicalized so the heuristic (cynic-audit-engine/refactor_risk) and the CynicErrorCode (ArchitectureRefactorCollisionRisk) share one vocabulary."
+    },
+    "Fleet": {
+      "definition": "The set of enrolled CYNIC mesh nodes (fleet mesh) operating under a shared membership and topology authority.",
+      "banned_synonyms": [
+        "FleetMesh"
+      ],
+      "rationale": "Fleet designates the enrolled node set; FleetMesh conflates the set with the mesh transport (Headscale/WireGuard) that connects it.",
+      "banned_usages": [
+        "Using FleetMesh for the node set itself rather than the mesh transport"
+      ]
+    },
+    "MeshNode": {
+      "definition": "A member node of the fleet mesh, identified by id/name/IP, with online status and last-seen observation (cynic-types fleet_mesh port).",
+      "banned_synonyms": [
+        "FleetNetworkNode",
+        "MeshMember",
+        "FleetNode"
+      ],
+      "rationale": "MeshNode is the canonical pure port type in cynic-types; FleetNetworkNode (cynic-network), MeshMember (mesh_coordination ports) and FleetNode* observation wrappers are ad-hoc surface names for the same member.",
+      "banned_usages": [
+        "Defining parallel node-member types outside the cynic-types fleet_mesh port"
+      ]
+    },
+    "BuildRunner": {
+      "definition": "Port executing build commands on a build-capable node (cynic-build ports trait, run_command via argv).",
+      "banned_synonyms": [
+        "RemoteRunner"
+      ],
+      "rationale": "BuildRunner is the canonical hexagonal port; RemoteRunner is the ad-hoc enrollment-surface name for a remotely enrolled build runner.",
+      "banned_usages": [
+        "Using RemoteRunner as a synonym for the BuildRunner port"
+      ]
+    },
+    "Claim": {
+      "definition": "Hierarchical coordination claim over a scope (fleet, node, crate, module, file) with type, status, budget and TTL (cynic-protocol agent_coordination).",
+      "canonical_values": [
+        "Fleet",
+        "Node",
+        "Crate",
+        "Module",
+        "File"
+      ],
+      "banned_synonyms": [
+        "WorkloadClaim"
+      ],
+      "rationale": "Claim is the canonical protocol type; WorkloadClaim is the ad-hoc scheduler-surface renaming of the same claim.",
+      "banned_usages": [
+        "Using WorkloadClaim for a protocol Claim"
+      ]
+    },
+    "Budget": {
+      "definition": "Bounded resource allowance (energy/time/steps) attached to an agent claim or capability lease request.",
+      "banned_synonyms": [
+        "AgentBudgets"
+      ],
+      "rationale": "Budget is the canonical concept name; AgentBudgets is the ad-hoc agent-surface struct name (cynic-protocol agent_citizenship) for the same allowance.",
+      "banned_usages": [
+        "Using AgentBudgets as the canonical budget vocabulary"
+      ]
+    },
+    "Lease": {
+      "definition": "Time-bounded, scope- and budget-bounded capability delegation (LeaseRequest -> CapabilityLease -> LeaseReceipt, cynic-protocol capability_lease).",
+      "banned_synonyms": [
+        "DeliveryLease",
+        "LeaseGrant"
+      ],
+      "rationale": "Lease is the canonical delegation concept; DeliveryLease (agent workload delivery surface) and LeaseGrant (storage/coordination surfaces) are ad-hoc surface renamings.",
+      "banned_usages": [
+        "Using DeliveryLease or LeaseGrant as generic lease vocabulary"
+      ]
+    },
+    "Session": {
+      "definition": "Bounded interactive or execution session with its own store, metadata and lifecycle (chat, inference and supervisor sessions).",
+      "banned_synonyms": [
+        "ChatSession",
+        "SessionStore"
+      ],
+      "rationale": "Session is the canonical concept; ChatSession (chat surface) and SessionStore (store surface) are ad-hoc surface names for session state.",
+      "banned_usages": [
+        "Using ChatSession or SessionStore as canonical session vocabulary"
+      ]
+    },
+    "EvidenceEnvelope": {
+      "definition": "Content-addressed, provenance-bearing evidence container with schema, digest, subject, producer and payload (cynic-protocol evidence, cynic.evidence.envelope.v1).",
+      "banned_synonyms": [
+        "EvidenceRef",
+        "EvidenceStore"
+      ],
+      "rationale": "EvidenceEnvelope is the canonical wire type; EvidenceRef and EvidenceStore are ad-hoc surface names conflating a reference or a persistence port with the envelope itself.",
+      "banned_usages": [
+        "Using EvidenceRef or EvidenceStore for the evidence envelope wire type"
+      ]
+    },
+    "NodeIdentity": {
+      "definition": "Full cryptographic identity of a CYNIC node: ed25519 signing key plus 128-bit NodeId fingerprint derived via BLAKE3 (cynic-secrets types).",
+      "banned_synonyms": [
+        "MachineIdentity",
+        "NodeId"
+      ],
+      "rationale": "NodeIdentity is the canonical full identity; MachineIdentity is the ad-hoc surface synonym and NodeId alone names only the fingerprint, not the full identity.",
+      "banned_usages": [
+        "Using MachineIdentity for NodeIdentity, or NodeId for the full cryptographic identity"
+      ]
+    },
+    "Capability": {
+      "definition": "Exhaustive federation capability a node may be granted, decided by the single role-to-capability table (cynic-protocol federation_authz).",
+      "canonical_values": [
+        "fleet_observe",
+        "membership_admit",
+        "node_control",
+        "build_execute",
+        "storage_acl",
+        "forge_admin",
+        "host_supervision",
+        "inference_serve"
+      ],
+      "banned_synonyms": [
+        "EngineCapability"
+      ],
+      "rationale": "Capability is the canonical exhaustive enum; EngineCapability is the ad-hoc engine-surface renaming of the same grantable capability.",
+      "banned_usages": [
+        "Using EngineCapability for federation Capability"
+      ]
     }
   }
 }
