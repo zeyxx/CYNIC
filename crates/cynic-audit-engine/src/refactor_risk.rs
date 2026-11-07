@@ -13,7 +13,7 @@
 use cynic_protocol::CynicErrorCode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum RefactorRiskLevel {
+pub enum RefactorCollisionRisk {
     Low,
     Medium,
     High,
@@ -39,7 +39,7 @@ pub struct RefactorCandidate {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RefactorRisk {
-    pub level: RefactorRiskLevel,
+    pub level: RefactorCollisionRisk,
     pub score: u32,
     pub code: Option<CynicErrorCode>,
     pub reasons: Vec<String>,
@@ -111,14 +111,14 @@ pub fn assess(candidate: &RefactorCandidate) -> RefactorRisk {
     }
 
     let level = if score >= 5 {
-        RefactorRiskLevel::High
+        RefactorCollisionRisk::High
     } else if score >= 3 {
-        RefactorRiskLevel::Medium
+        RefactorCollisionRisk::Medium
     } else {
-        RefactorRiskLevel::Low
+        RefactorCollisionRisk::Low
     };
 
-    let code = if level == RefactorRiskLevel::High {
+    let code = if level == RefactorCollisionRisk::High {
         Some(CynicErrorCode::ArchitectureRefactorCollisionRisk)
     } else {
         None
@@ -156,7 +156,7 @@ mod tests {
     fn low_risk_stable_modular_candidate() {
         let c = candidate("browser-ingestion", 2, 30, true, false, 0);
         let r = assess(&c);
-        assert_eq!(r.level, RefactorRiskLevel::Low);
+        assert_eq!(r.level, RefactorCollisionRisk::Low);
         assert!(r.code.is_none());
     }
 
@@ -171,7 +171,7 @@ mod tests {
     fn high_risk_protocol_partition() {
         let c = candidate("cynic-protocol", 72, 0, true, true, 1);
         let r = assess(&c);
-        assert_eq!(r.level, RefactorRiskLevel::High);
+        assert_eq!(r.level, RefactorCollisionRisk::High);
         assert_eq!(r.code, Some(CynicErrorCode::ArchitectureRefactorCollisionRisk));
     }
 
@@ -185,9 +185,9 @@ mod tests {
     /// Ground-truth check against docs/audits/refactor-risk-dataset.json
     #[test]
     fn dataset_predictions_match_expected() {
-        let cases: &[(RefactorRiskLevel, RefactorCandidate)] = &[
+        let cases: &[(RefactorCollisionRisk, RefactorCandidate)] = &[
             (
-                RefactorRiskLevel::Low,
+                RefactorCollisionRisk::Low,
                 RefactorCandidate {
                     name: "browser-ingestion".into(),
                     commits_90d: 2,
@@ -199,7 +199,7 @@ mod tests {
                 },
             ),
             (
-                RefactorRiskLevel::High,
+                RefactorCollisionRisk::High,
                 RefactorCandidate {
                     name: "cynic-host".into(),
                     commits_90d: 725,
@@ -211,7 +211,7 @@ mod tests {
                 },
             ),
             (
-                RefactorRiskLevel::High,
+                RefactorCollisionRisk::High,
                 RefactorCandidate {
                     name: "cynic-protocol".into(),
                     commits_90d: 72,
