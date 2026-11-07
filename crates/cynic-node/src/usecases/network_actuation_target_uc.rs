@@ -111,7 +111,7 @@ mod tests {
         admit_network_actuation_plan,
     };
     use cynic_registry::runtime_harness::{
-        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
+        RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, DeploymentTier,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };
     use cynic_process::{ArgvOutput, ArgvRunner};
@@ -156,7 +156,7 @@ mod tests {
         let now = chrono::Utc::now().timestamp_millis() as u64;
         let attestation = RuntimeHarnessTargetAttestation {
             schema: RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA.to_string(),
-            harness_kind: RuntimeHarnessKind::ClosedLocalLab,
+            tier: DeploymentTier::LocalLab,
             observed_at_unix_ms: now,
             expires_at_unix_ms: now + 60_000,
             target_id: "guest-b".to_string(),
