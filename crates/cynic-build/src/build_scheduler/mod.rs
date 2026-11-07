@@ -670,9 +670,6 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
 mod tests {
     use super::*;
     use cynic_agent::workload::ports::AgentWorkloadStorePort;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
 
     const QA: &str = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
     const QB: &str = "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
@@ -688,9 +685,9 @@ mod tests {
     ) -> DurableAgentWorkloadRecord {
         use cynic_agent::{AgentBoundedAction, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState};
         use cynic_protocol::{
-            AgentDelegationEnvelope, AgentEvidenceRef, ExecutionAuthorization, MutationContract,
-            PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
-            PolicySetRef, RequiredProof,
+            AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef, ExecutionAuthorization,
+            MutationContract, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
+            PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
         };
         let short = source_commit.chars().take(12).collect::<String>();
         let workload_id = format!("build-{short}-pkg");
@@ -730,7 +727,13 @@ mod tests {
                     lineage: None,
                 },
                 context_refs: Vec::new(),
-                capabilities: Vec::new(),
+                // admit_agent_workload requires the mutation kind to be
+                // present in the delegated capabilities; without it the
+                // store rejects the record (workload_store_record_rejected).
+                capabilities: vec![AgentCapabilityGrant {
+                    id: "repository_validation".to_string(),
+                    mutates: false,
+                }],
                 budget: cynic_protocol::AgentBudget {
                     context_tokens: 1_000,
                     actions: 10,
@@ -802,23 +805,30 @@ mod tests {
         };
         store.compare_and_swap(&workload_id, None, &record, committed_at_ms).expect("write test workload")
     }
-    fn queue_store() -> LocalAgentWorkloadStore {
-        let id = QUEUE_SEQ.fetch_add(1, Ordering::SeqCst);
-        let dir = std::env::temp_dir().join(format!("cynic-queue-{}-{id}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("create queue store dir");
-        LocalAgentWorkloadStore::new(&dir)
+    /// Isolated store: a fresh tempdir per test, removed on drop, so no
+    /// residual records from a previous run can leak in (revision /
+    /// idempotency conflicts). The caller must keep the TempDir alive.
+    fn queue_store() -> (tempfile::TempDir, LocalAgentWorkloadStore) {
+        let dir = tempfile::tempdir().expect("create queue store dir");
+        let store = LocalAgentWorkloadStore::new(dir.path());
+        (dir, store)
+    }
+
+    fn now_ms() -> u64 {
+        lifecycle::current_unix_ms()
     }
 
     #[test]
     fn queue_follows_commit_time_not_insertion_order() {
-        let store = queue_store();
+        let (_dir, store) = queue_store();
+        let now = now_ms();
         make_test_workload(
             QB,
             "cynic-host",
             "cynic-builder",
             "node-1",
             "agent-1",
-            200,
+            now - 100,
             &store,
         );
         make_test_workload(
@@ -827,7 +837,7 @@ mod tests {
             "cynic-builder",
             "node-1",
             "agent-1",
-            100,
+            now - 200,
             &store,
         );
 
@@ -841,14 +851,15 @@ mod tests {
 
     #[test]
     fn queue_skips_terminal_and_foreign_records() {
-        let store = queue_store();
+        let (_dir, store) = queue_store();
+        let now = now_ms();
         let done = make_test_workload(
             QA,
             "cynic-host",
             "cynic-builder",
             "node-1",
             "agent-1",
-            100,
+            now - 100,
             &store,
         );
         make_test_workload(
@@ -857,7 +868,7 @@ mod tests {
             "cynic-builder",
             "node-9",
             "agent-1",
-            50,
+            now - 200,
             &store,
         );
         let mut finished = done.record.clone();
@@ -867,7 +878,7 @@ mod tests {
                 &done.record.envelope.workload_id,
                 Some(done.revision),
                 &finished,
-                150,
+                now - 50,
             )
             .expect("complete first");
 
@@ -1227,9 +1238,16 @@ mod tests {
         use cynic_protocol::LeaseGuard;
         use cynic_agent::AgentWorkloadClaim;
 
-        let store = queue_store();
+        let (_dir, store) = queue_store();
+        let now = now_ms();
         let admitted = make_test_workload(
-            QA, "cynic-host", "cynic-builder", "node-1", "agent-1", 100, &store,
+            QA,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            now - 200,
+            &store,
         );
         let (control, scheduler) = scheduler_configs();
 
@@ -1243,17 +1261,17 @@ mod tests {
                 lease_id: "old-lease".to_string(),
                 fencing_token: 1,
             },
-            expires_at_ms: 1,
+            expires_at_ms: now - 1_000,
             cancellation_generation: 0,
             max_lease_window_ms: 900_000,
-            granted_at_ms: 1,
+            granted_at_ms: now - 1_000,
         });
         let forged = store
             .compare_and_swap(
                 &expired.envelope.workload_id.clone(),
                 Some(admitted.revision),
                 &expired,
-                200,
+                now - 100,
             )
             .expect("forge expired claim");
 

@@ -78,9 +78,10 @@ fn exec_start_paths(unit_content: &str) -> Vec<PathBuf> {
             continue;
         };
         for token in rest.split_whitespace() {
-            if token.starts_with('-') {
-                continue;
-            }
+            // systemd strips a leading '-' before resolving the executable
+            // (failure-tolerated prefix, like parse_passwd_uid): only the
+            // prefix is skipped, the path that follows it is the executable.
+            let token = token.strip_prefix('-').unwrap_or(token);
             if token.starts_with('/') {
                 paths.push(PathBuf::from(token));
                 break;
