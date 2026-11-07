@@ -10,7 +10,7 @@ pub const STORAGE_LEASE_SCHEMA: &str = "cynic.storage_lease.v1";
 pub const STORAGE_OPERATION_EVENT_SCHEMA: &str = "cynic.storage_operation_event.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StorageLeaseGrant {
+pub struct StorageLease {
     pub schema: String,
     pub guard: LeaseGuard,
     pub expires_at_ms: u64,

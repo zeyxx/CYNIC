@@ -5,7 +5,7 @@ use crate::workspace::ports::AgentWorkspacePortError;
 use crate::AgentWorkloadEnvelope;
 use crate::{
     AgentSchedulerJournalRecord, AgentWorkloadCompletionPublication, AgentWorkloadDelivery,
-    AgentWorkloadDeliveryAcceptance, AgentWorkloadDeliveryLease, AgentWorkloadRecord,
+    AgentWorkloadDeliveryAcceptance, Lease, AgentWorkloadRecord,
     DurableAgentWorkloadRecord,
 };
 use cynic_protocol::{
@@ -60,10 +60,10 @@ pub trait AgentWorkloadCompletionReceiptPort: Send + Sync {
     fn persist(&self, delivery: &AgentWorkloadDelivery) -> Result<(), String>;
 }
 
-pub trait AgentWorkloadDeliveryLeasePort: Send + Sync {
-    fn read(&self, workload_id: &str) -> Result<Option<AgentWorkloadDeliveryLease>, String>;
+pub trait LeasePort: Send + Sync {
+    fn read(&self, workload_id: &str) -> Result<Option<Lease>, String>;
 
-    fn persist(&self, workload_id: &str, lease: &AgentWorkloadDeliveryLease) -> Result<(), String>;
+    fn persist(&self, workload_id: &str, lease: &Lease) -> Result<(), String>;
 }
 
 pub trait AgentWorkloadDeliveryPort: Send + Sync {

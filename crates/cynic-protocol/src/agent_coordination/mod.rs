@@ -3,7 +3,7 @@
 //! This module extends the coordination primitives from `coordination_lease`
 //! with the full lifecycle: identity, claim, heartbeat, release, mutation.
 //!
-//! Existing `LeaseGuard`/`LeaseGrant` types are reused for backward
+//! Existing `LeaseGuard`/`Lease` types are reused for backward
 //! compatibility. New types (`Claim`, `ClaimRequest`, etc.) build on them.
 
 pub mod predicates;
@@ -17,7 +17,7 @@ pub mod field_envelope;
 // ── Re-exports from existing coordination_lease (backward compat) ────────
 
 pub use crate::coordination_lease::{
-    BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard, LeaseMutationOutcome,
+    BatchClaimResult, LeaseAction, LeaseConflict, Lease, LeaseGuard, LeaseMutationOutcome,
     LeaseRejectionCode, TargetClaimOutcome,
 };
 

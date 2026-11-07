@@ -10,13 +10,13 @@ use cynic_protocol::{
 };
 
 pub const AGENT_WORKLOAD_DELIVERY_SCHEMA: &str = "cynic.agent_workload_delivery.v1";
-pub const AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA: &str = "cynic.agent_workload_delivery_lease.v1";
-pub const AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS: u64 = 15 * 60 * 1_000;
+pub const LEASE_SCHEMA: &str = "cynic.agent_workload_delivery_lease.v1";
+pub const LEASE_MAX_TTL_MS: u64 = 15 * 60 * 1_000;
 pub const AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA: &str =
     "cynic.agent_workload_completion_publication.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AgentWorkloadDeliveryLease {
+pub struct Lease {
     pub schema: String,
     pub lease_id: String,
     pub fencing_token: u64,
@@ -52,7 +52,7 @@ pub struct AgentWorkloadCompletionPublication {
     pub node_id: String,
     pub workload_id: String,
     pub published_at_ms: u64,
-    pub delivery_lease: AgentWorkloadDeliveryLease,
+    pub lease: Lease,
     pub durable_record: DurableAgentWorkloadRecord,
     #[serde(default)]
     pub evidence: Vec<EvidenceEnvelope>,
@@ -71,7 +71,7 @@ pub struct AgentWorkloadDelivery {
     #[serde(default)]
     pub accepted_record_digest: Option<String>,
     #[serde(default)]
-    pub acceptance_lease: Option<AgentWorkloadDeliveryLease>,
+    pub acceptance_lease: Option<Lease>,
     #[serde(default)]
     pub terminal_at_ms: Option<u64>,
     #[serde(default)]
@@ -170,10 +170,10 @@ pub fn validate_agent_workload_completion_publication(
     if delivery.status != AgentWorkloadDeliveryStatus::Accepted {
         violations.push("agent_workload_completion_delivery_not_accepted".to_string());
     }
-    if delivery.acceptance_lease.as_ref() != Some(&publication.delivery_lease) {
+    if delivery.acceptance_lease.as_ref() != Some(&publication.lease) {
         violations.push("agent_workload_completion_delivery_lease_mismatch".to_string());
     }
-    if publication.delivery_lease.record_digest != publication.durable_record.record_digest {
+    if publication.lease.record_digest != publication.durable_record.record_digest {
         violations.push("agent_workload_completion_delivery_record_mismatch".to_string());
     }
     if publication.node_id != delivery.target_node_id
@@ -189,7 +189,7 @@ pub fn validate_agent_workload_completion_publication(
     {
         violations.push("agent_workload_completion_publication_time_invalid".to_string());
     }
-    if publication.published_at_ms > publication.delivery_lease.expires_at_ms {
+    if publication.published_at_ms > publication.lease.expires_at_ms {
         violations.push("agent_workload_completion_delivery_lease_expired".to_string());
     }
     violations.extend(validate_durable_agent_workload_record(
@@ -221,9 +221,9 @@ pub fn agent_workload_delivery_available(delivery: &AgentWorkloadDelivery, now_m
     }
 }
 
-pub fn validate_agent_workload_delivery_lease(lease: &AgentWorkloadDeliveryLease) -> Vec<String> {
+pub fn validate_lease(lease: &Lease) -> Vec<String> {
     let mut violations = Vec::new();
-    if lease.schema != AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA
+    if lease.schema != LEASE_SCHEMA
         || !valid_sha256(&lease.lease_id)
         || lease.fencing_token == 0
         || lease.consumer_instance_id.trim().is_empty()
@@ -248,7 +248,7 @@ pub fn accept_agent_workload_delivery(
         || !valid_sha256(&acceptance.record_digest)
         || acceptance.requested_at_ms < delivery.submitted_at_ms
         || acceptance.lease_ttl_ms == 0
-        || acceptance.lease_ttl_ms > AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS
+        || acceptance.lease_ttl_ms > LEASE_MAX_TTL_MS
         || acceptance
             .requested_at_ms
             .checked_add(acceptance.lease_ttl_ms)
@@ -298,8 +298,8 @@ pub fn accept_agent_workload_delivery(
         }))
         .expect("workload delivery lease material is serializable")
     };
-    let lease = AgentWorkloadDeliveryLease {
-        schema: AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA.to_string(),
+    let lease = Lease {
+        schema: LEASE_SCHEMA.to_string(),
         lease_id,
         fencing_token,
         consumer_instance_id: acceptance.consumer_instance_id.clone(),
@@ -413,7 +413,7 @@ fn valid_acceptance(delivery: &AgentWorkloadDelivery) -> bool {
             .is_some_and(valid_sha256);
     legacy_fields_valid
         && delivery.acceptance_lease.as_ref().is_none_or(|lease| {
-            validate_agent_workload_delivery_lease(lease).is_empty()
+            validate_lease(lease).is_empty()
                 && lease.accepted_at_ms >= delivery.submitted_at_ms
                 && delivery.accepted_at_ms == Some(lease.accepted_at_ms)
                 && delivery.accepted_record_digest.as_deref() == Some(lease.record_digest.as_str())

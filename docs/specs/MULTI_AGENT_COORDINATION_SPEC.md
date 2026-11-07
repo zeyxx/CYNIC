@@ -22,9 +22,9 @@
 ## II. WHAT (Que fait ce système ? Invariants & Données)
 
 ### 1. Types de Données Centraux
-* **`LeaseGrant`** :
+* **`Lease`** :
   ```rust
-  pub struct LeaseGrant {
+  pub struct Lease {
       pub lease_id: String,       // ID unique: "lease-{target}-{fencing_token}"
       pub fencing_token: u64,     // Entier strictement croissant (anti-split-brain)
       pub expires_at: String,     // Horodatage ISO-8601 UTC
@@ -78,9 +78,9 @@ fn claim(agent_id, target, ttl) -> TargetClaimOutcome {
         }
     }
     let token = store.next_token();
-    let grant = LeaseGrant { lease_id, fencing_token: token, expires_at: now + ttl };
+    let grant = Lease { lease_id, fencing_token: token, expires_at: now + ttl };
     store.insert(target, lease);
-    TargetClaimOutcome::Claimed { target, grant }
+    TargetClaimOutcome::Claimed { target, lease }
 }
 ```
 

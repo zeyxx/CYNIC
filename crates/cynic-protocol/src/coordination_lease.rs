@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LeaseGrant {
+pub struct Lease {
     pub lease_id: String,
     pub fencing_token: u64,
     pub expires_at: String,
@@ -89,7 +89,7 @@ pub struct LeaseConflict {
 pub enum TargetClaimOutcome {
     Claimed {
         target: String,
-        grant: LeaseGrant,
+        lease: Lease,
     },
     Conflict {
         target: String,

@@ -24,10 +24,10 @@
 ## II. WHAT (Que prouve cette simulation ? Scénario & Assertions)
 
 ### Scénario Émulé :
-1. **Agent-Codex** réserve `crates/cynic-inference` $\to$ Reçoit `LeaseGrant` (Token 1001).
+1. **Agent-Codex** réserve `crates/cynic-inference` $\to$ Reçoit `Lease` (Token 1001).
 2. **Agent-Claude** tente d'acquérir `crates/cynic-inference` $\to$ Reçoit `TargetClaimOutcome::Conflict`.
-3. **Agent-Claude** se replie sur `crates/cynic-intel` $\to$ Reçoit `LeaseGrant` (Token 1002).
-4. **Agent-Pi** réserve `docs/specs` $\to$ Reçoit `LeaseGrant` (Token 1003).
+3. **Agent-Claude** se replie sur `crates/cynic-intel` $\to$ Reçoit `Lease` (Token 1002).
+4. **Agent-Pi** réserve `docs/specs` $\to$ Reçoit `Lease` (Token 1003).
 5. Les agents exécutent l'**Audit AST v2** en mémoire $\to$ 0 violation critique.
 6. **Agent-Codex** crée un marché de gouvernance financé par le coffre Odysseum : *"Should CYNIC adopt Solana Anchor 0.30+?"*.
 7. **Agent-Claude** et **Agent-Codex** placent des paris $\to$ Le prix monte à $\ge 60\%$.

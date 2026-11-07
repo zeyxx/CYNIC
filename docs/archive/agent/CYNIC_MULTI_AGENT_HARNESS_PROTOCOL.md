@@ -31,7 +31,7 @@ Sans protocole strict, le travail multi-agents génère 3 modes de défaillance 
 Formalisé dans `crates/cynic-protocol/src/coordination_lease.rs` :
 * **Prise de bail obligatoire (*Claim*)** : Avant d'entamer une tâche mutatrice sur un domaine (ex: `crates/cynic-inference/`), l'agent doit émettre un `cynic_coord_claim`.
 * **Règles d'arbitrage** :
-  * Si la surface est libre : le bail est accordé avec un `LeaseGrant` (identifiant unique, expiration en millisecondes).
+  * Si la surface est libre : le bail est accordé avec un `Lease` (identifiant unique, expiration en millisecondes).
   * Si la surface est déjà réservée : l'agent reçoit un `LeaseConflict` immédiat et doit soit attendre la libération (`cynic_coord_release`), soit basculer sur un domaine orthogonal.
 * **Fencing anti-stale** : Tout commit ou action exécuté avec un bail expiré est rejeté par le kernel.
 

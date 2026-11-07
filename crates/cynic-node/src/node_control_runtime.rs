@@ -7,7 +7,7 @@ use tokio_util::sync::CancellationToken;
 use crate::adapters::http_node_control::HttpNodeControlAdapter;
 use crate::adapters::http_artifact_transport::HttpArtifactTransport;
 use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
-use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
+use crate::adapters::local_lease::LocalLeaseStore;
 use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use crate::adapters::local_node_control_observer::LocalNodeControlObserver;
 use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
@@ -157,7 +157,7 @@ pub async fn start_tasks(
             .agent_workload_state_root
             .join("agent-scheduler/workloads"),
     );
-    let delivery_leases = LocalAgentWorkloadDeliveryLeaseStore::new(
+    let delivery_leases = LocalLeaseStore::new(
         control_config
             .agent_workload_state_root
             .join("agent-scheduler/delivery-leases"),

@@ -512,7 +512,7 @@ mod tests {
             node_id: "cynic-builder".to_string(),
             workload_id,
             published_at_ms: 4,
-            delivery_lease: accepted.acceptance_lease.clone().unwrap(),
+            lease: accepted.acceptance_lease.clone().unwrap(),
             durable_record: durable,
             evidence,
         };

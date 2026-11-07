@@ -1,6 +1,6 @@
 use crate::ports::storage_lease_port::StorageLeasePort;
 use cynic_protocol::LeaseGuard;
-use cynic_proxmox::storage::controller::{STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
+use cynic_proxmox::storage::controller::{STORAGE_LEASE_SCHEMA, StorageLease};
 use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone)]
@@ -20,7 +20,7 @@ impl StorageLeasePort for LocalStorageLeaseAdapter {
         agent_id: &str,
         now_ms: u64,
         ttl_ms: u64,
-    ) -> Result<StorageLeaseGrant, String> {
+    ) -> Result<StorageLease, String> {
         validate(resource_id, agent_id, ttl_ms)?;
         fs::create_dir_all(&self.root)
             .map_err(|_| "storage_lease_root_create_failed".to_string())?;
@@ -32,9 +32,9 @@ impl StorageLeasePort for LocalStorageLeaseAdapter {
             }
         }
         let prior = read(&path)?
-            .map(|grant| grant.guard.fencing_token)
+            .map(|lease| lease.guard.fencing_token)
             .unwrap_or(0);
-        let grant = StorageLeaseGrant {
+        let lease = StorageLease {
             schema: STORAGE_LEASE_SCHEMA.to_string(),
             guard: LeaseGuard {
                 agent_id: agent_id.to_string(),
@@ -44,15 +44,15 @@ impl StorageLeasePort for LocalStorageLeaseAdapter {
             },
             expires_at_ms: now_ms.saturating_add(ttl_ms),
         };
-        write(&path, &grant)?;
-        Ok(grant)
+        write(&path, &lease)?;
+        Ok(lease)
     }
     fn renew(
         &self,
         guard: &LeaseGuard,
         now_ms: u64,
         ttl_ms: u64,
-    ) -> Result<StorageLeaseGrant, String> {
+    ) -> Result<StorageLease, String> {
         if guard.fencing_token == 0 || guard.lease_id.is_empty() || ttl_ms == 0 {
             return Err("storage_lease_guard_invalid".to_string());
         }
@@ -64,12 +64,12 @@ impl StorageLeasePort for LocalStorageLeaseAdapter {
         if current.guard != *guard || current.expires_at_ms <= now_ms {
             return Err("storage_lease_stale_or_expired".to_string());
         }
-        let grant = StorageLeaseGrant {
+        let lease = StorageLease {
             expires_at_ms: now_ms.saturating_add(ttl_ms),
             ..current
         };
-        write(&path, &grant)?;
-        Ok(grant)
+        write(&path, &lease)?;
+        Ok(lease)
     }
     fn release(&self, guard: &LeaseGuard, now_ms: u64) -> Result<(), String> {
         fs::create_dir_all(&self.root)
@@ -99,7 +99,7 @@ fn path_for(root: &std::path::Path, target: &str) -> Result<PathBuf, String> {
     }
     Ok(root.join(format!("{id}.json")))
 }
-fn read(path: &std::path::Path) -> Result<Option<StorageLeaseGrant>, String> {
+fn read(path: &std::path::Path) -> Result<Option<StorageLease>, String> {
     match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map(Some)
@@ -108,11 +108,11 @@ fn read(path: &std::path::Path) -> Result<Option<StorageLeaseGrant>, String> {
         Err(_) => Err("storage_lease_read_failed".to_string()),
     }
 }
-fn write(path: &std::path::Path, grant: &StorageLeaseGrant) -> Result<(), String> {
+fn write(path: &std::path::Path, lease: &StorageLease) -> Result<(), String> {
     let temp = path.with_extension("tmp");
     fs::write(
         &temp,
-        serde_json::to_vec_pretty(grant).map_err(|_| "storage_lease_encode_failed".to_string())?,
+        serde_json::to_vec_pretty(lease).map_err(|_| "storage_lease_encode_failed".to_string())?,
     )
     .map_err(|_| "storage_lease_write_failed".to_string())?;
     fs::rename(temp, path).map_err(|_| "storage_lease_publish_failed".to_string())

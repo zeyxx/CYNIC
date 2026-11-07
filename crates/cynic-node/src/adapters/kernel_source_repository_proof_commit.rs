@@ -1,5 +1,5 @@
 use cynic_protocol::{
-    LeaseAction, LeaseGrant, LeaseGuard, LeaseMutationOutcome, LeaseVerification,
+    LeaseAction, Lease, LeaseGuard, LeaseMutationOutcome, LeaseVerification,
     RuntimeProofBundle, coord_claim_path, coord_finalize_path, coord_release_path,
     coord_verify_path,
 };
@@ -68,7 +68,7 @@ impl KernelSourceRepositoryProofCommit {
 #[derive(serde::Deserialize)]
 struct ClaimResponse {
     status: String,
-    lease: Option<LeaseGrant>,
+    lease: Option<Lease>,
 }
 
 #[derive(serde::Deserialize)]

@@ -126,7 +126,7 @@ mod tests {
         COORDINATION_AUTHORITY_DESIRED_SCHEMA, COORDINATION_AUTHORITY_OBSERVATION_SCHEMA,
         CoordinationAuthorityMemberObservation,
     };
-    use cynic_proxmox::storage::controller::{STORAGE_LEASE_SCHEMA, StorageLeaseGrant};
+    use cynic_proxmox::storage::controller::{STORAGE_LEASE_SCHEMA, StorageLease};
 
     fn desired() -> CoordinationAuthorityDesiredState {
         CoordinationAuthorityDesiredState {
@@ -216,9 +216,9 @@ mod tests {
             agent_id: &str,
             now_ms: u64,
             ttl_ms: u64,
-        ) -> Result<StorageLeaseGrant, String> {
+        ) -> Result<StorageLease, String> {
             match self.behavior {
-                FakeBehavior::Grant => Ok(StorageLeaseGrant {
+                FakeBehavior::Grant => Ok(StorageLease {
                     schema: STORAGE_LEASE_SCHEMA.to_string(),
                     guard: LeaseGuard {
                         agent_id: agent_id.to_string(),
@@ -239,9 +239,9 @@ mod tests {
             guard: &LeaseGuard,
             now_ms: u64,
             ttl_ms: u64,
-        ) -> Result<StorageLeaseGrant, String> {
+        ) -> Result<StorageLease, String> {
             match self.behavior {
-                FakeBehavior::Grant => Ok(StorageLeaseGrant {
+                FakeBehavior::Grant => Ok(StorageLease {
                     schema: STORAGE_LEASE_SCHEMA.to_string(),
                     guard: guard.clone(),
                     expires_at_ms: now_ms + ttl_ms,
