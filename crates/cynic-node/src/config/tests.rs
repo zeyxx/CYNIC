@@ -330,6 +330,12 @@ max_rss_cap_mb = 2048
 
 #[test]
 fn build_scheduler_config_parses_sccache_stanza_with_defaults() {
+    // `default_sccache_cache_dir()` resolves through
+    // `CynicPaths::state_dir()` (`CYNIC_STATE_DIR`, else `/var/lib/cynic`).
+    // Pin it explicitly so the default does not depend on the ambient
+    // user/CI environment.
+    let _env_lock = crate::test_env::env_lock();
+    let _state_dir = crate::test_env::EnvOverride::set("CYNIC_STATE_DIR", "/var/lib/cynic");
     let cfg = make_config_with_env(
         r#"
 [kernel]
