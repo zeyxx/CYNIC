@@ -5,12 +5,12 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
+use cynic_agent::agent_access::{
+    AGENT_AUTHORITY_PROJECTION_SCHEMA, AgentAuthorityProjectionObservation,
+    AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec,
+};
 use cynic_protocol::{agent_session_authority_digest, AgentSessionAuthority};
 
-pub use cynic_agent::agent_access::{
-    plan_agent_authority_projection, AgentAuthorityProjectionObservation,
-    AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec, AGENT_AUTHORITY_PROJECTION_SCHEMA,
-};
 
 /// Construit le spec « installé » : registry + résolution d'identités
 /// `/etc/passwd` + `/etc/group` (host-only, invariants 0o640/root).

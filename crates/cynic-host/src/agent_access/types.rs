@@ -2,9 +2,9 @@
 //! Ce module ne conserve que le constructeur dépendant du registry, que le
 //! domaine pur ne peut pas connaître.
 
-pub use cynic_agent::agent_access::{
-    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, AGENT_ACCESS_OBSERVATION_SCHEMA,
-    AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
+
+use cynic_agent::agent_access::{
+    AGENT_ACCESS_POLICY_SCHEMA, AgentAccessPolicy,
 };
 
 /// Construit la politique désirée à partir du registry (host-only).

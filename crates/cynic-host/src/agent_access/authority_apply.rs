@@ -10,6 +10,8 @@ use crate::ports::HostCommandRunnerPort;
 
 use super::{
     installed_agent_authority_spec, observe_agent_authority_projection,
+};
+use cynic_agent::agent_access::{
     plan_agent_authority_projection, AgentAuthorityProjectionObservation,
     AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec,
 };

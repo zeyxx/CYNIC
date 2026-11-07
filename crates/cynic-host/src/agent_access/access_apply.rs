@@ -9,7 +9,9 @@ use crate::adapters::agent_access_operation::translate_agent_access_operations;
 use crate::execution::{admit_host_operation_plan, HostOperationPlan, HOST_OPERATION_PLAN_SCHEMA};
 use crate::ports::HostCommandRunnerPort;
 
-use super::{reconcile_agent_access, AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy};
+use cynic_agent::agent_access::{
+    reconcile_agent_access, AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy,
+};
 
 const POLICY_ID: &str = "cynic.host.agent_access.apply";
 

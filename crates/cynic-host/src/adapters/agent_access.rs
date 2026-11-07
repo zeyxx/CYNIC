@@ -1,7 +1,7 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
-use crate::agent_access::{
+use cynic_agent::agent_access::{
     AGENT_ACCESS_OBSERVATION_SCHEMA, AgentAccessObservation, AgentAccessPolicy,
 };
 

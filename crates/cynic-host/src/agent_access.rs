@@ -13,10 +13,4 @@ pub use authority_bundle::{
 pub use authority_projection::{
     installed_agent_authority_spec, observe_agent_authority_projection,
 };
-pub use cynic_agent::agent_access::{
-    plan_agent_authority_projection, reconcile_agent_access, AgentAccessObservation,
-    AgentAccessPlan, AgentAccessPolicy, AgentAuthorityProjectionObservation,
-    AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec, AGENT_ACCESS_OBSERVATION_SCHEMA,
-    AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA, AGENT_AUTHORITY_PROJECTION_SCHEMA,
-};
 pub use types::desired_agent_access_policy;
