@@ -7,9 +7,11 @@
 pub use crate::federation_authz;
 pub use crate::federation_envelopes;
 pub use crate::federation_membership;
-pub use crate::fleet_discovery;
-pub use crate::fleet_heartbeat;
-pub use crate::fleet_target;
+
+/// Fleet discovery / heartbeat / target sub-domain (Cycle 3.2b partition).
+pub mod fleet_discovery;
+pub mod fleet_heartbeat;
+pub mod fleet_target;
 
 pub mod consensus;
 pub use consensus::*;

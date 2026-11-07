@@ -199,3 +199,59 @@ fn orphan_detection_is_owned_by_the_shared_ratchet() {
          every crate ratchet includes it by path"
     );
 }
+
+/// Cycle 3.2b: build_* / fleet_* must live under `protocol::build` / `protocol::fleet`.
+#[test]
+fn build_and_fleet_modules_live_under_their_partition() {
+    let src = repo_root().join("crates/cynic-protocol/src");
+    // Physically partitioned: files live under build/ and fleet/, not flat at src/.
+    for (flat, nested) in [
+        ("build_discovery.rs", "build/build_discovery.rs"),
+        ("build_discovery_recipe.rs", "build/build_discovery_recipe.rs"),
+        ("fleet_discovery.rs", "fleet/fleet_discovery.rs"),
+        ("fleet_heartbeat.rs", "fleet/fleet_heartbeat.rs"),
+        ("fleet_target.rs", "fleet/fleet_target.rs"),
+    ] {
+        assert!(!src.join(flat).is_file(), "flat {flat} must be moved under its partition");
+        assert!(src.join(nested).is_file(), "expected {nested} to exist");
+    }
+    assert!(!src.join("build_latency/mod.rs").is_file(), "flat build_latency/ must move under build/");
+    assert!(src.join("build/build_latency/mod.rs").is_file(), "expected build/build_latency/mod.rs");
+    assert!(
+        src.join("build/build_latency/predicates.rs").is_file(),
+        "expected build/build_latency/predicates.rs"
+    );
+
+    // lib.rs no longer declares the flat modules; it re-exports them (retro-compat).
+    let lib_rs = read_repo_file("crates/cynic-protocol/src/lib.rs");
+    for flat_decl in [
+        "pub mod build_discovery;",
+        "pub mod build_discovery_recipe;",
+        "pub mod build_latency;",
+        "pub mod fleet_discovery;",
+        "pub mod fleet_heartbeat;",
+        "pub mod fleet_target;",
+    ] {
+        assert!(!lib_rs.contains(flat_decl), "lib.rs must not declare flat `{flat_decl}`");
+    }
+    for compat in [
+        "pub use build::build_discovery;",
+        "pub use build::build_discovery_recipe;",
+        "pub use build::build_latency;",
+        "pub use fleet::fleet_discovery;",
+        "pub use fleet::fleet_heartbeat;",
+        "pub use fleet::fleet_target;",
+    ] {
+        assert!(lib_rs.contains(compat), "lib.rs must retro-compat re-export `{compat}`");
+    }
+
+    // Partition mod.rs files declare them as real submodules.
+    let build_mod = read_repo_file("crates/cynic-protocol/src/build/mod.rs");
+    for decl in ["pub mod build_discovery;", "pub mod build_discovery_recipe;", "pub mod build_latency;"] {
+        assert!(build_mod.contains(decl), "build/mod.rs must declare `{decl}`");
+    }
+    let fleet_mod = read_repo_file("crates/cynic-protocol/src/fleet/mod.rs");
+    for decl in ["pub mod fleet_discovery;", "pub mod fleet_heartbeat;", "pub mod fleet_target;"] {
+        assert!(fleet_mod.contains(decl), "fleet/mod.rs must declare `{decl}`");
+    }
+}
