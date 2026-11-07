@@ -15,7 +15,7 @@
 //! - `InstallOwnedFile` — `agent_access/authority_projection.rs`
 //!
 //! Pure contract only: enum + traits, zero I/O. The decision/plan DTOs now
-//! live in L2 (`cynic-agent/src/agent_access`) and build
+//! live in L0 (`cynic_protocol::agent_access`) and build
 //! `AgentAccessOperation`; the host adapter translates them to
 //! `HostOperation` exhaustively.
 

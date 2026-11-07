@@ -1,11 +1,8 @@
-//! Compat hôte : les types purs vivent en L2 (`cynic_agent::agent_access`).
+//! Compat hôte : les types purs vivent en L0 (`cynic_protocol::agent_access`).
 //! Ce module ne conserve que le constructeur dépendant du registry, que le
 //! domaine pur ne peut pas connaître.
 
-
-use cynic_agent::agent_access::{
-    AGENT_ACCESS_POLICY_SCHEMA, AgentAccessPolicy,
-};
+use cynic_protocol::agent_access::{AGENT_ACCESS_POLICY_SCHEMA, AgentAccessPolicy};
 
 /// Construit la politique désirée à partir du registry (host-only).
 pub fn desired_agent_access_policy(authorized_principals: Vec<String>) -> AgentAccessPolicy {

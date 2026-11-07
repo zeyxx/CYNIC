@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use cynic_protocol::agent_access_port::AgentAccessOperation;
+use crate::agent_access_port::AgentAccessOperation;
 
 use super::types::{
-    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, AGENT_ACCESS_OBSERVATION_SCHEMA,
-    AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
+    AGENT_ACCESS_OBSERVATION_SCHEMA, AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
+    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy,
 };
 
 pub fn reconcile_agent_access(
@@ -160,12 +160,14 @@ mod tests {
         };
         let plan = reconcile_agent_access(&desired, &observed);
         assert_eq!(plan.status, "blocked");
-        assert!(plan
-            .blockers
-            .contains(&"agent_socket_group_mismatch".to_string()));
-        assert!(plan
-            .blockers
-            .contains(&"agent_socket_mode_mismatch".to_string()));
+        assert!(
+            plan.blockers
+                .contains(&"agent_socket_group_mismatch".to_string())
+        );
+        assert!(
+            plan.blockers
+                .contains(&"agent_socket_mode_mismatch".to_string())
+        );
     }
 
     #[test]
@@ -186,8 +188,9 @@ mod tests {
         let plan = reconcile_agent_access(&desired, &observed);
         assert_eq!(plan.status, "converged");
         assert!(plan.operations.is_empty());
-        assert!(plan
-            .residual_unknowns
-            .contains(&"agent_socket_post_start_read_back_pending".to_string()));
+        assert!(
+            plan.residual_unknowns
+                .contains(&"agent_socket_post_start_read_back_pending".to_string())
+        );
     }
 }

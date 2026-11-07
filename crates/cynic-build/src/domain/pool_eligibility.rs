@@ -21,23 +21,12 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+/// Canonical definitions live in L0 (`cynic_protocol::build_pool`);
+/// re-exported here at their historical paths.
+pub use cynic_protocol::build_pool::{ToolKind, ToolObservation};
+
 /// Schema identifier of the eligibility report.
 pub const POOL_ELIGIBILITY_SCHEMA: &str = "cynic.pool.eligibility.v1";
-
-/// How a required tool is proven present on a host.
-///
-/// A build toolchain is not only executables: `libssl-dev` is a set of
-/// headers, visible only through `pkg-config`. Probing only `PATH` would
-/// report a present system library as missing.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolKind {
-    /// An executable resolvable in `PATH` (e.g. `cargo`).
-    #[default]
-    Binary,
-    /// A pkg-config module (e.g. `openssl` for the `libssl-dev` headers).
-    PkgConfig,
-}
 
 /// A tool a node must provide to serve a pool label.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -58,19 +47,6 @@ pub struct ToolRequirement {
 
 fn default_true() -> bool {
     true
-}
-
-/// What was actually observed about a tool on a host.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub struct ToolObservation {
-    pub name: String,
-    pub present: bool,
-    pub path: Option<String>,
-    pub version: Option<String>,
-    /// How the observation was made.
-    #[serde(default)]
-    pub kind: ToolKind,
 }
 
 /// Per-tool verdict, combining requirement and observation.
@@ -393,10 +369,12 @@ mod tests {
         );
         assert!(!report.eligible);
         assert!(!report.base_enrolled);
-        assert!(report
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("not enrolled")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("not enrolled"))
+        );
     }
 
     #[test]
@@ -418,10 +396,12 @@ mod tests {
             &[],
         );
         assert!(!report.eligible);
-        assert!(report
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("must be past stub")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("must be past stub"))
+        );
     }
 
     #[test]
@@ -476,11 +456,13 @@ mod tests {
             }],
         );
         assert!(!report.eligible);
-        assert!(report.tools[0]
-            .detail
-            .clone()
-            .unwrap_or_default()
-            .contains("pkg-config module"));
+        assert!(
+            report.tools[0]
+                .detail
+                .clone()
+                .unwrap_or_default()
+                .contains("pkg-config module")
+        );
     }
 
     #[test]
@@ -507,10 +489,12 @@ mod tests {
             &[observation("node", false, None)],
         );
         assert!(!report.eligible);
-        assert!(report
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("required tool unavailable")));
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("required tool unavailable"))
+        );
     }
 
     #[test]
@@ -532,11 +516,13 @@ mod tests {
             &[observation("cargo", true, Some("cargo 1.90.0"))],
         );
         assert!(!report.eligible);
-        assert!(report.tools[0]
-            .detail
-            .clone()
-            .unwrap_or_default()
-            .contains("older than required"));
+        assert!(
+            report.tools[0]
+                .detail
+                .clone()
+                .unwrap_or_default()
+                .contains("older than required")
+        );
     }
 
     #[test]

@@ -12,8 +12,6 @@ path = "src/bin/cynic-host-exec.rs"
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
-cynic-agent = { path = "../cynic-agent" }
-cynic-build = { path = "../cynic-build" }
 cynic-supervisor = { path = "../cynic-supervisor" }
 cynic-types = { path = "../cynic-types" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
@@ -55,6 +53,9 @@ rand = "0.8"
 rpassword = "7.5.4"
 
 [dev-dependencies]
+# Integration tests exercise the build workflow end-to-end; a dev-edge
+# only (the library itself no longer depends on cynic-build, L2).
+cynic-build = { path = "../cynic-build" }
 cynic-vcs = { path = "../cynic-vcs" }
 # The workspace-wide audit gates that also need the coordination lease store.
 # A dev-dependency, not a production edge: cynic-host the library must not

@@ -1,12 +1,12 @@
-//! Partie pure de la projection d'autorité (L2).
+//! Partie pure de la projection d'autorité (L0).
 //!
-//! Déplacée depuis `cynic-host`. Seuls le spec/observation/plan et
+//! Déplacée vers L0 (`cynic-protocol`). Seuls le spec/observation/plan et
 //! `plan_agent_authority_projection` vivent ici. `installed()` (registry +
 //! résolution `/etc/passwd`) et `observe_agent_authority_projection` (I/O)
 //! restent côté hôte.
 
-use cynic_protocol::agent_access_port::AgentAccessOperation;
-use cynic_protocol::{agent_session_authority_digest, AgentSessionAuthority};
+use crate::agent_access_port::AgentAccessOperation;
+use crate::{AgentSessionAuthority, agent_session_authority_digest};
 use serde::Serialize;
 
 pub const AGENT_AUTHORITY_PROJECTION_SCHEMA: &str = "cynic.host.agent_authority_projection.v1";
@@ -130,10 +130,10 @@ pub fn plan_agent_authority_projection(
 
 #[cfg(test)]
 mod tests {
-    use cynic_protocol::AgentCapabilityGrant;
+    use crate::AgentCapabilityGrant;
 
     use super::*;
-    use cynic_protocol::agent_session::{compose_agent_session_authority, AgentEnrollmentPolicy};
+    use crate::agent_session::{AgentEnrollmentPolicy, compose_agent_session_authority};
 
     fn observation(
         path: &str,

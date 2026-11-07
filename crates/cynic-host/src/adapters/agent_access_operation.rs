@@ -4,7 +4,7 @@
 //! L0 enum fails compilation here until it is translated. Field shapes
 //! are identical by construction in `cynic_protocol::agent_access_port`.
 //!
-//! Used by `agent_access::{access_apply,authority_apply}` to turn the L2
+//! Used by `agent_access::{access_apply,authority_apply}` to turn the L0
 //! plan's L0 operations into admitted `HostOperation`s.
 
 use cynic_protocol::agent_access_port::AgentAccessOperation;

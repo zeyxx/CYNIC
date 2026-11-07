@@ -1,9 +1,9 @@
-//! Verticale 4/4 (rouge): le domaine pur agent_access vit en L2 (cynic-agent)
+//! Verticale 4/4 (rouge): le domaine pur agent_access vit en L0 (cynic-protocol)
 //! et ne dépend que du port L0 `AgentAccessOperation` — aucune dépendance
 //! vers cynic-host / HostOperation / cynic-registry.
-use cynic_agent::agent_access::{
-    reconcile_agent_access, AgentAccessObservation, AgentAccessPolicy,
-    AGENT_ACCESS_OBSERVATION_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
+use cynic_protocol::agent_access::{
+    AGENT_ACCESS_OBSERVATION_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA, AgentAccessObservation,
+    AgentAccessPolicy, reconcile_agent_access,
 };
 use cynic_protocol::agent_access_port::AgentAccessOperation;
 
@@ -67,10 +67,12 @@ fn wrong_socket_permissions_block_convergence() {
     };
     let plan = reconcile_agent_access(&desired(), &observed);
     assert_eq!(plan.status, "blocked");
-    assert!(plan
-        .blockers
-        .contains(&"agent_socket_group_mismatch".to_string()));
-    assert!(plan
-        .blockers
-        .contains(&"agent_socket_mode_mismatch".to_string()));
+    assert!(
+        plan.blockers
+            .contains(&"agent_socket_group_mismatch".to_string())
+    );
+    assert!(
+        plan.blockers
+            .contains(&"agent_socket_mode_mismatch".to_string())
+    );
 }

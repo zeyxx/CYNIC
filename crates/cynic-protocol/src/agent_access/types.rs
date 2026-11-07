@@ -1,4 +1,4 @@
-use cynic_protocol::agent_access_port::AgentAccessOperation;
+use crate::agent_access_port::AgentAccessOperation;
 use serde::Serialize;
 
 pub const AGENT_ACCESS_POLICY_SCHEMA: &str = "cynic.host.agent_access_policy.v1";

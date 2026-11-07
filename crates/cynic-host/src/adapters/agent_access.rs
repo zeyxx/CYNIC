@@ -1,7 +1,7 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
-use cynic_agent::agent_access::{
+use cynic_protocol::agent_access::{
     AGENT_ACCESS_OBSERVATION_SCHEMA, AgentAccessObservation, AgentAccessPolicy,
 };
 use cynic_types::identity_database::{lookup_identity_id, parse_group_line};

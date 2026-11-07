@@ -1,19 +1,17 @@
 use cynic_protocol::{
-    digest_json, ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
-    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
+    ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
+    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 use serde::Serialize;
 
 use crate::adapters::agent_access_operation::translate_agent_access_operations;
-use crate::execution::{admit_host_operation_plan, HostOperationPlan, HOST_OPERATION_PLAN_SCHEMA};
+use crate::execution::{HOST_OPERATION_PLAN_SCHEMA, HostOperationPlan, admit_host_operation_plan};
 use crate::ports::HostCommandRunnerPort;
 
-use super::{
-    installed_agent_authority_spec, observe_agent_authority_projection,
-};
-use cynic_agent::agent_access::{
-    plan_agent_authority_projection, AgentAuthorityProjectionObservation,
-    AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec,
+use super::{installed_agent_authority_spec, observe_agent_authority_projection};
+use cynic_protocol::agent_access::{
+    AgentAuthorityProjectionObservation, AgentAuthorityProjectionPlan,
+    AgentAuthorityProjectionSpec, plan_agent_authority_projection,
 };
 
 const POLICY_ID: &str = "cynic.host.agent_authority.install";
@@ -224,7 +222,7 @@ mod tests {
     use super::*;
     use crate::execution::AdmittedHostOperation;
     use crate::ports::{HostCommandResult, HostOperation};
-    use cynic_protocol::agent_session::{compose_agent_session_authority, AgentEnrollmentPolicy};
+    use cynic_protocol::agent_session::{AgentEnrollmentPolicy, compose_agent_session_authority};
 
     struct CopyRunner;
 

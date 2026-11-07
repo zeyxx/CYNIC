@@ -1,16 +1,16 @@
 use cynic_protocol::{
-    digest_json, ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
-    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
+    ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
+    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 use serde::Serialize;
 
 use crate::adapters::agent_access::observe_agent_access;
 use crate::adapters::agent_access_operation::translate_agent_access_operations;
-use crate::execution::{admit_host_operation_plan, HostOperationPlan, HOST_OPERATION_PLAN_SCHEMA};
+use crate::execution::{HOST_OPERATION_PLAN_SCHEMA, HostOperationPlan, admit_host_operation_plan};
 use crate::ports::HostCommandRunnerPort;
 
-use cynic_agent::agent_access::{
-    reconcile_agent_access, AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy,
+use cynic_protocol::agent_access::{
+    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, reconcile_agent_access,
 };
 
 const POLICY_ID: &str = "cynic.host.agent_access.apply";

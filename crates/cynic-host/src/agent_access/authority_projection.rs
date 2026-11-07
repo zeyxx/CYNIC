@@ -1,16 +1,15 @@
 //! Côté hôte de la projection d'autorité : I/O + construction registry.
 //! Le domaine pur (spec/observation/plan, `plan_agent_authority_projection`)
-//! vit en L2 (`cynic_agent::agent_access`).
+//! vit en L0 (`cynic_protocol::agent_access`).
 
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
-use cynic_agent::agent_access::{
+use cynic_protocol::agent_access::{
     AGENT_AUTHORITY_PROJECTION_SCHEMA, AgentAuthorityProjectionObservation,
     AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec,
 };
-use cynic_protocol::{agent_session_authority_digest, AgentSessionAuthority};
-
+use cynic_protocol::{AgentSessionAuthority, agent_session_authority_digest};
 
 /// Construit le spec « installé » : registry + résolution d'identités
 /// `/etc/passwd` + `/etc/group` (host-only, invariants 0o640/root).

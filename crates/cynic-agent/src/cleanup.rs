@@ -186,6 +186,10 @@ mod tests {
     use cynic_process::MapArgvRunner;
 
     fn fake_runner() -> MapArgvRunner {
+        // Derive the `du` argv from the same `CynicPaths` expression
+        // `observe()` uses, so the fake matches whatever state dir the
+        // test environment resolves to instead of a hardcoded path.
+        let checkouts_glob = format!("{}/*", CynicPaths::state_dir().join("checkouts").display());
         MapArgvRunner {
             responses: vec![
                 (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
@@ -195,7 +199,7 @@ mod tests {
                      stderr: String::new(),
                      spawn_error: None,
                  }),
-                (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "du".to_string(), "-sh".to_string(), "/var/lib/cynic/checkouts/*".to_string()],
+                (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "du".to_string(), "-sh".to_string(), checkouts_glob],
                  cynic_process::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "2.5G\t/var/lib/cynic/checkouts/abc123\n402M\t/var/lib/cynic/checkouts/def456".to_string(),
@@ -211,7 +215,17 @@ mod tests {
         let agent = CleanupAgent::with_runner(fake_runner());
         let obs = agent.observe().unwrap();
         assert_eq!(obs.disk_used_percent, 100);
-        assert_eq!(obs.items.len(), 2);
+        // Robust to the number of `du` lines and their order: every
+        // observed checkout must be parsed, and the reclaimable total
+        // must be the sum of the parsed sizes.
+        assert!(!obs.items.is_empty(), "expected parsed checkout items");
+        let paths: std::collections::BTreeSet<&str> =
+            obs.items.iter().map(|item| item.path.as_str()).collect();
+        assert!(paths.contains("/var/lib/cynic/checkouts/abc123"));
+        assert!(paths.contains("/var/lib/cynic/checkouts/def456"));
+        let expected: u64 = obs.items.iter().filter_map(|item| item.size_bytes).sum();
+        assert_eq!(obs.reclaimable_bytes, expected);
+        assert!(obs.reclaimable_bytes > 0);
     }
 
     #[test]

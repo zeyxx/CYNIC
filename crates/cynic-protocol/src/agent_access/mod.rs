@@ -1,6 +1,6 @@
-//! Domaine pur `agent_access` (L2) — Verticale 4/4.
+//! Domaine pur `agent_access` (L0) — Verticale 4/4.
 //!
-//! Déplacé depuis `cynic-host/src/agent_access/{decision,types}.rs` et
+//! Déplacé vers L0 depuis `cynic-agent` (L2), lui-même extrait de `cynic-host/src/agent_access/{decision,types}.rs` et
 //! `authority_projection.rs` (partie pure). Purifié :
 //! - `operations: Vec<HostOperation>` -> `Vec<AgentAccessOperation>` (port L0,
 //!   `cynic_protocol::agent_access_port`) ;
@@ -20,11 +20,11 @@ mod decision;
 mod types;
 
 pub use authority_projection::{
-    plan_agent_authority_projection, AgentAuthorityProjectionObservation,
-    AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec, AGENT_AUTHORITY_PROJECTION_SCHEMA,
+    AGENT_AUTHORITY_PROJECTION_SCHEMA, AgentAuthorityProjectionObservation,
+    AgentAuthorityProjectionPlan, AgentAuthorityProjectionSpec, plan_agent_authority_projection,
 };
 pub use decision::reconcile_agent_access;
 pub use types::{
-    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, AGENT_ACCESS_OBSERVATION_SCHEMA,
-    AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
+    AGENT_ACCESS_OBSERVATION_SCHEMA, AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
+    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy,
 };
