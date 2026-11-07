@@ -6,10 +6,6 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-[[bin]]
-name = "cynic-host-exec"
-path = "src/bin/cynic-host-exec.rs"
-
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-agent = { path = "../cynic-agent" }
