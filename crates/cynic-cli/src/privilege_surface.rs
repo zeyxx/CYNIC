@@ -27,9 +27,11 @@
 //! catalog agree on what may run as root.
 
 use std::process::ExitCode;
+use std::path::PathBuf;
 
 use cynic_host::privilege::capability_catalog::{
-    CapabilityView, catalog_path_from_env, installed_path_from_env,
+    CapabilityView, catalog_path_from_env as host_catalog_path_from_env,
+    installed_path_from_env as host_installed_path_from_env,
 };
 use cynic_protocol::privilege::CapabilityDecision;
 use cynic_types::paths::CynicPaths;
@@ -130,15 +132,73 @@ fn parse_capability_id(raw: &[String]) -> Result<String, String> {
     Err("capability id is required".to_string())
 }
 
+/// Centralized catalog resolution for the CLI.
+///
+/// Precedence (long-term, no CWD-relative fallback that silently breaks on
+/// installed hosts):
+/// 1. `CYNIC_CATALOG`
+/// 2. `CYNIC_CAPABILITY_CATALOG` (legacy alias)
+/// 3. `/etc/cynic/capabilities.installed.json`
+/// 4. repository `infra/capabilities/catalog.json` (absolute, walked up from CWD)
+pub fn resolve_catalog_path() -> PathBuf {
+    for var in ["CYNIC_CATALOG", "CYNIC_CAPABILITY_CATALOG"] {
+        if let Some(value) = std::env::var_os(var) {
+            if !value.is_empty() {
+                return PathBuf::from(value);
+            }
+        }
+    }
+    let installed = PathBuf::from("/etc/cynic/capabilities.installed.json");
+    if installed.is_file() {
+        return installed;
+    }
+    if let Ok(mut dir) = std::env::current_dir() {
+        loop {
+            let candidate = dir.join("infra").join("capabilities").join("catalog.json");
+            if candidate.is_file() {
+                return candidate;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+    host_catalog_path_from_env()
+}
+
+/// Alias kept for callers/tests that use the host-adapter name.
+pub fn catalog_path_from_env() -> PathBuf {
+    resolve_catalog_path()
+}
+
+/// Alias kept for callers/tests that use shorter names.
+pub fn catalog_path() -> PathBuf {
+    resolve_catalog_path()
+}
+
+pub fn resolve_installed_path() -> PathBuf {
+    if let Some(value) = std::env::var_os("CYNIC_CAPABILITY_INSTALLED") {
+        if !value.is_empty() {
+            return PathBuf::from(value);
+        }
+    }
+    if let Some(value) = std::env::var_os("CYNIC_INSTALLED_CAPABILITIES") {
+        if !value.is_empty() {
+            return PathBuf::from(value);
+        }
+    }
+    resolve_catalog_path()
+}
+
 fn load_view() -> Result<CapabilityView, String> {
-    let catalog_path = catalog_path_from_env();
-    let installed_path = installed_path_from_env();
+    let catalog_path = resolve_catalog_path();
+    let installed_path = resolve_installed_path();
     CapabilityView::load(&catalog_path, &installed_path).map_err(|error| error.0)
 }
 
 fn execute_catalog(json: bool) -> ExitCode {
-    let catalog_path = catalog_path_from_env();
-    let installed_path = installed_path_from_env();
+    let catalog_path = resolve_catalog_path();
+    let installed_path = resolve_installed_path();
 
     let view = match CapabilityView::load(&catalog_path, &installed_path) {
         Ok(view) => view,
@@ -397,6 +457,21 @@ fn execute_install(subject: &str, output: &str, json: bool) -> ExitCode {
         Ok(view) => view,
         Err(error) => return fail(error),
     };
+
+    // Install the catalog itself as a system package (atomic, no manual
+    // symlink). Preserve the source file bytes verbatim.
+    let catalog_source = resolve_catalog_path();
+    let installed_target = resolve_installed_path();
+    let catalog_body = match std::fs::read_to_string(&catalog_source) {
+        Ok(body) => body,
+        Err(error) => return fail(format!("read catalog: {error}")),
+    };
+    if let Err(error) = cynic_host::privilege::capability_catalog::atomic_write(
+        &installed_target,
+        &catalog_body,
+    ) {
+        return fail(format!("install catalog failed: {error}"));
+    }
 
     // The binary path is where THIS executable lives: the sudoers rule must
     // name the same binary the operator invokes, not a hardcoded guess.

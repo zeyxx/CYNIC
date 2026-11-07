@@ -12,8 +12,8 @@
 use std::path::{Path, PathBuf};
 
 use cynic_protocol::privilege::{
-    CapabilityCatalog, CapabilityDecision, InstalledCapabilities, admit_capability,
-    validate_install, TransportCapabilities, TransportPolicyError,
+    CapabilityCatalog, CapabilityDecision, InstalledCapabilities, INSTALLED_CATALOG_SCHEMA,
+    admit_capability, validate_install, TransportCapabilities, TransportPolicyError,
 };
 use cynic_types::paths::CynicPaths;
 
@@ -68,13 +68,35 @@ impl CapabilityView {
             )));
         }
 
-        let installed_raw = std::fs::read_to_string(installed_path).map_err(|error| {
-            CapabilityLoadError(format!("read {}: {error}", installed_path.display()))
-        })?;
-        let installed: InstalledCapabilities =
-            serde_json::from_str(&installed_raw).map_err(|error| {
-                CapabilityLoadError(format!("parse {}: {error}", installed_path.display()))
+        // The installed set may be stored either as a dedicated
+        // `InstalledCapabilities` document or, on installed hosts, as the
+        // full installed catalog (`capabilities.installed.json`). In the
+        // latter case every capability in that catalog is considered
+        // installed. A missing installed file is not fatal: an installed
+        // catalog with no separate selection means "all declared".
+        let installed: InstalledCapabilities = if installed_path.exists() {
+            let installed_raw = std::fs::read_to_string(installed_path).map_err(|error| {
+                CapabilityLoadError(format!("read {}: {error}", installed_path.display()))
             })?;
+            if let Ok(parsed) = serde_json::from_str::<InstalledCapabilities>(&installed_raw) {
+                parsed
+            } else if let Ok(parsed) = serde_json::from_str::<CapabilityCatalog>(&installed_raw) {
+                InstalledCapabilities {
+                    schema: INSTALLED_CATALOG_SCHEMA.to_string(),
+                    capability_ids: parsed.capabilities.into_iter().map(|c| c.id).collect(),
+                }
+            } else {
+                return Err(CapabilityLoadError(format!(
+                    "parse {}: not an installed set or catalog",
+                    installed_path.display()
+                )));
+            }
+        } else {
+            InstalledCapabilities {
+                schema: INSTALLED_CATALOG_SCHEMA.to_string(),
+                capability_ids: catalog.capabilities.iter().map(|c| c.id.clone()).collect(),
+            }
+        };
 
         let install_blockers = validate_install(&catalog, &installed);
         if !install_blockers.is_empty() {
@@ -105,19 +127,64 @@ impl CapabilityView {
 /// checkouts), then the machine-wide `/etc/cynic/catalog.json` installed on
 /// hosts that run the privilege surface without a repo (e.g. the hypervisor).
 /// Fails closed only when the chosen file cannot be read.
+/// Resolve the catalog path.
+///
+/// Central precedence (long-term, host-independent):
+/// 1. `CYNIC_CATALOG` (explicit operator override)
+/// 2. `CYNIC_CAPABILITY_CATALOG` (legacy alias, kept for compatibility)
+/// 3. `/etc/cynic/capabilities.installed.json` (installed system catalog)
+/// 4. repository-relative `infra/capabilities/catalog.json`, resolved to an
+///    absolute path by walking up from the current directory
+/// 5. `/etc/cynic/catalog.json`
 pub fn catalog_path_from_env() -> PathBuf {
-    if let Some(explicit) = std::env::var_os("CYNIC_CAPABILITY_CATALOG") {
-        return PathBuf::from(explicit);
+    for var in ["CYNIC_CATALOG", "CYNIC_CAPABILITY_CATALOG"] {
+        if let Some(explicit) = std::env::var_os(var) {
+            if !explicit.is_empty() {
+                return PathBuf::from(explicit);
+            }
+        }
     }
-    let repo_default = PathBuf::from(DEFAULT_CATALOG_PATH);
-    if repo_default.is_file() {
-        return repo_default;
+    let installed = PathBuf::from("/etc/cynic/capabilities.installed.json");
+    if installed.is_file() {
+        return installed;
+    }
+    // Walk up from CWD for the repo-relative catalog, producing an absolute path.
+    if let Ok(mut dir) = std::env::current_dir() {
+        loop {
+            let candidate = dir.join("infra").join("capabilities").join("catalog.json");
+            if candidate.is_file() {
+                return candidate;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
     }
     let machine_default = cynic_types::paths::CynicPaths::system_config_dir().join("catalog.json");
     if machine_default.is_file() {
         return machine_default;
     }
-    repo_default
+    PathBuf::from(DEFAULT_CATALOG_PATH)
+}
+
+/// Backwards/forwards-compatible alias for the centralized resolver.
+pub fn resolve_catalog_path() -> PathBuf {
+    catalog_path_from_env()
+}
+
+/// Atomically persist `contents` to `path` (temp file + rename), so a
+/// partially-written catalog can never be observed by a concurrent reader.
+/// Used to install the catalog as a system package instead of relying on a
+/// manual symlink.
+pub fn atomic_write(path: &std::path::Path, contents: &str) -> Result<(), std::io::Error> {
+    use std::fs;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    fs::write(&tmp, contents)?;
+    fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 /// Load a transport-capabilities policy from disk (I/O adapter).
