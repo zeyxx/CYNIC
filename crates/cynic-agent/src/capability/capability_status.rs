@@ -230,21 +230,15 @@ mod tests {
             reconcile_agent_execution_capabilities(&AgentExecutionRuntimeObservation::unobserved());
 
         assert_eq!(status.status, AgentConstitutionRuntimeStatus::Inactive);
-        assert!(
-            status
-                .implemented_protocol_primitives
-                .contains(&"durable_agent_workload_store".to_string())
-        );
-        assert!(
-            !status
-                .missing_runtime_capabilities
-                .contains(&"durable_agent_workload_store".to_string())
-        );
-        assert!(
-            status
-                .missing_runtime_capabilities
-                .contains(&"scheduler_crash_recovery".to_string())
-        );
+        assert!(status
+            .implemented_protocol_primitives
+            .contains(&"durable_agent_workload_store".to_string()));
+        assert!(!status
+            .missing_runtime_capabilities
+            .contains(&"durable_agent_workload_store".to_string()));
+        assert!(status
+            .missing_runtime_capabilities
+            .contains(&"scheduler_crash_recovery".to_string()));
     }
 
     #[test]

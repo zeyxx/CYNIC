@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use super::{AgentEnrollmentPolicy, compose_agent_session_authority};
+use cynic_protocol::agent_session::{compose_agent_session_authority, AgentEnrollmentPolicy};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentAuthorityBundleRequest {
@@ -115,7 +115,7 @@ fn temporary_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_access::default_local_agent_capabilities;
+    use cynic_protocol::agent_session::default_local_agent_capabilities;
 
     #[test]
     fn bundle_write_is_content_addressed_and_read_back() {

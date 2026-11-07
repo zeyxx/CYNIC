@@ -3,15 +3,15 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use cynic_protocol::{
-    AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion, digest_json,
+    admit_completion, digest_json, AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard,
 };
 
 use super::{
     admission::admit_agent_workload,
     shared::violation,
     types::{
-        AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadRecord, AgentWorkloadState,
-        AgentWorkloadViolation,
+        AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadViolation,
+        AGENT_WORKLOAD_RECORD_SCHEMA,
     },
 };
 

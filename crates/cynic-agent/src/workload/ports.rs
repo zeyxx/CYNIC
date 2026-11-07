@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::AgentWorkloadEnvelope;
 use crate::workspace::ports::AgentWorkspacePortError;
+use crate::AgentWorkloadEnvelope;
 use crate::{
     AgentSchedulerJournalRecord, AgentWorkloadCompletionPublication, AgentWorkloadDelivery,
     AgentWorkloadDeliveryAcceptance, AgentWorkloadDeliveryLease, AgentWorkloadRecord,
@@ -68,7 +68,7 @@ pub trait AgentWorkloadDeliveryLeasePort: Send + Sync {
 
 pub trait AgentWorkloadDeliveryPort: Send + Sync {
     async fn pending_deliveries(&self, node_id: &str)
-    -> Result<Vec<AgentWorkloadDelivery>, String>;
+        -> Result<Vec<AgentWorkloadDelivery>, String>;
 
     async fn accept_delivery(
         &self,
@@ -155,7 +155,7 @@ pub trait WorkloadSignerPort: Send + Sync {
     /// Decide whether an AgentWorkloadEnvelope may execute federation mutation.
     /// Returns Ok(WorkloadAdmission) on policy decision, Err on signaller fault.
     fn admit_workload(&self, envelope: &AgentWorkloadEnvelope)
-    -> Result<WorkloadAdmission, String>;
+        -> Result<WorkloadAdmission, String>;
 }
 
 /// Phase 3.1 null signer — federation mutation refused with explicit blocker
@@ -195,7 +195,7 @@ pub trait WorkloadIdentityPort: Send + Sync {
 #[cfg(test)]
 mod workload_signer_tests {
     use super::*;
-    use crate::{AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction};
+    use crate::{AgentBoundedAction, AGENT_WORKLOAD_ENVELOPE_SCHEMA};
     use cynic_protocol::{
         AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
         ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,

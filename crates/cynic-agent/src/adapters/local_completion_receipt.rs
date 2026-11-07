@@ -1,8 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use crate::{
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
-};
+use crate::{validate_agent_workload_delivery, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus};
 
 use crate::workload::ports::AgentWorkloadCompletionReceiptPort;
 

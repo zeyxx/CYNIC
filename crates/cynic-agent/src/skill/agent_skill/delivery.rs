@@ -1,12 +1,12 @@
 //! Composition and semantic validation of skill delivery inputs.
 
-use crate::{AGENT_WORKLOAD_INPUT_SCHEMA, AgentWorkloadInput};
-use cynic_protocol::{AgentDelegationEnvelope, digest_json};
+use crate::{AgentWorkloadInput, AGENT_WORKLOAD_INPUT_SCHEMA};
+use cynic_protocol::{digest_json, AgentDelegationEnvelope};
 
 use super::{
-    AGENT_SKILL_DELIVERY_INPUT_SCHEMA, AgentSkillBinding, AgentSkillBindingAdmission,
+    admit_agent_skill_binding, violation, AgentSkillBinding, AgentSkillBindingAdmission,
     AgentSkillBundle, AgentSkillBundleDecision, AgentSkillBundleViolation, AgentSkillDeliveryInput,
-    admit_agent_skill_binding, violation,
+    AGENT_SKILL_DELIVERY_INPUT_SCHEMA,
 };
 
 /// Composes the content-addressed input for an already-admitted workload.

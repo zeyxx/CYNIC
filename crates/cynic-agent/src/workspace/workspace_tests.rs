@@ -4,12 +4,12 @@ use crate::{
     AgentWorkspacePathObservation, AgentWorkspaceRequest, AgentWorkspaceZone,
     AgentWorkspaceZoneKind,
 };
-use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, LeaseGuard, digest_json};
+use cynic_protocol::{digest_json, AgentEvidenceLineage, AgentEvidenceRef, LeaseGuard};
 
 use super::{
-    AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
-    AGENT_WORKSPACE_REQUEST_SCHEMA, admit_agent_workspace_claim, agent_workspace_target,
-    reconcile_agent_workspace, workspace_claim_admission_matches, zones_overlap,
+    admit_agent_workspace_claim, agent_workspace_target, reconcile_agent_workspace,
+    workspace_claim_admission_matches, zones_overlap, AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA,
+    AGENT_WORKSPACE_OBSERVATION_SCHEMA, AGENT_WORKSPACE_REQUEST_SCHEMA,
 };
 use crate::tests::test_envelope;
 

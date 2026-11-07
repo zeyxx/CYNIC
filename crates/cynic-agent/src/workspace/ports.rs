@@ -2,12 +2,12 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use cynic_protocol::LeaseGuard;
 use crate::{
     AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
     AgentWorkspaceClaimOutcome, AgentWorkspaceLifecycleObservation, AgentWorkspaceLifecyclePlan,
     AgentWorkspaceLifecycleRecord, AgentWorkspaceObservation, AgentWorkspaceRequest,
 };
+use cynic_protocol::LeaseGuard;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentWorkspaceLayout {
@@ -141,7 +141,7 @@ pub trait AgentWorkspaceClaimStorePort: Send + Sync {
     ) -> Result<AgentWorkspaceClaimObservation, AgentWorkspacePortError>;
 
     async fn release(&self, guard: &LeaseGuard, now_ms: u64)
-    -> Result<(), AgentWorkspacePortError>;
+        -> Result<(), AgentWorkspacePortError>;
 
     async fn finalize(
         &self,

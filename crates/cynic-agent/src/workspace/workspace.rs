@@ -8,9 +8,9 @@ use super::{
         zones_overlap,
     },
     workspace_types::{
-        AGENT_WORKSPACE_CAPABILITY_ID, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
-        AGENT_WORKSPACE_RECONCILIATION_SCHEMA, AgentWorkspaceDecision, AgentWorkspaceObservation,
-        AgentWorkspaceReconciliation, AgentWorkspaceRequest,
+        AgentWorkspaceDecision, AgentWorkspaceObservation, AgentWorkspaceReconciliation,
+        AgentWorkspaceRequest, AGENT_WORKSPACE_CAPABILITY_ID, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
+        AGENT_WORKSPACE_RECONCILIATION_SCHEMA,
     },
 };
 use crate::workload::{admit_agent_workload, types::AgentWorkloadEnvelope};

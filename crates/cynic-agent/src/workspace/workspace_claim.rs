@@ -1,9 +1,9 @@
 use super::{
     workspace_checks::{validate_zone_set, violation},
     workspace_types::{
+        AgentWorkspaceClaimAdmission, AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent,
         AGENT_WORKSPACE_CAPABILITY_ID, AGENT_WORKSPACE_CLAIM_ADMISSION_SCHEMA,
-        AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AgentWorkspaceClaimAdmission,
-        AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent,
+        AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA,
     },
 };
 use crate::workload::{admit_agent_workload, types::AgentWorkloadEnvelope};

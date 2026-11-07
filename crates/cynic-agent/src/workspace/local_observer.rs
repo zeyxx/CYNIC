@@ -3,15 +3,15 @@ use std::{
     path::{Component, Path},
 };
 
-use cynic_process::ArgvRunner;
-use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, digest_json};
-use super::{
-    AGENT_WORKSPACE_OBSERVATION_SCHEMA, AgentWorkspaceClaimObservation, AgentWorkspaceObservation,
-    AgentWorkspacePathObservation, AgentWorkspaceRequest,
-};
 use super::ports::{
     AgentWorkspaceLayoutPort, AgentWorkspaceObservationPort, AgentWorkspacePortError,
 };
+use super::{
+    AgentWorkspaceClaimObservation, AgentWorkspaceObservation, AgentWorkspacePathObservation,
+    AgentWorkspaceRequest, AGENT_WORKSPACE_OBSERVATION_SCHEMA,
+};
+use cynic_process::ArgvRunner;
+use cynic_protocol::{digest_json, AgentEvidenceLineage, AgentEvidenceRef};
 use sha2::{Digest, Sha256};
 
 #[derive(Debug)]

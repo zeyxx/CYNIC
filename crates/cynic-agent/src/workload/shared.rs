@@ -1,6 +1,6 @@
 use super::types::{
-    AGENT_WORKLOAD_ADMISSION_SCHEMA, AgentWorkloadAdmission, AgentWorkloadDecision,
-    AgentWorkloadViolation,
+    AgentWorkloadAdmission, AgentWorkloadDecision, AgentWorkloadViolation,
+    AGENT_WORKLOAD_ADMISSION_SCHEMA,
 };
 
 pub(super) fn admission(

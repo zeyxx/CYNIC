@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 
 use cynic_protocol::{
-    AgentRecursionDecision, PolicyDecision, admit_child_delegation, admit_root_delegation,
-    resource_budget::ResourceLimit,
+    admit_child_delegation, admit_root_delegation, resource_budget::ResourceLimit,
+    AgentRecursionDecision, PolicyDecision,
 };
 
 use super::{
     shared::{admission, violation},
-    types::{AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentWorkloadAdmission, AgentWorkloadEnvelope},
+    types::{AgentWorkloadAdmission, AgentWorkloadEnvelope, AGENT_WORKLOAD_ENVELOPE_SCHEMA},
 };
 
 pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAdmission {

@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use cynic_protocol::{
-    AgentBudget, AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion,
-    digest_json,
+    admit_completion, digest_json, AgentBudget, AgentCompletionEnvelope, AgentCompletionStatus,
+    LeaseGuard,
 };
 
 use super::{
-    AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
-    admit_agent_workload,
+    admit_agent_workload, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
+    AGENT_WORKLOAD_RECORD_SCHEMA,
 };
 
 pub const DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA: &str = "cynic.durable_agent_workload_record.v1";

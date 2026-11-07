@@ -221,7 +221,10 @@ mod tests {
     #[test]
     fn operator_agent_name() {
         let agent = OperatorAgent::with_default_bin();
-        assert_eq!(crate::traits::AutonomousAgent::agent_name(&agent), "operator");
+        assert_eq!(
+            crate::traits::AutonomousAgent::agent_name(&agent),
+            "operator"
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use cynic_protocol::{
-    AgentBudget, AgentDelegationEnvelope, AgentEvidenceRef, validate_evidence_refs,
+    validate_evidence_refs, AgentBudget, AgentDelegationEnvelope, AgentEvidenceRef,
 };
 
 mod delivery;
@@ -16,10 +16,10 @@ mod metadata;
 
 pub use delivery::{compose_agent_skill_delivery_input, validate_agent_skill_delivery_input};
 pub use metadata::{
-    AGENT_SKILL_LIFECYCLE_RECORD_SCHEMA, AGENT_SKILL_PROJECTION_SCHEMA, AgentSkillAvailability,
+    project_agent_skill, validate_agent_skill_lifecycle_record, AgentSkillAvailability,
     AgentSkillDataClassification, AgentSkillDataClassification as DataClassification,
     AgentSkillLifecycleRecord, AgentSkillLifecycleState, AgentSkillMetadata, AgentSkillProjection,
-    AgentSkillRetentionPolicy, project_agent_skill, validate_agent_skill_lifecycle_record,
+    AgentSkillRetentionPolicy, AGENT_SKILL_LIFECYCLE_RECORD_SCHEMA, AGENT_SKILL_PROJECTION_SCHEMA,
 };
 
 pub const AGENT_SKILL_BUNDLE_SCHEMA: &str = "cynic.agent_skill_bundle.v1";

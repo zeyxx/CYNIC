@@ -5,13 +5,14 @@
 //! context (workload, workspace, scheduler, skill, capability).
 
 pub mod adapters;
-pub mod runtime;
+pub mod agent_access;
 pub mod capability;
 pub mod cleanup;
 pub mod coordination;
 pub mod matrix;
 pub mod merge_agent;
 pub mod operator;
+pub mod runtime;
 pub mod scheduler;
 pub mod session;
 pub mod skill;
@@ -29,10 +30,10 @@ pub use operator::OperatorAgent;
 pub use scheduler::*;
 pub use session::*;
 pub use skill::*;
+pub use task_ledger::*;
 pub use traits::AutonomousAgent;
 pub use workload::*;
 pub use workspace::*;
-pub use task_ledger::*;
 
 #[cfg(test)]
 mod tests;

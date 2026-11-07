@@ -6,9 +6,7 @@ pub mod local_store;
 pub mod types;
 
 pub use admission::{local_claim_active, local_scope_of, refresh_claim_entry};
-pub use claims::{
-    execute_claim_local, execute_release_local, execute_scope,
-};
+pub use claims::{execute_claim_local, execute_release_local, execute_scope};
 pub use events::{civil_from_days, event_matches};
 pub use ledger::*;
 pub use local_store::{
@@ -16,10 +14,10 @@ pub use local_store::{
     load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc, CLAIM_EVENT_SCHEMA,
 };
 pub use types::{
-    AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport, AgentReleaseReport,
-    AgentScopeReport, AgentStatusReport, ClaimEvent, LocalScope, AGENT_CLAIM_REPORT_SCHEMA,
-    AGENT_EVENTS_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA,
-    AGENT_SCOPE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA,
+    AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport,
+    AgentReleaseReport, AgentScopeReport, AgentStatusReport, ClaimEvent, LocalScope,
+    AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA,
+    AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA,
 };
 
 #[cfg(test)]
@@ -40,12 +38,30 @@ mod tests {
     #[test]
     fn liveness_requires_active_status_and_unexpired_ttl() {
         let now = 1_790_600_000u64;
-        assert!(local_claim_active(&claim_entry("active", now - 100, 1800), now));
-        assert!(!local_claim_active(&claim_entry("active", now - 2000, 1800), now));
-        assert!(!local_claim_active(&claim_entry("released", now - 100, 1800), now));
-        assert!(!local_claim_active(&claim_entry("expired", now - 100, 1800), now));
-        assert!(!local_claim_active(&claim_entry("active", now - 1800, 1800), now));
-        assert!(local_claim_active(&claim_entry("active", now - 1799, 1800), now));
+        assert!(local_claim_active(
+            &claim_entry("active", now - 100, 1800),
+            now
+        ));
+        assert!(!local_claim_active(
+            &claim_entry("active", now - 2000, 1800),
+            now
+        ));
+        assert!(!local_claim_active(
+            &claim_entry("released", now - 100, 1800),
+            now
+        ));
+        assert!(!local_claim_active(
+            &claim_entry("expired", now - 100, 1800),
+            now
+        ));
+        assert!(!local_claim_active(
+            &claim_entry("active", now - 1800, 1800),
+            now
+        ));
+        assert!(local_claim_active(
+            &claim_entry("active", now - 1799, 1800),
+            now
+        ));
     }
 
     #[test]
@@ -58,12 +74,16 @@ mod tests {
             "merge_queue": [],
         });
         let (id, kind, ttl, actions, wall) =
-            refresh_claim_entry(&mut doc, "tester", "a/b.rs", "", now + 500).expect("live claim heartbeats");
+            refresh_claim_entry(&mut doc, "tester", "a/b.rs", "", now + 500)
+                .expect("live claim heartbeats");
         assert_eq!(id, "claim_test_1");
         assert_eq!(kind, "file");
         assert_eq!(ttl, 1800);
         assert_eq!((actions, wall), (50, 3600));
-        assert_eq!(doc["claims"][0]["temporal"]["started_at_unix_s"], json!(now + 500));
+        assert_eq!(
+            doc["claims"][0]["temporal"]["started_at_unix_s"],
+            json!(now + 500)
+        );
     }
 
     #[test]
@@ -90,7 +110,8 @@ mod tests {
         });
         let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "", now).unwrap_err();
         assert!(err.contains("no active local claim"), "unexpected: {err}");
-        let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
+        let err =
+            refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
         assert!(err.contains("held by tester"), "unexpected: {err}");
     }
 

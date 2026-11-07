@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use crate::ports::HostOperation;
+use cynic_protocol::agent_access_port::AgentAccessOperation;
 
 use super::types::{
-    AGENT_ACCESS_OBSERVATION_SCHEMA, AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
-    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy,
+    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, AGENT_ACCESS_OBSERVATION_SCHEMA,
+    AGENT_ACCESS_PLAN_SCHEMA, AGENT_ACCESS_POLICY_SCHEMA,
 };
 
 pub fn reconcile_agent_access(
@@ -29,7 +29,7 @@ pub fn reconcile_agent_access(
     }
 
     match observed.access_group_present {
-        Some(false) => operations.push(HostOperation::EnsureSystemGroup {
+        Some(false) => operations.push(AgentAccessOperation::EnsureSystemGroup {
             group: desired.access_group.clone(),
         }),
         None => residual_unknowns.push("agent_access_group_presence_unknown".to_string()),
@@ -42,14 +42,14 @@ pub fn reconcile_agent_access(
         .collect();
     for user in std::iter::once(&desired.runtime_user).chain(&desired.authorized_principals) {
         if !observed_members.contains(user.as_str()) {
-            operations.push(HostOperation::EnsureSupplementaryGroupMember {
+            operations.push(AgentAccessOperation::EnsureSupplementaryGroupMember {
                 user: user.clone(),
                 group: desired.access_group.clone(),
             });
         }
     }
     if observed.runtime_directory_present == Some(false) {
-        operations.push(HostOperation::EnsureOwnedDir {
+        operations.push(AgentAccessOperation::EnsureOwnedDir {
             path: desired.runtime_directory.clone(),
             user: desired.runtime_user.clone(),
             group: desired.runtime_user.clone(),
@@ -98,9 +98,21 @@ pub fn reconcile_agent_access(
 mod tests {
     use super::*;
 
+    fn desired() -> AgentAccessPolicy {
+        AgentAccessPolicy {
+            schema: AGENT_ACCESS_POLICY_SCHEMA.to_string(),
+            runtime_user: "cynic".to_string(),
+            access_group: "cynic-agent".to_string(),
+            authorized_principals: vec!["operator".to_string()],
+            runtime_directory: "/run/cynic".to_string(),
+            socket_path: "/run/cynic/kernel.sock".to_string(),
+            socket_mode: 0o660,
+        }
+    }
+
     #[test]
     fn missing_group_and_members_produce_bounded_host_operations() {
-        let desired = AgentAccessPolicy::desired(vec!["operator".to_string()]);
+        let desired = desired();
         let observed = AgentAccessObservation {
             schema: AGENT_ACCESS_OBSERVATION_SCHEMA.to_string(),
             access_group_present: Some(false),
@@ -117,14 +129,14 @@ mod tests {
         assert_eq!(plan.status, "planned");
         assert!(plan.operations.iter().any(|operation| matches!(
             operation,
-            HostOperation::EnsureSystemGroup { group } if group == "cynic-agent"
+            AgentAccessOperation::EnsureSystemGroup { group } if group == "cynic-agent"
         )));
         assert_eq!(
             plan.operations
                 .iter()
                 .filter(|operation| matches!(
                     operation,
-                    HostOperation::EnsureSupplementaryGroupMember { .. }
+                    AgentAccessOperation::EnsureSupplementaryGroupMember { .. }
                 ))
                 .count(),
             2
@@ -133,7 +145,7 @@ mod tests {
 
     #[test]
     fn wrong_socket_permissions_block_convergence() {
-        let desired = AgentAccessPolicy::desired(vec!["operator".to_string()]);
+        let desired = desired();
         let observed = AgentAccessObservation {
             schema: AGENT_ACCESS_OBSERVATION_SCHEMA.to_string(),
             access_group_present: Some(true),
@@ -148,19 +160,17 @@ mod tests {
         };
         let plan = reconcile_agent_access(&desired, &observed);
         assert_eq!(plan.status, "blocked");
-        assert!(
-            plan.blockers
-                .contains(&"agent_socket_group_mismatch".to_string())
-        );
-        assert!(
-            plan.blockers
-                .contains(&"agent_socket_mode_mismatch".to_string())
-        );
+        assert!(plan
+            .blockers
+            .contains(&"agent_socket_group_mismatch".to_string()));
+        assert!(plan
+            .blockers
+            .contains(&"agent_socket_mode_mismatch".to_string()));
     }
 
     #[test]
     fn matching_access_state_is_converged_even_before_kernel_start() {
-        let desired = AgentAccessPolicy::desired(vec!["operator".to_string()]);
+        let desired = desired();
         let observed = AgentAccessObservation {
             schema: AGENT_ACCESS_OBSERVATION_SCHEMA.to_string(),
             access_group_present: Some(true),
@@ -176,9 +186,8 @@ mod tests {
         let plan = reconcile_agent_access(&desired, &observed);
         assert_eq!(plan.status, "converged");
         assert!(plan.operations.is_empty());
-        assert!(
-            plan.residual_unknowns
-                .contains(&"agent_socket_post_start_read_back_pending".to_string())
-        );
+        assert!(plan
+            .residual_unknowns
+            .contains(&"agent_socket_post_start_read_back_pending".to_string()));
     }
 }

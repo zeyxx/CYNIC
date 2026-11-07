@@ -1,4 +1,5 @@
 pub mod agent_access;
+pub mod agent_access_operation;
 pub mod argv_runner;
 pub mod jsonl_append;
 pub mod meminfo_reader;

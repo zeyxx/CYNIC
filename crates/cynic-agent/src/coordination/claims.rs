@@ -6,16 +6,16 @@
 //! status computation from the local claims document. They are the single
 //! source of truth for those rules; `cynic_cli` only dispatches to them.
 
-use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
-use serde_json::{Value, json};
+use cynic_protocol::agent_coordination::{predicates as coord_predicates, ClaimScope};
+use serde_json::{json, Value};
 
 use crate::coordination::admission::{local_claim_active, local_scope_of};
 use crate::coordination::local_store::{
     append_claim_event, load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc,
 };
 use crate::coordination::types::{
-    AGENT_CLAIM_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
-    AgentClaimReport, AgentReleaseReport, AgentScopeReport,
+    AgentClaimReport, AgentReleaseReport, AgentScopeReport, AGENT_CLAIM_REPORT_SCHEMA,
+    AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
 };
 
 /// Claim a scope in the local (no kernel) path.

@@ -1,15 +1,15 @@
 use std::collections::BTreeSet;
 
 use cynic_protocol::{
-    AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion,
+    admit_completion, AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard,
 };
 
 use super::{
     admission::admit_agent_workload,
     shared::{admission, violation},
     types::{
-        AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadAdmission, AgentWorkloadClaim,
-        AgentWorkloadRecord, AgentWorkloadState, AgentWorkloadViolation,
+        AgentWorkloadAdmission, AgentWorkloadClaim, AgentWorkloadRecord, AgentWorkloadState,
+        AgentWorkloadViolation, AGENT_WORKLOAD_RECORD_SCHEMA,
     },
 };
 

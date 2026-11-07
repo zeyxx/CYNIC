@@ -5,7 +5,11 @@ mod record;
 mod renewal;
 pub mod types;
 
-pub use authority::agent_session_authority_digest;
+pub use authority::{
+    AgentEnrollmentPolicy, DEFAULT_AGENT_SESSION_TTL_MS, DEFAULT_PEER_OBSERVATION_MAX_AGE_MS,
+    agent_session_authority_digest, compose_agent_session_authority,
+    default_local_agent_capabilities,
+};
 pub use decision::reconcile_agent_session;
 pub use launch::compose_root_agent_launch;
 pub use record::validate_agent_session_record;

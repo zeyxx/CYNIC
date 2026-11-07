@@ -1,10 +1,12 @@
 //! Local persistence adapter for claims document and event log (I/O).
 
-use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::coordination::events::civil_from_days;
-use crate::coordination::types::{AgentClaimSummary, AgentStatusReport, AGENT_STATUS_REPORT_SCHEMA};
+use crate::coordination::types::{
+    AgentClaimSummary, AgentStatusReport, AGENT_STATUS_REPORT_SCHEMA,
+};
 use cynic_process::ArgvRunner;
 
 pub const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";

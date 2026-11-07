@@ -3,10 +3,10 @@ use cynic_process::ArgvRunner;
 use super::{
     specs::RUNTIME_SPECS,
     types::{
-        AGENT_RUNTIME_INVENTORY_SCHEMA, AgentRuntimeActivation, AgentRuntimeInstallChannel,
-        AgentRuntimeInstallOwnership, AgentRuntimeInstallProvenance, AgentRuntimeInventoryReport,
-        AgentRuntimeObservation, AgentRuntimeSupervision, CapabilityNode, CapabilityState,
-        StatusProjection,
+        AgentRuntimeActivation, AgentRuntimeInstallChannel, AgentRuntimeInstallOwnership,
+        AgentRuntimeInstallProvenance, AgentRuntimeInventoryReport, AgentRuntimeObservation,
+        AgentRuntimeSupervision, CapabilityNode, CapabilityState, StatusProjection,
+        AGENT_RUNTIME_INVENTORY_SCHEMA,
     },
 };
 

@@ -8,8 +8,8 @@ use std::{
 use std::os::unix::fs::OpenOptionsExt;
 
 use crate::{
-    AgentSchedulerJournalRecord, AgentSchedulerJournalStatus,
-    validate_agent_scheduler_journal_record,
+    validate_agent_scheduler_journal_record, AgentSchedulerJournalRecord,
+    AgentSchedulerJournalStatus,
 };
 
 use crate::workload::ports::AgentSchedulerJournalPort;
@@ -191,7 +191,7 @@ fn error(code: &str) -> AgentWorkspacePortError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerStepPlan};
+    use crate::{AgentSchedulerStepPlan, AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA};
 
     fn planned(recorded_at_ms: u64) -> AgentSchedulerJournalRecord {
         AgentSchedulerJournalRecord {
