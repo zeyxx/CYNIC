@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Duration, Utc};
 use cynic_protocol::{
-    BatchClaimResult, LeaseAction, LeaseConflict, LeaseGrant, LeaseGuard, LeaseMutationOutcome,
+    BatchClaimResult, LeaseAction, LeaseConflict, Lease, LeaseGuard, LeaseMutationOutcome,
     TargetClaimOutcome,
 };
 use serde::{Deserialize, Serialize};
@@ -162,7 +162,7 @@ impl CoordinationLeaseStore {
 
         TargetClaimOutcome::Claimed {
             target: target.to_string(),
-            grant: LeaseGrant {
+            lease: Lease {
                 lease_id,
                 fencing_token,
                 expires_at: expires_at.to_rfc3339(),
@@ -288,9 +288,9 @@ mod tests {
 
             // Le token de fencing suivant doit être incrémenté (> 1001)
             let next_claim = store2.claim("agent-claude", "crates/cynic-intel", 3600);
-            if let TargetClaimOutcome::Claimed { grant, .. } = next_claim {
+            if let TargetClaimOutcome::Claimed { lease, .. } = next_claim {
                 assert!(
-                    grant.fencing_token > 1001,
+                    lease.fencing_token > 1001,
                     "Fencing token counter must be restored"
                 );
             } else {

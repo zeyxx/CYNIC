@@ -16,7 +16,7 @@ fn test_full_multi_agent_coordination_and_futarchy_workflow() {
     // Agent 1 (Codex) réserve cynic-inference
     let claim_codex = lease_store.claim("agent-codex", "crates/cynic-inference", 3600);
     let grant_codex = match claim_codex {
-        TargetClaimOutcome::Claimed { grant, .. } => grant,
+        TargetClaimOutcome::Claimed { lease, .. } => lease,
         _ => panic!("Expected agent-codex to claim lease successfully"),
     };
 
@@ -30,14 +30,14 @@ fn test_full_multi_agent_coordination_and_futarchy_workflow() {
     // Agent 2 bascule sur cynic-intel -> Succès
     let claim_claude = lease_store.claim("agent-claude", "crates/cynic-intel", 3600);
     let grant_claude = match claim_claude {
-        TargetClaimOutcome::Claimed { grant, .. } => grant,
+        TargetClaimOutcome::Claimed { lease, .. } => lease,
         _ => panic!("Expected agent-claude to claim cynic-intel"),
     };
 
     // Agent 3 (Pi) réserve docs/specs -> Succès
     let claim_pi = lease_store.claim("agent-pi", "docs/specs", 3600);
     let grant_pi = match claim_pi {
-        TargetClaimOutcome::Claimed { grant, .. } => grant,
+        TargetClaimOutcome::Claimed { lease, .. } => lease,
         _ => panic!("Expected agent-pi to claim docs/specs"),
     };
 

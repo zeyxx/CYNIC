@@ -401,7 +401,7 @@ fn publication() -> (AgentWorkloadDelivery, AgentWorkloadCompletionPublication) 
         node_id: accepted.target_node_id.clone(),
         workload_id: accepted.envelope.workload_id.clone(),
         published_at_ms: 4,
-        delivery_lease: accepted.acceptance_lease.clone().unwrap(),
+        lease: accepted.acceptance_lease.clone().unwrap(),
         durable_record: durable,
         evidence: vec![evidence],
     };

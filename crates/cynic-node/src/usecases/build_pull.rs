@@ -8,7 +8,7 @@
 
 use cynic_agent::{AgentWorkloadState, DurableAgentWorkloadRecord};
 
-use crate::ports::agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort;
+use crate::ports::lease_port::LeasePort;
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
 use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
@@ -52,7 +52,7 @@ pub fn select_build_pull(
     node_id: &str,
     now_ms: u64,
     records: &[DurableAgentWorkloadRecord],
-    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    leases: &dyn LeasePort,
 ) -> BuildPullPlan {
     let mut plan = BuildPullPlan {
         schema: BUILD_PULL_PLAN_SCHEMA.to_string(),
@@ -98,7 +98,7 @@ pub fn plan_pull_run(
     node_id: &str,
     now_ms: u64,
     store: &dyn AgentWorkloadStorePort,
-    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    leases: &dyn LeasePort,
 ) -> Result<BuildPullPlan, String> {
     let records = store.durable_records().map_err(|error| {
         format!(
@@ -145,7 +145,7 @@ pub fn execute_pull_run(
     committed_at_ms: u64,
     max_items: usize,
     store: &dyn AgentWorkloadStorePort,
-    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    leases: &dyn LeasePort,
     runner: &dyn ArgvRunner,
 ) -> BuildRunReport {
     let mut report = BuildRunReport {
@@ -225,18 +225,18 @@ mod tests {
     };
     use cynic_agent::{
         AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
-        AgentWorkloadDeliveryLease, AgentWorkloadEnvelope, AgentWorkloadRecord,
+        Lease, AgentWorkloadEnvelope, AgentWorkloadRecord,
         DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
     };
     use std::collections::HashMap;
 
     struct MapLeases {
-        entries: HashMap<String, AgentWorkloadDeliveryLease>,
+        entries: HashMap<String, Lease>,
         fail: Vec<String>,
     }
 
-    impl AgentWorkloadDeliveryLeasePort for MapLeases {
-        fn read(&self, workload_id: &str) -> Result<Option<AgentWorkloadDeliveryLease>, String> {
+    impl LeasePort for MapLeases {
+        fn read(&self, workload_id: &str) -> Result<Option<Lease>, String> {
             if self.fail.iter().any(|id| id == workload_id) {
                 return Err("store offline".to_string());
             }
@@ -246,14 +246,14 @@ mod tests {
         fn persist(
             &self,
             _workload_id: &str,
-            _lease: &AgentWorkloadDeliveryLease,
+            _lease: &Lease,
         ) -> Result<(), String> {
             Ok(())
         }
     }
 
-    fn lease(holder: &str, expires_at_ms: u64) -> AgentWorkloadDeliveryLease {
-        AgentWorkloadDeliveryLease {
+    fn lease(holder: &str, expires_at_ms: u64) -> Lease {
+        Lease {
             schema: "cynic.agent_workload_delivery_lease.v1".to_string(),
             lease_id: format!("lease-{holder}"),
             fencing_token: 1,

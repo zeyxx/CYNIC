@@ -1,6 +1,6 @@
 use cynic_protocol::LeaseGuard;
 
-use super::controller::{StorageControllerRecord, StorageLeaseGrant};
+use super::controller::{StorageControllerRecord, StorageLease};
 use super::lifecycle::StorageObservation;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,13 +44,13 @@ pub trait StorageLeasePort: Send + Sync {
         agent_id: &str,
         now_ms: u64,
         ttl_ms: u64,
-    ) -> Result<StorageLeaseGrant, String>;
+    ) -> Result<StorageLease, String>;
     fn renew(
         &self,
         guard: &LeaseGuard,
         now_ms: u64,
         ttl_ms: u64,
-    ) -> Result<StorageLeaseGrant, String>;
+    ) -> Result<StorageLease, String>;
     fn release(&self, guard: &LeaseGuard, now_ms: u64) -> Result<(), String>;
 }
 

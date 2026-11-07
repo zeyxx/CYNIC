@@ -1,16 +1,16 @@
 use std::{fs, io::Write, path::PathBuf};
 
-use crate::{validate_agent_workload_delivery_lease, AgentWorkloadDeliveryLease};
+use crate::{validate_lease, Lease};
 use cynic_protocol::digest_json;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::workload::ports::AgentWorkloadDeliveryLeasePort;
+use crate::workload::ports::LeasePort;
 
 const LOCAL_LEASE_SCHEMA: &str = "cynic.local_agent_workload_delivery_lease.v1";
 
 #[derive(Debug, Clone)]
-pub struct LocalAgentWorkloadDeliveryLeaseStore {
+pub struct LocalLeaseStore {
     root: PathBuf,
 }
 
@@ -18,11 +18,11 @@ pub struct LocalAgentWorkloadDeliveryLeaseStore {
 struct LocalLeaseRecord {
     schema: String,
     workload_id: String,
-    lease: AgentWorkloadDeliveryLease,
+    lease: Lease,
     record_digest: String,
 }
 
-impl LocalAgentWorkloadDeliveryLeaseStore {
+impl LocalLeaseStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into() }
     }
@@ -37,9 +37,9 @@ impl LocalAgentWorkloadDeliveryLeaseStore {
 
     fn record(
         workload_id: &str,
-        lease: &AgentWorkloadDeliveryLease,
+        lease: &Lease,
     ) -> Result<LocalLeaseRecord, String> {
-        if !validate_agent_workload_delivery_lease(lease).is_empty() {
+        if !validate_lease(lease).is_empty() {
             return Err("workload_delivery_lease_invalid".to_string());
         }
         let record_digest = digest_json(&serde_json::json!({
@@ -75,12 +75,12 @@ impl LocalAgentWorkloadDeliveryLeaseStore {
     }
 }
 
-impl AgentWorkloadDeliveryLeasePort for LocalAgentWorkloadDeliveryLeaseStore {
-    fn read(&self, workload_id: &str) -> Result<Option<AgentWorkloadDeliveryLease>, String> {
+impl LeasePort for LocalLeaseStore {
+    fn read(&self, workload_id: &str) -> Result<Option<Lease>, String> {
         Ok(self.read_record(workload_id)?.map(|record| record.lease))
     }
 
-    fn persist(&self, workload_id: &str, lease: &AgentWorkloadDeliveryLease) -> Result<(), String> {
+    fn persist(&self, workload_id: &str, lease: &Lease) -> Result<(), String> {
         let record = Self::record(workload_id, lease)?;
         fs::create_dir_all(&self.root)
             .map_err(|error| format!("create workload delivery lease root: {error}"))?;
@@ -112,14 +112,14 @@ impl AgentWorkloadDeliveryLeasePort for LocalAgentWorkloadDeliveryLeaseStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA;
+    use crate::LEASE_SCHEMA;
 
     #[test]
     fn replaces_renewed_lease_and_reads_back_exact_fence() {
         let root = tempfile::tempdir().unwrap();
-        let store = LocalAgentWorkloadDeliveryLeaseStore::new(root.path());
-        let mut lease = AgentWorkloadDeliveryLease {
-            schema: AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA.to_string(),
+        let store = LocalLeaseStore::new(root.path());
+        let mut lease = Lease {
+            schema: LEASE_SCHEMA.to_string(),
             lease_id: format!("sha256:{}", "1".repeat(64)),
             fencing_token: 1,
             consumer_instance_id: "incarnation-a".to_string(),

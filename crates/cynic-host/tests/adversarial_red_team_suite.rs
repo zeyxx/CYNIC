@@ -37,9 +37,9 @@ fn test_adversarial_concurrent_lease_claims_and_zombie_writes() {
     for (i, h) in handles.into_iter().enumerate() {
         let outcome = h.join().expect("thread join");
         match outcome {
-            TargetClaimOutcome::Claimed { grant, .. } => {
+            TargetClaimOutcome::Claimed { lease, .. } => {
                 claimed_count += 1;
-                winner_grant = Some(grant);
+                winner_grant = Some(lease);
                 winner_agent = Some(format!("adversary-agent-{i}"));
             }
             TargetClaimOutcome::Conflict { .. } => {

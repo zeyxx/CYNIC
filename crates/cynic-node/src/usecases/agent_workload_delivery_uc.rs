@@ -12,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::ports::{
     agent_workload_completion_receipt_port::AgentWorkloadCompletionReceiptPort,
-    agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort,
+    lease_port::LeasePort,
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     agent_workload_store_port::AgentWorkloadStorePort,
 };
@@ -23,7 +23,7 @@ pub async fn reconcile_deliveries<D>(
     lease_ttl_ms: u64,
     delivery_port: &D,
     store: &dyn AgentWorkloadStorePort,
-    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    leases: &dyn LeasePort,
     receipts: &dyn AgentWorkloadCompletionReceiptPort,
 ) -> serde_json::Value
 where
@@ -175,7 +175,7 @@ pub async fn run_delivery_loop<D>(
     interval: Duration,
     delivery_port: &D,
     store: &dyn AgentWorkloadStorePort,
-    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    leases: &dyn LeasePort,
     evidence_store: &dyn ContentAddressedEvidenceStorePort,
     receipts: &dyn AgentWorkloadCompletionReceiptPort,
     shutdown: &CancellationToken,
@@ -276,7 +276,7 @@ fn now_unix_ms() -> u64 {
 mod tests {
     use super::*;
     use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
-    use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
+    use crate::adapters::local_lease::LocalLeaseStore;
     use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
     use cynic_build::{
         BUILD_AGENT_REQUEST_SCHEMA, BuildAgentRequest, compose_build_agent_workload,
@@ -369,7 +369,7 @@ mod tests {
     async fn persists_before_acknowledging_delivery() {
         let root = tempfile::tempdir().unwrap();
         let store = LocalAgentWorkloadStore::new(root.path());
-        let leases = LocalAgentWorkloadDeliveryLeaseStore::new(root.path().join("leases"));
+        let leases = LocalLeaseStore::new(root.path().join("leases"));
         let receipts = LocalAgentWorkloadCompletionReceipt::new(root.path().join("receipts"));
         let delivery = delivery();
         let workload_id = delivery.envelope.workload_id.clone();
