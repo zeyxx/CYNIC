@@ -8,3 +8,10 @@ Checklist par cycle :
 - [ ] Intra-crate : FCIS pur ? patterns hexagonaux ? DDD respecté ?
 - [ ] Inter-crates : doublons trouvés et unifiés vers une SSOT ?
 - [ ] DAG : dépendances vers le haut supprimées ? types au bon niveau ?
+
+## Gates avant merge (discipline)
+- [ ] cargo fmt --all (appliquer avant commit, jamais après)
+- [ ] cargo fmt --all --check (gate CI)
+- [ ] cargo clippy --workspace -- -D warnings (warnings = erreurs, rustup component add clippy)
+- [ ] cargo test --workspace (vert, échecs préexistants documentés par comparaison pristine)
+- [ ] Audit CYNIC-ARCH-* : 0 violation sur les crates touchées
