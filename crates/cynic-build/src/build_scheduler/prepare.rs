@@ -989,9 +989,12 @@ mod tests {
 
     #[test]
     fn stable_workspace_digest_reflects_actual_workspace_path() {
+        // Isolated fixture: not /var/lib/cynic/... — tests must not write
+        // to privileged/system paths (fails in CI / non-root).
+        let case = tempfile::tempdir().unwrap();
         let layout = registry_layout();
         let mut scheduler = scheduler_config();
-        scheduler.stable_workspace_root = Some(PathBuf::from("/var/lib/cynic/stable"));
+        scheduler.stable_workspace_root = Some(case.path().join("stable"));
         let argv = vec!["cargo".to_string(), "build".to_string()];
         let applied = apply_stable_workspace(layout, &scheduler, &argv).unwrap();
         // The digest must NOT be the registry layout digest — it must
@@ -1006,7 +1009,7 @@ mod tests {
         );
         // The digest must change when the workspace path changes.
         let mut scheduler2 = scheduler_config();
-        scheduler2.stable_workspace_root = Some(PathBuf::from("/var/lib/cynic/other"));
+        scheduler2.stable_workspace_root = Some(case.path().join("other"));
         let applied2 = apply_stable_workspace(registry_layout(), &scheduler2, &argv).unwrap();
         assert_ne!(
             applied.evidence_digest, applied2.evidence_digest,
