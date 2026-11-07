@@ -7,7 +7,7 @@ use cynic_build::{
 };
 use cynic_agent::DurableAgentWorkloadRecord;
 
-use super::super::adapters::ed25519_build_workload_grant::Ed25519BuildWorkloadGrantVerifier;
+use crate::adapters::ed25519_build_workload_grant::Ed25519BuildWorkloadGrantVerifier;
 use crate::ports::build_workload_grant_port::{
     BuildWorkloadGrantSignerPort, BuildWorkloadGrantVerifierPort,
 };

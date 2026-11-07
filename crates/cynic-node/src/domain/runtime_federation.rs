@@ -85,23 +85,42 @@ mod tests {
 
     #[test]
     fn queue_dir_is_derived_without_reading_environment() {
-        let local_mode = std::env::var("CYNIC_ALLOW_LOCAL_DEV_BUILD")
-            .is_ok_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"));
-        let expected = if local_mode {
-            PathBuf::from("/tmp/home/.cynic/node")
-        } else {
-            PathBuf::from("/tmp/home/node")
-        };
+        // `default_queue_dir()` checks `CYNIC_ALLOW_LOCAL_DEV_BUILD`, then
+        // `CYNIC_STATE_ROOT`, then the explicit home / `CynicPaths::state_dir()`
+        // (`CYNIC_STATE_DIR`, else `/var/lib/cynic`). Clear every ambient
+        // override so the derivation is tested, not the CI/user environment.
+        let _env_lock = crate::test_env::env_lock();
+        let _local_dev = crate::test_env::EnvOverride::clear("CYNIC_ALLOW_LOCAL_DEV_BUILD");
+        let _state_root = crate::test_env::EnvOverride::clear("CYNIC_STATE_ROOT");
+        let _state_dir = crate::test_env::EnvOverride::clear("CYNIC_STATE_DIR");
+
+        // An explicit home (not under `/home/`) is joined with `node`.
         assert_eq!(
             default_queue_dir(Some(PathBuf::from("/tmp/home"))),
-            expected
+            PathBuf::from("/tmp/home/node")
         );
-        let expected_default = if local_mode {
-            PathBuf::from("/tmp/cynic/node")
-        } else {
+        // An explicit system-style root is honored as-is.
+        assert_eq!(
+            default_queue_dir(Some(PathBuf::from("/var/lib/cynic"))),
             PathBuf::from("/var/lib/cynic/node")
-        };
-        assert_eq!(default_queue_dir(None), expected_default);
+        );
+        // No home: fall back to the canonical state root (`/var/lib/cynic`
+        // once `CYNIC_STATE_DIR` is cleared), regardless of the current user.
+        assert_eq!(
+            default_queue_dir(None),
+            PathBuf::from("/var/lib/cynic/node")
+        );
+
+        // `CYNIC_STATE_ROOT` overrides both an explicit home and the default.
+        let _pinned_root = crate::test_env::EnvOverride::set("CYNIC_STATE_ROOT", "/tmp/state-root");
+        assert_eq!(
+            default_queue_dir(Some(PathBuf::from("/tmp/home"))),
+            PathBuf::from("/tmp/state-root/node")
+        );
+        assert_eq!(
+            default_queue_dir(None),
+            PathBuf::from("/tmp/state-root/node")
+        );
     }
 
     #[test]

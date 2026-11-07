@@ -4,9 +4,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
-use super::super::adapters::http_node_control::HttpNodeControlAdapter;
-use super::super::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
-use super::super::config::NodeControlConfig;
+use crate::adapters::http_node_control::HttpNodeControlAdapter;
+use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
+use crate::config::NodeControlConfig;
 use cynic_protocol::SecurityEvidenceState;
 
 /// Persistent telemetry status for enrollment renewal attempts.

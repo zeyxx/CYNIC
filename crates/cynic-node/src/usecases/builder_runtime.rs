@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 
-use super::super::config;
+use crate::config;
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
-use super::super::adapters::http_builder_server::{BuilderHttpConfig, run_http_server};
+use crate::adapters::http_builder_server::{BuilderHttpConfig, run_http_server};
 
 #[derive(Debug, Clone)]
 pub struct BuilderRuntimeConfig {

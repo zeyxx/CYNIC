@@ -13,8 +13,8 @@ use serde::Serialize;
 
 use cynic_node_protocol::summarize_node_enrollment_check;
 
-use super::super::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
-use super::super::config;
+use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
+use crate::config;
 
 const RENEWAL_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 

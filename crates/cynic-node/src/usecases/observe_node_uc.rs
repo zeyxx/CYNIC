@@ -5,9 +5,9 @@ use cynic_registry::process_observation::{
 };
 use cynic_registry::runtime_layout::{current_runtime_layout, observed_hostname};
 
-use super::super::adapters::registry::LocalRegistryAdapter;
-use super::super::adapters::runtime_observation::LocalMeshRuntimeObserver;
-use super::super::build_attestation::runtime_binary_attestation;
+use crate::adapters::registry::LocalRegistryAdapter;
+use crate::adapters::runtime_observation::LocalMeshRuntimeObserver;
+use crate::build_attestation::runtime_binary_attestation;
 use crate::domain::network_projection::{
     canonical_network_mesh_status_projection, shared_runtime_observation,
     wireguard_transport_observation,
@@ -15,7 +15,7 @@ use crate::domain::network_projection::{
 use crate::domain::node_observation::{NodeRuntimeCapabilities, classify_runtime};
 use crate::domain::observation_plan::build_observation_plan;
 use crate::domain::observation_runtime::{dns_projection_surface, dns_resolution_observation};
-use super::super::observe::{
+use crate::observe::{
     DnsObservation, NetworkObservation, NodeObservation, ServiceObservation, SystemdObservation,
     TopologyObservation,
 };
@@ -467,12 +467,12 @@ mod tests {
         NodeObservationCommandContext, NodeObservationRuntimeInputs,
         build_node_observation_with_context, build_node_observation_with_runtime,
     };
-    use super::super::adapters::host_observation::{CommandObservation, TcpObservation};
-    use super::super::build_attestation::runtime_binary_attestation;
+    use crate::adapters::host_observation::{CommandObservation, TcpObservation};
+    use crate::build_attestation::runtime_binary_attestation;
     use crate::domain::node_observation::{NodeRuntimeSeverity, NodeRuntimeStatus};
     use crate::domain::observation_plan::build_observation_plan;
     use crate::domain::observation_runtime::dns_resolution_observation;
-    use super::super::observe::NodeObservation;
+    use crate::observe::NodeObservation;
     use crate::ports::network_interfaces_port::MeshRuntimeObservation;
 
     fn command_ok(command: &str, args: &[&str], stdout: &str) -> CommandObservation {

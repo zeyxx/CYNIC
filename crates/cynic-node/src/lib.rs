@@ -33,6 +33,8 @@ pub mod dns_plan;
 pub mod domain;
 pub mod fleet_inventory;
 pub mod task_health;
+#[cfg(test)]
+pub(crate) mod test_env;
 pub mod fleet_observability;
 pub mod inference_node_ops;
 pub mod inference_operations;
