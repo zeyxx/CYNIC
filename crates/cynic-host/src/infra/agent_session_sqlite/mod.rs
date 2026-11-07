@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 
-use cynic_agent::session::{AgentSessionStoreError, AgentSessionStorePort};
+use cynic_protocol::agent_session_store::{AgentSessionStoreError, AgentSessionStorePort};
 use cynic_protocol::{AgentSessionRecord, AgentSessionState, validate_agent_session_record};
 
 mod persistence;

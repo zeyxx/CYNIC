@@ -1,7 +1,7 @@
 use std::{fs, io::Write, path::PathBuf};
 
+use crate::{validate_agent_workload_delivery_lease, AgentWorkloadDeliveryLease};
 use cynic_protocol::digest_json;
-use crate::{AgentWorkloadDeliveryLease, validate_agent_workload_delivery_lease};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

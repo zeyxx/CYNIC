@@ -4,8 +4,8 @@
 //! cannot be resolved in `PATH` (or reports a version below the declared
 //! minimum) is absent, whatever the registry claims.
 
-use cynic_build::domain::pool_eligibility::{ToolKind, ToolObservation};
 use cynic_process::ArgvRunner;
+use cynic_protocol::build_pool::{ToolKind, ToolObservation};
 
 /// Probe the local host for the given tool names.
 pub struct LocalToolchainProbe<R: ArgvRunner> {
@@ -68,11 +68,7 @@ impl<R: ArgvRunner> LocalToolchainProbe<R> {
         let out = self.runner.run(&argv);
         let version = if out.success() {
             let value = out.stdout.trim().to_string();
-            if value.is_empty() {
-                None
-            } else {
-                Some(value)
-            }
+            if value.is_empty() { None } else { Some(value) }
         } else {
             None
         };

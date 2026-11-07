@@ -62,7 +62,7 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
     let workspace = controlled_workspace(&state_root, &binding.capability.capability_id)?;
     let runner = LocalArgvRunner;
     initialize_workspace(&workspace, &runner)?;
-    // The toolchain lifecycle module is hoisted to cynic_build::toolchain
+    // The toolchain lifecycle module is hoisted to cynic-build's toolchain (historical path)
     // (build plane, L2); the host-exec bootstrap flow does not own it.
     let request = BuildRunnerBootstrapRequest {
         node_id: binding.node_subject.clone(),

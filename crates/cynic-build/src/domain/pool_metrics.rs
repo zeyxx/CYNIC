@@ -9,46 +9,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// One observed job execution on a pool runner.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub struct JobObservation {
-    /// Workflow run id (Forgejo task id).
-    pub run_id: i64,
-    /// Runner that executed the job.
-    pub runner: String,
-    /// Job label the runner was matched on (e.g. `cynic/build`).
-    pub label: String,
-    /// Terminal state: `success`, `failure`, `cancelled`.
-    pub status: String,
-    /// Commit the job executed.
-    #[serde(default)]
-    pub head_sha: String,
-    /// Execution identifier: the workflow execution the job belongs to.
-    ///
-    /// Forgejo exposes one run per job; the jobs of a single gate execution
-    /// share this id. It is the unit of concurrency, not the commit.
-    #[serde(default)]
-    pub execution_id: String,
-    /// Job name inside the workflow (e.g. `Gate 3 Core Types`).
-    #[serde(default)]
-    pub job_name: String,
-    /// Seconds between the job being queued and the runner picking it up.
-    #[serde(default)]
-    pub queue_seconds: Option<u64>,
-    /// Seconds the job actually ran.
-    #[serde(default)]
-    pub run_seconds: Option<u64>,
-    /// Wall-clock seconds of the whole run (queue + execution).
-    #[serde(default)]
-    pub wall_seconds: Option<u64>,
-    /// Epoch seconds when the job started (unknown stays unknown).
-    #[serde(default)]
-    pub started_epoch: Option<i64>,
-    /// Epoch seconds when the job finished (unknown stays unknown).
-    #[serde(default)]
-    pub ended_epoch: Option<i64>,
-}
+/// Canonical definition lives in L0 (`cynic_protocol::build_pool`);
+/// re-exported here at its historical path.
+pub use cynic_protocol::build_pool::JobObservation;
 
 /// Aggregated cost and latency of one runner.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

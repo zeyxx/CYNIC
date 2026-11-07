@@ -4,13 +4,14 @@ use cynic_protocol::{
 };
 use serde::Serialize;
 
+use crate::adapters::agent_access_operation::translate_agent_access_operations;
 use crate::execution::{HOST_OPERATION_PLAN_SCHEMA, HostOperationPlan, admit_host_operation_plan};
 use crate::ports::HostCommandRunnerPort;
 
-use super::{
+use super::{installed_agent_authority_spec, observe_agent_authority_projection};
+use cynic_protocol::agent_access::{
     AgentAuthorityProjectionObservation, AgentAuthorityProjectionPlan,
-    AgentAuthorityProjectionSpec, observe_agent_authority_projection,
-    plan_agent_authority_projection,
+    AgentAuthorityProjectionSpec, plan_agent_authority_projection,
 };
 
 const POLICY_ID: &str = "cynic.host.agent_authority.install";
@@ -152,7 +153,7 @@ fn operation_plan(
         target: spec.target_path.clone(),
         mutates: true,
         requires_privilege: true,
-        operations: plan.operations.clone(),
+        operations: translate_agent_access_operations(&plan.operations),
         preconditions: vec![
             "authority_source_digest_proven".to_string(),
             "authority_target_path_declared".to_string(),
@@ -219,9 +220,9 @@ mod tests {
     use cynic_protocol::AgentCapabilityGrant;
 
     use super::*;
-    use crate::agent_access::{AgentEnrollmentPolicy, compose_agent_session_authority};
     use crate::execution::AdmittedHostOperation;
     use crate::ports::{HostCommandResult, HostOperation};
+    use cynic_protocol::agent_session::{AgentEnrollmentPolicy, compose_agent_session_authority};
 
     struct CopyRunner;
 
@@ -274,8 +275,7 @@ mod tests {
         .unwrap();
         std::fs::write(&source, serde_json::to_vec(&authority).unwrap()).unwrap();
         let metadata = std::fs::metadata(&source).unwrap();
-        let mut spec =
-            AgentAuthorityProjectionSpec::installed(source.display().to_string(), authority);
+        let mut spec = installed_agent_authority_spec(source.display().to_string(), authority);
         spec.target_path = target.display().to_string();
         spec.owner_id = Some(metadata.uid());
         spec.group_id = Some(metadata.gid());

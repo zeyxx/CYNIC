@@ -68,12 +68,13 @@ pub fn apply_runtime_binding(
     let mut executions = Vec::new();
     let existing = fs::read_to_string(path).ok();
     let projection = render_environment_projection(existing.as_deref(), &spec.rest_addr());
-    if let Err(error) = atomic_write(
+    if let Err(error) = crate::atomic_file::write_atomic(
         path,
         projection.as_bytes(),
-        0o640,
-        spec.owner_id,
-        spec.group_id,
+        Some(0o640),
+        Some((spec.owner_id, spec.group_id)),
+        true,
+        "runtime_binding_environment_write_failed",
     ) {
         blockers.push(error);
     } else {
@@ -181,48 +182,17 @@ fn snapshot(path: &Path) -> Result<Snapshot, String> {
 
 fn restore(path: &Path, snapshot: Snapshot) -> Result<(), String> {
     if let Some(bytes) = snapshot.bytes {
-        atomic_write(
+        crate::atomic_file::write_atomic(
             path,
             &bytes,
-            snapshot.mode.unwrap_or(0o640),
-            snapshot.owner_id.unwrap_or(0),
-            snapshot.group_id.unwrap_or(0),
+            Some(snapshot.mode.unwrap_or(0o640)),
+            Some((snapshot.owner_id.unwrap_or(0), snapshot.group_id.unwrap_or(0))),
+            true,
+            "runtime_binding_environment_write_failed",
         )
     } else if path.is_file() {
         fs::remove_file(path).map_err(|error| format!("runtime_binding_rollback_failed:{error}"))
     } else {
         Ok(())
     }
-}
-
-fn atomic_write(
-    path: &Path,
-    bytes: &[u8],
-    mode: u32,
-    owner_id: u32,
-    group_id: u32,
-) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "runtime_binding_environment_parent_missing".to_string())?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("runtime_binding_environment_parent_failed:{error}"))?;
-    let temporary = parent.join(format!(".env.next-{}", std::process::id()));
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temporary)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        file.set_permissions(fs::Permissions::from_mode(mode))?;
-        std::os::unix::fs::chown(&temporary, Some(owner_id), Some(group_id))?;
-        fs::rename(&temporary, path)?;
-        Ok::<(), std::io::Error>(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result.map_err(|error| format!("runtime_binding_environment_write_failed:{error}"))
 }

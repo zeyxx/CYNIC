@@ -12,6 +12,7 @@
 //!
 //! - [`AgentId`] — 128-bit agent identity (BLAKE3 of ed25519 pubkey)
 //! - [`Hash32`] — 256-bit content hash (SHA-256 / BLAKE3)
+//! - [`identity_database`] — pure `/etc/passwd` + `/etc/group` parsers (no I/O)
 //! - [`Scope`] / [`ScopeKind`] — resource scope for claims and proofs
 //! - [`TaskId`] — opaque task identifier
 //! - [`Timestamp`] — Unix-seconds wall clock
@@ -19,6 +20,7 @@
 pub mod agent;
 pub mod fleet_mesh;
 pub mod hash;
+pub mod identity_database;
 pub mod paths;
 pub mod proc_text;
 pub mod scope;

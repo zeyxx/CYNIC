@@ -5,10 +5,13 @@ use cynic_protocol::{
 use serde::Serialize;
 
 use crate::adapters::agent_access::observe_agent_access;
+use crate::adapters::agent_access_operation::translate_agent_access_operations;
 use crate::execution::{HOST_OPERATION_PLAN_SCHEMA, HostOperationPlan, admit_host_operation_plan};
 use crate::ports::HostCommandRunnerPort;
 
-use super::{AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, reconcile_agent_access};
+use cynic_protocol::agent_access::{
+    AgentAccessObservation, AgentAccessPlan, AgentAccessPolicy, reconcile_agent_access,
+};
 
 const POLICY_ID: &str = "cynic.host.agent_access.apply";
 
@@ -147,7 +150,7 @@ fn operation_plan(policy: &AgentAccessPolicy, plan: &AgentAccessPlan) -> HostOpe
         target: policy.socket_path.clone(),
         mutates: true,
         requires_privilege: true,
-        operations: plan.operations.clone(),
+        operations: translate_agent_access_operations(&plan.operations),
         preconditions: vec!["authorized_principals_declared".to_string()],
         rollback_intent: "remove only the newly declared supplementary memberships and access group after operator review".to_string(),
         expected_proofs: plan

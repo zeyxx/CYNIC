@@ -445,15 +445,10 @@ mod tests {
 
 
 fn resolve_identity_id(database: &str, expected: &str) -> Option<u32> {
-    std::fs::read_to_string(database)
-        .ok()?
-        .lines()
-        .find_map(|line| {
-            let mut fields = line.split(':');
-            (fields.next()? == expected)
-                .then(|| fields.nth(1)?.parse::<u32>().ok())
-                .flatten()
-        })
+    cynic_types::identity_database::lookup_identity_id(
+        &std::fs::read_to_string(database).ok()?,
+        expected,
+    )
 }
 
 use cynic_types::paths::CynicPaths;

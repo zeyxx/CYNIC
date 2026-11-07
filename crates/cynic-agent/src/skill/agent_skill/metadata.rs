@@ -2,9 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::{AgentEvidenceRef, digest_json, validate_evidence_refs};
+use cynic_protocol::{digest_json, validate_evidence_refs, AgentEvidenceRef};
 
-use super::{AgentSkillBundle, AgentSkillBundleViolation, violation};
+use super::{violation, AgentSkillBundle, AgentSkillBundleViolation};
 
 pub const AGENT_SKILL_LIFECYCLE_RECORD_SCHEMA: &str = "cynic.agent_skill_lifecycle_record.v1";
 pub const AGENT_SKILL_PROJECTION_SCHEMA: &str = "cynic.agent_skill_projection.v1";

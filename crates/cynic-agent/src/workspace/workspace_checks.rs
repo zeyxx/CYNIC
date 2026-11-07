@@ -4,8 +4,9 @@ use cynic_protocol::digest_json;
 use cynic_protocol::vcs::source_worktree_lease_target;
 
 use super::workspace_types::{
-    AGENT_WORKSPACE_REQUEST_SCHEMA, AgentWorkspaceChange, AgentWorkspaceClaimObservation,
-    AgentWorkspaceRequest, AgentWorkspaceViolation, AgentWorkspaceZone, AgentWorkspaceZoneKind,
+    AgentWorkspaceChange, AgentWorkspaceClaimObservation, AgentWorkspaceRequest,
+    AgentWorkspaceViolation, AgentWorkspaceZone, AgentWorkspaceZoneKind,
+    AGENT_WORKSPACE_REQUEST_SCHEMA,
 };
 
 pub fn agent_workspace_target(repository_id: &str, workspace_id: &str) -> String {

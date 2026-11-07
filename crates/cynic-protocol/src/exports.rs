@@ -14,13 +14,15 @@ pub use crate::agent_session::{
     AGENT_ROOT_LAUNCH_PLAN_SCHEMA, AGENT_ROOT_LAUNCH_REQUEST_SCHEMA,
     AGENT_SESSION_AUTHORITY_SCHEMA, AGENT_SESSION_PEER_OBSERVATION_SCHEMA,
     AGENT_SESSION_PLAN_SCHEMA, AGENT_SESSION_RECORD_SCHEMA, AGENT_SESSION_RENEWAL_PLAN_SCHEMA,
-    AGENT_SESSION_RENEWAL_REQUEST_SCHEMA, AGENT_SESSION_REQUEST_SCHEMA, AgentRootLaunchPlan,
-    AgentRootLaunchRequest, AgentSessionAction, AgentSessionAuthority, AgentSessionCredentialKind,
-    AgentSessionEnrollment, AgentSessionPeerObservation, AgentSessionPlan, AgentSessionRecord,
-    AgentSessionRenewalPlan, AgentSessionRenewalRequest, AgentSessionRequest, AgentSessionState,
-    AgentSessionTransport, agent_session_authority_digest, compose_root_agent_launch,
-    reconcile_agent_session, reconcile_agent_session_renewal, validate_agent_session_record,
-    validate_agent_session_rotation,
+    AGENT_SESSION_RENEWAL_REQUEST_SCHEMA, AGENT_SESSION_REQUEST_SCHEMA, AgentEnrollmentPolicy,
+    AgentRootLaunchPlan, AgentRootLaunchRequest, AgentSessionAction, AgentSessionAuthority,
+    AgentSessionCredentialKind, AgentSessionEnrollment, AgentSessionPeerObservation,
+    AgentSessionPlan, AgentSessionRecord, AgentSessionRenewalPlan, AgentSessionRenewalRequest,
+    AgentSessionRequest, AgentSessionState, AgentSessionTransport,
+    DEFAULT_AGENT_SESSION_TTL_MS, DEFAULT_PEER_OBSERVATION_MAX_AGE_MS,
+    agent_session_authority_digest, compose_agent_session_authority, compose_root_agent_launch,
+    default_local_agent_capabilities, reconcile_agent_session, reconcile_agent_session_renewal,
+    validate_agent_session_record, validate_agent_session_rotation,
 };
 pub use crate::agentic_tool_call::*;
 pub use crate::allowance::*;

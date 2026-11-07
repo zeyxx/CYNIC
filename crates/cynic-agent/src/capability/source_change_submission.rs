@@ -3,10 +3,10 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentWorkloadEnvelope, AgentWorkspaceChange, AgentWorkspaceRetentionRoot, AgentWorkspaceZone,
-    admit_agent_workload,
+    admit_agent_workload, AgentWorkloadEnvelope, AgentWorkspaceChange, AgentWorkspaceRetentionRoot,
+    AgentWorkspaceZone,
 };
-use cynic_protocol::{RuntimeArtifactSource, digest_json};
+use cynic_protocol::{digest_json, RuntimeArtifactSource};
 
 pub const SOURCE_CHANGE_SUBMISSION_SCHEMA: &str = "cynic.source_change_submission.v1";
 pub const SOURCE_CHANGE_SUBMISSION_ADMISSION_SCHEMA: &str =
@@ -195,9 +195,10 @@ mod tests {
     use crate::{AgentBoundedAction, AgentWorkloadEnvelope};
     use cynic_protocol::{
         AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
-        EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, MutationContract,
-        POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
-        PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, RuntimeArtifactTransportKind,
+        ExecutionAuthorization, MutationContract, PolicyAdmissionReport, PolicyAuthority,
+        PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
+        RuntimeArtifactTransportKind, EXECUTION_AUTHORIZATION_SCHEMA,
+        POLICY_ADMISSION_REPORT_SCHEMA,
     };
 
     use super::*;
@@ -354,11 +355,9 @@ mod tests {
         let mut candidate = submission();
         candidate.blobs.clear();
         let admission = admit_source_change_submission(&candidate, &workload(&candidate));
-        assert!(
-            admission
-                .blockers
-                .contains(&"source_change_submission_blob_set_mismatch".to_string())
-        );
+        assert!(admission
+            .blockers
+            .contains(&"source_change_submission_blob_set_mismatch".to_string()));
     }
 
     #[test]
@@ -370,11 +369,9 @@ mod tests {
             result_digest: None,
         });
         let admission = admit_source_change_submission(&candidate, &workload(&candidate));
-        assert!(
-            admission
-                .blockers
-                .contains(&"source_change_submission_v1_requires_one_change".to_string())
-        );
+        assert!(admission
+            .blockers
+            .contains(&"source_change_submission_v1_requires_one_change".to_string()));
     }
 
     #[test]

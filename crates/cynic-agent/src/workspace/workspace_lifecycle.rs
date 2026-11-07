@@ -4,7 +4,7 @@ use crate::{
     AgentWorkloadClaim, AgentWorkloadState, AgentWorkspaceClaimObservation,
     AgentWorkspaceObservation,
 };
-use cynic_protocol::{AgentEvidenceRef, LeaseGuard, validate_evidence_refs};
+use cynic_protocol::{validate_evidence_refs, AgentEvidenceRef, LeaseGuard};
 
 use super::workspace_checks::agent_workspace_target;
 
@@ -371,8 +371,8 @@ fn plan(
 mod tests {
     use super::*;
     use crate::{
-        AGENT_WORKSPACE_OBSERVATION_SCHEMA, AgentWorkspaceClaimObservation, AgentWorkspaceZone,
-        AgentWorkspaceZoneKind,
+        AgentWorkspaceClaimObservation, AgentWorkspaceZone, AgentWorkspaceZoneKind,
+        AGENT_WORKSPACE_OBSERVATION_SCHEMA,
     };
 
     fn guard(target: &str, token: u64) -> LeaseGuard {
@@ -549,9 +549,7 @@ mod tests {
         assert!(validate_agent_workspace_lifecycle_record(&lifecycle_record()).is_empty());
         let mut invalid = lifecycle_record();
         invalid.retention_until_ms = 99;
-        assert!(
-            validate_agent_workspace_lifecycle_record(&invalid)
-                .contains(&"workspace_lifecycle_retention_precedes_completion".to_string())
-        );
+        assert!(validate_agent_workspace_lifecycle_record(&invalid)
+            .contains(&"workspace_lifecycle_retention_precedes_completion".to_string()));
     }
 }

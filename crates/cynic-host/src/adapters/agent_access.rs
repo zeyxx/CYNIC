@@ -1,9 +1,10 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
-use crate::agent_access::{
+use cynic_protocol::agent_access::{
     AGENT_ACCESS_OBSERVATION_SCHEMA, AgentAccessObservation, AgentAccessPolicy,
 };
+use cynic_types::identity_database::{lookup_identity_id, parse_group_line};
 
 pub fn observe_agent_access(policy: &AgentAccessPolicy) -> AgentAccessObservation {
     observe_agent_access_from(policy, Path::new("/etc/group"))
@@ -12,7 +13,7 @@ pub fn observe_agent_access(policy: &AgentAccessPolicy) -> AgentAccessObservatio
 pub fn observe_linux_uid(principal: &str) -> Result<u32, String> {
     let database = std::fs::read_to_string("/etc/passwd")
         .map_err(|error| format!("principal database is unreadable: {error}"))?;
-    parse_passwd_uid(&database, principal)
+    lookup_identity_id(&database, principal)
         .ok_or_else(|| format!("principal `{principal}` is not observable"))
 }
 
@@ -24,7 +25,7 @@ fn observe_agent_access_from(
     let group = match std::fs::read_to_string(group_database) {
         Ok(content) => content
             .lines()
-            .find_map(|line| parse_group(line, &policy.access_group)),
+            .find_map(|line| parse_group_line(line, &policy.access_group)),
         Err(error) => {
             unknowns.push(format!("agent_access_group_database_unreadable:{error}"));
             None
@@ -60,52 +61,24 @@ fn observe_agent_access_from(
     }
 }
 
-fn parse_group(line: &str, expected: &str) -> Option<(u32, Vec<String>)> {
-    let mut fields = line.split(':');
-    let name = fields.next()?;
-    let _password = fields.next()?;
-    let group_id = fields.next()?.parse::<u32>().ok()?;
-    let members = fields.next().unwrap_or_default();
-    (name == expected).then(|| {
-        (
-            group_id,
-            members
-                .split(',')
-                .filter(|member| !member.is_empty())
-                .map(ToString::to_string)
-                .collect(),
-        )
-    })
-}
-
-fn parse_passwd_uid(database: &str, expected: &str) -> Option<u32> {
-    database.lines().find_map(|line| {
-        let mut fields = line.split(':');
-        let name = fields.next()?;
-        let _password = fields.next()?;
-        let uid = fields.next()?.parse::<u32>().ok()?;
-        (name == expected).then_some(uid)
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{parse_group, parse_passwd_uid};
+    use cynic_types::identity_database::{lookup_identity_id, parse_group_line};
 
     #[test]
     fn group_observation_reads_only_the_declared_access_group() {
         assert_eq!(
-            parse_group("cynic-agent:x:1901:cynic,operator", "cynic-agent"),
+            parse_group_line("cynic-agent:x:1901:cynic,operator", "cynic-agent"),
             Some((1901, vec!["cynic".to_string(), "operator".to_string()]))
         );
-        assert_eq!(parse_group("cynic:x:1900:cynic", "cynic-agent"), None);
+        assert_eq!(parse_group_line("cynic:x:1900:cynic", "cynic-agent"), None);
     }
 
     #[test]
     fn principal_uid_observation_requires_an_exact_name() {
         let database =
             "root:x:0:0:root:/root:/bin/sh\noperator:x:1000:1000::/home/operator:/bin/sh\n";
-        assert_eq!(parse_passwd_uid(database, "operator"), Some(1000));
-        assert_eq!(parse_passwd_uid(database, "oper"), None);
+        assert_eq!(lookup_identity_id(database, "operator"), Some(1000));
+        assert_eq!(lookup_identity_id(database, "oper"), None);
     }
 }

@@ -1,10 +1,20 @@
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-use std::path::{Path, PathBuf};
+//! Adapter OS — agent authority bundle publication.
+//!
+//! Classification: adapter pur côté hôte. La composition de l'autorité
+//! (`cynic_protocol::agent_session::compose_agent_session_authority`) est
+//! pure ; ce module ne fait que la sérialiser, l'écrire atomiquement
+//! (`crate::atomic_file::write_atomic`, `create_new` + `sync_all` +
+//! `rename`) et relire le fichier pour vérifier que le contenu publié
+//! correspond au contenu désiré avant de rapporter le succès.
+
+use std::fs;
+use std::path::Path;
 
 use serde::Serialize;
 
-use super::{AgentEnrollmentPolicy, compose_agent_session_authority};
+use cynic_protocol::agent_session::{compose_agent_session_authority, AgentEnrollmentPolicy};
+
+use crate::atomic_file::write_atomic;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentAuthorityBundleRequest {
@@ -48,9 +58,17 @@ pub fn write_agent_authority_bundle(
             parent.display()
         ));
     }
-    let bytes = serde_json::to_vec_pretty(&authority)
+    let mut bytes = serde_json::to_vec_pretty(&authority)
         .map_err(|error| format!("agent authority serialization failed: {error}"))?;
-    atomic_write(output_path, &bytes)?;
+    bytes.push(b'\n');
+    write_atomic(
+        output_path,
+        &bytes,
+        None,
+        None,
+        false,
+        "agent authority atomic write failed",
+    )?;
     let read_back = fs::read(output_path)
         .map_err(|error| format!("agent authority read-back failed: {error}"))?;
     let observed: cynic_protocol::AgentSessionAuthority = serde_json::from_slice(&read_back)
@@ -83,39 +101,10 @@ pub fn write_agent_authority_bundle(
     })
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let temporary = temporary_path(path);
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|error| format!("agent authority staging failed: {error}"))?;
-        file.write_all(bytes)
-            .and_then(|()| file.write_all(b"\n"))
-            .and_then(|()| file.sync_all())
-            .map_err(|error| format!("agent authority staging write failed: {error}"))?;
-        fs::rename(&temporary, path)
-            .map_err(|error| format!("agent authority activation failed: {error}"))
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result
-}
-
-fn temporary_path(path: &Path) -> PathBuf {
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("agent-session-authority.json");
-    path.with_file_name(format!(".{file_name}.{}.tmp", std::process::id()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_access::default_local_agent_capabilities;
+    use cynic_protocol::agent_session::default_local_agent_capabilities;
 
     #[test]
     fn bundle_write_is_content_addressed_and_read_back() {

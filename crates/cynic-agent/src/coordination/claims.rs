@@ -6,16 +6,16 @@
 //! status computation from the local claims document. They are the single
 //! source of truth for those rules; `cynic_cli` only dispatches to them.
 
-use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
-use serde_json::{Value, json};
+use cynic_protocol::agent_coordination::{predicates as coord_predicates, ClaimScope};
+use serde_json::{json, Value};
 
 use crate::coordination::admission::{local_claim_active, local_scope_of};
 use crate::coordination::local_store::{
     append_claim_event, load_claims_doc, now_unix_ms, now_unix_s, store_claims_doc,
 };
 use crate::coordination::types::{
-    AGENT_CLAIM_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
-    AgentClaimReport, AgentReleaseReport, AgentScopeReport,
+    AgentClaimReport, AgentReleaseReport, AgentScopeReport, AGENT_CLAIM_REPORT_SCHEMA,
+    AGENT_RELEASE_REPORT_SCHEMA, AGENT_SCOPE_REPORT_SCHEMA,
 };
 
 /// Claim a scope in the local (no kernel) path.
@@ -344,6 +344,50 @@ pub fn execute_scope(agent_id: &str, paths: &[String]) -> Result<Value, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::coordination::local_store::claims_file_path;
+    use std::sync::Mutex;
+
+    // The business functions operate on the real claims file
+    // (`.agent-claims.json` at the git toplevel), so file-touching tests
+    // must seed that file and run serially. The guard restores the
+    // original bytes (or removes the file if there was none) on drop.
+    static CLAIMS_FILE_LOCK: Mutex<()> = Mutex::new(());
+
+    struct ClaimsFixture {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        original: Option<Vec<u8>>,
+    }
+
+    impl Drop for ClaimsFixture {
+        fn drop(&mut self) {
+            let path = claims_file_path();
+            match &self.original {
+                Some(bytes) => {
+                    let _ = std::fs::write(&path, bytes);
+                }
+                None => {
+                    let _ = std::fs::remove_file(&path);
+                }
+            }
+        }
+    }
+
+    fn seed_claims_doc(claims: Vec<Value>) -> ClaimsFixture {
+        let lock = CLAIMS_FILE_LOCK.lock().expect("claims file lock");
+        let path = claims_file_path();
+        let original = std::fs::read(&path).ok();
+        let mut doc = serde_json::json!({
+            "schema": "cynic.agent_claims.v2",
+            "revision": 3,
+            "claims": claims,
+            "merge_queue": [],
+        });
+        store_claims_doc(&mut doc).expect("seed claims doc");
+        ClaimsFixture {
+            _lock: lock,
+            original,
+        }
+    }
 
     fn claim_entry(status: &str, started_at_unix_s: u64, ttl_seconds: u64) -> Value {
         serde_json::json!({
@@ -369,67 +413,71 @@ mod tests {
 
     #[test]
     fn claim_creates_unique_entry_and_compacts_expired() {
-        let now = 1_790_600_000u64;
-        let mut doc = serde_json::json!({
-            "schema": "cynic.agent_claims.v2",
-            "revision": 3,
-            "claims": [
-                claim_entry("active", now - 100, 1800),
-                claim_entry("released", now - 100, 1800),
-            ],
-            "merge_queue": [],
-        });
-        let _ = execute_claim_local("tester", "x/y.rs", None, None, None, None);
+        let now = now_unix_s();
+        let _fixture = seed_claims_doc(vec![
+            claim_entry("active", now - 100, 1800),
+            claim_entry("released", now - 100, 1800),
+        ]);
+        let before = now_unix_s();
+        execute_claim_local("tester", "x/y.rs", None, None, None, None).expect("claim");
+        let after = now_unix_s();
+        let doc = load_claims_doc().expect("load claims doc");
         let claims = doc["claims"].as_array().unwrap();
-        assert_eq!(claims.len(), 2);
-        assert_eq!(claims[0]["status"], "active");
-        assert_eq!(claims[1]["status"], "released");
-        assert!(claims[0]["temporal"]["started_at_unix_s"].is_u64());
+        // Seeded active + released are retained (released is audit trail),
+        // plus the new unique entry for x/y.rs.
+        assert_eq!(claims.len(), 3);
+        assert!(claims.iter().any(|c| c["status"] == "released"));
+        let new_entry = claims
+            .iter()
+            .find(|c| c["scope"]["path"] == "x/y.rs")
+            .expect("new entry");
+        assert_eq!(new_entry["status"], "active");
+        let started = new_entry["temporal"]["started_at_unix_s"].as_u64().unwrap();
+        assert!((before..=after).contains(&started));
     }
 
     #[test]
     fn claim_refreshes_same_holder_without_stack() {
-        let now = 1_790_600_000u64;
-        let mut doc = serde_json::json!({
-            "schema": "cynic.agent_claims.v2",
-            "revision": 3,
-            "claims": [claim_entry("active", now - 100, 1800)],
-            "merge_queue": [],
-        });
+        let now = now_unix_s();
+        let _fixture = seed_claims_doc(vec![claim_entry("active", now - 100, 1800)]);
+        let before = now_unix_s();
         let report =
             execute_claim_local("tester", "a/b.rs", None, None, None, None).expect("claim");
+        let after = now_unix_s();
         assert_eq!(report.status, "claimed");
-        assert_eq!(
-            doc["claims"][0]["temporal"]["started_at_unix_s"],
-            json!(now)
+        assert_eq!(report.lease_id, "claim_test_1");
+        // Reload the persisted doc: the single entry is refreshed in
+        // place, not stacked, with started_at within the call window.
+        let doc = load_claims_doc().expect("load claims doc");
+        let claims = doc["claims"].as_array().unwrap();
+        assert_eq!(claims.len(), 1);
+        let started = claims[0]["temporal"]["started_at_unix_s"].as_u64().unwrap();
+        assert!(
+            (before..=after).contains(&started),
+            "started_at {started} not in [{before}, {after}]"
         );
     }
 
     #[test]
     fn release_fails_when_held_by_other_agent() {
-        let now = 1_790_600_000u64;
-        let doc = serde_json::json!({
-            "schema": "cynic.agent_claims.v2",
-            "revision": 1,
-            "claims": [claim_entry("active", now - 100, 1800)],
-            "merge_queue": [],
-        });
-        let err = execute_release_local("rival", "a/b.rs", "", vec![]).unwrap_err();
-        assert!(err.contains("held by tester"));
+        let now = now_unix_s();
+        let _fixture = seed_claims_doc(vec![claim_entry("active", now - 100, 1800)]);
+        // The lease_id selects the held entry; without it the target
+        // lookup only matches the holder, so "held by" never triggers.
+        let err = execute_release_local("rival", "a/b.rs", "claim_test_1", vec![]).unwrap_err();
+        assert!(err.contains("held by tester"), "unexpected: {err}");
     }
 
     #[test]
     fn scope_gated_by_active_and_owner() {
-        let now = 1_790_600_000u64;
-        let doc = serde_json::json!({
-            "schema": "cynic.agent_claims.v2",
-            "revision": 1,
-            "claims": [claim_entry("active", now - 100, 1800)],
-            "merge_queue": [],
-        });
+        let now = now_unix_s();
+        let _fixture = seed_claims_doc(vec![claim_entry("active", now - 100, 1800)]);
         let v = execute_scope("tester", &["a/b.rs".to_string()]).unwrap();
         assert_eq!(v["status"], "covered");
         let uncovered = v["uncovered"].as_array().unwrap();
         assert!(uncovered.is_empty());
+        // Same live claim, different owner: not covered.
+        let v = execute_scope("rival", &["a/b.rs".to_string()]).unwrap();
+        assert_eq!(v["status"], "uncovered");
     }
 }

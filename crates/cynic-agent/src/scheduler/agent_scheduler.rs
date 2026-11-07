@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{AgentWorkspaceLifecycleDecision, AgentWorkspaceLifecyclePlan};
-use cynic_protocol::{AgentBudget, LeaseGuard, digest_json};
 use cynic_protocol::load_tier::LoadTier;
+use cynic_protocol::{digest_json, AgentBudget, LeaseGuard};
 
 pub const AGENT_SCHEDULER_STEP_OBSERVATION_SCHEMA: &str =
     "cynic.agent_scheduler_step_observation.v1";
@@ -464,9 +464,7 @@ mod tests {
             unknowns: vec![],
             recorded_at_ms: 1,
         };
-        assert!(
-            validate_agent_scheduler_journal_record(&record)
-                .contains(&"scheduler_journal_applied_without_evidence".to_string())
-        );
+        assert!(validate_agent_scheduler_journal_record(&record)
+            .contains(&"scheduler_journal_applied_without_evidence".to_string()));
     }
 }
