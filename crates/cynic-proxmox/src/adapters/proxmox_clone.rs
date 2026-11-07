@@ -1,4 +1,5 @@
 use cynic_process::ArgvRunner;
+use cynic_protocol::privilege::admit_pct_command;
 use cynic_ssh::argv;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +50,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
             "--target".to_string(),
             "pve".to_string(),
         ];
+        admit_pct_command(&remote).expect("admitted pct command");
         argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
     }
 
@@ -62,6 +64,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
             "--purge".to_string(),
             "1".to_string(),
         ];
+        admit_pct_command(&remote).expect("admitted pct command");
         argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
     }
 
@@ -142,6 +145,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
             "template".to_string(),
             builder_vmid.to_string(),
         ];
+        admit_pct_command(&remote).expect("admitted pct command");
         argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
     }
 
@@ -193,6 +197,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
                 "status".to_string(),
                 clone_vmid.to_string(),
             ];
+            admit_pct_command(&remote).expect("admitted pct command");
             argv::ssh_argv(&self.ssh_target, &remote).expect("invalid proxmox ssh target")
         };
         let refs = status_argv.iter().map(String::as_str).collect::<Vec<_>>();

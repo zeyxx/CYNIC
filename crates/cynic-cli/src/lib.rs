@@ -66,6 +66,7 @@ pub mod operator_help;
 pub mod operator_status;
 pub mod persistence_audit;
 pub mod privilege_surface;
+pub use privilege_surface::{resolve_catalog_path, catalog_path_from_env, catalog_path, resolve_installed_path};
 pub mod queue_surface;
 pub mod root_dispatch;
 pub mod runtime_paths;

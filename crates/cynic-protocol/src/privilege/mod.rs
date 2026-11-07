@@ -9,9 +9,14 @@
 //! `proxmox_clone.rs`). Three implementations of one policy diverge silently.
 
 mod catalog;
+mod pct;
 
+pub use pct::*;
 pub use catalog::{
     CAPABILITY_CATALOG_SCHEMA, INSTALLED_CATALOG_SCHEMA, Capability, CapabilityCatalog,
     CapabilityDecision, CapabilityParam, InstalledCapabilities, ParamKind, admit_capability,
     escape_sudoers, validate_install,
+    // Transport capabilities (absorbed from cynic-host).
+    TRANSPORT_CAPABILITIES_SCHEMA, DEFAULT_TRANSPORT_POLICY_PATH, TransportCapability,
+    TransportCapabilities, TransportCapabilityParam, TransportPolicyError, AuthorityClass,
 };
